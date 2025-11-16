@@ -29,9 +29,9 @@ async function apiRequest(
 ): Promise<Response> {
   const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
 
   // Adiciona Basic Auth se disponível
@@ -52,7 +52,7 @@ async function apiRequest(
 
   const response = await fetch(url, {
     ...options,
-    headers,
+    headers: headers as HeadersInit,
   });
 
   return response;
