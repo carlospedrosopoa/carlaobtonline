@@ -1,4 +1,4 @@
-// app/app/atleta/layout.tsx - Layout da área do atleta
+// app/app/atleta/layout.tsx - Layout da área do atleta (sem menu global, usa menu do layout)
 'use client';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
