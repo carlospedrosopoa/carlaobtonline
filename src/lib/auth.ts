@@ -88,5 +88,8 @@ export async function requireAuth(request: NextRequest): Promise<{ user: User } 
   return { user };
 }
 
-
+// Helper para obter usuário da requisição (retorna null se não autenticado)
+export async function getUsuarioFromRequest(request: NextRequest): Promise<User | null> {
+  return await verifyBasicAuth(request);
+}
 
