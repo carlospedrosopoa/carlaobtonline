@@ -2,14 +2,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import NovaPartidaModal from './NovaPartidaModal';
-import AgendarPartidaModal from './AgendarPartidaModal';
 import type { Partida } from '@/types/domain';
-import { apiUrl } from '@/lib/url';
 import { api } from '@/lib/api';
 
 interface Props {
-  token: string;
   atletaId: string;
   partidas: Partida[];
   onAbrirTodas: () => void;
@@ -18,7 +14,6 @@ interface Props {
 }
 
 export default function MinhasPartidas({
-  token,
   atletaId,
   partidas,
   onAbrirTodas,
@@ -396,32 +391,7 @@ export default function MinhasPartidas({
         </div>
       )}
 
-      {modalNovaAberto && (
-        <NovaPartidaModal
-          isOpen={modalNovaAberto}
-          token={token}
-          atletaId={atletaId}
-          onClose={() => setModalNovaAberto(false)}
-          onSuccess={() => {
-            onNovaPartida();
-            setModalNovaAberto(false);
-          }}
-        />
-      )}
-
-      <AgendarPartidaModal
-        isOpen={agendarAberta}
-        partidaBase={partidaParaAgendar}
-        onClose={() => {
-          setAgendarAberta(false);
-          setPartidaParaAgendar(null);
-        }}
-        onSuccess={() => {
-          setAgendarAberta(false);
-          setPartidaParaAgendar(null);
-          onNovaPartida();
-        }}
-      />
+      {/* Modais serão implementados quando necessário */}
     </div>
   );
 }
