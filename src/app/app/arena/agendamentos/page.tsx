@@ -513,7 +513,7 @@ export default function ArenaAgendamentosPage() {
 
               // Formatar horário
               let horarioTexto = '';
-              if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+              if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
                 const horaInicio = Math.floor(bloqueio.horaInicio / 60);
                 const minutoInicio = bloqueio.horaInicio % 60;
                 const horaFim = Math.floor(bloqueio.horaFim / 60);
