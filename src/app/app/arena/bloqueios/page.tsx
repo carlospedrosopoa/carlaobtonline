@@ -204,13 +204,13 @@ export default function ArenaBloqueiosPage() {
     const dataFim = formatarData(bloqueio.dataFim);
     
     if (dataInicio === dataFim) {
-      if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+      if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
         return `${dataInicio} das ${minutosParaHora(bloqueio.horaInicio)} às ${minutosParaHora(bloqueio.horaFim)}`;
       }
       return dataInicio;
     }
     
-    if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+    if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
       return `${dataInicio} a ${dataFim} das ${minutosParaHora(bloqueio.horaInicio)} às ${minutosParaHora(bloqueio.horaFim)}`;
     }
     
