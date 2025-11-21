@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const result = await query(
       `SELECT 
-        id, nome, endereco, telefone, email, descricao, ativo, 
+        id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo, 
         "createdAt", "updatedAt"
       FROM "Point"
       ORDER BY nome ASC`
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { nome, endereco, telefone, email, descricao, ativo = true } = body;
+    const { nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo = true } = body;
 
     if (!nome) {
       return NextResponse.json(
@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query(
-      `INSERT INTO "Point" (id, nome, endereco, telefone, email, descricao, ativo, "createdAt", "updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW())
-       RETURNING id, nome, endereco, telefone, email, descricao, ativo, "createdAt", "updatedAt"`,
-      [nome, endereco || null, telefone || null, email || null, descricao || null, ativo]
+      `INSERT INTO "Point" (id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo, "createdAt", "updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+       RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo, "createdAt", "updatedAt"`,
+      [nome, endereco || null, telefone || null, email || null, descricao || null, logoUrl || null, latitude || null, longitude || null, ativo]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });

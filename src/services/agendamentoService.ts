@@ -10,6 +10,9 @@ import type {
   CriarAgendamentoPayload,
   AtualizarAgendamentoPayload,
   FiltrosAgendamento,
+  BloqueioAgenda,
+  CriarBloqueioAgendaPayload,
+  AtualizarBloqueioAgendaPayload,
 } from "@/types/agendamento";
 
 // ========== POINTS ==========
@@ -142,6 +145,45 @@ export const tabelaPrecoService = {
 
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/tabela-preco/${id}`);
+  },
+};
+
+// ========== BLOQUEIOS DE AGENDA ==========
+export const bloqueioAgendaService = {
+  listar: async (filtros?: {
+    pointId?: string;
+    dataInicio?: string;
+    dataFim?: string;
+    apenasAtivos?: boolean;
+  }): Promise<BloqueioAgenda[]> => {
+    const params: string[] = [];
+    if (filtros?.pointId) params.push(`pointId=${filtros.pointId}`);
+    if (filtros?.dataInicio) params.push(`dataInicio=${filtros.dataInicio}`);
+    if (filtros?.dataFim) params.push(`dataFim=${filtros.dataFim}`);
+    if (filtros?.apenasAtivos) params.push(`apenasAtivos=true`);
+
+    const queryString = params.length > 0 ? `?${params.join("&")}` : "";
+    const res = await api.get(`/bloqueio-agenda${queryString}`);
+    return res.data;
+  },
+
+  obter: async (id: string): Promise<BloqueioAgenda> => {
+    const res = await api.get(`/bloqueio-agenda/${id}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarBloqueioAgendaPayload): Promise<BloqueioAgenda> => {
+    const res = await api.post("/bloqueio-agenda", payload);
+    return res.data;
+  },
+
+  atualizar: async (id: string, payload: AtualizarBloqueioAgendaPayload): Promise<BloqueioAgenda> => {
+    const res = await api.put(`/bloqueio-agenda/${id}`, payload);
+    return res.data;
+  },
+
+  deletar: async (id: string): Promise<void> => {
+    await api.delete(`/bloqueio-agenda/${id}`);
   },
 };
 

@@ -13,6 +13,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [nomeArena, setNomeArena] = useState<string>('Carlão BT Online');
+  const [logoArena, setLogoArena] = useState<string | null>(null);
 
   useEffect(() => {
     const carregarNomeArena = async () => {
@@ -20,6 +21,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         try {
           const arena = await pointService.obter(usuario.pointIdGestor);
           setNomeArena(arena.nome);
+          setLogoArena(arena.logoUrl || null);
         } catch (error) {
           console.error('Erro ao carregar nome da arena:', error);
           // Mantém o nome padrão em caso de erro
@@ -35,6 +37,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
     { to: '/app/arena/agendamentos/agenda', label: 'Agenda Semanal' },
     { to: '/app/arena/quadras', label: 'Minhas Quadras' },
     { to: '/app/arena/tabela-precos', label: 'Tabela de Preços' },
+    { to: '/app/arena/bloqueios', label: 'Bloqueios' },
   ];
 
   const handleLogout = () => {
@@ -47,6 +50,13 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       <header className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {logoArena && (
+              <img
+                src={logoArena}
+                alt={`Logo ${nomeArena}`}
+                className="w-10 h-10 object-contain rounded-lg"
+              />
+            )}
             <span className="text-xl font-bold text-emerald-600">{nomeArena}</span>
             <span className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
               Área da Arena

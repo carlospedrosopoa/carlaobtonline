@@ -250,7 +250,22 @@ export default function AdminUsuariosPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700">
-                        {point ? point.nome : user.pointIdGestor ? 'Arena não encontrada' : '—'}
+                        {point ? (
+                          <div className="flex items-center gap-2">
+                            {point.logoUrl && (
+                              <img
+                                src={point.logoUrl}
+                                alt={`Logo ${point.nome}`}
+                                className="w-5 h-5 object-contain rounded"
+                              />
+                            )}
+                            <span>{point.nome}</span>
+                          </div>
+                        ) : user.pointIdGestor ? (
+                          'Arena não encontrada'
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-600">
                         {user.createdAt

@@ -7,6 +7,9 @@ export interface Point {
   telefone?: string;
   email?: string;
   descricao?: string;
+  logoUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   ativo: boolean;
   createdAt: string;
   updatedAt: string;
@@ -76,6 +79,9 @@ export interface CriarPointPayload {
   telefone?: string;
   email?: string;
   descricao?: string;
+  logoUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   ativo?: boolean;
 }
 
@@ -142,6 +148,47 @@ export interface FiltrosAgendamento {
   dataFim?: string;
   status?: StatusAgendamento;
   apenasMeus?: boolean;
+}
+
+// Bloqueio de Agenda
+export interface BloqueioAgenda {
+  id: string;
+  pointId: string | null; // null = bloqueio geral (todas as quadras do point)
+  quadraIds: string[] | null; // null = bloqueio geral, array = quadras específicas
+  titulo: string;
+  descricao?: string | null;
+  dataInicio: string; // ISO string
+  dataFim: string; // ISO string
+  horaInicio?: number | null; // minutos desde 00:00 (null = dia inteiro)
+  horaFim?: number | null; // minutos desde 00:00 (null = dia inteiro)
+  ativo: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // Relacionamentos
+  point?: Point;
+  quadras?: Quadra[];
+}
+
+export interface CriarBloqueioAgendaPayload {
+  pointId: string;
+  quadraIds?: string[] | null; // null = todas as quadras, array = quadras específicas
+  titulo: string;
+  descricao?: string | null;
+  dataInicio: string; // ISO string (apenas data, sem hora)
+  dataFim: string; // ISO string (apenas data, sem hora)
+  horaInicio?: string | null; // formato "HH:mm" (null = dia inteiro)
+  horaFim?: string | null; // formato "HH:mm" (null = dia inteiro)
+}
+
+export interface AtualizarBloqueioAgendaPayload {
+  quadraIds?: string[] | null;
+  titulo?: string;
+  descricao?: string | null;
+  dataInicio?: string;
+  dataFim?: string;
+  horaInicio?: string | null;
+  horaFim?: string | null;
+  ativo?: boolean;
 }
 
 

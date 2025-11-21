@@ -3,18 +3,18 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { quadraService, agendamentoService } from '@/services/agendamentoService';
+import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
-import type { Quadra, Agendamento, StatusAgendamento } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search } from 'lucide-react';
+import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock } from 'lucide-react';
 
 export default function ArenaAgendaSemanalPage() {
   const { usuario } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const [bloqueios, setBloqueios] = useState<BloqueioAgenda[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dataAtual, setDataAtual] = useState(new Date());
   const [apenasReservados, setApenasReservados] = useState(false);
   const [filtroNome, setFiltroNome] = useState('');
   const [modalEditarAberto, setModalEditarAberto] = useState(false);
@@ -26,35 +26,24 @@ export default function ArenaAgendaSemanalPage() {
   const [tooltipPosicao, setTooltipPosicao] = useState<{ x: number; y: number } | null>(null);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  // Calcular início do período de 4 dias
-  // Na primeira carga, ajusta para segunda-feira da semana atual
-  // Quando navegamos, mantém a data exata (não recalcula)
-  const inicioSemana = useMemo(() => {
-    const data = new Date(dataAtual);
-    const dia = data.getDay();
-    
-    // Se a data atual é uma segunda-feira, mantém
+  // Calcular segunda-feira da semana atual para inicialização
+  const calcularSegundaFeira = (data: Date) => {
+    const dataCopy = new Date(data);
+    dataCopy.setHours(0, 0, 0, 0);
+    const dia = dataCopy.getDay();
     if (dia === 1) {
-      return new Date(data);
+      return dataCopy;
     }
-    
-    // Se estamos navegando (dataAtual não é hoje), mantém a data exata
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    const dataAtualNormalizada = new Date(data);
-    dataAtualNormalizada.setHours(0, 0, 0, 0);
-    
-    // Se não é hoje, provavelmente estamos navegando, então mantém a data
-    if (dataAtualNormalizada.getTime() !== hoje.getTime()) {
-      return new Date(data);
-    }
-    
-    // Se é hoje e não é segunda-feira, ajusta para segunda-feira da semana
-    const diff = data.getDate() - dia + (dia === 0 ? -6 : 1);
-    const segunda = new Date(data);
+    const diff = dataCopy.getDate() - dia + (dia === 0 ? -6 : 1);
+    const segunda = new Date(dataCopy);
     segunda.setDate(diff);
+    segunda.setHours(0, 0, 0, 0);
     return segunda;
-  }, [dataAtual]);
+  };
+
+  const [inicioSemana, setInicioSemana] = useState(() => {
+    return calcularSegundaFeira(new Date());
+  });
 
   // Gerar array de dias da semana (mostrar 4 dias por vez para melhor visualização)
   const diasSemana = useMemo(() => {
@@ -150,8 +139,18 @@ export default function ArenaAgendaSemanalPage() {
         status: 'CONFIRMADO', // Apenas agendamentos confirmados
       };
 
-      const data = await agendamentoService.listar(filtros);
-      setAgendamentos(data);
+      // Carregar agendamentos e bloqueios em paralelo
+      const [agendamentosData, bloqueiosData] = await Promise.all([
+        agendamentoService.listar(filtros),
+        bloqueioAgendaService.listar({
+          dataInicio: formatarDataLocal(dataInicio),
+          dataFim: formatarDataLocal(dataFim),
+          apenasAtivos: true,
+        }),
+      ]);
+
+      setAgendamentos(agendamentosData);
+      setBloqueios(bloqueiosData);
     } catch (error) {
       console.error('Erro ao carregar agendamentos:', error);
     }
@@ -297,6 +296,95 @@ export default function ArenaAgendaSemanalPage() {
     return Math.max(1, Math.ceil(duracaoMinutos / 30));
   };
 
+  // Verificar se um horário está bloqueado para uma quadra específica
+  const estaBloqueado = (dia: Date, hora: number, minuto: number, quadraId: string) => {
+    const minutosSlot = hora * 60 + minuto;
+    
+    return bloqueios.some((bloqueio) => {
+      if (!bloqueio.ativo) return false;
+
+      const dataInicio = new Date(bloqueio.dataInicio);
+      const dataFim = new Date(bloqueio.dataFim);
+      
+      // Verificar se o dia está dentro do período do bloqueio
+      const anoDia = dia.getFullYear();
+      const mesDia = dia.getMonth();
+      const diaDia = dia.getDate();
+      
+      const anoInicio = dataInicio.getFullYear();
+      const mesInicio = dataInicio.getMonth();
+      const diaInicio = dataInicio.getDate();
+      
+      const anoFim = dataFim.getFullYear();
+      const mesFim = dataFim.getMonth();
+      const diaFim = dataFim.getDate();
+      
+      const diaEstaNoPeriodo = 
+        (anoDia > anoInicio || (anoDia === anoInicio && mesDia > mesInicio) || (anoDia === anoInicio && mesDia === mesInicio && diaDia >= diaInicio)) &&
+        (anoDia < anoFim || (anoDia === anoFim && mesDia < mesFim) || (anoDia === anoFim && mesDia === mesFim && diaDia <= diaFim));
+
+      if (!diaEstaNoPeriodo) return false;
+
+      // Verificar se a quadra está bloqueada
+      if (bloqueio.quadraIds === null) {
+        // Bloqueio geral - todas as quadras
+        // Verificar se a quadra pertence ao mesmo point
+        const quadra = quadras.find(q => q.id === quadraId);
+        if (!quadra || quadra.pointId !== bloqueio.pointId) return false;
+      } else {
+        // Bloqueio específico - verificar se a quadra está na lista
+        if (!bloqueio.quadraIds.includes(quadraId)) return false;
+      }
+
+      // Verificar horário
+      if (bloqueio.horaInicio === null || bloqueio.horaFim === null) {
+        // Dia inteiro bloqueado
+        return true;
+      }
+
+      // Verificar se o slot está dentro do intervalo de horário bloqueado
+      return minutosSlot >= bloqueio.horaInicio && minutosSlot < bloqueio.horaFim;
+    });
+  };
+
+  // Obter bloqueios que afetam uma quadra em um dia específico
+  const getBloqueiosPorDiaEQuadra = (dia: Date, quadraId: string) => {
+    return bloqueios.filter((bloqueio) => {
+      if (!bloqueio.ativo) return false;
+
+      const dataInicio = new Date(bloqueio.dataInicio);
+      const dataFim = new Date(bloqueio.dataFim);
+      
+      const anoDia = dia.getFullYear();
+      const mesDia = dia.getMonth();
+      const diaDia = dia.getDate();
+      
+      const anoInicio = dataInicio.getFullYear();
+      const mesInicio = dataInicio.getMonth();
+      const diaInicio = dataInicio.getDate();
+      
+      const anoFim = dataFim.getFullYear();
+      const mesFim = dataFim.getMonth();
+      const diaFim = dataFim.getDate();
+      
+      const diaEstaNoPeriodo = 
+        (anoDia > anoInicio || (anoDia === anoInicio && mesDia > mesInicio) || (anoDia === anoInicio && mesDia === mesInicio && diaDia >= diaInicio)) &&
+        (anoDia < anoFim || (anoDia === anoFim && mesDia < mesFim) || (anoDia === anoFim && mesDia === mesFim && diaDia <= diaFim));
+
+      if (!diaEstaNoPeriodo) return false;
+
+      // Verificar se a quadra está bloqueada
+      if (bloqueio.quadraIds === null) {
+        const quadra = quadras.find(q => q.id === quadraId);
+        if (!quadra || quadra.pointId !== bloqueio.pointId) return false;
+      } else {
+        if (!bloqueio.quadraIds.includes(quadraId)) return false;
+      }
+
+      return true;
+    });
+  };
+
   const temAgendamentoNoHorario = (dia: Date, slot: { hora: number; minuto: number }) => {
     return getAgendamentosPorHorario(dia, slot.hora, slot.minuto).length > 0;
   };
@@ -311,7 +399,7 @@ export default function ArenaAgendaSemanalPage() {
       return diasSemana.some((dia) => {
         // Verificar se há agendamento que começa neste slot ou antes e ainda está ativo
         const agendamentosDoDia = getAgendamentosPorDia(dia);
-        return agendamentosDoDia.some((ag) => {
+        const temAgendamento = agendamentosDoDia.some((ag) => {
           const dataAgendamento = new Date(ag.dataHora);
           const horaInicio = dataAgendamento.getHours();
           const minutoInicio = dataAgendamento.getMinutes();
@@ -320,30 +408,37 @@ export default function ArenaAgendaSemanalPage() {
           const minutosSlot = slot.hora * 60 + slot.minuto;
           return minutosSlot >= minutosInicio && minutosSlot < minutosFim;
         });
+
+        // Verificar se há bloqueio neste slot para alguma quadra
+        const temBloqueio = quadras.some((quadra) => {
+          return estaBloqueado(dia, slot.hora, slot.minuto, quadra.id);
+        });
+
+        return temAgendamento || temBloqueio;
       });
     });
-  }, [apenasReservados, filtroNome, horarios, agendamentos, diasSemana]);
+  }, [apenasReservados, filtroNome, horarios, agendamentos, diasSemana, bloqueios, quadras]);
 
   const navegarSemana = (direcao: 'anterior' | 'proxima') => {
     // Calcular o próximo período de 4 dias consecutivos
-    // Se estamos mostrando segunda-quinta (4 dias), próximo será sexta-segunda seguinte (também 4 dias)
     if (direcao === 'proxima') {
       // Avançar: próximo período começa 4 dias após o início atual
-      // Isso mostra os próximos 4 dias consecutivos
       const proximoInicio = new Date(inicioSemana);
       proximoInicio.setDate(inicioSemana.getDate() + 4);
-      // Não recalcular para segunda-feira, manter a data exata
-      setDataAtual(proximoInicio);
+      proximoInicio.setHours(0, 0, 0, 0);
+      setInicioSemana(proximoInicio);
     } else {
       // Retroceder: período anterior começa 4 dias antes
       const anteriorInicio = new Date(inicioSemana);
       anteriorInicio.setDate(inicioSemana.getDate() - 4);
-      setDataAtual(anteriorInicio);
+      anteriorInicio.setHours(0, 0, 0, 0);
+      setInicioSemana(anteriorInicio);
     }
   };
 
   const irParaHoje = () => {
-    setDataAtual(new Date());
+    const segundaAtual = calcularSegundaFeira(new Date());
+    setInicioSemana(segundaAtual);
   };
 
   const handleEditar = (agendamento: Agendamento) => {
@@ -581,10 +676,29 @@ export default function ArenaAgendaSemanalPage() {
                           return horaInicio === slot.hora && minutoInicio === slot.minuto;
                         });
 
+                        // Verificar bloqueios para cada quadra neste slot
+                        const bloqueiosNoSlot: { quadraId: string; bloqueio: BloqueioAgenda }[] = [];
+                        quadras.forEach((quadra) => {
+                          if (estaBloqueado(dia, slot.hora, slot.minuto, quadra.id)) {
+                            const bloqueiosQuadra = getBloqueiosPorDiaEQuadra(dia, quadra.id);
+                            bloqueiosQuadra.forEach((bloqueio) => {
+                              // Verificar se o bloqueio cobre este horário específico
+                              const minutosSlot = slot.hora * 60 + slot.minuto;
+                              if (bloqueio.horaInicio === null || bloqueio.horaFim === null) {
+                                // Dia inteiro bloqueado
+                                bloqueiosNoSlot.push({ quadraId: quadra.id, bloqueio });
+                              } else if (minutosSlot >= bloqueio.horaInicio && minutosSlot < bloqueio.horaFim) {
+                                bloqueiosNoSlot.push({ quadraId: quadra.id, bloqueio });
+                              }
+                            });
+                          }
+                        });
+
                         // Calcular largura de cada agendamento quando há múltiplos
                         const quantidadeAgendamentos = agendamentosIniciando.length;
-                        const larguraPorAgendamento = quantidadeAgendamentos > 0 
-                          ? `calc(${100 / quantidadeAgendamentos}% - 4px)`
+                        const totalItens = quantidadeAgendamentos + bloqueiosNoSlot.length;
+                        const larguraPorItem = totalItens > 0 
+                          ? `calc(${100 / totalItens}% - 4px)`
                           : '100%';
 
                         return (
@@ -594,6 +708,66 @@ export default function ArenaAgendaSemanalPage() {
                             style={{ height: '30px' }}
                           >
                             <div className="absolute inset-1 flex gap-1">
+                              {/* Renderizar bloqueios primeiro */}
+                              {bloqueiosNoSlot.map((item, bloqueioIdx) => {
+                                const bloqueio = item.bloqueio;
+                                const quadra = quadras.find(q => q.id === item.quadraId);
+                                
+                                // Calcular altura do bloqueio
+                                let linhasOcupadas = 1;
+                                if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+                                  const duracaoMinutos = bloqueio.horaFim - bloqueio.horaInicio;
+                                  linhasOcupadas = Math.max(1, Math.ceil(duracaoMinutos / 30));
+                                } else {
+                                  // Dia inteiro - ocupar até o fim do dia (23:00)
+                                  const minutosRestantes = (23 * 60) - (slot.hora * 60 + slot.minuto);
+                                  linhasOcupadas = Math.max(1, Math.ceil(minutosRestantes / 30));
+                                }
+
+                                // Formatar horário do bloqueio
+                                let periodoTexto = '';
+                                if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+                                  const horaInicio = Math.floor(bloqueio.horaInicio / 60);
+                                  const minutoInicio = bloqueio.horaInicio % 60;
+                                  const horaFim = Math.floor(bloqueio.horaFim / 60);
+                                  const minutoFim = bloqueio.horaFim % 60;
+                                  periodoTexto = `${horaInicio.toString().padStart(2, '0')}:${minutoInicio.toString().padStart(2, '0')} - ${horaFim.toString().padStart(2, '0')}:${minutoFim.toString().padStart(2, '0')}`;
+                                } else {
+                                  periodoTexto = 'Dia inteiro';
+                                }
+
+                                return (
+                                  <div
+                                    key={`bloqueio-${bloqueio.id}-${item.quadraId}-${bloqueioIdx}`}
+                                    className="rounded-md shadow-sm overflow-visible relative bg-red-500 text-white border-2 border-red-600 opacity-80"
+                                    style={{
+                                      height: `${linhasOcupadas * 30 - 2}px`,
+                                      width: larguraPorItem,
+                                      zIndex: 5,
+                                    }}
+                                    title={`Bloqueio: ${bloqueio.titulo}${quadra ? ` - ${quadra.nome}` : ''}`}
+                                  >
+                                    <div className="p-1.5 h-full flex flex-col justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-start gap-1 mb-0.5">
+                                          <Lock className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                                          <div className="text-[10px] font-bold flex-1 truncate">
+                                            {bloqueio.titulo}
+                                          </div>
+                                        </div>
+                                        {quadra && (
+                                          <div className="text-[10px] opacity-90 mb-0.5">
+                                            {quadra.nome}
+                                          </div>
+                                        )}
+                                        <div className="text-[10px] opacity-90">
+                                          {periodoTexto}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                               {agendamentosIniciando.map((agendamento, agIdx) => {
                                 const dataHora = new Date(agendamento.dataHora);
                                 const horaInicio = dataHora.getHours();
@@ -636,7 +810,7 @@ export default function ArenaAgendaSemanalPage() {
                                     } hover:shadow-md transition-all`}
                                     style={{
                                       height: `${linhasOcupadas * 30 - 2}px`,
-                                      width: larguraPorAgendamento,
+                                      width: larguraPorItem,
                                       zIndex: menuAberto === agendamento.id ? 20 : 10,
                                     }}
                                     onMouseEnter={(e) => {

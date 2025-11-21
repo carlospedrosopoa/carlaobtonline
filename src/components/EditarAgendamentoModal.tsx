@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useAuth } from '@/context/AuthContext';
-import { pointService, quadraService, agendamentoService } from '@/services/agendamentoService';
+import { pointService, quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
 import type { Agendamento, ModoAgendamento } from '@/types/agendamento';
 import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat } from 'lucide-react';
@@ -38,6 +38,7 @@ export default function EditarAgendamentoModal({
   const [quadras, setQuadras] = useState<any[]>([]);
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [agendamentosExistentes, setAgendamentosExistentes] = useState<Agendamento[]>([]);
+  const [bloqueiosExistentes, setBloqueiosExistentes] = useState<any[]>([]);
   const [carregandoAtletas, setCarregandoAtletas] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -222,12 +223,20 @@ export default function EditarAgendamentoModal({
       const dataInicio = `${data}T00:00:00`;
       const dataFim = `${data}T23:59:59`;
 
-      const agendamentos = await agendamentoService.listar({
-        quadraId,
-        dataInicio,
-        dataFim,
-        status: 'CONFIRMADO',
-      });
+      // Carregar agendamentos e bloqueios em paralelo
+      const [agendamentos, bloqueios] = await Promise.all([
+        agendamentoService.listar({
+          quadraId,
+          dataInicio,
+          dataFim,
+          status: 'CONFIRMADO',
+        }),
+        bloqueioAgendaService.listar({
+          dataInicio,
+          dataFim,
+          apenasAtivos: true,
+        }),
+      ]);
 
       // Remove o agendamento atual da lista (para não considerar conflito com ele mesmo)
       if (agendamento) {
@@ -237,13 +246,42 @@ export default function EditarAgendamentoModal({
       } else {
         setAgendamentosExistentes(agendamentos);
       }
+
+      // Filtrar bloqueios que afetam esta quadra
+      // Buscar a quadra novamente caso não esteja na lista ainda
+      let quadra = quadras.find((q: any) => q.id === quadraId);
+      if (!quadra && quadraId) {
+        // Tentar buscar a quadra diretamente
+        try {
+          const quadraData = await quadraService.obter(quadraId);
+          quadra = quadraData as any;
+        } catch (error) {
+          console.error('Erro ao buscar quadra:', error);
+        }
+      }
+
+      if (quadra) {
+        const bloqueiosAfetandoQuadra = bloqueios.filter((bloqueio: any) => {
+          // Verificar se o bloqueio afeta esta quadra
+          if (bloqueio.quadraIds === null) {
+            // Bloqueio geral - verificar se a quadra pertence ao mesmo point
+            return quadra.pointId === bloqueio.pointId;
+          } else {
+            // Bloqueio específico - verificar se a quadra está na lista
+            return bloqueio.quadraIds.includes(quadraId);
+          }
+        });
+        setBloqueiosExistentes(bloqueiosAfetandoQuadra);
+      } else {
+        setBloqueiosExistentes([]);
+      }
     } catch (error) {
       console.error('Erro ao verificar disponibilidade:', error);
     }
   };
 
   const verificarConflito = (): string | null => {
-    if (!data || !hora || !duracao) return null;
+    if (!data || !hora || !duracao || !quadraId) return null;
 
     const agora = new Date();
     const dataHoraSelecionada = new Date(`${data}T${hora}:00`);
@@ -253,10 +291,60 @@ export default function EditarAgendamentoModal({
       return 'Não é possível agendar no passado';
     }
 
-    // Verificar conflitos com agendamentos existentes
+    // Verificar conflitos com bloqueios
     const horaInicio = dataHoraSelecionada.getTime();
     const horaFim = horaInicio + duracao * 60000;
+    const minutosInicio = dataHoraSelecionada.getHours() * 60 + dataHoraSelecionada.getMinutes();
+    const minutosFim = minutosInicio + duracao;
 
+    for (const bloqueio of bloqueiosExistentes) {
+      const dataInicioBloqueio = new Date(bloqueio.dataInicio);
+      const dataFimBloqueio = new Date(bloqueio.dataFim);
+      
+      // Verificar se o dia está dentro do período do bloqueio
+      const anoDia = dataHoraSelecionada.getFullYear();
+      const mesDia = dataHoraSelecionada.getMonth();
+      const diaDia = dataHoraSelecionada.getDate();
+      
+      const anoInicio = dataInicioBloqueio.getFullYear();
+      const mesInicio = dataInicioBloqueio.getMonth();
+      const diaInicio = dataInicioBloqueio.getDate();
+      
+      const anoFim = dataFimBloqueio.getFullYear();
+      const mesFim = dataFimBloqueio.getMonth();
+      const diaFim = dataFimBloqueio.getDate();
+      
+      const diaEstaNoPeriodo = 
+        (anoDia > anoInicio || (anoDia === anoInicio && mesDia > mesInicio) || (anoDia === anoInicio && mesDia === mesInicio && diaDia >= diaInicio)) &&
+        (anoDia < anoFim || (anoDia === anoFim && mesDia < mesFim) || (anoDia === anoFim && mesDia === mesFim && diaDia <= diaFim));
+
+      if (!diaEstaNoPeriodo) continue;
+
+      // Verificar horário
+      if (bloqueio.horaInicio === null || bloqueio.horaFim === null) {
+        // Dia inteiro bloqueado
+        return `Conflito com bloqueio: "${bloqueio.titulo}" (dia inteiro bloqueado)`;
+      }
+
+      // Verificar se há sobreposição de horários
+      const bloqueioInicio = bloqueio.horaInicio;
+      const bloqueioFim = bloqueio.horaFim;
+
+      if (
+        (minutosInicio >= bloqueioInicio && minutosInicio < bloqueioFim) ||
+        (minutosFim > bloqueioInicio && minutosFim <= bloqueioFim) ||
+        (minutosInicio <= bloqueioInicio && minutosFim >= bloqueioFim)
+      ) {
+        const horaInicioBloqueio = Math.floor(bloqueioInicio / 60);
+        const minutoInicioBloqueio = bloqueioInicio % 60;
+        const horaFimBloqueio = Math.floor(bloqueioFim / 60);
+        const minutoFimBloqueio = bloqueioFim % 60;
+        
+        return `Conflito com bloqueio: "${bloqueio.titulo}" (${horaInicioBloqueio.toString().padStart(2, '0')}:${minutoInicioBloqueio.toString().padStart(2, '0')} às ${horaFimBloqueio.toString().padStart(2, '0')}:${minutoFimBloqueio.toString().padStart(2, '0')})`;
+      }
+    }
+
+    // Verificar conflitos com agendamentos existentes
     for (const ag of agendamentosExistentes) {
       const agInicio = new Date(ag.dataHora).getTime();
       const agFim = agInicio + ag.duracao * 60000;

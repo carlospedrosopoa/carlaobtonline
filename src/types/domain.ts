@@ -9,6 +9,17 @@ export interface Atleta {
   idade?: number;
   fotoUrl?: string;
   usuarioId?: string;
+  pointIdPrincipal?: string | null;
+  arenasFrequentes?: Array<{
+    id: string;
+    nome: string;
+    logoUrl?: string | null;
+  }>;
+  arenaPrincipal?: {
+    id: string;
+    nome: string;
+    logoUrl?: string | null;
+  } | null;
 }
 
 export interface Partida {

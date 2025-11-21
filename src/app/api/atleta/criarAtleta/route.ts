@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
     const body = await request.json();
     
-    const { nome, categoria, dataNascimento, genero, fone } = body;
+    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, pointIdPrincipal, pointIdsFrequentes } = body;
 
     if (!nome || !dataNascimento) {
       return NextResponse.json(
@@ -23,13 +23,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // fotoUrl: Atualmente usando base64. 
+    // TODO: Migrar para URL quando implementar upload para Vercel Blob Storage/Cloudinary
     const novoAtleta = await criarAtleta(user.id, {
       nome,
       dataNascimento,
       categoria: categoria || null,
       genero: genero || null,
       fone: fone || null,
-      fotoUrl: null, // Upload de foto será implementado depois
+      fotoUrl: fotoUrl || null,
+      pointIdPrincipal: pointIdPrincipal || null,
+      pointIdsFrequentes: Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [],
     });
 
     return NextResponse.json(

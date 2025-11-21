@@ -325,9 +325,25 @@ export default function AdminOrganizersPage() {
                     </button>
                   </div>
                   <p className="text-xs text-gray-600 mb-1">{user.email}</p>
-                  <p className="text-xs text-gray-600 mb-1">
-                    Arena: <span className="font-medium">{point?.nome || '—'}</span>
-                  </p>
+                  {point && (
+                    <div className="flex items-center gap-2 mb-1">
+                      {point.logoUrl && (
+                        <img
+                          src={point.logoUrl}
+                          alt={`Logo ${point.nome}`}
+                          className="w-6 h-6 object-contain rounded"
+                        />
+                      )}
+                      <p className="text-xs text-gray-600">
+                        Arena: <span className="font-medium">{point.nome}</span>
+                      </p>
+                    </div>
+                  )}
+                  {!point && user.pointIdGestor && (
+                    <p className="text-xs text-gray-600 mb-1">
+                      Arena: <span className="font-medium">Arena não encontrada</span>
+                    </p>
+                  )}
                   <p className="text-[11px] text-gray-400">
                     Criado em:{' '}
                     {user.createdAt

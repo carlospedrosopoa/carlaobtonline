@@ -17,8 +17,13 @@ export default function AdminPointsPage() {
     telefone: '',
     email: '',
     descricao: '',
+    logoUrl: null,
+    latitude: null,
+    longitude: null,
     ativo: true,
   });
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [buscandoGeolocalizacao, setBuscandoGeolocalizacao] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
 
@@ -47,8 +52,12 @@ export default function AdminPointsPage() {
         telefone: point.telefone || '',
         email: point.email || '',
         descricao: point.descricao || '',
+        logoUrl: point.logoUrl || null,
+        latitude: point.latitude || null,
+        longitude: point.longitude || null,
         ativo: point.ativo,
       });
+      setLogoPreview(point.logoUrl || null);
     } else {
       setPointEditando(null);
       setForm({
@@ -57,8 +66,12 @@ export default function AdminPointsPage() {
         telefone: '',
         email: '',
         descricao: '',
+        logoUrl: null,
+        latitude: null,
+        longitude: null,
         ativo: true,
       });
+      setLogoPreview(null);
     }
     setErro('');
     setModalAberto(true);
@@ -68,6 +81,64 @@ export default function AdminPointsPage() {
     setModalAberto(false);
     setPointEditando(null);
     setErro('');
+    setLogoPreview(null);
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setErro('Por favor, selecione apenas arquivos de imagem.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setErro('A imagem deve ter no máximo 5MB.');
+        return;
+      }
+      // Converter para base64
+      // TODO: Migrar para URL (Vercel Blob Storage ou Cloudinary) quando necessário para melhor performance
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setForm({ ...form, logoUrl: base64String });
+        setLogoPreview(base64String);
+        setErro('');
+      };
+      reader.onerror = () => {
+        setErro('Erro ao ler a imagem. Tente novamente.');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const buscarGeolocalizacao = async () => {
+    if (!form.endereco || !form.endereco.trim()) {
+      setErro('Por favor, preencha o endereço antes de buscar a localização.');
+      return;
+    }
+
+    setBuscandoGeolocalizacao(true);
+    setErro('');
+
+    try {
+      const response = await fetch(`/api/geocode?endereco=${encodeURIComponent(form.endereco)}`);
+      const data = await response.json();
+
+      if (response.ok && data.latitude && data.longitude) {
+        setForm({
+          ...form,
+          latitude: data.latitude,
+          longitude: data.longitude,
+        });
+      } else {
+        setErro(data.mensagem || 'Não foi possível encontrar a localização deste endereço.');
+      }
+    } catch (error) {
+      console.error('Erro ao buscar geolocalização:', error);
+      setErro('Erro ao buscar localização. Tente novamente.');
+    } finally {
+      setBuscandoGeolocalizacao(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,7 +223,16 @@ export default function AdminPointsPage() {
                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900 text-lg">{point.nome}</h3>
+                  <div className="flex items-center gap-3">
+                    {point.logoUrl && (
+                      <img
+                        src={point.logoUrl}
+                        alt={`Logo ${point.nome}`}
+                        className="w-12 h-12 object-contain rounded-lg border border-gray-200"
+                      />
+                    )}
+                    <h3 className="font-semibold text-gray-900 text-lg">{point.nome}</h3>
+                  </div>
                   <span
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
                       point.ativo
@@ -177,7 +257,12 @@ export default function AdminPointsPage() {
                 {point.endereco && (
                   <p className="text-sm text-gray-600 mb-2 flex items-start gap-1">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                    {point.endereco}
+                    <span className="flex-1">{point.endereco}</span>
+                  </p>
+                )}
+                {(point.latitude && point.longitude) && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    📍 {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
                   </p>
                 )}
 
@@ -242,12 +327,51 @@ export default function AdminPointsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Endereço</label>
-                <input
-                  type="text"
-                  value={form.endereco}
-                  onChange={(e) => setForm({ ...form, endereco: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={form.endereco}
+                    onChange={(e) => setForm({ ...form, endereco: e.target.value })}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="Ex: Rua Exemplo, 123, Cidade - Estado"
+                  />
+                  <button
+                    type="button"
+                    onClick={buscarGeolocalizacao}
+                    disabled={buscandoGeolocalizacao || !form.endereco}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                    title="Buscar localização no mapa"
+                  >
+                    {buscandoGeolocalizacao ? 'Buscando...' : '📍 Buscar'}
+                  </button>
+                </div>
+                {(form.latitude && form.longitude) && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Localização encontrada: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Logotipo</label>
+                <div className="space-y-2">
+                  {logoPreview && (
+                    <div className="flex justify-center">
+                      <img
+                        src={logoPreview}
+                        alt="Preview do logotipo"
+                        className="w-32 h-32 object-contain border-2 border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  <p className="text-xs text-gray-500">Formatos aceitos: JPG, PNG, GIF (máximo 5MB)</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

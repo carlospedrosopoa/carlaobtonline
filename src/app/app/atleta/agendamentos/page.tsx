@@ -341,6 +341,13 @@ export default function AgendamentosPage() {
                             </div>
                             <p className="text-sm text-gray-600 flex items-center gap-1 mb-1">
                               <MapPin className="w-4 h-4" />
+                              {agendamento.quadra.point.logoUrl && (
+                                <img
+                                  src={agendamento.quadra.point.logoUrl}
+                                  alt={`Logo ${agendamento.quadra.point.nome}`}
+                                  className="w-4 h-4 object-contain rounded"
+                                />
+                              )}
                               {agendamento.quadra.point.nome}
                             </p>
                             {agendamento.quadra.tipo && (

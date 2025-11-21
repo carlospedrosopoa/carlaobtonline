@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params;
     const result = await query(
       `SELECT 
-        id, nome, endereco, telefone, email, descricao, ativo, 
+        id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo, 
         "createdAt", "updatedAt"
       FROM "Point"
       WHERE id = $1`,
@@ -43,7 +43,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { nome, endereco, telefone, email, descricao, ativo } = body;
+    const { nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo } = body;
 
     if (!nome) {
       return NextResponse.json(
@@ -54,10 +54,10 @@ export async function PUT(
 
     const result = await query(
       `UPDATE "Point"
-       SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, ativo = $6, "updatedAt" = NOW()
-       WHERE id = $7
-       RETURNING id, nome, endereco, telefone, email, descricao, ativo, "createdAt", "updatedAt"`,
-      [nome, endereco || null, telefone || null, email || null, descricao || null, ativo ?? true, id]
+       SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, latitude = $7, longitude = $8, ativo = $9, "updatedAt" = NOW()
+       WHERE id = $10
+       RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo, "createdAt", "updatedAt"`,
+      [nome, endereco || null, telefone || null, email || null, descricao || null, logoUrl || null, latitude || null, longitude || null, ativo ?? true, id]
     );
 
     if (result.rows.length === 0) {

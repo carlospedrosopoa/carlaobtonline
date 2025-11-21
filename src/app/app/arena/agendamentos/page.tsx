@@ -3,16 +3,17 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { quadraService, agendamentoService } from '@/services/agendamentoService';
+import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
-import type { Quadra, Agendamento, StatusAgendamento } from '@/types/agendamento';
-import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search } from 'lucide-react';
+import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
+import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search, Lock } from 'lucide-react';
 
 export default function ArenaAgendamentosPage() {
   const { usuario } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const [bloqueios, setBloqueios] = useState<BloqueioAgenda[]>([]);
   const [loading, setLoading] = useState(true);
   const [quadraSelecionada, setQuadraSelecionada] = useState<string>('');
   const [filtroStatus, setFiltroStatus] = useState<StatusAgendamento | ''>('');
@@ -56,26 +57,36 @@ export default function ArenaAgendamentosPage() {
 
   const carregarAgendamentos = async () => {
     try {
+      const formatarDataLocal = (date: Date) => {
+        const ano = date.getFullYear();
+        const mes = String(date.getMonth() + 1).padStart(2, '0');
+        const dia = String(date.getDate()).padStart(2, '0');
+        const hora = String(date.getHours()).padStart(2, '0');
+        const minuto = String(date.getMinutes()).padStart(2, '0');
+        const segundo = String(date.getSeconds()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
+      };
+
       const filtros: any = {};
       if (quadraSelecionada) filtros.quadraId = quadraSelecionada;
       if (filtroStatus) filtros.status = filtroStatus;
       
       // Por padrão, mostrar apenas agendamentos da semana atual em diante
       if (!mostrarAntigos) {
-        const formatarDataLocal = (date: Date) => {
-          const ano = date.getFullYear();
-          const mes = String(date.getMonth() + 1).padStart(2, '0');
-          const dia = String(date.getDate()).padStart(2, '0');
-          const hora = String(date.getHours()).padStart(2, '0');
-          const minuto = String(date.getMinutes()).padStart(2, '0');
-          const segundo = String(date.getSeconds()).padStart(2, '0');
-          return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
-        };
         filtros.dataInicio = formatarDataLocal(inicioSemanaAtual);
       }
 
-      const data = await agendamentoService.listar(filtros);
-      setAgendamentos(data);
+      // Carregar agendamentos e bloqueios em paralelo
+      const [agendamentosData, bloqueiosData] = await Promise.all([
+        agendamentoService.listar(filtros),
+        bloqueioAgendaService.listar({
+          apenasAtivos: true,
+          ...(mostrarAntigos ? {} : { dataInicio: formatarDataLocal(inicioSemanaAtual) }),
+        }),
+      ]);
+
+      setAgendamentos(agendamentosData);
+      setBloqueios(bloqueiosData);
     } catch (error) {
       console.error('Erro ao carregar agendamentos:', error);
     }
@@ -363,6 +374,13 @@ export default function ArenaAgendamentosPage() {
                           </div>
                           <p className="text-sm text-gray-600 flex items-center gap-1 mb-1">
                             <MapPin className="w-4 h-4" />
+                            {agendamento.quadra.point.logoUrl && (
+                              <img
+                                src={agendamento.quadra.point.logoUrl}
+                                alt={`Logo ${agendamento.quadra.point.nome}`}
+                                className="w-4 h-4 object-contain rounded"
+                              />
+                            )}
                             {agendamento.quadra.point.nome}
                           </p>
                           {agendamento.quadra.tipo && (
@@ -475,6 +493,77 @@ export default function ArenaAgendamentosPage() {
           </div>
         )}
       </div>
+
+      {/* Lista de Bloqueios */}
+      {bloqueios.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Lock className="w-5 h-5 text-red-600" />
+            Bloqueios de Agenda ({bloqueios.length})
+          </h2>
+          <div className="space-y-3">
+            {bloqueios.map((bloqueio) => {
+              const dataInicio = new Date(bloqueio.dataInicio);
+              const dataFim = new Date(bloqueio.dataFim);
+              
+              // Formatar período
+              const periodoTexto = dataInicio.toDateString() === dataFim.toDateString()
+                ? dataInicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : `${dataInicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${dataFim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+
+              // Formatar horário
+              let horarioTexto = '';
+              if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+                const horaInicio = Math.floor(bloqueio.horaInicio / 60);
+                const minutoInicio = bloqueio.horaInicio % 60;
+                const horaFim = Math.floor(bloqueio.horaFim / 60);
+                const minutoFim = bloqueio.horaFim % 60;
+                horarioTexto = `das ${horaInicio.toString().padStart(2, '0')}:${minutoInicio.toString().padStart(2, '0')} às ${horaFim.toString().padStart(2, '0')}:${minutoFim.toString().padStart(2, '0')}`;
+              } else {
+                horarioTexto = 'dia inteiro';
+              }
+
+              // Obter quadras afetadas
+              const quadrasAfetadas = bloqueio.quadraIds === null
+                ? quadras.filter(q => q.pointId === bloqueio.pointId)
+                : quadras.filter(q => bloqueio.quadraIds?.includes(q.id));
+
+              return (
+                <div
+                  key={bloqueio.id}
+                  className="border-l-4 border-red-500 bg-red-50 rounded-lg p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lock className="w-4 h-4 text-red-600" />
+                        <h3 className="font-semibold text-gray-900">{bloqueio.titulo}</h3>
+                      </div>
+                      {bloqueio.descricao && (
+                        <p className="text-sm text-gray-700 mb-2">{bloqueio.descricao}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>{periodoTexto} {horarioTexto}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          <span>
+                            {bloqueio.quadraIds === null
+                              ? 'Todas as quadras'
+                              : `${quadrasAfetadas.length} quadra${quadrasAfetadas.length !== 1 ? 's' : ''}: ${quadrasAfetadas.map(q => q.nome).join(', ')}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Modal de Edição */}
       <EditarAgendamentoModal
