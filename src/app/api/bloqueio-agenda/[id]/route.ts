@@ -106,7 +106,8 @@ export async function PUT(
       );
     }
 
-    const { id } = await params;
+    const paramsResolved = await params;
+    const { id } = paramsResolved;
     const body: AtualizarBloqueioAgendaPayload = await request.json();
 
     // Buscar bloqueio existente
@@ -253,7 +254,8 @@ export async function DELETE(
       );
     }
 
-    const { id } = await params;
+    const paramsResolved = await params;
+    const { id } = paramsResolved;
 
     // Buscar bloqueio para verificar permissões
     const bloqueioCheck = await query(
