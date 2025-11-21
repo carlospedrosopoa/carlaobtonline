@@ -262,7 +262,7 @@ export default function AdminPointsPage() {
                 )}
                 {(point.latitude && point.longitude) && (
                   <p className="text-xs text-gray-500 mb-2">
-                    📍 {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+                    📍 {Number(point.latitude).toFixed(6)}, {Number(point.longitude).toFixed(6)}
                   </p>
                 )}
 
@@ -347,7 +347,7 @@ export default function AdminPointsPage() {
                 </div>
                 {(form.latitude && form.longitude) && (
                   <p className="text-xs text-green-600 mt-1">
-                    ✓ Localização encontrada: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
+                    ✓ Localização encontrada: {Number(form.latitude).toFixed(6)}, {Number(form.longitude).toFixed(6)}
                   </p>
                 )}
               </div>
