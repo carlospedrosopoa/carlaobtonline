@@ -715,7 +715,7 @@ export default function ArenaAgendaSemanalPage() {
                                 
                                 // Calcular altura do bloqueio
                                 let linhasOcupadas = 1;
-                                if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+                                if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
                                   const duracaoMinutos = bloqueio.horaFim - bloqueio.horaInicio;
                                   linhasOcupadas = Math.max(1, Math.ceil(duracaoMinutos / 30));
                                 } else {
