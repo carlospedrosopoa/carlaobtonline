@@ -726,7 +726,7 @@ export default function ArenaAgendaSemanalPage() {
 
                                 // Formatar horário do bloqueio
                                 let periodoTexto = '';
-                                if (bloqueio.horaInicio !== null && bloqueio.horaFim !== null) {
+                                if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
                                   const horaInicio = Math.floor(bloqueio.horaInicio / 60);
                                   const minutoInicio = bloqueio.horaInicio % 60;
                                   const horaFim = Math.floor(bloqueio.horaFim / 60);
