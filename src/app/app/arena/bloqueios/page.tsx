@@ -72,7 +72,7 @@ export default function ArenaBloqueiosPage() {
       const temHorario = bloqueio.horaInicio !== null && bloqueio.horaFim !== null;
       
       setForm({
-        pointId: bloqueio.pointId,
+        pointId: bloqueio.pointId || '',
         quadraIds: bloqueio.quadraIds,
         titulo: bloqueio.titulo,
         descricao: bloqueio.descricao || '',
