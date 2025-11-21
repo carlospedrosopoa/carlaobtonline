@@ -87,7 +87,7 @@ export async function GET(
 // PUT /api/bloqueio-agenda/[id] - Atualizar bloqueio
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params: routeParams }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -106,8 +106,7 @@ export async function PUT(
       );
     }
 
-    const paramsResolved = await params;
-    const { id } = paramsResolved;
+    const { id } = await routeParams;
     const body: AtualizarBloqueioAgendaPayload = await request.json();
 
     // Buscar bloqueio existente
@@ -235,7 +234,7 @@ export async function PUT(
 // DELETE /api/bloqueio-agenda/[id] - Deletar bloqueio
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params: routeParams }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -254,8 +253,7 @@ export async function DELETE(
       );
     }
 
-    const paramsResolved = await params;
-    const { id } = paramsResolved;
+    const { id } = await routeParams;
 
     // Buscar bloqueio para verificar permissões
     const bloqueioCheck = await query(
