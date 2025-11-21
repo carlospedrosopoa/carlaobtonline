@@ -337,7 +337,7 @@ export default function ArenaAgendaSemanalPage() {
       }
 
       // Verificar horário
-      if (bloqueio.horaInicio === null || bloqueio.horaFim === null) {
+      if (bloqueio.horaInicio === null || bloqueio.horaInicio === undefined || bloqueio.horaFim === null || bloqueio.horaFim === undefined) {
         // Dia inteiro bloqueado
         return true;
       }
