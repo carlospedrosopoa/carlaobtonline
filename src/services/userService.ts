@@ -7,6 +7,7 @@ export interface UsuarioAdmin {
   email: string;
   role: 'ADMIN' | 'USER' | 'ORGANIZER' | string;
   pointIdGestor?: string | null;
+  whatsapp?: string | null;
   createdAt?: string;
 }
 
@@ -16,6 +17,7 @@ export interface AtualizarGestorPayload {
   password?: string;
   role?: 'ADMIN' | 'USER' | 'ORGANIZER';
   pointIdGestor?: string | null;
+  whatsapp?: string | null;
 }
 
 export const userService = {

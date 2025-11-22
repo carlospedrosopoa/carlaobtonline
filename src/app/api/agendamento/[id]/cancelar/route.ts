@@ -168,6 +168,27 @@ export async function POST(
       } : null,
     };
 
+    // Enviar notificação WhatsApp para o gestor (em background, não bloqueia a resposta)
+    if (agendamentoRetorno.quadra?.point?.id) {
+      const clienteNome = agendamentoRetorno.atleta?.nome || agendamentoRetorno.nomeAvulso || agendamentoRetorno.usuario?.name || 'Cliente';
+      
+      // Não aguardar a resposta do WhatsApp para não bloquear a API
+      import('@/lib/whatsappService').then(({ notificarCancelamentoAgendamento }) => {
+        notificarCancelamentoAgendamento(
+          agendamentoRetorno.quadra.point.id,
+          {
+            quadra: agendamentoRetorno.quadra.nome,
+            dataHora: agendamentoRetorno.dataHora,
+            cliente: clienteNome,
+          }
+        ).catch((err) => {
+          console.error('Erro ao enviar notificação WhatsApp (não crítico):', err);
+        });
+      }).catch((err) => {
+        console.error('Erro ao importar serviço WhatsApp (não crítico):', err);
+      });
+    }
+
     return NextResponse.json(agendamentoRetorno);
   } catch (error: any) {
     console.error('Erro ao cancelar agendamento:', error);

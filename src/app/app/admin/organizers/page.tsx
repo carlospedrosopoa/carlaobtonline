@@ -14,6 +14,7 @@ interface Usuario {
   email: string;
   role: string;
   pointIdGestor?: string | null;
+  whatsapp?: string | null;
   createdAt?: string;
 }
 
@@ -22,6 +23,7 @@ interface NovoOrganizadorForm {
   email: string;
   password: string;
   pointIdGestor: string;
+  whatsapp?: string;
 }
 
 interface EditarOrganizadorForm {
@@ -29,6 +31,7 @@ interface EditarOrganizadorForm {
   email: string;
   password: string;
   pointIdGestor: string;
+  whatsapp?: string;
 }
 
 export default function AdminOrganizersPage() {
@@ -47,6 +50,7 @@ export default function AdminOrganizersPage() {
     email: '',
     password: '',
     pointIdGestor: '',
+    whatsapp: '',
   });
 
   const [formEdit, setFormEdit] = useState<EditarOrganizadorForm>({
@@ -54,6 +58,7 @@ export default function AdminOrganizersPage() {
     email: '',
     password: '',
     pointIdGestor: '',
+    whatsapp: '',
   });
 
   useEffect(() => {
@@ -104,11 +109,23 @@ export default function AdminOrganizersPage() {
         pointIdGestor: form.pointIdGestor,
       });
 
+      // Após criar, atualizar com WhatsApp se fornecido
+      if (form.whatsapp?.trim()) {
+        const users = await userService.listar();
+        const novoUsuario = users.find(u => u.email === form.email);
+        if (novoUsuario) {
+          await userService.atualizar(novoUsuario.id, {
+            whatsapp: form.whatsapp.trim(),
+          });
+        }
+      }
+
       setForm({
         name: '',
         email: '',
         password: '',
         pointIdGestor: '',
+        whatsapp: '',
       });
 
       await carregarDados();
@@ -131,6 +148,7 @@ export default function AdminOrganizersPage() {
       email: user.email,
       password: '',
       pointIdGestor: user.pointIdGestor || '',
+      whatsapp: user.whatsapp || '',
     });
     setErroEdit('');
     setModalEditarAberto(true);
@@ -155,12 +173,13 @@ export default function AdminOrganizersPage() {
         email: formEdit.email,
         role: 'ORGANIZER',
         pointIdGestor: formEdit.pointIdGestor || null,
+        whatsapp: formEdit.whatsapp?.trim() || null,
       };
       if (formEdit.password.trim()) {
         payload.password = formEdit.password.trim();
       }
 
-      await userService.atualizarGestor(organizadorEditando.id, payload);
+      await userService.atualizar(organizadorEditando.id, payload);
 
       await carregarDados();
       fecharModalEditar();
@@ -227,6 +246,26 @@ export default function AdminOrganizersPage() {
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
               placeholder="email@exemplo.com"
             />
+          </div>
+
+          <div className="sm:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              WhatsApp (opcional)
+            </label>
+            <input
+              type="text"
+              value={form.whatsapp || ''}
+              onChange={(e) => {
+                // Remove caracteres não numéricos
+                const apenasNumeros = e.target.value.replace(/\D/g, '');
+                setForm((f) => ({ ...f, whatsapp: apenasNumeros }));
+              }}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              placeholder="5511999999999"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Número para receber notificações de agendamentos (apenas números)
+            </p>
           </div>
 
           <div className="sm:col-span-1">
@@ -325,6 +364,11 @@ export default function AdminOrganizersPage() {
                     </button>
                   </div>
                   <p className="text-xs text-gray-600 mb-1">{user.email}</p>
+                  {user.whatsapp && (
+                    <p className="text-xs text-gray-600 mb-1">
+                      📱 WhatsApp: <span className="font-medium">{user.whatsapp}</span>
+                    </p>
+                  )}
                   {point && (
                     <div className="flex items-center gap-2 mb-1">
                       {point.logoUrl && (
@@ -399,6 +443,26 @@ export default function AdminOrganizersPage() {
                   required
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  WhatsApp (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={formEdit.whatsapp || ''}
+                  onChange={(e) => {
+                    // Remove caracteres não numéricos
+                    const apenasNumeros = e.target.value.replace(/\D/g, '');
+                    setFormEdit((f) => ({ ...f, whatsapp: apenasNumeros }));
+                  }}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  placeholder="5511999999999"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Número para receber notificações de agendamentos (apenas números)
+                </p>
               </div>
 
               <div>

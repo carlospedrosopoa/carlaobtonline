@@ -67,7 +67,7 @@ export const atualizarUsuario = async (id: string, dados: { name?: string; passw
 
 export const getUsuarioById = async (id: string) => {
   const result = await query(
-    'SELECT id, name, email, role, "pointIdGestor" FROM "User" WHERE id = $1',
+    'SELECT id, name, email, role, "pointIdGestor", whatsapp FROM "User" WHERE id = $1',
     [id]
   );
   return result.rows[0] || null;
@@ -89,6 +89,7 @@ export const atualizarUsuarioAdmin = async (
     password?: string;
     role?: string;
     pointIdGestor?: string | null;
+    whatsapp?: string | null;
   }
 ) => {
   const updates: string[] = [];
@@ -125,6 +126,12 @@ export const atualizarUsuarioAdmin = async (
     updates.push(`"pointIdGestor" = $${paramIndex++}`);
     values.push(dados.pointIdGestor);
   }
+  if (dados.whatsapp !== undefined) {
+    // Formatar WhatsApp: remover caracteres não numéricos
+    const whatsappFormatado = dados.whatsapp ? dados.whatsapp.replace(/\D/g, '') : null;
+    updates.push(`whatsapp = $${paramIndex++}`);
+    values.push(whatsappFormatado || null);
+  }
 
   if (updates.length === 0) {
     if (process.env.NODE_ENV === 'development') {
@@ -145,7 +152,7 @@ export const atualizarUsuarioAdmin = async (
   );
 
   const result = await query(
-    'SELECT id, name, email, role, "pointIdGestor", "createdAt" FROM "User" WHERE id = $1',
+    'SELECT id, name, email, role, "pointIdGestor", whatsapp, "createdAt" FROM "User" WHERE id = $1',
     [id]
   );
   return result.rows[0] || null;

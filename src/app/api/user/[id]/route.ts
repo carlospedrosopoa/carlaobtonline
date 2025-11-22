@@ -26,7 +26,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, email, password, role, pointIdGestor } = body;
+    const { name, email, password, role, pointIdGestor, whatsapp } = body;
 
     // Log para debug (remover em produção se necessário)
     if (process.env.NODE_ENV === 'development') {
@@ -76,6 +76,7 @@ export async function PUT(
       password?: string;
       role?: string;
       pointIdGestor?: string | null;
+      whatsapp?: string | null;
     } = {};
 
     if (name !== undefined && name !== null) dadosAtualizacao.name = name;
@@ -97,6 +98,9 @@ export async function PUT(
     if (role !== undefined && role !== null) dadosAtualizacao.role = role;
     if (pointIdGestor !== undefined) {
       dadosAtualizacao.pointIdGestor = pointIdGestor || null;
+    }
+    if (whatsapp !== undefined) {
+      dadosAtualizacao.whatsapp = whatsapp || null;
     }
 
     const usuarioAtualizado = await userService.atualizarUsuarioAdmin(id, dadosAtualizacao);
