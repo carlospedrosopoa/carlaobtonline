@@ -274,16 +274,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar conflitos de horário
-    // Tratar dataHora como horário local do usuário e converter para UTC
-    // dataHora vem no formato "YYYY-MM-DDTHH:mm" (horário local do navegador)
-    // Parsear manualmente e criar data local, depois converter para UTC
+    // Tratar dataHora como horário "naive" (sem timezone) - gravar exatamente como informado
+    // dataHora vem no formato "YYYY-MM-DDTHH:mm" (horário escolhido pelo usuário)
+    // Vamos salvar exatamente como informado, tratando como UTC direto
+    // Isso garante que 20h escolhido = 20h gravado no banco
     const [dataPart, horaPart] = dataHora.split('T');
     const [ano, mes, dia] = dataPart.split('-').map(Number);
     const [hora, minuto] = horaPart.split(':').map(Number);
     
-    // A data já vem convertida para UTC pelo frontend
-    // O frontend converte o horário local do usuário para UTC antes de enviar
-    // Então podemos tratar diretamente como UTC
+    // Criar data UTC diretamente com os valores informados (sem conversão de timezone)
+    // Isso garante que o horário escolhido pelo usuário seja gravado exatamente como informado
     const dataHoraUTC = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
     const dataHoraFim = new Date(dataHoraUTC.getTime() + duracao * 60000);
 

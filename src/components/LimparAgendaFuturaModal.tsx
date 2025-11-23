@@ -78,7 +78,6 @@ export default function LimparAgendaFuturaModal({
               onChange={handleDataChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all mb-3"
               disabled={carregando}
-              min={new Date().toISOString().split('T')[0]}
             />
             <p className="text-sm text-gray-900 mb-2">
               {dataLimite.toLocaleDateString('pt-BR', {

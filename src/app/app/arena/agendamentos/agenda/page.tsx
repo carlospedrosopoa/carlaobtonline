@@ -422,9 +422,10 @@ export default function ArenaAgendaSemanalPage() {
         // Verificar se há agendamento que começa neste slot ou antes e ainda está ativo
         const agendamentosDoDia = getAgendamentosPorDia(dia);
         const temAgendamento = agendamentosDoDia.some((ag) => {
-          const dataAgendamento = new Date(ag.dataHora);
-          const horaInicio = dataAgendamento.getHours();
-          const minutoInicio = dataAgendamento.getMinutes();
+          // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
+          const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+          const horaInicio = match ? parseInt(match[1], 10) : 0;
+          const minutoInicio = match ? parseInt(match[2], 10) : 0;
           const minutosInicio = horaInicio * 60 + minutoInicio;
           const minutosFim = minutosInicio + ag.duracao;
           const minutosSlot = slot.hora * 60 + slot.minuto;
@@ -782,9 +783,10 @@ export default function ArenaAgendaSemanalPage() {
                         
                         // Encontrar agendamentos que começam neste slot
                         const agendamentosIniciando = agendamentosDoDia.filter((ag) => {
-                          const dataAgendamento = new Date(ag.dataHora);
-                          const horaInicio = dataAgendamento.getHours();
-                          const minutoInicio = dataAgendamento.getMinutes();
+                          // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
+                          const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+                          const horaInicio = match ? parseInt(match[1], 10) : 0;
+                          const minutoInicio = match ? parseInt(match[2], 10) : 0;
                           return horaInicio === slot.hora && minutoInicio === slot.minuto;
                         });
 
@@ -881,9 +883,13 @@ export default function ArenaAgendaSemanalPage() {
                                 );
                               })}
                               {agendamentosIniciando.map((agendamento, agIdx) => {
-                                const dataHora = new Date(agendamento.dataHora);
-                                const horaInicio = dataHora.getHours();
-                                const minutoInicio = dataHora.getMinutes();
+                                // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
+                                // Isso garante que 20h gravado = 20h exibido
+                                const dataHoraStr = agendamento.dataHora;
+                                const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+                                const horaInicio = match ? parseInt(match[1], 10) : 0;
+                                const minutoInicio = match ? parseInt(match[2], 10) : 0;
+                                const dataHora = new Date(agendamento.dataHora); // Para cálculos de data
                                 const linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
                                 const info = getInfoAgendamento(agendamento);
                                 const quadra = quadras.find(q => q.id === agendamento.quadraId);
@@ -901,10 +907,10 @@ export default function ArenaAgendaSemanalPage() {
                                   duracaoTexto = `${minutos} min.`;
                                 }
 
-                                // Calcular horário de fim
-                                const dataFim = new Date(dataHora.getTime() + agendamento.duracao * 60000);
-                                const horaFim = dataFim.getHours();
-                                const minutoFim = dataFim.getMinutes();
+                                // Calcular horário de fim (usar UTC diretamente)
+                                const minutosTotais = horaInicio * 60 + minutoInicio + agendamento.duracao;
+                                const horaFim = Math.floor(minutosTotais / 60) % 24;
+                                const minutoFim = minutosTotais % 60;
                                 const periodoTexto = `${horaInicio.toString().padStart(2, '0')}:${minutoInicio.toString().padStart(2, '0')} - ${horaFim.toString().padStart(2, '0')}:${minutoFim.toString().padStart(2, '0')}`;
 
                                 return (

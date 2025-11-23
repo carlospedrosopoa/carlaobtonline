@@ -179,9 +179,12 @@ export default function EditarAgendamentoModal({
     if (!agendamento) return;
 
     // Preenche dados básicos
-    const dataHora = new Date(agendamento.dataHora);
-    setData(dataHora.toISOString().split('T')[0]);
-    setHora(dataHora.toTimeString().slice(0, 5));
+    // Extrair data/hora diretamente da string UTC sem conversão de timezone
+    // Isso garante que 20h gravado = 20h exibido no formulário
+    const dataHoraStr = agendamento.dataHora;
+    setData(dataHoraStr.split('T')[0]);
+    const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+    setHora(match ? `${match[1]}:${match[2]}` : '00:00');
     setDuracao(agendamento.duracao);
     setObservacoes(agendamento.observacoes || '');
     setValorHora(agendamento.valorHora ?? null);
@@ -463,18 +466,10 @@ export default function EditarAgendamentoModal({
     setSalvando(true);
 
     try {
-      // Converter data/hora local para UTC antes de enviar
-      // O usuário seleciona data/hora no horário local dele
-      // Precisamos converter para UTC para salvar corretamente no banco
-      const [ano, mes, dia] = data.split('-').map(Number);
-      const [horaNum, minutoNum] = hora.split(':').map(Number);
-      
-      // Criar data local primeiro (isso considera o timezone do navegador)
-      const dataHoraLocal = new Date(ano, mes - 1, dia, horaNum, minutoNum, 0);
-      // Converter para UTC e formatar como "YYYY-MM-DDTHH:mm" (sem segundos, sem Z)
-      // O backend vai tratar como UTC
-      const dataHoraUTC = new Date(dataHoraLocal.getTime() - (dataHoraLocal.getTimezoneOffset() * 60000));
-      const dataHora = dataHoraUTC.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+      // Enviar o horário escolhido pelo usuário sem conversão de timezone
+      // O backend vai salvar exatamente como informado (tratando como UTC direto)
+      // Isso garante que 20h escolhido = 20h gravado no banco
+      const dataHora = `${data}T${hora}:00`;
       const payload: any = {
         quadraId,
         dataHora,
