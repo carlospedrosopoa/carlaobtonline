@@ -50,10 +50,10 @@ export default function ArenaAgendaSemanalPage() {
     return dias;
   }, [inicioSemana]);
 
-  // Gerar array de horários (7h às 23h) com intervalos de 30 minutos
+  // Gerar array de horários (6h às 23h) com intervalos de 30 minutos
   const horarios = useMemo(() => {
     const slots = [];
-    for (let h = 7; h <= 23; h++) {
+    for (let h = 6; h <= 23; h++) {
       slots.push({ hora: h, minuto: 0 });
       if (h < 23) {
         slots.push({ hora: h, minuto: 30 });

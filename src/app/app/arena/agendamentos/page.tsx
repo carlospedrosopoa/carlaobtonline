@@ -351,8 +351,22 @@ export default function ArenaAgendamentosPage() {
         ) : (
           <div className="space-y-4">
             {agendamentosFiltrados.map((agendamento) => {
-              const dataHora = new Date(agendamento.dataHora);
-              const dataFim = new Date(dataHora.getTime() + agendamento.duracao * 60000);
+              // Extrair data/hora diretamente da string UTC sem conversão de timezone
+              // Isso garante que 6h gravado = 6h exibido
+              const dataHoraStr = agendamento.dataHora;
+              const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+              const horaInicio = match ? parseInt(match[1], 10) : 0;
+              const minutoInicio = match ? parseInt(match[2], 10) : 0;
+              
+              // Calcular hora de fim
+              const minutosTotais = horaInicio * 60 + minutoInicio + agendamento.duracao;
+              const horaFim = Math.floor(minutosTotais / 60) % 24;
+              const minutoFim = minutosTotais % 60;
+              
+              // Extrair data para exibição
+              const dataPart = dataHoraStr.split('T')[0];
+              const [ano, mes, dia] = dataPart.split('-').map(Number);
+              const dataHora = new Date(ano, mes - 1, dia); // Apenas para formatação de data
 
               return (
                 <div
@@ -419,14 +433,8 @@ export default function ArenaAgendamentosPage() {
                               month: '2-digit',
                               year: 'numeric',
                             })}{' '}
-                            das {dataHora.toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}{' '}
-                            às {dataFim.toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            das {horaInicio.toString().padStart(2, '0')}:{minutoInicio.toString().padStart(2, '0')}{' '}
+                            às {horaFim.toString().padStart(2, '0')}:{minutoFim.toString().padStart(2, '0')}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-700">
