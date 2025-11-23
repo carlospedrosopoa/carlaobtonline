@@ -1,6 +1,6 @@
 // app/api/agendamento/[id]/route.ts - Rotas de API para Agendamento individual (GET, PUT, DELETE)
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { temRecorrencia } from '@/lib/recorrenciaService';
 
@@ -71,7 +71,7 @@ export async function GET(
       atletaId: row.atletaId,
       nomeAvulso: row.nomeAvulso,
       telefoneAvulso: row.telefoneAvulso,
-      dataHora: row.dataHora,
+      dataHora: normalizarDataHora(row.dataHora),
       duracao: row.duracao,
       valorHora: row.valorHora,
       valorCalculado: row.valorCalculado,
@@ -405,7 +405,7 @@ export async function PUT(
       atletaId: row.atletaId,
       nomeAvulso: row.nomeAvulso,
       telefoneAvulso: row.telefoneAvulso,
-      dataHora: row.dataHora,
+      dataHora: normalizarDataHora(row.dataHora),
       duracao: row.duracao,
       valorHora: row.valorHora,
       valorCalculado: row.valorCalculado,

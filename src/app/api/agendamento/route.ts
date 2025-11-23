@@ -1,6 +1,6 @@
 // app/api/agendamento/route.ts - Rotas de API para Agendamentos (CRUD completo)
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { gerarAgendamentosRecorrentes } from '@/lib/recorrenciaService';
 import type { RecorrenciaConfig } from '@/types/agendamento';
@@ -158,6 +158,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Formatar resultado
+    // Garantir que dataHora seja sempre retornada como ISO string UTC
     const agendamentos = result.rows.map((row) => ({
       id: row.id,
       quadraId: row.quadraId,
@@ -165,7 +166,7 @@ export async function GET(request: NextRequest) {
       atletaId: row.atletaId,
       nomeAvulso: row.nomeAvulso,
       telefoneAvulso: row.telefoneAvulso,
-      dataHora: row.dataHora,
+      dataHora: normalizarDataHora(row.dataHora),
       duracao: row.duracao,
       valorHora: row.valorHora,
       valorCalculado: row.valorCalculado,
@@ -554,7 +555,7 @@ export async function POST(request: NextRequest) {
       atletaId: row.atletaId,
       nomeAvulso: row.nomeAvulso,
       telefoneAvulso: row.telefoneAvulso,
-      dataHora: row.dataHora,
+      dataHora: normalizarDataHora(row.dataHora),
       duracao: row.duracao,
       valorHora: row.valorHora,
       valorCalculado: row.valorCalculado,

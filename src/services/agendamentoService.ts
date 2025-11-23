@@ -109,6 +109,15 @@ export const agendamentoService = {
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/agendamento/${id}`);
   },
+
+  limparFuturos: async (dataLimite: string, senha: string, pointId?: string): Promise<{ mensagem: string; quantidadeDeletada: number }> => {
+    const res = await api.post('/agendamento/limpar-futuros', {
+      dataLimite,
+      senha,
+      pointId,
+    });
+    return res.data;
+  },
 };
 
 // ========== TABELA DE PREÇOS ==========

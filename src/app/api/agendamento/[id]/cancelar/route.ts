@@ -1,6 +1,6 @@
 // app/api/agendamento/[id]/cancelar/route.ts - Rota para cancelar agendamento
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { temRecorrencia } from '@/lib/recorrenciaService';
 
@@ -138,7 +138,7 @@ export async function POST(
       atletaId: row.atletaId,
       nomeAvulso: row.nomeAvulso,
       telefoneAvulso: row.telefoneAvulso,
-      dataHora: row.dataHora,
+      dataHora: normalizarDataHora(row.dataHora),
       duracao: row.duracao,
       valorHora: row.valorHora,
       valorCalculado: row.valorCalculado,

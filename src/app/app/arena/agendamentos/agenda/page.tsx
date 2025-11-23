@@ -6,8 +6,9 @@ import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
+import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2 } from 'lucide-react';
 
 export default function ArenaAgendaSemanalPage() {
   const { usuario } = useAuth();
@@ -21,28 +22,20 @@ export default function ArenaAgendaSemanalPage() {
   const [agendamentoEditando, setAgendamentoEditando] = useState<Agendamento | null>(null);
   const [modalCancelarAberto, setModalCancelarAberto] = useState(false);
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
+  const [modalLimparFuturaAberto, setModalLimparFuturaAberto] = useState(false);
+  const [dataLimiteLimpeza, setDataLimiteLimpeza] = useState<Date>(new Date());
+  const [carregandoLimpeza, setCarregandoLimpeza] = useState(false);
+  const [erroLimpeza, setErroLimpeza] = useState('');
   const [menuAberto, setMenuAberto] = useState<string | null>(null);
   const [tooltipAgendamento, setTooltipAgendamento] = useState<string | null>(null);
   const [tooltipPosicao, setTooltipPosicao] = useState<{ x: number; y: number } | null>(null);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  // Calcular segunda-feira da semana atual para inicialização
-  const calcularSegundaFeira = (data: Date) => {
-    const dataCopy = new Date(data);
-    dataCopy.setHours(0, 0, 0, 0);
-    const dia = dataCopy.getDay();
-    if (dia === 1) {
-      return dataCopy;
-    }
-    const diff = dataCopy.getDate() - dia + (dia === 0 ? -6 : 1);
-    const segunda = new Date(dataCopy);
-    segunda.setDate(diff);
-    segunda.setHours(0, 0, 0, 0);
-    return segunda;
-  };
-
+  // Inicializar sempre com a data atual como primeiro dia
   const [inicioSemana, setInicioSemana] = useState(() => {
-    return calcularSegundaFeira(new Date());
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    return hoje;
   });
 
   // Gerar array de dias da semana (mostrar 4 dias por vez para melhor visualização)
@@ -102,7 +95,11 @@ export default function ArenaAgendaSemanalPage() {
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const quadrasData = await quadraService.listar();
+      // Se for ORGANIZER, filtrar apenas quadras da sua arena
+      const pointIdFiltro = usuario?.role === 'ORGANIZER' && usuario?.pointIdGestor 
+        ? usuario.pointIdGestor 
+        : undefined;
+      const quadrasData = await quadraService.listar(pointIdFiltro);
       setQuadras(quadrasData.filter((q) => q.ativo));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -495,6 +492,56 @@ export default function ArenaAgendaSemanalPage() {
     setModalCancelarAberto(true);
   };
 
+  const abrirModalLimparFutura = () => {
+    // Usar a data atual como padrão
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    setDataLimiteLimpeza(hoje);
+    setErroLimpeza('');
+    setModalLimparFuturaAberto(true);
+  };
+
+  const handleLimparFutura = async (dataLimite: Date, senha: string) => {
+    setCarregandoLimpeza(true);
+    setErroLimpeza('');
+
+    try {
+      // Converter data limite para UTC ISO string
+      const ano = dataLimite.getFullYear();
+      const mes = dataLimite.getMonth();
+      const dia = dataLimite.getDate();
+      const dataLimiteUTC = new Date(Date.UTC(ano, mes, dia, 0, 0, 0, 0));
+      
+      // Identificar pointId da arena atual
+      // Se for ORGANIZER, usar o pointIdGestor
+      // Se for ADMIN, usar o pointId da primeira quadra carregada (ou undefined para todas)
+      let pointIdFiltro: string | undefined = undefined;
+      if (usuario?.role === 'ORGANIZER' && usuario?.pointIdGestor) {
+        pointIdFiltro = usuario.pointIdGestor;
+      } else if (usuario?.role === 'ADMIN' && quadras.length > 0) {
+        // Para ADMIN, usar o pointId da primeira quadra visualizada
+        // Isso garante que deleta apenas da arena que está sendo visualizada
+        pointIdFiltro = quadras[0].pointId;
+      }
+      
+      const resultado = await agendamentoService.limparFuturos(
+        dataLimiteUTC.toISOString(),
+        senha,
+        pointIdFiltro
+      );
+
+      alert(`✅ ${resultado.mensagem}`);
+      setModalLimparFuturaAberto(false);
+      // Recarregar agendamentos
+      carregarAgendamentos();
+    } catch (error: any) {
+      const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao limpar agenda futura';
+      setErroLimpeza(mensagemErro);
+    } finally {
+      setCarregandoLimpeza(false);
+    }
+  };
+
   const confirmarCancelamento = async (aplicarARecorrencia: boolean) => {
     if (!agendamentoCancelando) return;
 
@@ -664,6 +711,17 @@ export default function ArenaAgendaSemanalPage() {
                   title="Selecione uma data para iniciar a navegação"
                 />
               </div>
+              {/* Botão apenas para ADMIN e ORGANIZER - USER não tem acesso */}
+              {usuario?.role !== 'USER' && (usuario?.role === 'ADMIN' || usuario?.role === 'ORGANIZER') && (
+                <button
+                  onClick={abrirModalLimparFutura}
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  title="Limpar agenda futura"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Limpar Agenda Futura
+                </button>
+              )}
             </div>
           </div>
 
@@ -1046,6 +1104,18 @@ export default function ArenaAgendaSemanalPage() {
           setAgendamentoCancelando(null);
         }}
         onConfirmar={confirmarCancelamento}
+      />
+
+      <LimparAgendaFuturaModal
+        isOpen={modalLimparFuturaAberto}
+        dataLimite={dataLimiteLimpeza}
+        onClose={() => {
+          setModalLimparFuturaAberto(false);
+          setErroLimpeza('');
+        }}
+        onConfirmar={handleLimparFutura}
+        carregando={carregandoLimpeza}
+        erro={erroLimpeza}
       />
 
       {/* Tooltip de Observações */}
