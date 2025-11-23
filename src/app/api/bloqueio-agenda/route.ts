@@ -54,24 +54,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (dataInicio) {
-      const [dataPart, horaPart] = dataInicio.split('T');
-      const [ano, mes, dia] = dataPart.split('-').map(Number);
-      const [hora, minuto, segundo] = (horaPart || '00:00:00').split(':').map(Number);
-      const dataInicioLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo || 0));
-      
+      // dataInicio vem como ISO string UTC (ex: "2024-01-15T00:00:00.000Z")
+      // Usar diretamente como UTC para comparação no banco
       sql += ` AND b."dataFim" >= $${paramCount}`;
-      params.push(dataInicioLocal.toISOString());
+      params.push(dataInicio);
       paramCount++;
     }
 
     if (dataFim) {
-      const [dataPart, horaPart] = dataFim.split('T');
-      const [ano, mes, dia] = dataPart.split('-').map(Number);
-      const [hora, minuto, segundo] = (horaPart || '23:59:59').split(':').map(Number);
-      const dataFimLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo || 0));
-      
+      // dataFim vem como ISO string UTC (ex: "2024-01-15T23:59:59.999Z")
+      // Usar diretamente como UTC para comparação no banco
       sql += ` AND b."dataInicio" <= $${paramCount}`;
-      params.push(dataFimLocal.toISOString());
+      params.push(dataFim);
       paramCount++;
     }
 

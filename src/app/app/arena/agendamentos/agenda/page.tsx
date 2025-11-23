@@ -113,7 +113,7 @@ export default function ArenaAgendaSemanalPage() {
 
   const carregarAgendamentos = async () => {
     try {
-      // Criar datas no horário local (sem conversão de timezone)
+      // Criar datas no horário local do cliente
       const dataInicio = new Date(inicioSemana);
       dataInicio.setHours(0, 0, 0, 0);
       
@@ -121,21 +121,27 @@ export default function ArenaAgendaSemanalPage() {
       dataFim.setDate(dataFim.getDate() + 4); // Ajustar para 4 dias
       dataFim.setHours(23, 59, 59, 999);
 
-      // Formatar datas como ISO string (mas tratando como local)
-      // Usar formato YYYY-MM-DDTHH:mm:ss para evitar problemas de timezone
-      const formatarDataLocal = (date: Date) => {
+      // Formatar datas como UTC para garantir consistência entre local e produção
+      // Converter para UTC antes de enviar para a API
+      const formatarDataUTC = (date: Date) => {
+        // Criar uma data UTC equivalente ao horário local
         const ano = date.getFullYear();
-        const mes = String(date.getMonth() + 1).padStart(2, '0');
-        const dia = String(date.getDate()).padStart(2, '0');
-        const hora = String(date.getHours()).padStart(2, '0');
-        const minuto = String(date.getMinutes()).padStart(2, '0');
-        const segundo = String(date.getSeconds()).padStart(2, '0');
-        return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
+        const mes = date.getMonth();
+        const dia = date.getDate();
+        const hora = date.getHours();
+        const minuto = date.getMinutes();
+        const segundo = date.getSeconds();
+        
+        // Criar data UTC equivalente
+        const dataUTC = new Date(Date.UTC(ano, mes, dia, hora, minuto, segundo));
+        
+        // Retornar no formato ISO string (já em UTC)
+        return dataUTC.toISOString();
       };
 
       const filtros: any = {
-        dataInicio: formatarDataLocal(dataInicio),
-        dataFim: formatarDataLocal(dataFim),
+        dataInicio: formatarDataUTC(dataInicio),
+        dataFim: formatarDataUTC(dataFim),
         status: 'CONFIRMADO', // Apenas agendamentos confirmados
       };
 
@@ -143,8 +149,8 @@ export default function ArenaAgendaSemanalPage() {
       const [agendamentosData, bloqueiosData] = await Promise.all([
         agendamentoService.listar(filtros),
         bloqueioAgendaService.listar({
-          dataInicio: formatarDataLocal(dataInicio),
-          dataFim: formatarDataLocal(dataFim),
+          dataInicio: formatarDataUTC(dataInicio),
+          dataFim: formatarDataUTC(dataFim),
           apenasAtivos: true,
         }),
       ]);

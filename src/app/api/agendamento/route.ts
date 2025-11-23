@@ -60,28 +60,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (dataInicio) {
-      // Tratar dataInicio como horário local (sem conversão de timezone)
-      // dataInicio vem no formato "YYYY-MM-DDTHH:mm:ss" (horário local)
-      const [dataPart, horaPart] = dataInicio.split('T');
-      const [ano, mes, dia] = dataPart.split('-').map(Number);
-      const [hora, minuto, segundo] = horaPart.split(':').map(Number);
-      const dataInicioLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo || 0));
-      
+      // dataInicio vem como ISO string UTC (ex: "2024-01-15T00:00:00.000Z")
+      // Usar diretamente como UTC para comparação no banco
       sql += ` AND a."dataHora" >= $${paramCount}`;
-      params.push(dataInicioLocal.toISOString());
+      params.push(dataInicio);
       paramCount++;
     }
 
     if (dataFim) {
-      // Tratar dataFim como horário local (sem conversão de timezone)
-      // dataFim vem no formato "YYYY-MM-DDTHH:mm:ss" (horário local)
-      const [dataPart, horaPart] = dataFim.split('T');
-      const [ano, mes, dia] = dataPart.split('-').map(Number);
-      const [hora, minuto, segundo] = horaPart.split(':').map(Number);
-      const dataFimLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo || 0));
-      
+      // dataFim vem como ISO string UTC (ex: "2024-01-15T23:59:59.999Z")
+      // Usar diretamente como UTC para comparação no banco
       sql += ` AND a."dataHora" <= $${paramCount}`;
-      params.push(dataFimLocal.toISOString());
+      params.push(dataFim);
       paramCount++;
     }
 
@@ -135,21 +125,15 @@ export async function GET(request: NextRequest) {
           paramCount++;
         }
         if (dataInicio) {
-          const [dataPart, horaPart] = dataInicio.split('T');
-          const [ano, mes, dia] = dataPart.split('-').map(Number);
-          const [hora, minuto, segundo] = horaPart.split(':').map(Number);
-          const dataInicioLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo || 0));
+          // dataInicio vem como ISO string UTC
           sql += ` AND a."dataHora" >= $${paramCount}`;
-          params.push(dataInicioLocal.toISOString());
+          params.push(dataInicio);
           paramCount++;
         }
         if (dataFim) {
-          const [dataPart, horaPart] = dataFim.split('T');
-          const [ano, mes, dia] = dataPart.split('-').map(Number);
-          const [hora, minuto, segundo] = horaPart.split(':').map(Number);
-          const dataFimLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo || 0));
+          // dataFim vem como ISO string UTC
           sql += ` AND a."dataHora" <= $${paramCount}`;
-          params.push(dataFimLocal.toISOString());
+          params.push(dataFim);
           paramCount++;
         }
         if (status) {
