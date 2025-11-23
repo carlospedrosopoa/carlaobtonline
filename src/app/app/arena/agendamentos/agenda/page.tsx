@@ -113,70 +113,74 @@ export default function ArenaAgendaSemanalPage() {
 
   const carregarAgendamentos = async () => {
     try {
-      // Criar datas no horário local do cliente
-      const dataInicio = new Date(inicioSemana);
-      dataInicio.setHours(0, 0, 0, 0);
+      // Criar datas preservando o dia local mas convertendo para UTC
+      // Extrair componentes da data local
+      const ano = inicioSemana.getFullYear();
+      const mes = inicioSemana.getMonth();
+      const dia = inicioSemana.getDate();
       
-      const dataFim = new Date(inicioSemana);
-      dataFim.setDate(dataFim.getDate() + 4); // Ajustar para 4 dias
-      dataFim.setHours(23, 59, 59, 999);
+      // Criar data início: meia-noite do dia local em UTC
+      const dataInicio = new Date(Date.UTC(ano, mes, dia, 0, 0, 0, 0));
+      
+      // Criar data fim: 4 dias depois, 23:59:59 do dia local em UTC
+      // Usar setUTCDate para lidar corretamente com mudanças de mês
+      const dataFimTemp = new Date(Date.UTC(ano, mes, dia, 23, 59, 59, 999));
+      dataFimTemp.setUTCDate(dataFimTemp.getUTCDate() + 4);
 
-      // Formatar datas como UTC para garantir consistência entre local e produção
-      // Converter para UTC antes de enviar para a API
-      const formatarDataUTC = (date: Date) => {
-        // Criar uma data UTC equivalente ao horário local
-        const ano = date.getFullYear();
-        const mes = date.getMonth();
-        const dia = date.getDate();
-        const hora = date.getHours();
-        const minuto = date.getMinutes();
-        const segundo = date.getSeconds();
-        
-        // Criar data UTC equivalente
-        const dataUTC = new Date(Date.UTC(ano, mes, dia, hora, minuto, segundo));
-        
-        // Retornar no formato ISO string (já em UTC)
-        return dataUTC.toISOString();
-      };
-
+      // Converter para ISO string UTC
+      const dataInicioISO = dataInicio.toISOString();
+      const dataFimISO = dataFimTemp.toISOString();
+      
       const filtros: any = {
-        dataInicio: formatarDataUTC(dataInicio),
-        dataFim: formatarDataUTC(dataFim),
+        dataInicio: dataInicioISO,
+        dataFim: dataFimISO,
         status: 'CONFIRMADO', // Apenas agendamentos confirmados
       };
+
+      // Debug: log das datas sendo enviadas
+      console.log('🔍 Carregando agendamentos:', {
+        inicioSemana: inicioSemana.toISOString(),
+        dataInicio: dataInicioISO,
+        dataFim: dataFimISO,
+        filtros
+      });
 
       // Carregar agendamentos e bloqueios em paralelo
       const [agendamentosData, bloqueiosData] = await Promise.all([
         agendamentoService.listar(filtros),
         bloqueioAgendaService.listar({
-          dataInicio: formatarDataUTC(dataInicio),
-          dataFim: formatarDataUTC(dataFim),
+          dataInicio: dataInicioISO,
+          dataFim: dataFimISO,
           apenasAtivos: true,
         }),
       ]);
 
+      console.log('✅ Agendamentos recebidos:', agendamentosData.length, agendamentosData);
+
       setAgendamentos(agendamentosData);
       setBloqueios(bloqueiosData);
     } catch (error) {
-      console.error('Erro ao carregar agendamentos:', error);
+      console.error('❌ Erro ao carregar agendamentos:', error);
     }
   };
 
   const getAgendamentosPorDia = (dia: Date) => {
     // Retorna todos os agendamentos do dia especificado
+    // Comparar usando strings de data (YYYY-MM-DD) para evitar problemas de timezone
+    const formatarDataParaComparacao = (date: Date) => {
+      const ano = date.getUTCFullYear();
+      const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const dia = String(date.getUTCDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    };
+    
+    const diaComparacaoStr = formatarDataParaComparacao(dia);
+    
     let agendamentosFiltrados = agendamentos.filter((ag) => {
       const dataAgendamento = new Date(ag.dataHora);
-      const anoAgendamento = dataAgendamento.getFullYear();
-      const mesAgendamento = dataAgendamento.getMonth();
-      const diaAgendamento = dataAgendamento.getDate();
+      const diaAgendamentoStr = formatarDataParaComparacao(dataAgendamento);
       
-      const anoComparacao = dia.getFullYear();
-      const mesComparacao = dia.getMonth();
-      const diaComparacao = dia.getDate();
-      
-      return anoAgendamento === anoComparacao && 
-             mesAgendamento === mesComparacao && 
-             diaAgendamento === diaComparacao;
+      return diaAgendamentoStr === diaComparacaoStr;
     });
 
     // Aplicar filtro por nome ou telefone
@@ -224,26 +228,41 @@ export default function ArenaAgendaSemanalPage() {
 
   const getAgendamentosPorHorario = (dia: Date, hora: number, minuto: number = 0) => {
     // Retorna agendamentos que começam neste horário específico
+    // Comparar usando strings de data e converter horário local para UTC
+    const formatarDataParaComparacao = (date: Date) => {
+      const ano = date.getUTCFullYear();
+      const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const dia = String(date.getUTCDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    };
+    
+    const diaComparacaoStr = formatarDataParaComparacao(dia);
+    
+    // Criar uma data de referência no horário local especificado
+    const ano = dia.getFullYear();
+    const mes = dia.getMonth();
+    const diaNum = dia.getDate();
+    const dataReferenciaLocal = new Date(ano, mes, diaNum, hora, minuto, 0);
+    
+    // Converter para UTC para comparação
+    const horaUTC = dataReferenciaLocal.getUTCHours();
+    const minutoUTC = dataReferenciaLocal.getUTCMinutes();
+    
     let agendamentosFiltrados = agendamentos.filter((ag) => {
       const dataAgendamento = new Date(ag.dataHora);
-      const anoAgendamento = dataAgendamento.getFullYear();
-      const mesAgendamento = dataAgendamento.getMonth();
-      const diaAgendamento = dataAgendamento.getDate();
-      const horaAgendamento = dataAgendamento.getHours();
-      const minutoAgendamento = dataAgendamento.getMinutes();
+      const diaAgendamentoStr = formatarDataParaComparacao(dataAgendamento);
       
-      const anoComparacao = dia.getFullYear();
-      const mesComparacao = dia.getMonth();
-      const diaComparacao = dia.getDate();
-      
-      if (anoAgendamento !== anoComparacao || 
-          mesAgendamento !== mesComparacao || 
-          diaAgendamento !== diaComparacao) {
+      // Comparar dia primeiro
+      if (diaAgendamentoStr !== diaComparacaoStr) {
         return false;
       }
       
+      // Comparar horário em UTC (agendamento já está em UTC)
+      const horaAgendamento = dataAgendamento.getUTCHours();
+      const minutoAgendamento = dataAgendamento.getUTCMinutes();
+      
       // Mostrar apenas na linha do horário de início exato
-      return horaAgendamento === hora && minutoAgendamento === minuto;
+      return horaAgendamento === horaUTC && minutoAgendamento === minutoUTC;
     });
 
     // Aplicar filtro por nome ou telefone
