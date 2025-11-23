@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { generateAccessToken, generateRefreshToken } from '@/lib/jwt';
+import { withCors } from '@/lib/cors';
+
+export async function OPTIONS(request: NextRequest) {
+  // Preflight já é tratado pelo middleware, mas podemos adicionar aqui também
+  return new NextResponse(null, { status: 204 });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,7 +63,7 @@ export async function POST(request: NextRequest) {
     const accessToken = generateAccessToken(usuario);
     const refreshToken = generateRefreshToken(usuario);
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         usuario,
         user: usuario,  // Alias para compatibilidade
@@ -71,15 +77,19 @@ export async function POST(request: NextRequest) {
         }
       }
     );
+    
+    // Aplica headers CORS para permitir consumo externo
+    return withCors(response, request);
   } catch (error: any) {
     console.error("login error:", error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { 
         mensagem: "Erro ao efetuar login",
         error: error?.message || "Erro desconhecido"
       },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
