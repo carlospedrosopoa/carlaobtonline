@@ -202,14 +202,16 @@ export async function PUT(
 
     // Se dataHora foi alterada, verificar conflitos
     if (dataHora) {
-      // Tratar dataHora como horário local (sem conversão para UTC)
+      // Tratar dataHora como horário local do usuário e converter para UTC
       const [dataPart, horaPart] = dataHora.split('T');
       const [ano, mes, dia] = dataPart.split('-').map(Number);
       const [hora, minuto] = horaPart.split(':').map(Number);
       
-      const dataHoraLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
+      // Criar data local e converter para UTC (mesma lógica da criação)
+      const dataHoraLocal = new Date(ano, mes - 1, dia, hora, minuto, 0);
+      const dataHoraUTC = new Date(dataHoraLocal.toISOString());
       const duracaoFinal = duracao || agendamentoAtual.duracao || 60;
-      const dataHoraFim = new Date(dataHoraLocal.getTime() + duracaoFinal * 60000);
+      const dataHoraFim = new Date(dataHoraUTC.getTime() + duracaoFinal * 60000);
 
       const conflitos = await query(
         `SELECT id FROM "Agendamento"

@@ -463,7 +463,18 @@ export default function EditarAgendamentoModal({
     setSalvando(true);
 
     try {
-      const dataHora = `${data}T${hora}:00`;
+      // Converter data/hora local para UTC antes de enviar
+      // O usuário seleciona data/hora no horário local dele
+      // Precisamos converter para UTC para salvar corretamente no banco
+      const [ano, mes, dia] = data.split('-').map(Number);
+      const [horaNum, minutoNum] = hora.split(':').map(Number);
+      
+      // Criar data local primeiro (isso considera o timezone do navegador)
+      const dataHoraLocal = new Date(ano, mes - 1, dia, horaNum, minutoNum, 0);
+      // Converter para UTC e formatar como "YYYY-MM-DDTHH:mm" (sem segundos, sem Z)
+      // O backend vai tratar como UTC
+      const dataHoraUTC = new Date(dataHoraLocal.getTime() - (dataHoraLocal.getTimezoneOffset() * 60000));
+      const dataHora = dataHoraUTC.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
       const payload: any = {
         quadraId,
         dataHora,

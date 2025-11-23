@@ -274,18 +274,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar conflitos de horário
-    // Tratar dataHora como horário local (sem conversão para UTC)
-    // dataHora vem no formato "YYYY-MM-DDTHH:mm" (horário local)
-    // Parsear manualmente para evitar conversão de timezone
+    // Tratar dataHora como horário local do usuário e converter para UTC
+    // dataHora vem no formato "YYYY-MM-DDTHH:mm" (horário local do navegador)
+    // Parsear manualmente e criar data local, depois converter para UTC
     const [dataPart, horaPart] = dataHora.split('T');
     const [ano, mes, dia] = dataPart.split('-').map(Number);
     const [hora, minuto] = horaPart.split(':').map(Number);
     
-    // Criar data/hora tratando como UTC (mas representando horário local)
-    // Isso evita conversão de timezone quando salvamos no banco
-    // IMPORTANTE: Usar Date.UTC() para manter consistência com a busca
-    const dataHoraLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
-    const dataHoraFim = new Date(dataHoraLocal.getTime() + duracao * 60000);
+    // A data já vem convertida para UTC pelo frontend
+    // O frontend converte o horário local do usuário para UTC antes de enviar
+    // Então podemos tratar diretamente como UTC
+    const dataHoraUTC = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
+    const dataHoraFim = new Date(dataHoraUTC.getTime() + duracao * 60000);
 
     const conflitos = await query(
       `SELECT id FROM "Agendamento"
@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
          OR ("dataHora" + (duracao * INTERVAL '1 minute') >= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') <= $3)
          OR ("dataHora" <= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') >= $3)
        )`,
-      [quadraId, dataHoraLocal.toISOString(), dataHoraFim.toISOString()]
+        [quadraId, dataHoraUTC.toISOString(), dataHoraFim.toISOString()]
     );
 
     if (conflitos.rows.length > 0) {
@@ -375,7 +375,7 @@ export async function POST(request: NextRequest) {
             atletaId || null,
             nomeAvulso || null,
             telefoneAvulso || null,
-            dataHoraAgendamento.toISOString(),
+            dataHoraAgendamento.toISOString(), // Já está em UTC
             duracao,
             valorHora,
             valorCalculado,
@@ -405,7 +405,7 @@ export async function POST(request: NextRequest) {
               atletaId || null,
               nomeAvulso || null,
               telefoneAvulso || null,
-              dataHoraAgendamento.toISOString(),
+              dataHoraAgendamento.toISOString(), // Já está em UTC
               duracao,
               valorHora,
               valorCalculado,
@@ -437,7 +437,7 @@ export async function POST(request: NextRequest) {
         observacoes: observacoes || null,
       };
 
-      const agendamentosRecorrentes = gerarAgendamentosRecorrentes(dataHoraLocal, recorrencia, dadosBase);
+      const agendamentosRecorrentes = gerarAgendamentosRecorrentes(dataHoraUTC, recorrencia, dadosBase);
       
       // Verificar conflitos para todos antes de criar
       const conflitosEncontrados: string[] = [];
@@ -492,7 +492,7 @@ export async function POST(request: NextRequest) {
       agendamentoId = idsCriados[0];
     } else {
       // Criar agendamento único (sem recorrência)
-      const idCriado = await criarAgendamentoUnico(dataHoraLocal);
+      const idCriado = await criarAgendamentoUnico(dataHoraUTC);
       if (!idCriado) {
         return NextResponse.json(
           { mensagem: 'Já existe um agendamento confirmado neste horário' },
