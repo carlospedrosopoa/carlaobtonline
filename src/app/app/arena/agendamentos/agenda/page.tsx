@@ -7,7 +7,7 @@ import { quadraService, agendamentoService, bloqueioAgendaService } from '@/serv
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays } from 'lucide-react';
 
 export default function ArenaAgendaSemanalPage() {
   const { usuario } = useAuth();
@@ -437,8 +437,25 @@ export default function ArenaAgendaSemanalPage() {
   };
 
   const irParaHoje = () => {
-    const segundaAtual = calcularSegundaFeira(new Date());
-    setInicioSemana(segundaAtual);
+    // Ir para a data de hoje, não para a segunda-feira
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    setInicioSemana(hoje);
+  };
+
+  const irParaData = (data: Date) => {
+    // Define a data informada como o primeiro dia da navegação
+    const dataAjustada = new Date(data);
+    dataAjustada.setHours(0, 0, 0, 0);
+    setInicioSemana(dataAjustada);
+  };
+
+  const handleDataSelecionada = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dataSelecionada = e.target.value;
+    if (dataSelecionada) {
+      const data = new Date(dataSelecionada + 'T00:00:00');
+      irParaData(data);
+    }
   };
 
   const handleEditar = (agendamento: Agendamento) => {
@@ -580,7 +597,7 @@ export default function ArenaAgendaSemanalPage() {
 
       {/* Controles de navegação */}
       <div className="bg-white rounded-xl shadow-lg p-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <button
             onClick={() => navegarSemana('anterior')}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -588,7 +605,7 @@ export default function ArenaAgendaSemanalPage() {
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
           
-          <div className="flex-1 text-center">
+          <div className="flex-1 text-center space-y-2">
             <h2 className="text-lg font-semibold text-gray-900">
               {inicioSemana.toLocaleDateString('pt-BR', {
                 day: '2-digit',
@@ -605,12 +622,24 @@ export default function ArenaAgendaSemanalPage() {
                 }
               )}
             </h2>
-            <button
-              onClick={irParaHoje}
-              className="mt-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Ir para hoje
-            </button>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <button
+                onClick={irParaHoje}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Ir para hoje
+              </button>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-gray-500" />
+                <input
+                  type="date"
+                  value={inicioSemana.toISOString().split('T')[0]}
+                  onChange={handleDataSelecionada}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  title="Selecione uma data para iniciar a navegação"
+                />
+              </div>
+            </div>
           </div>
 
           <button
