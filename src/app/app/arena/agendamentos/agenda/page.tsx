@@ -110,21 +110,23 @@ export default function ArenaAgendaSemanalPage() {
 
   const carregarAgendamentos = async () => {
     try {
-      // Criar datas preservando o dia local mas convertendo para UTC corretamente
-      // Criar data início: meia-noite do dia local
-      const dataInicioLocal = new Date(inicioSemana);
-      dataInicioLocal.setHours(0, 0, 0, 0);
+      // Criar datas preservando o dia local mas usando Date.UTC() para consistência
+      // Extrair componentes da data local
+      const ano = inicioSemana.getFullYear();
+      const mes = inicioSemana.getMonth();
+      const dia = inicioSemana.getDate();
       
-      // Criar data fim: 4 dias depois, 23:59:59 do dia local
-      const dataFimLocal = new Date(inicioSemana);
-      dataFimLocal.setDate(dataFimLocal.getDate() + 4);
-      dataFimLocal.setHours(23, 59, 59, 999);
+      // Criar data início: meia-noite do dia local em UTC (mesma lógica da criação)
+      const dataInicio = new Date(Date.UTC(ano, mes, dia, 0, 0, 0, 0));
+      
+      // Criar data fim: 4 dias depois, 23:59:59 do dia local em UTC
+      // Usar setUTCDate para lidar corretamente com mudanças de mês
+      const dataFimTemp = new Date(Date.UTC(ano, mes, dia, 23, 59, 59, 999));
+      dataFimTemp.setUTCDate(dataFimTemp.getUTCDate() + 4);
 
-      // Converter para UTC ISO string
-      // O toISOString() converte corretamente para UTC baseado no timezone local
-      // Isso garante que estamos buscando o dia correto independente do timezone
-      const dataInicioISO = dataInicioLocal.toISOString();
-      const dataFimISO = dataFimLocal.toISOString();
+      // Converter para ISO string UTC
+      const dataInicioISO = dataInicio.toISOString();
+      const dataFimISO = dataFimTemp.toISOString();
       
       const filtros: any = {
         dataInicio: dataInicioISO,

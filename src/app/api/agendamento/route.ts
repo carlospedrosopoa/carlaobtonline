@@ -283,6 +283,7 @@ export async function POST(request: NextRequest) {
     
     // Criar data/hora tratando como UTC (mas representando horário local)
     // Isso evita conversão de timezone quando salvamos no banco
+    // IMPORTANTE: Usar Date.UTC() para manter consistência com a busca
     const dataHoraLocal = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
     const dataHoraFim = new Date(dataHoraLocal.getTime() + duracao * 60000);
 
