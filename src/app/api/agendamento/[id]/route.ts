@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
-import { temRecorrencia } from '@/lib/recorrenciaService';
+import { temRecorrencia, gerarAgendamentosRecorrentes } from '@/lib/recorrenciaService';
+import type { RecorrenciaConfig } from '@/types/agendamento';
 
 // GET /api/agendamento/[id] - Obter agendamento por ID
 export async function GET(
@@ -186,7 +187,18 @@ export async function PUT(
       telefoneAvulso,
       valorNegociado,
       aplicarARecorrencia = false, // false = apenas este, true = este e todos futuros
-    } = body;
+      recorrencia, // Configuração de recorrência (opcional, para criar ou atualizar recorrência)
+    } = body as {
+      dataHora?: string;
+      duracao?: number;
+      observacoes?: string;
+      atletaId?: string | null;
+      nomeAvulso?: string | null;
+      telefoneAvulso?: string | null;
+      valorNegociado?: number | null;
+      aplicarARecorrencia?: boolean;
+      recorrencia?: RecorrenciaConfig;
+    };
 
     // Se dataHora foi alterada, verificar conflitos
     if (dataHora) {
@@ -320,6 +332,20 @@ export async function PUT(
       paramCount++;
     }
 
+    // Adicionar configuração de recorrência aos updates se fornecida
+    if (recorrencia !== undefined) {
+      try {
+        updates.push(`"recorrenciaConfig" = $${paramCount}`);
+        paramsUpdate.push(recorrencia ? JSON.stringify(recorrencia) : null);
+        paramCount++;
+      } catch (error: any) {
+        // Se o campo não existe, tentar sem ele
+        if (!error.message?.includes('recorrenciaConfig')) {
+          throw error;
+        }
+      }
+    }
+
     if (updates.length === 0) {
       return NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
@@ -329,113 +355,361 @@ export async function PUT(
 
     updates.push(`"updatedAt" = NOW()`);
     
-    // Se há recorrência e o usuário quer aplicar a todos os futuros
-    if (temRecorrenciaAtual && aplicarARecorrencia) {
-      // Buscar data/hora atual do agendamento para identificar quais são os "futuros"
-      let agendamentoData;
+    // Buscar dados atuais do agendamento antes de atualizar
+    let agendamentoDataAtual;
+    try {
+      agendamentoDataAtual = await query(
+        'SELECT "dataHora", "recorrenciaId", "recorrenciaConfig", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso", duracao, "valorHora", "valorCalculado", "valorNegociado", observacoes FROM "Agendamento" WHERE id = $1',
+        [id]
+      );
+    } catch (error: any) {
+      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
+        agendamentoDataAtual = await query(
+          'SELECT "dataHora", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso", duracao, "valorHora", "valorCalculado", "valorNegociado", observacoes FROM "Agendamento" WHERE id = $1',
+          [id]
+        );
+      } else {
+        throw error;
+      }
+    }
+    
+    const dadosAtuais = agendamentoDataAtual.rows[0];
+    const dataHoraAtual = new Date(dadosAtuais.dataHora);
+    const recorrenciaIdAtual = dadosAtuais.recorrenciaId;
+    
+    // Se há recorrência e o usuário quer aplicar a todos os futuros E há nova configuração de recorrência
+    if (temRecorrenciaAtual && aplicarARecorrencia && recorrencia && recorrencia.tipo) {
+      // 1. Deletar todos os agendamentos futuros da recorrência atual (exceto o atual)
+      if (recorrenciaIdAtual) {
+        await query(
+          `DELETE FROM "Agendamento"
+           WHERE "recorrenciaId" = $1
+           AND "dataHora" > $2
+           AND id != $3`,
+          [recorrenciaIdAtual, dataHoraAtual.toISOString(), id]
+        );
+      }
+      
+      // 2. Preparar dados atualizados para gerar novas recorrências
+      const dataHoraFinal = dataHora ? (() => {
+        const [dataPart, horaPart] = dataHora.split('T');
+        const [ano, mes, dia] = dataPart.split('-').map(Number);
+        const [hora, minuto] = horaPart.split(':').map(Number);
+        return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
+      })() : dataHoraAtual;
+      
+      const duracaoFinal = duracao !== undefined ? duracao : dadosAtuais.duracao;
+      const valorHoraFinal = valorHora !== null ? valorHora : dadosAtuais.valorHora;
+      const valorCalculadoFinal = valorCalculado !== null ? valorCalculado : dadosAtuais.valorCalculado;
+      const valorNegociadoFinal = valorNegociado !== null ? valorNegociado : dadosAtuais.valorNegociado;
+      
+      // 3. Atualizar o agendamento atual primeiro
+      paramsUpdate.push(id);
+      const sqlAtualizar = `UPDATE "Agendamento"
+                 SET ${updates.join(', ')}
+                 WHERE id = $${paramCount}
+                 RETURNING id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                   "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+                   status, observacoes, "recorrenciaId", "recorrenciaConfig", "createdAt", "updatedAt"`;
+
+      const result = await query(sqlAtualizar, paramsUpdate);
+      
+      // 4. Gerar novos agendamentos recorrentes baseados nos dados atualizados
+      const dadosBase = {
+        quadraId: dadosAtuais.quadraId,
+        usuarioId: dadosAtuais.usuarioId,
+        atletaId: atletaId !== undefined ? atletaId : dadosAtuais.atletaId,
+        nomeAvulso: nomeAvulso !== undefined ? nomeAvulso : dadosAtuais.nomeAvulso,
+        telefoneAvulso: telefoneAvulso !== undefined ? telefoneAvulso : dadosAtuais.telefoneAvulso,
+        duracao: duracaoFinal,
+        valorHora: valorHoraFinal,
+        valorCalculado: valorCalculadoFinal,
+        valorNegociado: valorNegociadoFinal,
+        observacoes: observacoes !== undefined ? observacoes : dadosAtuais.observacoes,
+      };
+      
+      // Buscar o novo recorrenciaId do agendamento atualizado
+      const agendamentoAtualizado = result.rows[0];
+      const novoRecorrenciaId = agendamentoAtualizado.recorrenciaId || recorrenciaIdAtual;
+      
+      // Gerar agendamentos recorrentes (a partir do próximo, já que o atual já existe)
+      const agendamentosRecorrentes = gerarAgendamentosRecorrentes(dataHoraFinal, recorrencia, dadosBase);
+      
+      // Filtrar apenas os futuros (excluir o atual)
+      // Comparar timestamps para garantir que são realmente futuros
+      const timestampAtual = dataHoraFinal.getTime();
+      const agendamentosFuturos = agendamentosRecorrentes.filter(ag => {
+        const dataAg = new Date(ag.dataHora);
+        return dataAg.getTime() > timestampAtual;
+      });
+      
+      // Verificar conflitos antes de criar
+      const conflitosEncontrados: string[] = [];
+      for (const agendamentoRec of agendamentosFuturos) {
+        const dataAgendamento = new Date(agendamentoRec.dataHora);
+        const dataFimAgendamento = new Date(dataAgendamento.getTime() + duracaoFinal * 60000);
+        const conflitos = await query(
+          `SELECT id FROM "Agendamento"
+           WHERE "quadraId" = $1
+           AND status = 'CONFIRMADO'
+           AND id != $2
+           AND (
+             ("dataHora" >= $3 AND "dataHora" < $4)
+             OR ("dataHora" + ($5 * INTERVAL '1 minute') >= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') <= $4)
+             OR ("dataHora" <= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') >= $4)
+           )`,
+          [dadosAtuais.quadraId, id, dataAgendamento.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal]
+        );
+
+        if (conflitos.rows.length > 0) {
+          conflitosEncontrados.push(dataAgendamento.toISOString());
+        }
+      }
+
+      if (conflitosEncontrados.length > 0) {
+        return NextResponse.json(
+          { mensagem: `Existem conflitos em ${conflitosEncontrados.length} agendamento(s) da recorrência` },
+          { status: 400 }
+        );
+      }
+      
+      // Criar novos agendamentos recorrentes
+      const criarAgendamentoUnico = async (dataHoraAgendamento: Date, recorrenciaId: string, recorrenciaConfig: RecorrenciaConfig) => {
+        try {
+          const result = await query(
+            `INSERT INTO "Agendamento" (
+              id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+              "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+              status, observacoes, "recorrenciaId", "recorrenciaConfig", "createdAt", "updatedAt"
+            )
+            VALUES (
+              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, $12, $13, NOW(), NOW()
+            )
+            RETURNING id`,
+            [
+              dadosBase.quadraId,
+              dadosBase.usuarioId,
+              dadosBase.atletaId,
+              dadosBase.nomeAvulso,
+              dadosBase.telefoneAvulso,
+              dataHoraAgendamento.toISOString(),
+              dadosBase.duracao,
+              dadosBase.valorHora,
+              dadosBase.valorCalculado,
+              dadosBase.valorNegociado,
+              dadosBase.observacoes,
+              recorrenciaId,
+              JSON.stringify(recorrenciaConfig),
+            ]
+          );
+          return result.rows[0].id;
+        } catch (error: any) {
+          if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
+            const result = await query(
+              `INSERT INTO "Agendamento" (
+                id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+                status, observacoes, "createdAt", "updatedAt"
+              )
+              VALUES (
+                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
+              )
+              RETURNING id`,
+              [
+                dadosBase.quadraId,
+                dadosBase.usuarioId,
+                dadosBase.atletaId,
+                dadosBase.nomeAvulso,
+                dadosBase.telefoneAvulso,
+                dataHoraAgendamento.toISOString(),
+                dadosBase.duracao,
+                dadosBase.valorHora,
+                dadosBase.valorCalculado,
+                dadosBase.valorNegociado,
+                dadosBase.observacoes,
+              ]
+            );
+            return result.rows[0].id;
+          }
+          throw error;
+        }
+      };
+      
+      // Criar todos os agendamentos futuros
+      for (const agendamentoRec of agendamentosFuturos) {
+        await criarAgendamentoUnico(
+          new Date(agendamentoRec.dataHora),
+          novoRecorrenciaId,
+          recorrencia
+        );
+      }
+      
+      // Buscar o agendamento atualizado para retornar
+      const agendamentoCompleto = await query(
+        `SELECT 
+          a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
+          a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
+          a.status, a.observacoes, a."recorrenciaId", a."recorrenciaConfig", a."createdAt", a."updatedAt",
+          q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
+          p.id as "point_id", p.nome as "point_nome",
+          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
+          at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+        FROM "Agendamento" a
+        LEFT JOIN "Quadra" q ON a."quadraId" = q.id
+        LEFT JOIN "Point" p ON q."pointId" = p.id
+        LEFT JOIN "User" u ON a."usuarioId" = u.id
+        LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+        WHERE a.id = $1`,
+        [id]
+      );
+      
+      const row = agendamentoCompleto.rows[0];
+      const agendamento = {
+        id: row.id,
+        quadraId: row.quadraId,
+        usuarioId: row.usuarioId,
+        atletaId: row.atletaId,
+        nomeAvulso: row.nomeAvulso,
+        telefoneAvulso: row.telefoneAvulso,
+        dataHora: normalizarDataHora(row.dataHora),
+        duracao: row.duracao,
+        valorHora: row.valorHora,
+        valorCalculado: row.valorCalculado,
+        valorNegociado: row.valorNegociado,
+        status: row.status,
+        observacoes: row.observacoes,
+        recorrenciaId: row.recorrenciaId || null,
+        recorrenciaConfig: row.recorrenciaConfig 
+          ? (typeof row.recorrenciaConfig === 'string' 
+            ? JSON.parse(row.recorrenciaConfig) 
+            : row.recorrenciaConfig)
+          : null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        quadra: {
+          id: row.quadra_id,
+          nome: row.quadra_nome,
+          pointId: row.quadra_pointId,
+          point: {
+            id: row.point_id,
+            nome: row.point_nome,
+          },
+        },
+        usuario: row.usuario_id ? {
+          id: row.usuario_id,
+          name: row.usuario_name,
+          email: row.usuario_email,
+        } : null,
+        atleta: row.atleta_id ? {
+          id: row.atleta_id,
+          nome: row.atleta_nome,
+          fone: row.atleta_fone,
+        } : null,
+      };
+      
+      return NextResponse.json(agendamento);
+    } else {
+      // Apenas atualizar o agendamento atual (sem recriar recorrências)
+      paramsUpdate.push(id);
+      const sql = `UPDATE "Agendamento"
+                   SET ${updates.join(', ')}
+                   WHERE id = $${paramCount}
+                   RETURNING id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                     "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+                     status, observacoes, "createdAt", "updatedAt"`;
+
+      const result = await query(sql, paramsUpdate);
+
+      // Buscar dados relacionados para retorno completo
+      let agendamentoCompleto;
       try {
-        agendamentoData = await query(
-          'SELECT "dataHora", "recorrenciaId" FROM "Agendamento" WHERE id = $1',
+        agendamentoCompleto = await query(
+          `SELECT 
+            a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
+            a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
+            a.status, a.observacoes, a."recorrenciaId", a."recorrenciaConfig", a."createdAt", a."updatedAt",
+            q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
+            p.id as "point_id", p.nome as "point_nome",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
+            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+          FROM "Agendamento" a
+          LEFT JOIN "Quadra" q ON a."quadraId" = q.id
+          LEFT JOIN "Point" p ON q."pointId" = p.id
+          LEFT JOIN "User" u ON a."usuarioId" = u.id
+          LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+          WHERE a.id = $1`,
           [id]
         );
       } catch (error: any) {
-        if (error.message?.includes('recorrenciaId')) {
-          agendamentoData = await query(
-            'SELECT "dataHora" FROM "Agendamento" WHERE id = $1',
+        if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
+          agendamentoCompleto = await query(
+            `SELECT 
+              a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
+              a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
+              a.status, a.observacoes, a."createdAt", a."updatedAt",
+              q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
+              p.id as "point_id", p.nome as "point_nome",
+              u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
+              at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+            FROM "Agendamento" a
+            LEFT JOIN "Quadra" q ON a."quadraId" = q.id
+            LEFT JOIN "Point" p ON q."pointId" = p.id
+            LEFT JOIN "User" u ON a."usuarioId" = u.id
+            LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+            WHERE a.id = $1`,
             [id]
           );
         } else {
           throw error;
         }
       }
-      
-      const dataHoraAtual = new Date(agendamentoData.rows[0].dataHora);
-      const recorrenciaId = agendamentoData.rows[0].recorrenciaId;
-      
-      if (recorrenciaId) {
-        // Atualizar todos os futuros da mesma recorrência (incluindo este)
-        const sqlFuturos = `UPDATE "Agendamento"
-                     SET ${updates.join(', ')}
-                     WHERE "recorrenciaId" = $${paramCount}
-                     AND "dataHora" >= $${paramCount + 1}`;
-        
-        const paramsFuturos = [...paramsUpdate];
-        paramsFuturos.push(recorrenciaId);
-        paramsFuturos.push(dataHoraAtual.toISOString());
-        
-        await query(sqlFuturos, paramsFuturos);
-      }
-    }
-    
-    // Atualizar o agendamento atual (sempre)
-    paramsUpdate.push(id);
-    const sql = `UPDATE "Agendamento"
-                 SET ${updates.join(', ')}
-                 WHERE id = $${paramCount}
-                 RETURNING id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
-                   "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-                   status, observacoes, "createdAt", "updatedAt"`;
 
-    const result = await query(sql, paramsUpdate);
-
-    // Buscar dados relacionados para retorno completo
-    const agendamentoCompleto = await query(
-      `SELECT 
-        a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
-        a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-        a.status, a.observacoes, a."createdAt", a."updatedAt",
-        q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
-        p.id as "point_id", p.nome as "point_nome",
-        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-        at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
-      FROM "Agendamento" a
-      LEFT JOIN "Quadra" q ON a."quadraId" = q.id
-      LEFT JOIN "Point" p ON q."pointId" = p.id
-      LEFT JOIN "User" u ON a."usuarioId" = u.id
-      LEFT JOIN "Atleta" at ON a."atletaId" = at.id
-      WHERE a.id = $1`,
-      [id]
-    );
-
-    const row = agendamentoCompleto.rows[0];
-    const agendamento = {
-      id: row.id,
-      quadraId: row.quadraId,
-      usuarioId: row.usuarioId,
-      atletaId: row.atletaId,
-      nomeAvulso: row.nomeAvulso,
-      telefoneAvulso: row.telefoneAvulso,
-      dataHora: normalizarDataHora(row.dataHora),
-      duracao: row.duracao,
-      valorHora: row.valorHora,
-      valorCalculado: row.valorCalculado,
-      valorNegociado: row.valorNegociado,
-      status: row.status,
-      observacoes: row.observacoes,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      quadra: {
-        id: row.quadra_id,
-        nome: row.quadra_nome,
-        pointId: row.quadra_pointId,
-        point: {
-          id: row.point_id,
-          nome: row.point_nome,
+      const row = agendamentoCompleto.rows[0];
+      const agendamento = {
+        id: row.id,
+        quadraId: row.quadraId,
+        usuarioId: row.usuarioId,
+        atletaId: row.atletaId,
+        nomeAvulso: row.nomeAvulso,
+        telefoneAvulso: row.telefoneAvulso,
+        dataHora: normalizarDataHora(row.dataHora),
+        duracao: row.duracao,
+        valorHora: row.valorHora,
+        valorCalculado: row.valorCalculado,
+        valorNegociado: row.valorNegociado,
+        status: row.status,
+        observacoes: row.observacoes,
+        recorrenciaId: row.recorrenciaId || null,
+        recorrenciaConfig: row.recorrenciaConfig 
+          ? (typeof row.recorrenciaConfig === 'string' 
+            ? JSON.parse(row.recorrenciaConfig) 
+            : row.recorrenciaConfig)
+          : null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        quadra: {
+          id: row.quadra_id,
+          nome: row.quadra_nome,
+          pointId: row.quadra_pointId,
+          point: {
+            id: row.point_id,
+            nome: row.point_nome,
+          },
         },
-      },
-      usuario: row.usuario_id ? {
-        id: row.usuario_id,
-        name: row.usuario_name,
-        email: row.usuario_email,
-      } : null,
-      atleta: row.atleta_id ? {
-        id: row.atleta_id,
-        nome: row.atleta_nome,
-        fone: row.atleta_fone,
-      } : null,
-    };
+        usuario: row.usuario_id ? {
+          id: row.usuario_id,
+          name: row.usuario_name,
+          email: row.usuario_email,
+        } : null,
+        atleta: row.atleta_id ? {
+          id: row.atleta_id,
+          nome: row.atleta_nome,
+          fone: row.atleta_fone,
+        } : null,
+      };
 
-    return NextResponse.json(agendamento);
+      return NextResponse.json(agendamento);
+    }
   } catch (error: any) {
     console.error('Erro ao atualizar agendamento:', error);
     return NextResponse.json(

@@ -71,6 +71,8 @@ export default function EditarAgendamentoModal({
   const [diaMesRecorrencia, setDiaMesRecorrencia] = useState<number>(1);
   const [dataFimRecorrencia, setDataFimRecorrencia] = useState('');
   const [quantidadeOcorrencias, setQuantidadeOcorrencias] = useState<number>(12);
+  const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros
+  const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente
 
   useEffect(() => {
     if (isOpen) {
@@ -205,6 +207,38 @@ export default function EditarAgendamentoModal({
     } else {
       setModo('normal');
     }
+
+    // Preenche campos de recorrência se o agendamento já for recorrente
+    const temRecorrenciaAtual = !!agendamento.recorrenciaId || !!agendamento.recorrenciaConfig;
+    setAgendamentoJaRecorrente(temRecorrenciaAtual);
+    
+    if (temRecorrenciaAtual && agendamento.recorrenciaConfig) {
+      const config = agendamento.recorrenciaConfig;
+      setTemRecorrencia(true);
+      setTipoRecorrencia(config.tipo || null);
+      setIntervaloRecorrencia(config.intervalo || 1);
+      setDiasSemanaRecorrencia(config.diasSemana || []);
+      setDiaMesRecorrencia(config.diaMes || 1);
+      if (config.dataFim) {
+        const dataFim = new Date(config.dataFim);
+        setDataFimRecorrencia(dataFim.toISOString().split('T')[0]);
+      } else {
+        setDataFimRecorrencia('');
+      }
+      setQuantidadeOcorrencias(config.quantidadeOcorrencias || 12);
+    } else {
+      // Resetar campos de recorrência se não for recorrente
+      setTemRecorrencia(false);
+      setTipoRecorrencia(null);
+      setIntervaloRecorrencia(1);
+      setDiasSemanaRecorrencia([]);
+      setDiaMesRecorrencia(1);
+      setDataFimRecorrencia('');
+      setQuantidadeOcorrencias(12);
+    }
+    
+    // Resetar opção de aplicar recorrência
+    setAplicarARecorrencia(false);
   };
 
   const carregarQuadras = async (pointId: string) => {
@@ -396,8 +430,8 @@ export default function EditarAgendamentoModal({
       }
     }
 
-    // Validação de recorrência
-    if (temRecorrencia && !agendamento) {
+    // Validação de recorrência (criação e edição)
+    if (temRecorrencia) {
       if (!tipoRecorrencia) {
         return 'Selecione o tipo de recorrência';
       }
@@ -465,8 +499,8 @@ export default function EditarAgendamentoModal({
         }
       }
 
-      // Configuração de recorrência (apenas para criação)
-      if (!agendamento && temRecorrencia && tipoRecorrencia) {
+      // Configuração de recorrência (criação e edição)
+      if (temRecorrencia && tipoRecorrencia) {
         const recorrenciaConfig: RecorrenciaConfig = {
           tipo: tipoRecorrencia,
           intervalo: intervaloRecorrencia,
@@ -487,11 +521,18 @@ export default function EditarAgendamentoModal({
         }
 
         payload.recorrencia = recorrenciaConfig;
+      } else if (agendamento?.recorrenciaId) {
+        // Se era recorrente e desmarcou, enviar null para limpar
+        payload.recorrencia = null;
       }
 
       let resultado;
       if (agendamento) {
         // Modo edição
+        // Se o agendamento já é recorrente, adicionar opção de aplicar apenas neste ou em todos os futuros
+        if (agendamentoJaRecorrente) {
+          payload.aplicarARecorrencia = aplicarARecorrencia;
+        }
         resultado = await agendamentoService.atualizar(agendamento.id, payload);
       } else {
         // Modo criação
@@ -893,9 +934,8 @@ export default function EditarAgendamentoModal({
               </div>
             )}
 
-            {/* Seção de Recorrência (apenas para criação) */}
-            {!agendamento && (
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+            {/* Seção de Recorrência */}
+            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                 <div className="flex items-center gap-2 mb-3">
                   <input
                     type="checkbox"
@@ -1039,6 +1079,45 @@ export default function EditarAgendamentoModal({
                     )}
                   </div>
                 )}
+              </div>
+
+            {/* Opção de aplicar recorrência quando já é recorrente */}
+            {agendamento && agendamentoJaRecorrente && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-3">
+                  <Repeat className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-900 mb-2">
+                      Este agendamento faz parte de uma recorrência
+                    </p>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="aplicarRecorrencia"
+                          checked={!aplicarARecorrencia}
+                          onChange={() => setAplicarARecorrencia(false)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Aplicar alterações apenas neste agendamento
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="aplicarRecorrencia"
+                          checked={aplicarARecorrencia}
+                          onChange={() => setAplicarARecorrencia(true)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Aplicar alterações neste e em todos os agendamentos futuros desta recorrência
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

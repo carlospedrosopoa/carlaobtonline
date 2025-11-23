@@ -8,76 +8,80 @@ export interface MensagemWhatsApp {
 }
 
 /**
- * Envia uma mensagem WhatsApp para um número
+ * Envia uma mensagem WhatsApp para um número usando a WhatsApp Business API da Meta
  * 
- * Esta função é um wrapper que pode ser adaptado para diferentes APIs de WhatsApp:
- * - WhatsApp Business API (Meta)
- * - Evolution API
- * - Twilio WhatsApp API
- * - etc.
- * 
- * Por enquanto, apenas registra no console. Implemente a integração real conforme necessário.
+ * Documentação: https://developers.facebook.com/docs/whatsapp
  */
 export async function enviarMensagemWhatsApp(mensagem: MensagemWhatsApp): Promise<boolean> {
   try {
-    // TODO: Implementar integração real com API de WhatsApp
-    // Exemplos de APIs que podem ser usadas:
-    // 1. WhatsApp Business API (Meta) - https://developers.facebook.com/docs/whatsapp
-    // 2. Evolution API - https://evolution-api.com/
-    // 3. Twilio WhatsApp API - https://www.twilio.com/whatsapp
-    
-    // Por enquanto, apenas log (para desenvolvimento)
-    console.log('📱 WhatsApp - Enviando mensagem:', {
-      para: mensagem.destinatario,
-      mensagem: mensagem.mensagem,
-      tipo: mensagem.tipo || 'texto',
-    });
+    // Obter credenciais da API da Meta
+    const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+    const apiVersion = process.env.META_WHATSAPP_API_VERSION || 'v21.0';
 
-    // Exemplo de implementação com Evolution API:
-    /*
-    const evolutionApiUrl = process.env.EVOLUTION_API_URL || 'http://localhost:8080';
-    const apiKey = process.env.EVOLUTION_API_KEY;
-    
-    const response = await fetch(`${evolutionApiUrl}/message/sendText/instanceName`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': apiKey || '',
-      },
-      body: JSON.stringify({
-        number: mensagem.destinatario,
-        text: mensagem.mensagem,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao enviar WhatsApp: ${response.statusText}`);
+    // Verificar se as credenciais estão configuradas
+    if (!accessToken || !phoneNumberId) {
+      console.warn('⚠️ WhatsApp API não configurada. Configure META_WHATSAPP_ACCESS_TOKEN e META_WHATSAPP_PHONE_NUMBER_ID');
+      console.log('📱 WhatsApp - Simulando envio de mensagem:', {
+        para: mensagem.destinatario,
+        mensagem: mensagem.mensagem.substring(0, 50) + '...',
+        tipo: mensagem.tipo || 'texto',
+      });
+      // Em desenvolvimento, retorna true para não quebrar o fluxo
+      return process.env.NODE_ENV === 'development';
     }
 
-    return true;
-    */
+    // URL da API da Meta
+    const apiUrl = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
 
-    // Exemplo de implementação com Twilio:
-    /*
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioWhatsAppNumber = process.env.TWILIO_WHATSAPP_NUMBER; // formato: whatsapp:+14155238886
+    // Preparar o payload da mensagem
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: mensagem.destinatario,
+      type: 'text',
+      text: {
+        preview_url: false, // Desabilita preview de links (pode ser true se necessário)
+        body: mensagem.mensagem,
+      },
+    };
 
-    const client = require('twilio')(accountSid, authToken);
+    // Enviar requisição para a API da Meta
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-    await client.messages.create({
-      from: twilioWhatsAppNumber,
-      to: `whatsapp:+${mensagem.destinatario}`,
-      body: mensagem.mensagem,
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      // Log detalhado do erro
+      console.error('❌ Erro ao enviar mensagem WhatsApp:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: responseData.error || responseData,
+        destinatario: mensagem.destinatario,
+      });
+      return false;
+    }
+
+    // Sucesso
+    console.log('✅ Mensagem WhatsApp enviada com sucesso:', {
+      messageId: responseData.messages?.[0]?.id,
+      destinatario: mensagem.destinatario,
     });
 
     return true;
-    */
-
-    // Por enquanto, retorna true (simula sucesso)
-    return true;
   } catch (error: any) {
-    console.error('Erro ao enviar mensagem WhatsApp:', error);
+    console.error('❌ Erro ao enviar mensagem WhatsApp:', {
+      error: error.message,
+      stack: error.stack,
+      destinatario: mensagem.destinatario,
+    });
     // Não lançar erro para não quebrar o fluxo principal
     // Apenas logar o erro
     return false;
