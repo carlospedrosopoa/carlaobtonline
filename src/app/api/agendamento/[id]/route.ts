@@ -179,6 +179,7 @@ export async function PUT(
 
     const body = await request.json();
     const {
+      quadraId,
       dataHora,
       duracao,
       observacoes,
@@ -189,6 +190,7 @@ export async function PUT(
       aplicarARecorrencia = false, // false = apenas este, true = este e todos futuros
       recorrencia, // Configuração de recorrência (opcional, para criar ou atualizar recorrência)
     } = body as {
+      quadraId?: string;
       dataHora?: string;
       duracao?: number;
       observacoes?: string;
@@ -200,16 +202,40 @@ export async function PUT(
       recorrencia?: RecorrenciaConfig;
     };
 
-    // Se dataHora foi alterada, verificar conflitos
-    if (dataHora) {
+    // Se quadraId foi alterado, verificar se o usuário tem acesso à nova quadra
+    const quadraIdFinal = quadraId || agendamentoAtual.quadraId;
+    if (quadraId && quadraId !== agendamentoAtual.quadraId) {
+      // Verificar se a nova quadra existe
+      const quadraCheck = await query('SELECT id, "pointId" FROM "Quadra" WHERE id = $1', [quadraId]);
+      if (quadraCheck.rows.length === 0) {
+        return NextResponse.json(
+          { mensagem: 'Quadra não encontrada' },
+          { status: 404 }
+        );
+      }
+
+      // Verificar se ORGANIZER tem acesso à nova quadra
+      if (usuario.role === 'ORGANIZER') {
+        const temAcesso = await usuarioTemAcessoAQuadra(usuario, quadraId);
+        if (!temAcesso) {
+          return NextResponse.json(
+            { mensagem: 'Você não tem acesso a esta quadra' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    // Se dataHora ou quadraId foi alterado, verificar conflitos
+    if (dataHora || (quadraId && quadraId !== agendamentoAtual.quadraId)) {
       // Tratar dataHora como horário local do usuário e converter para UTC
-      const [dataPart, horaPart] = dataHora.split('T');
+      const dataHoraParaVerificar = dataHora || agendamentoAtual.dataHora;
+      const [dataPart, horaPart] = dataHoraParaVerificar.split('T');
       const [ano, mes, dia] = dataPart.split('-').map(Number);
       const [hora, minuto] = horaPart.split(':').map(Number);
       
-      // Criar data local e converter para UTC (mesma lógica da criação)
-      const dataHoraLocal = new Date(ano, mes - 1, dia, hora, minuto, 0);
-      const dataHoraUTC = new Date(dataHoraLocal.toISOString());
+      // Criar data UTC diretamente (mesma lógica da criação)
+      const dataHoraUTC = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
       const duracaoFinal = duracao || agendamentoAtual.duracao || 60;
       const dataHoraFim = new Date(dataHoraUTC.getTime() + duracaoFinal * 60000);
 
@@ -220,25 +246,25 @@ export async function PUT(
          AND status = 'CONFIRMADO'
          AND (
            ("dataHora" >= $3 AND "dataHora" < $4)
-           OR ("dataHora" + (duracao * INTERVAL '1 minute') >= $3 AND "dataHora" + (duracao * INTERVAL '1 minute') <= $4)
-           OR ("dataHora" <= $3 AND "dataHora" + (duracao * INTERVAL '1 minute') >= $4)
+           OR ("dataHora" + ($5 * INTERVAL '1 minute') >= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') <= $4)
+           OR ("dataHora" <= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') >= $4)
          )`,
-        [agendamentoAtual.quadraId, id, dataHoraLocal.toISOString(), dataHoraFim.toISOString()]
+        [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal]
       );
 
       if (conflitos.rows.length > 0) {
         return NextResponse.json(
-          { mensagem: 'Já existe um agendamento confirmado neste horário' },
+          { mensagem: 'Já existe um agendamento confirmado neste horário para esta quadra' },
           { status: 400 }
         );
       }
     }
 
-    // Recalcular valores se necessário
+    // Recalcular valores se necessário (quando muda quadra, data/hora ou duração)
     let valorHora: number | null = null;
     let valorCalculado: number | null = null;
 
-    if (dataHora || duracao) {
+    if (quadraId || dataHora || duracao) {
       let horaAgendamento: number | null = null;
       const duracaoFinal = duracao || agendamentoAtual.duracao || 60;
 
@@ -247,6 +273,10 @@ export async function PUT(
         const [dataPart, horaPart] = dataHora.split('T');
         const [, , , hora, minuto] = [...dataPart.split('-').map(Number), ...horaPart.split(':').map(Number)];
         horaAgendamento = hora * 60 + minuto;
+      } else if (agendamentoAtual.dataHora) {
+        // Se não mudou dataHora, usar a atual para calcular valores
+        const dataHoraAtual = new Date(agendamentoAtual.dataHora);
+        horaAgendamento = dataHoraAtual.getUTCHours() * 60 + dataHoraAtual.getUTCMinutes();
       }
 
       const tabelaPrecoResult = await query(
@@ -254,7 +284,7 @@ export async function PUT(
          FROM "TabelaPreco"
          WHERE "quadraId" = $1 AND ativo = true
          ORDER BY "inicioMinutoDia" ASC`,
-        [agendamentoAtual.quadraId]
+        [quadraIdFinal]
       );
 
       if (tabelaPrecoResult.rows.length > 0 && horaAgendamento !== null) {
@@ -273,6 +303,12 @@ export async function PUT(
     const updates: string[] = [];
     const paramsUpdate: any[] = [];
     let paramCount = 1;
+
+    if (quadraId && quadraId !== agendamentoAtual.quadraId) {
+      updates.push(`"quadraId" = $${paramCount}`);
+      paramsUpdate.push(quadraId);
+      paramCount++;
+    }
 
     if (dataHora) {
       // Tratar dataHora como horário local (sem conversão para UTC)
@@ -418,7 +454,7 @@ export async function PUT(
       
       // 4. Gerar novos agendamentos recorrentes baseados nos dados atualizados
       const dadosBase = {
-        quadraId: dadosAtuais.quadraId,
+        quadraId: quadraIdFinal,
         usuarioId: dadosAtuais.usuarioId,
         atletaId: atletaId !== undefined ? atletaId : dadosAtuais.atletaId,
         nomeAvulso: nomeAvulso !== undefined ? nomeAvulso : dadosAtuais.nomeAvulso,
@@ -460,7 +496,7 @@ export async function PUT(
              OR ("dataHora" + ($5 * INTERVAL '1 minute') >= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') <= $4)
              OR ("dataHora" <= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') >= $4)
            )`,
-          [dadosAtuais.quadraId, id, dataAgendamento.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal]
+          [quadraIdFinal, id, dataAgendamento.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal]
         );
 
         if (conflitos.rows.length > 0) {
