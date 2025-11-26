@@ -1,6 +1,7 @@
 // app/api/auth/me/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 
     const { user } = authResult;
     
-    return NextResponse.json(
+    const response = NextResponse.json(
       user,
       {
         headers: {
@@ -21,11 +22,13 @@ export async function GET(request: NextRequest) {
         }
       }
     );
+    return withCors(response, request);
   } catch (error) {
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Erro ao obter usuário" },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

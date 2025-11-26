@@ -1,0 +1,93 @@
+# ============================================
+# Arquivo de Exemplo de Variáveis de Ambiente
+# ============================================
+# 
+# INSTRUÇÕES:
+# 1. Copie este arquivo para .env.local
+# 2. Renomeie para .env.local (sem a extensão .txt)
+# 3. Preencha com seus valores reais
+# 4. O arquivo .env.local está no .gitignore e não será commitado
+#
+# ============================================
+
+# ============================================
+# OBRIGATÓRIAS
+# ============================================
+
+# Database PostgreSQL
+# Formato: postgresql://usuario:senha@host:porta/nome_do_banco
+DATABASE_URL=postgresql://usuario:senha@localhost:5432/carlaobtonline
+
+# JWT Secret - Chave secreta para assinar tokens JWT
+# Gere uma chave segura com: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+JWT_SECRET=sua-chave-secreta-jwt-aqui-gerar-com-comando-acima
+
+# ============================================
+# OPCIONAIS - CORS
+# ============================================
+
+# CORS - Domínios permitidos para consumir a API (separados por vírgula)
+# Em desenvolvimento, localhost é permitido automaticamente
+# Em produção, configure no Vercel: Settings → Environment Variables
+# Exemplo: ALLOWED_ORIGINS=https://frontend1.vercel.app,https://frontend2.com
+# ALLOWED_ORIGINS=http://localhost:3001
+
+# ============================================
+# OPCIONAIS - Google Cloud Storage (Upload de Imagens)
+# ============================================
+
+# Configuração mínima necessária (Application Default Credentials - ADC automático)
+# Em produção (Vercel/Cloud Run), as bibliotecas fazem autenticação automática
+GOOGLE_CLOUD_PROJECT_ID=sunlit-standard-479313-p2
+GOOGLE_CLOUD_STORAGE_BUCKET=my-image-database-bucket
+
+# Opção alternativa: Para desenvolvimento local (usar arquivo de credenciais)
+# Descomente apenas se estiver testando localmente e não tiver ADC configurado
+# GOOGLE_APPLICATION_CREDENTIALS=./path/to/service-account-key.json
+
+# Opção alternativa: Usar chave específica em base64 (casos especiais)
+# GOOGLE_CLOUD_KEY=<base64-encoded-service-account-key>
+# Para gerar base64: cat service-account-key.json | base64
+
+# ============================================
+# OPCIONAIS - Template de Card de Partida
+# ============================================
+
+# URL do template padrão para geração de cards de partida
+# Esta URL deve apontar para uma imagem no Google Cloud Storage (ou outro serviço)
+# Quando uma partida não tem template salvo, este será usado
+# Exemplo: CARD_DEFAULT_TEMPLATE_URL=https://storage.googleapis.com/seu-bucket/templates/card-template-v1.png
+# CARD_DEFAULT_TEMPLATE_URL=
+
+# ============================================
+# OPCIONAIS - WhatsApp Business API (Meta)
+# ============================================
+
+# Obrigatórias para envio de mensagens:
+# META_WHATSAPP_ACCESS_TOKEN=seu_access_token_aqui
+# META_WHATSAPP_PHONE_NUMBER_ID=seu_phone_number_id_aqui
+
+# Opcionais (mas recomendadas):
+# META_WHATSAPP_BUSINESS_ACCOUNT_ID=seu_business_account_id_aqui
+# META_WHATSAPP_APP_SECRET=seu_app_secret_aqui
+# META_WHATSAPP_WEBHOOK_VERIFY_TOKEN=seu_webhook_token_aqui
+# META_WHATSAPP_API_VERSION=v21.0
+
+# ============================================
+# OPCIONAIS - Outras
+# ============================================
+
+# API URL (padrão: /api - geralmente não precisa alterar)
+# NEXT_PUBLIC_API_URL=/api
+
+# ============================================
+# NOTAS
+# ============================================
+# 
+# - NUNCA commite o arquivo .env.local no Git
+# - Mantenha suas credenciais em segredo
+# - Use variáveis diferentes para desenvolvimento e produção
+# - Para produção no Vercel, configure via dashboard: Settings → Environment Variables
+#
+# ============================================
+

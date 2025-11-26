@@ -138,15 +138,25 @@ export default function MinhasPartidas({
 
                     // Carrega a imagem com autenticação
                     try {
-                      const response = await api.get(`/card/partida/${p.id}`, {
+                      const response = await api.get(`/card/partida/${p.id}?refresh=true`, {
                         responseType: 'blob',
                       });
-                      const blob = new Blob([response.data], { type: 'image/png' });
+                      
+                      // response.data já é um Blob quando responseType é 'blob'
+                      const blob = response.data instanceof Blob 
+                        ? response.data 
+                        : new Blob([response.data], { type: 'image/png' });
+                      
                       const imageUrl = URL.createObjectURL(blob);
                       setCardImageUrl(imageUrl);
                       setCardLoading(false);
-                    } catch (error) {
+                    } catch (error: any) {
                       console.error('Erro ao carregar card:', error);
+                      console.error('Detalhes do erro:', {
+                        message: error.message,
+                        status: error.status,
+                        data: error.data,
+                      });
                       setCardError(true);
                       setCardLoading(false);
                     }
@@ -301,7 +311,7 @@ export default function MinhasPartidas({
                         setCardImageUrl(null);
 
                         try {
-                          const response = await api.get(`/card/partida/${showCardId}`, {
+                          const response = await api.get(`/card/partida/${showCardId}?refresh=true`, {
                             responseType: 'blob',
                           });
                           const blob = new Blob([response.data], { type: 'image/png' });

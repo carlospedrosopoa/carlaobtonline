@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import MinhasPartidasCompacta from '@/components/MinhasPartidasCompacta';
 import MinhasPartidas from '@/components/MinhasPartidas';
 import GraficoEvolutivo from '@/components/GraficoEvolutivo';
+import ModalPlacar from '@/components/ModalPlacar';
 import { api } from '@/lib/api';
 import type { Atleta, Partida } from '@/types/domain';
 
@@ -173,6 +174,19 @@ export default function AtletaDashboardPage() {
           <p className="text-gray-600">Carregando informações do atleta...</p>
         </div>
       )}
+
+      {/* Modal de atualizar placar */}
+      <ModalPlacar
+        isOpen={modalPlacar}
+        partida={partidaSelecionada}
+        onClose={() => {
+          setModalPlacar(false);
+          setPartidaSelecionada(null);
+        }}
+        onSuccess={() => {
+          carregarPartidas();
+        }}
+      />
       </div>
     </div>
   );

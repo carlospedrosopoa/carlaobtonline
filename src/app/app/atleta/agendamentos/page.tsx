@@ -13,7 +13,6 @@ import { Calendar, Clock, MapPin, Plus, X, CheckCircle, XCircle, CalendarCheck, 
 export default function AgendamentosPage() {
   const router = useRouter();
   const { usuario } = useAuth();
-  const isAdmin = usuario?.role === 'ADMIN';
   const [points, setPoints] = useState<Point[]>([]);
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -82,7 +81,7 @@ export default function AgendamentosPage() {
   };
 
   const handleEditar = (agendamento: Agendamento) => {
-    const podeEditar = isAdmin || agendamento.usuarioId === usuario?.id;
+    const podeEditar = agendamento.usuarioId === usuario?.id;
     
     if (!podeEditar) {
       alert('Você não tem permissão para editar este agendamento');
@@ -94,7 +93,7 @@ export default function AgendamentosPage() {
   };
 
   const handleCancelar = (agendamento: Agendamento) => {
-    const podeCancelar = isAdmin || agendamento.usuarioId === usuario?.id;
+    const podeCancelar = agendamento.usuarioId === usuario?.id;
     
     if (!podeCancelar) {
       alert('Você não tem permissão para cancelar este agendamento');
@@ -434,7 +433,7 @@ export default function AgendamentosPage() {
                         {getStatusBadge(agendamento.status)}
                         <div className="flex gap-2">
                           {agendamento.status === 'CONFIRMADO' && 
-                           (isAdmin || agendamento.usuarioId === usuario?.id) && (
+                           agendamento.usuarioId === usuario?.id && (
                             <>
                               <button
                                 onClick={() => handleEditar(agendamento)}

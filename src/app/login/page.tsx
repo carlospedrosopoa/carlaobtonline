@@ -145,15 +145,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Não tem conta?{' '}
-              <a href="/criar-conta" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
-                Criar conta
-              </a>
-            </p>
-          </div>
         </div>
       </div>
     </div>

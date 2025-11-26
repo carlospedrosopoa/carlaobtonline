@@ -31,11 +31,16 @@ export async function criarAtleta(usuarioId: string, dados: {
   
   // Inserir arenas frequentes
   if (dados.pointIdsFrequentes && dados.pointIdsFrequentes.length > 0) {
-    for (const pointId of dados.pointIdsFrequentes) {
-      await query(
-        'INSERT INTO "AtletaPoint" ("atletaId", "pointId", "createdAt") VALUES ($1, $2, NOW()) ON CONFLICT ("atletaId", "pointId") DO NOTHING',
-        [id, pointId]
-      );
+    try {
+      for (const pointId of dados.pointIdsFrequentes) {
+        await query(
+          'INSERT INTO "AtletaPoint" ("atletaId", "pointId", "createdAt") VALUES ($1, $2, NOW()) ON CONFLICT ("atletaId", "pointId") DO NOTHING',
+          [id, pointId]
+        );
+      }
+    } catch (error: any) {
+      console.warn('Erro ao inserir arenas frequentes (tabela pode não existir ainda):', error?.message);
+      // Continua mesmo se houver erro - a tabela pode não existir ainda
     }
   }
   
@@ -266,17 +271,22 @@ export async function atualizarAtleta(atletaId: string, dados: {
 
   // Atualizar arenas frequentes se fornecido
   if (dados.pointIdsFrequentes !== undefined) {
-    // Remover todas as arenas frequentes existentes
-    await query('DELETE FROM "AtletaPoint" WHERE "atletaId" = $1', [atletaId]);
-    
-    // Inserir novas arenas frequentes
-    if (dados.pointIdsFrequentes.length > 0) {
-      for (const pointId of dados.pointIdsFrequentes) {
-        await query(
-          'INSERT INTO "AtletaPoint" ("atletaId", "pointId", "createdAt") VALUES ($1, $2, NOW())',
-          [atletaId, pointId]
-        );
+    try {
+      // Remover todas as arenas frequentes existentes
+      await query('DELETE FROM "AtletaPoint" WHERE "atletaId" = $1', [atletaId]);
+      
+      // Inserir novas arenas frequentes
+      if (dados.pointIdsFrequentes.length > 0) {
+        for (const pointId of dados.pointIdsFrequentes) {
+          await query(
+            'INSERT INTO "AtletaPoint" ("atletaId", "pointId", "createdAt") VALUES ($1, $2, NOW())',
+            [atletaId, pointId]
+          );
+        }
       }
+    } catch (error: any) {
+      console.warn('Erro ao atualizar arenas frequentes (tabela pode não existir ainda):', error?.message);
+      // Continua mesmo se houver erro - a tabela pode não existir ainda
     }
   }
 

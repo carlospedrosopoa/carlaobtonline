@@ -1,6 +1,7 @@
 // app/api/atleta/listarAtletasPaginados/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import { listarAtletasPaginados } from '@/lib/atletaService';
 
 export async function GET(request: NextRequest) {
@@ -18,13 +19,15 @@ export async function GET(request: NextRequest) {
 
     const atletas = await listarAtletasPaginados(busca, pagina, limite);
 
-    return NextResponse.json(atletas);
+    const response = NextResponse.json(atletas);
+    return withCors(response, request);
   } catch (error) {
     console.error('Erro ao buscar atletas paginados:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Erro ao buscar atletas" },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

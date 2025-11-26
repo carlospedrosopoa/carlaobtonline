@@ -1,7 +1,9 @@
 // app/api/atleta/criarAtleta/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import { criarAtleta } from '@/lib/atletaService';
+import { uploadImage, base64ToBuffer } from '@/lib/googleCloudStorage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,35 +19,64 @@ export async function POST(request: NextRequest) {
     const { nome, categoria, dataNascimento, genero, fone, fotoUrl, pointIdPrincipal, pointIdsFrequentes } = body;
 
     if (!nome || !dataNascimento) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: "nome e dataNascimento são obrigatórios" },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
-    // fotoUrl: Atualmente usando base64. 
-    // TODO: Migrar para URL quando implementar upload para Vercel Blob Storage/Cloudinary
+    // Processar fotoUrl: se for base64, fazer upload para GCS
+    let fotoUrlProcessada: string | null = null;
+    if (fotoUrl) {
+      if (fotoUrl.startsWith('data:image/')) {
+        // É base64 - fazer upload para GCS
+        try {
+          const buffer = base64ToBuffer(fotoUrl);
+          // Detectar extensão do base64
+          const mimeMatch = fotoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `atleta-foto.${extension}`;
+          
+          const result = await uploadImage(buffer, fileName, 'atletas');
+          fotoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload da imagem:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload da imagem' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (fotoUrl.startsWith('http://') || fotoUrl.startsWith('https://')) {
+        // Já é uma URL - usar diretamente
+        fotoUrlProcessada = fotoUrl;
+      }
+    }
+
     const novoAtleta = await criarAtleta(user.id, {
       nome,
       dataNascimento,
       categoria: categoria || null,
       genero: genero || null,
       fone: fone || null,
-      fotoUrl: fotoUrl || null,
+      fotoUrl: fotoUrlProcessada,
       pointIdPrincipal: pointIdPrincipal || null,
       pointIdsFrequentes: Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [],
     });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       novoAtleta,
       { status: 201 }
     );
+    return withCors(response, request);
   } catch (error) {
     console.error('Erro ao criar atleta:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: "Erro ao criar atleta" },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

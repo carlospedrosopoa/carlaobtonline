@@ -1,8 +1,8 @@
-// middleware.ts - Middleware global do Next.js para CORS
+// proxy.ts - Proxy global do Next.js para CORS
 import { NextRequest, NextResponse } from 'next/server';
 import { handleCorsPreflight, withCors } from '@/lib/cors';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Aplica CORS apenas para rotas da API
   if (request.nextUrl.pathname.startsWith('/api/')) {
     // Handle preflight requests (OPTIONS)

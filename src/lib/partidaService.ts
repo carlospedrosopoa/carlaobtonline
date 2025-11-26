@@ -26,8 +26,8 @@ export async function criarPartida(dados: {
 
   const partidaId = uuidv4();
   await query(
-    `INSERT INTO "Partida" (id, data, local, "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id", "gamesTime1", "gamesTime2", "tiebreakTime1", "tiebreakTime2", "createdAt") 
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+    `INSERT INTO "Partida" (id, data, local, "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id", "gamesTime1", "gamesTime2", "tiebreakTime1", "tiebreakTime2", "createdAt", "updatedAt") 
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
     [
       partidaId,
       new Date(dados.data),
@@ -96,6 +96,37 @@ export async function listarPartidas() {
   return partidas;
 }
 
+export async function buscarPartidaPorId(partidaId: string) {
+  const result = await query(
+    `SELECT p.*, 
+     a1.nome as "atleta1Nome", a1.id as "atleta1Id", 
+     a2.nome as "atleta2Nome", a2.id as "atleta2Id",
+     a3.nome as "atleta3Nome", a3.id as "atleta3Id", 
+     a4.nome as "atleta4Nome", a4.id as "atleta4Id"
+     FROM "Partida" p
+     LEFT JOIN "Atleta" a1 ON p."atleta1Id" = a1.id
+     LEFT JOIN "Atleta" a2 ON p."atleta2Id" = a2.id
+     LEFT JOIN "Atleta" a3 ON p."atleta3Id" = a3.id
+     LEFT JOIN "Atleta" a4 ON p."atleta4Id" = a4.id
+     WHERE p.id = $1`,
+    [partidaId]
+  );
+  
+  if (result.rows.length === 0) {
+    return null;
+  }
+  
+  const partida = result.rows[0];
+  
+  return {
+    ...partida,
+    atleta1: partida.atleta1Nome ? { id: partida.atleta1Id, nome: partida.atleta1Nome } : null,
+    atleta2: partida.atleta2Nome ? { id: partida.atleta2Id, nome: partida.atleta2Nome } : null,
+    atleta3: partida.atleta3Nome ? { id: partida.atleta3Id, nome: partida.atleta3Nome } : null,
+    atleta4: partida.atleta4Nome ? { id: partida.atleta4Id, nome: partida.atleta4Nome } : null,
+  };
+}
+
 export async function atualizarPlacar(partidaId: string, placar: {
   gamesTime1: number | null;
   gamesTime2: number | null;
@@ -104,7 +135,7 @@ export async function atualizarPlacar(partidaId: string, placar: {
 }) {
   await query(
     `UPDATE "Partida" 
-     SET "gamesTime1" = $1, "gamesTime2" = $2, "tiebreakTime1" = $3, "tiebreakTime2" = $4
+     SET "gamesTime1" = $1, "gamesTime2" = $2, "tiebreakTime1" = $3, "tiebreakTime2" = $4, "updatedAt" = NOW()
      WHERE id = $5`,
     [
       placar.gamesTime1,
@@ -115,8 +146,8 @@ export async function atualizarPlacar(partidaId: string, placar: {
     ]
   );
   
-  const result = await query('SELECT * FROM "Partida" WHERE id = $1', [partidaId]);
-  return result.rows[0];
+  // Retornar partida completa com atletas
+  return await buscarPartidaPorId(partidaId);
 }
 
 

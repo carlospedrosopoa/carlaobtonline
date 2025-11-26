@@ -1,121 +1,101 @@
-# App Unificado - Next.js
+# App Atleta
 
-Sistema completo com frontend e backend unificados em Next.js.
+Aplicação frontend focada na experiência do usuário final (USER) para agendamento de quadras e gestão de partidas.
 
-## 🚀 Deploy no Vercel
+## 🎯 Objetivo
 
-### Configuração Inicial
+Este projeto é uma aplicação separada do projeto principal (`carlaobtonline`), focada exclusivamente na experiência do usuário final. O projeto principal (`carlaobtonline`) contém a API e a interface de gestão para ADMIN e ORGANIZER.
 
-1. **Importe este repositório no Vercel:**
-   - Conecte seu repositório GitHub ao Vercel
-   - O Vercel detectará automaticamente que é um projeto Next.js
+## 🚀 Configuração
 
-2. **Configure as variáveis de ambiente:**
-   - Vá em **Settings → Environment Variables**
-   - Adicione:
-     - `DATABASE_URL`: URL de conexão do PostgreSQL
-     - `JWT_SECRET`: Chave secreta para assinar tokens JWT (obrigatório!)
+### Variáveis de Ambiente
 
-3. **Deploy automático:**
-   - A cada `git push`, o Vercel faz deploy automaticamente
-   - Ou faça deploy manual via Dashboard
+**📝 Template disponível:** Veja `ENV_EXAMPLE.txt` para um exemplo completo.
 
-### ⚠️ Importante
-
-- **JWT_SECRET é obrigatório** - Gere uma chave forte:
-  ```bash
-  node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-  ```
-- Após adicionar variáveis, faça um **Redeploy**
-- Veja o guia completo em `DEPLOY_VERCEL.md`
-
-## 📦 Instalação Local
-
-### Pré-requisitos
-
-- **Node.js** 18+ instalado
-- **PostgreSQL** instalado e rodando (ou acesso a um banco remoto como Neon, Supabase, etc.)
-- **npm** ou **yarn**
-
-### Passos para rodar localmente
-
-1. **Clone o repositório** (se ainda não tiver):
-   ```bash
-   git clone <url-do-repositorio>
-   cd carlaobtonline
-   ```
-
-2. **Instale as dependências**:
-   ```bash
-   npm install
-   ```
-
-3. **Configure as variáveis de ambiente**:
-   
-   Crie um arquivo `.env.local` na raiz do projeto:
-   ```env
-   DATABASE_URL=postgresql://usuario:senha@localhost:5432/carlaobtonline
-   ```
-   
-   **Exemplos de DATABASE_URL:**
-   - **PostgreSQL local**: `postgresql://postgres:senha@localhost:5432/carlaobtonline`
-   - **Neon/Supabase**: `postgresql://user:pass@host.neon.tech:5432/db?sslmode=require`
-   - **Outros serviços**: Consulte a documentação do seu provedor
-
-4. **Inicie o servidor de desenvolvimento**:
-   ```bash
-   npm run dev
-   ```
-
-5. **Acesse a aplicação**:
-   - Abra seu navegador em: `http://localhost:3000`
-   - A aplicação redirecionará para `/login` se não estiver autenticado
-
-### ⚠️ Importante
-
-- Certifique-se de que o banco de dados está acessível e possui as tabelas necessárias
-- Se for a primeira vez rodando, você precisará criar as tabelas no banco (migrations/schema)
-- O arquivo `.env.local` não deve ser commitado (já está no `.gitignore`)
-
-## 🔧 Tecnologias
-
-- **Next.js 16** - Framework React com App Router
-- **React 19** - Biblioteca UI
-- **TypeScript** - Tipagem estática
-- **PostgreSQL** - Banco de dados relacional
-- **Tailwind CSS 4** - Framework de estilos
-- **JWT (jsonwebtoken)** - Autenticação com tokens
-- **bcryptjs** - Hash de senhas
-- **Recharts** - Gráficos e visualizações
-
-## 📝 Variáveis de Ambiente
-
-| Variável | Descrição | Obrigatória |
-|----------|-----------|-------------|
-| `DATABASE_URL` | URL de conexão PostgreSQL | ✅ Sim |
-| `JWT_SECRET` | Chave secreta para assinar tokens JWT | ✅ Sim (produção) |
-| `JWT_EXPIRES_IN` | Tempo de expiração do access token (padrão: `7d`) | ❌ Não |
-| `JWT_REFRESH_EXPIRES_IN` | Tempo de expiração do refresh token (padrão: `30d`) | ❌ Não |
-| `NEXT_PUBLIC_API_URL` | URL base da API (padrão: `/api`) | ❌ Não |
-
-### Exemplo de `.env.local`:
+Crie um arquivo `.env.local` na raiz do projeto:
 
 ```env
-DATABASE_URL=postgresql://usuario:senha@localhost:5432/carlaobtonline
-JWT_SECRET=sua-chave-secreta-super-segura-mude-em-producao
-JWT_EXPIRES_IN=7d
-JWT_REFRESH_EXPIRES_IN=30d
+# URL da API (projeto principal)
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
+
+# Para produção, use a URL do projeto principal:
+# NEXT_PUBLIC_API_URL=https://seu-dominio.com/api
+
+# Database (se necessário para desenvolvimento local)
+DATABASE_URL=postgresql://...
+
+# CORS - Domínios permitidos para consumir a API (separados por vírgula)
+# Em desenvolvimento, localhost é permitido automaticamente
+# Em produção, configure no Vercel: Settings → Environment Variables
+# Exemplo: ALLOWED_ORIGINS=https://frontend1.vercel.app,https://frontend2.com
+# ALLOWED_ORIGINS=https://meu-frontend.vercel.app
+
+# Google Cloud Storage (opcional - para upload de imagens)
+# Em produção (Vercel), apenas estas duas variáveis são necessárias:
+# GOOGLE_CLOUD_PROJECT_ID=seu-projeto-id
+# GOOGLE_CLOUD_STORAGE_BUCKET=seu-bucket-name
+# A autenticação é automática via Application Default Credentials (ADC)
+# 
+# Para desenvolvimento local (opcional - apenas se não tiver ADC configurado):
+# GOOGLE_APPLICATION_CREDENTIALS=./path/to/service-account-key.json
 ```
 
-**⚠️ IMPORTANTE:** Em produção, gere uma chave secreta forte:
+#### 🔧 Configuração de CORS para Produção (Vercel)
+
+Para permitir que frontends externos consumam a API em produção:
+
+1. Acesse o dashboard do Vercel → Seu Projeto → **Settings** → **Environment Variables**
+2. Adicione a variável:
+   - **Name**: `ALLOWED_ORIGINS`
+   - **Value**: Domínios separados por vírgula (ex: `https://frontend1.vercel.app,https://frontend2.com`)
+   - **Environment**: Production (e Preview se necessário)
+3. Faça um **Redeploy** do projeto
+
+📖 **Guia completo**: Veja `VERCEL_CORS_SETUP.md` para instruções detalhadas.
+
+### Instalação
+
 ```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+npm install
 ```
 
-## 🏗️ Estrutura
+### Desenvolvimento
 
-- `/src/app` - Páginas e rotas da API
-- `/src/components` - Componentes React
-- `/src/lib` - Utilitários e serviços
-- `/src/context` - Context API
-- `/src/types` - Tipos TypeScript
+```bash
+npm run dev
+```
+
+A aplicação estará disponível em `http://localhost:3001` (ou outra porta disponível).
+
+## 📁 Estrutura
+
+- `/src/app` - Rotas e páginas da aplicação
+- `/src/components` - Componentes React reutilizáveis
+- `/src/lib` - Utilitários e configurações (API client, auth, etc.)
+- `/src/services` - Serviços para comunicação com a API
+- `/src/types` - Definições TypeScript
+
+## 🔐 Autenticação
+
+A autenticação é feita via JWT através da API do projeto principal. O token é armazenado no `localStorage` e enviado em todas as requisições.
+
+## 🎨 Funcionalidades
+
+- **Dashboard**: Visualização de quadras disponíveis e partidas
+- **Agendamentos**: Listagem, criação e edição de agendamentos
+- **Agenda Semanal**: Visualização semanal de agendamentos
+- **Perfil**: Gerenciamento do perfil do atleta
+
+## 📝 Notas
+
+- Este projeto consome a API do projeto principal (`carlaobtonline`)
+- Todas as rotas de API estão no projeto principal
+- Este projeto contém apenas o frontend para usuários finais
+
+## 📚 Documentação da API
+
+Para frontends externos que precisam consumir a API:
+
+- **Documentação Completa**: Veja `API_DOCUMENTATION.md` para todas as rotas disponíveis, exemplos de uso, autenticação e tratamento de erros.
+- **Configuração CORS**: Veja `VERCEL_CORS_SETUP.md` para configurar CORS em produção no Vercel.
+- **Upload de Imagens**: Veja `GOOGLE_CLOUD_STORAGE_SETUP.md` para configurar upload de imagens com Google Cloud Storage.

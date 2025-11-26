@@ -1,0 +1,121 @@
+PROMPT PARA IMPLEMENTAÇÃO DE CARDS DE PARTIDA - FRONTEND EXTERNO
+====================================================================
+
+OBJETIVO:
+Implementar visualização e download de cards promocionais de partidas no frontend externo.
+
+ENDPOINT DA API:
+GET /api/card/partida/[id]
+
+URL COMPLETA:
+https://sua-api.vercel.app/api/card/partida/[ID-DA-PARTIDA]
+
+AUTENTICAÇÃO:
+Requerida - Header: Authorization: Bearer [SEU_TOKEN_JWT]
+
+PARÂMETROS:
+- id (path): ID da partida
+- refresh (query, opcional): "true" para forçar regeneração (ignora cache)
+
+RESPOSTA:
+- Content-Type: image/png
+- Body: Blob/Buffer da imagem PNG (1080x1920px)
+
+IMPLEMENTAÇÃO BÁSICA (React):
+
+1. Criar função para carregar card:
+```typescript
+async function loadCard(partidaId: string, forceRefresh = false) {
+  const token = localStorage.getItem('accessToken');
+  const url = `${API_BASE_URL}/card/partida/${partidaId}${forceRefresh ? '?refresh=true' : ''}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  
+  if (!response.ok) throw new Error(`Erro ${response.status}`);
+  
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+```
+
+2. Criar componente modal:
+```typescript
+function CardModal({ partidaId, onClose }) {
+  const [cardUrl, setCardUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    setLoading(true);
+    loadCard(partidaId).then(url => {
+      setCardUrl(url);
+      setLoading(false);
+    });
+  }, [partidaId]);
+  
+  return (
+    <div className="modal">
+      {loading && <div>Gerando card...</div>}
+      {cardUrl && (
+        <>
+          <img src={cardUrl} alt="Card da Partida" />
+          <a href={cardUrl} download={`card-${partidaId}.png`}>
+            Baixar Card
+          </a>
+          <button onClick={() => window.open(cardUrl, '_blank')}>
+            Abrir em Nova Aba
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+3. Botão para abrir modal:
+```typescript
+<button onClick={() => setShowCard(true)}>
+  Ver Card
+</button>
+```
+
+FUNCIONALIDADES OBRIGATÓRIAS:
+- [ ] Exibir card em modal/overlay
+- [ ] Botão de download (salvar PNG)
+- [ ] Botão para abrir em nova aba
+- [ ] Loading state durante geração
+- [ ] Tratamento de erros (401, 404, 500)
+- [ ] Cleanup de blob URLs (URL.revokeObjectURL)
+
+FUNCIONALIDADES OPCIONAIS:
+- [ ] Botão "Regenerar Card" (usa ?refresh=true)
+- [ ] Compartilhamento em redes sociais
+- [ ] Cache local (sessionStorage)
+- [ ] Preview em miniatura na lista
+
+TRATAMENTO DE ERROS:
+- 401: Token inválido/expirado → Redirecionar para login
+- 404: Partida não encontrada → Mostrar mensagem
+- 400: Partida inválida (menos de 2 atletas) → Mostrar mensagem
+- 500: Erro no servidor → Mostrar mensagem genérica
+
+CACHE:
+- Por padrão: Cache de 1 hora (cards carregam rápido)
+- Com ?refresh=true: Sem cache (força regeneração)
+- Use refresh quando: atualizar dados da partida, mudar template, ou debugging
+
+DIMENSÕES DO CARD:
+- Tamanho: 1080x1920px (formato vertical/portrait)
+- Formato: PNG
+- Peso: ~100-500KB (depende do template e fotos)
+
+EXEMPLO DE USO COMPLETO:
+Ver arquivo: FRONTEND_EXTERNO_CARD_IMPLEMENTATION.md
+
+DOCUMENTAÇÃO COMPLETA:
+- Guia detalhado: FRONTEND_EXTERNO_CARD_IMPLEMENTATION.md
+- API completa: API_DOCUMENTATION.md
+

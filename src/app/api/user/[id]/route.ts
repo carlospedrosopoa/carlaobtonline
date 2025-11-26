@@ -1,6 +1,7 @@
 // app/api/user/[id]/route.ts - Atualizar usuário (apenas ADMIN)
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import * as userService from '@/lib/userService';
 
 export async function PUT(
@@ -18,10 +19,11 @@ export async function PUT(
     
     // Apenas ADMIN pode atualizar usuários
     if (user.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Acesso negado. Apenas administradores podem atualizar usuários.' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -36,36 +38,40 @@ export async function PUT(
     // Validar que o usuário existe
     const usuarioExistente = await userService.getUsuarioById(id);
     if (!usuarioExistente) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Usuário não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Validar role se fornecido
     if (role && !['ADMIN', 'USER', 'ORGANIZER'].includes(role)) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Role inválido. Use ADMIN, USER ou ORGANIZER' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Validar email se fornecido
     if (email !== undefined && email !== null) {
       const emailLower = email.toLowerCase().trim();
       if (!emailLower) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Email não pode ser vazio' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
       // Verificar se o email já está em uso por outro usuário
       const emailCheck = await userService.getUsuarioByEmail(emailLower);
       if (emailCheck && emailCheck.id !== id) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Este email já está em uso por outro usuário' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -99,31 +105,35 @@ export async function PUT(
     if (pointIdGestor !== undefined) {
       dadosAtualizacao.pointIdGestor = pointIdGestor || null;
     }
-    if (whatsapp !== undefined) {
-      dadosAtualizacao.whatsapp = whatsapp || null;
-    }
+    // WhatsApp: coluna não existe ainda na tabela User
+    // if (whatsapp !== undefined) {
+    //   dadosAtualizacao.whatsapp = whatsapp || null;
+    // }
 
     const usuarioAtualizado = await userService.atualizarUsuarioAdmin(id, dadosAtualizacao);
 
     if (!usuarioAtualizado) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhuma alteração foi fornecida' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
-    return NextResponse.json(usuarioAtualizado, {
+    const response = NextResponse.json(usuarioAtualizado, {
       headers: {
         'Cache-Control': 'no-store',
         'Vary': 'Authorization'
       }
     });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar usuário:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: error.message || 'Erro ao atualizar usuário' },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

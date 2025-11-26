@@ -7,11 +7,15 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import type { Atleta, Partida } from '@/types/domain';
 import MinhasPartidasCompacta from '@/components/MinhasPartidasCompacta';
+import QuadrasDisponiveis from '@/components/QuadrasDisponiveis';
+import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 
 export default function DashboardPage() {
   const [atleta, setAtleta] = useState<Atleta | null>(null);
   const [partidas, setPartidas] = useState<Partida[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [modalAgendamentoAberto, setModalAgendamentoAberto] = useState(false);
+  const [quadraIdParaAgendar, setQuadraIdParaAgendar] = useState<string | null>(null);
   const router = useRouter();
   const { usuario, authReady } = useAuth();
 
@@ -103,9 +107,38 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-bold text-gray-800 mb-2">Dashboard</h1>
 
+      {/* Seção de Quadras Disponíveis - Sempre visível para USER */}
+      {usuario?.role === 'USER' && (
+        <QuadrasDisponiveis
+          onAgendar={(quadraId) => {
+            setQuadraIdParaAgendar(quadraId);
+            setModalAgendamentoAberto(true);
+          }}
+        />
+      )}
+
+      {/* Modal de Agendamento */}
+      {usuario?.role === 'USER' && (
+        <EditarAgendamentoModal
+          isOpen={modalAgendamentoAberto}
+          agendamento={null}
+          quadraIdInicial={quadraIdParaAgendar || undefined}
+          onClose={() => {
+            setModalAgendamentoAberto(false);
+            setQuadraIdParaAgendar(null);
+          }}
+          onSuccess={() => {
+            setModalAgendamentoAberto(false);
+            setQuadraIdParaAgendar(null);
+            // Recarregar dados se necessário
+          }}
+        />
+      )}
+
+      {/* Seção de Partidas - Apenas se tiver perfil de atleta */}
       {atleta ? (
         <>
           <MinhasPartidasCompacta
@@ -123,7 +156,7 @@ export default function DashboardPage() {
             pageSize={5}
           />
         </>
-      ) : (
+      ) : usuario?.role === 'USER' ? (
         <div className="bg-white rounded-xl shadow p-4">
           <p className="text-gray-600 mb-4">Você ainda não tem um perfil de atleta.</p>
           <button
@@ -133,7 +166,7 @@ export default function DashboardPage() {
             Criar Perfil de Atleta
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -6,10 +6,17 @@ import { v4 as uuidv4 } from 'uuid';
 export const createUser = async (
   name: string,
   email: string,
-  password: string
+  password: string,
+  role: string = 'USER'
 ) => {
   if (!name || !email || !password) {
     throw new Error("name, email e password são obrigatórios");
+  }
+
+  // Validar role
+  const rolesValidos = ['ADMIN', 'ORGANIZER', 'USER'];
+  if (!rolesValidos.includes(role)) {
+    throw new Error(`Role inválido. Deve ser um dos: ${rolesValidos.join(', ')}`);
   }
 
   const exists = await query('SELECT id FROM "User" WHERE email = $1', [email.toLowerCase().trim()]);
@@ -22,7 +29,7 @@ export const createUser = async (
 
   await query(
     'INSERT INTO "User" (id, name, email, password, role, "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
-    [id, name, email.toLowerCase().trim(), hash, 'USER']
+    [id, name, email.toLowerCase().trim(), hash, role]
   );
 
   const result = await query(
@@ -67,7 +74,7 @@ export const atualizarUsuario = async (id: string, dados: { name?: string; passw
 
 export const getUsuarioById = async (id: string) => {
   const result = await query(
-    'SELECT id, name, email, role, "pointIdGestor", whatsapp FROM "User" WHERE id = $1',
+    'SELECT id, name, email, role, "pointIdGestor" FROM "User" WHERE id = $1',
     [id]
   );
   return result.rows[0] || null;
@@ -126,12 +133,13 @@ export const atualizarUsuarioAdmin = async (
     updates.push(`"pointIdGestor" = $${paramIndex++}`);
     values.push(dados.pointIdGestor);
   }
-  if (dados.whatsapp !== undefined) {
-    // Formatar WhatsApp: remover caracteres não numéricos
-    const whatsappFormatado = dados.whatsapp ? dados.whatsapp.replace(/\D/g, '') : null;
-    updates.push(`whatsapp = $${paramIndex++}`);
-    values.push(whatsappFormatado || null);
-  }
+  // WhatsApp: coluna não existe ainda na tabela User
+  // if (dados.whatsapp !== undefined) {
+  //   // Formatar WhatsApp: remover caracteres não numéricos
+  //   const whatsappFormatado = dados.whatsapp ? dados.whatsapp.replace(/\D/g, '') : null;
+  //   updates.push(`whatsapp = $${paramIndex++}`);
+  //   values.push(whatsappFormatado || null);
+  // }
 
   if (updates.length === 0) {
     if (process.env.NODE_ENV === 'development') {
@@ -152,7 +160,7 @@ export const atualizarUsuarioAdmin = async (
   );
 
   const result = await query(
-    'SELECT id, name, email, role, "pointIdGestor", whatsapp, "createdAt" FROM "User" WHERE id = $1',
+    'SELECT id, name, email, role, "pointIdGestor", "createdAt" FROM "User" WHERE id = $1',
     [id]
   );
   return result.rows[0] || null;

@@ -22,16 +22,10 @@ const Menu = () => {
   };
 
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', roles: ['USER', 'ADMIN'] },
-    { path: '/perfil', label: 'Meu Perfil', roles: ['USER', 'ADMIN'] },
-    { path: '/agendamentos', label: 'Agendamentos', roles: ['USER', 'ADMIN'] },
-    { path: '/agendamentos/agenda', label: 'Agenda Semanal', roles: ['USER', 'ADMIN'] },
-    { path: '/app/arena', label: 'Área da Arena', roles: ['ORGANIZER'] },
-    { path: '/usuarios', label: 'Usuários', roles: ['ADMIN'] },
-    { path: '/atletas', label: 'Atletas', roles: ['ADMIN'] },
-    { path: '/app/admin/points', label: 'Estabelecimentos', roles: ['ADMIN'] },
-    { path: '/app/admin/quadras', label: 'Quadras', roles: ['ADMIN'] },
-    { path: '/app/admin/tabela-precos', label: 'Tabela de Preços', roles: ['ADMIN'] },
+    { path: '/dashboard', label: 'Dashboard', roles: ['USER'] },
+    { path: '/perfil', label: 'Meu Perfil', roles: ['USER'] },
+    { path: '/app/atleta/agendamentos', label: 'Agendamentos', roles: ['USER'] },
+    { path: '/app/atleta/agendamentos/agenda', label: 'Agenda Semanal', roles: ['USER'] },
   ];
 
   const filteredItems = menuItems.filter((item) => item.roles.includes(usuario?.role || ''));
@@ -53,7 +47,7 @@ const Menu = () => {
           {/* Logo/Brand */}
           <div className="flex-shrink-0">
             <Link href="/dashboard" className="text-xl font-bold text-blue-600">
-              Carlão BT Online
+              App Atleta
             </Link>
           </div>
 

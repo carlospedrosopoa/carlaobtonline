@@ -18,6 +18,26 @@ JWT_SECRET=sua-chave-secreta-jwt-aqui
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
+### CORS (para frontend externo)
+```env
+# Em desenvolvimento, localhost é permitido automaticamente
+# Em produção, configure no Vercel
+ALLOWED_ORIGINS=https://frontend1.vercel.app,https://frontend2.com
+```
+
+### Google Cloud Storage (opcional - para upload de imagens)
+```env
+# Opção 1: Para desenvolvimento local (usar arquivo de credenciais)
+GOOGLE_CLOUD_PROJECT_ID=seu-projeto-id
+GOOGLE_CLOUD_STORAGE_BUCKET=seu-bucket-name
+GOOGLE_APPLICATION_CREDENTIALS=./path/to/service-account-key.json
+
+# Opção 2: Para produção no Vercel (usar chave em base64)
+# GOOGLE_CLOUD_PROJECT_ID=seu-projeto-id
+# GOOGLE_CLOUD_STORAGE_BUCKET=seu-bucket-name
+# GOOGLE_CLOUD_KEY=<base64-encoded-service-account-key>
+```
+
 ---
 
 ## 📱 Variáveis para WhatsApp Business API (Meta)
@@ -53,9 +73,26 @@ NEXT_PUBLIC_API_URL=/api
 
 ### Desenvolvimento Local
 
-1. Crie um arquivo `.env.local` na raiz do projeto
-2. Copie as variáveis acima e preencha com seus valores
+1. **Crie um arquivo `.env.local` na raiz do projeto** (não existe ainda - você precisa criar)
+2. Copie as variáveis do exemplo abaixo e preencha com seus valores reais
 3. O arquivo `.env.local` já está no `.gitignore` e não será commitado
+
+**Exemplo de `.env.local`:**
+```env
+# Database
+DATABASE_URL=postgresql://usuario:senha@localhost:5432/carlaobtonline
+
+# JWT Secret
+JWT_SECRET=sua-chave-secreta-jwt-aqui
+
+# CORS (opcional em desenvolvimento - localhost já é permitido)
+# ALLOWED_ORIGINS=http://localhost:3001
+
+# Google Cloud Storage (opcional - para upload de imagens)
+# GOOGLE_CLOUD_PROJECT_ID=seu-projeto-id
+# GOOGLE_CLOUD_STORAGE_BUCKET=seu-bucket-name
+# GOOGLE_APPLICATION_CREDENTIALS=./path/to/service-account-key.json
+```
 
 ### Produção (Vercel)
 
@@ -79,5 +116,8 @@ NEXT_PUBLIC_API_URL=/api
 
 - `GUIA_API_META.md` - Guia completo de integração com API da Meta
 - `README.md` - Instruções gerais do projeto
+
+
+
 
 

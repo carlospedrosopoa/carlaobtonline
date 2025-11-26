@@ -1,6 +1,7 @@
 // app/api/user/list/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import * as userService from '@/lib/userService';
 
 export async function GET(request: NextRequest) {
@@ -15,15 +16,16 @@ export async function GET(request: NextRequest) {
     
     // Apenas ADMIN pode listar usuários
     if (user.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: "Acesso negado" },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const users = await userService.getAllUsers();
     
-    return NextResponse.json(
+    const response = NextResponse.json(
       users,
       {
         headers: {
@@ -32,11 +34,13 @@ export async function GET(request: NextRequest) {
         }
       }
     );
+    return withCors(response, request);
   } catch (error) {
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Erro ao listar usuários" },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

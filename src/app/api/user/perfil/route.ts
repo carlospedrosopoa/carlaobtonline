@@ -1,6 +1,7 @@
 // app/api/user/perfil/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import * as userService from '@/lib/userService';
 
 export async function PUT(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function PUT(request: NextRequest) {
 
     await userService.atualizarUsuario(user.id, { name, password });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { mensagem: "Perfil atualizado com sucesso" },
       {
         headers: {
@@ -26,12 +27,14 @@ export async function PUT(request: NextRequest) {
         }
       }
     );
+    return withCors(response, request);
   } catch (error) {
     console.error(error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: "Erro ao atualizar perfil" },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

@@ -1,6 +1,7 @@
 // app/api/partida/criarPartida/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import { criarPartida } from '@/lib/partidaService';
 
 export async function POST(request: NextRequest) {
@@ -26,10 +27,11 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!atleta1Id || !atleta2Id) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: "Atleta1Id e Atleta2Id são obrigatórios" },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     const novaPartida = await criarPartida({
@@ -45,16 +47,18 @@ export async function POST(request: NextRequest) {
       tiebreakTime2: tiebreakTime2 || null,
     });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       novaPartida,
       { status: 201 }
     );
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar partida:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: error.message || "Erro ao criar partida" },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

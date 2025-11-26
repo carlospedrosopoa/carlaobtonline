@@ -1,6 +1,7 @@
 // app/api/atleta/listarAtletas/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import { listarAtletas } from '@/lib/atletaService';
 
 export async function GET(request: NextRequest) {
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
     const { user } = authResult;
     const resultado = await listarAtletas(user);
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       resultado,
       {
         headers: {
@@ -23,12 +24,14 @@ export async function GET(request: NextRequest) {
         }
       }
     );
+    return withCors(response, request);
   } catch (error) {
     console.error('Erro ao listar atletas:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { erro: "Erro ao listar atletas." },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

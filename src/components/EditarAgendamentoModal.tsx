@@ -21,6 +21,7 @@ interface EditarAgendamentoModalProps {
   agendamento: Agendamento | null;
   onClose: () => void;
   onSuccess: () => void;
+  quadraIdInicial?: string; // Para pré-selecionar uma quadra ao criar novo agendamento
 }
 
 export default function EditarAgendamentoModal({
@@ -28,11 +29,13 @@ export default function EditarAgendamentoModal({
   agendamento,
   onClose,
   onSuccess,
+  quadraIdInicial,
 }: EditarAgendamentoModalProps) {
   const { usuario } = useAuth();
-  const isAdmin = usuario?.role === 'ADMIN';
-  const isOrganizer = usuario?.role === 'ORGANIZER';
-  const canGerenciarAgendamento = !!(isAdmin || isOrganizer);
+  // No appatleta, apenas USER pode criar/editar seus próprios agendamentos
+  const isAdmin = false;
+  const isOrganizer = false;
+  const canGerenciarAgendamento = false;
 
   const [points, setPoints] = useState<any[]>([]);
   const [quadras, setQuadras] = useState<any[]>([]);
@@ -82,9 +85,16 @@ export default function EditarAgendamentoModal({
       } else {
         // Modo criação - resetar formulário
         resetarFormulario();
+        // Se houver quadraIdInicial, pré-selecionar após carregar dados
+        if (quadraIdInicial) {
+          // Aguardar um pouco para os dados carregarem
+          setTimeout(() => {
+            selecionarQuadraInicial(quadraIdInicial);
+          }, 100);
+        }
       }
     }
-  }, [isOpen, agendamento]);
+  }, [isOpen, agendamento, quadraIdInicial]);
 
   useEffect(() => {
     if (pointId && !isOrganizer) {
@@ -124,7 +134,8 @@ export default function EditarAgendamentoModal({
   const carregarDados = async () => {
     try {
       const [pointsData, atletasData, quadrasData] = await Promise.all([
-        isAdmin ? pointService.listar() : Promise.resolve([]),
+        // USER e ADMIN podem ver todos os points
+        (isAdmin || usuario?.role === 'USER') ? pointService.listar() : Promise.resolve([]),
         canGerenciarAgendamento
           ? (async () => {
               try {
@@ -173,6 +184,26 @@ export default function EditarAgendamentoModal({
     setModo('normal');
     setAgendamentosExistentes([]);
     setErro('');
+  };
+
+  const selecionarQuadraInicial = async (quadraIdParaSelecionar: string) => {
+    try {
+      // Buscar a quadra para obter o pointId
+      const quadra = await quadraService.obter(quadraIdParaSelecionar);
+      if (quadra) {
+        setPointId(quadra.pointId);
+        // Carregar quadras do point e então selecionar
+        if (!isOrganizer) {
+          await carregarQuadras(quadra.pointId);
+        }
+        // Aguardar um pouco para garantir que as quadras foram carregadas
+        setTimeout(() => {
+          setQuadraId(quadraIdParaSelecionar);
+        }, 300);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar quadra inicial:', error);
+    }
   };
 
   const preencherFormulario = () => {
