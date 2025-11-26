@@ -147,7 +147,7 @@ export async function GET(
     }
 
     // Retornar imagem PNG
-    const response = new NextResponse(cardBuffer, {
+    const response = new NextResponse(new Uint8Array(cardBuffer), {
       status: 200,
       headers: cacheHeaders,
     });
