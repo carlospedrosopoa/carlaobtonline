@@ -42,10 +42,10 @@ export async function GET(request: NextRequest) {
     };
 
     console.log('[Card Test] Dados de teste criados:', {
-      atleta1: partidaTeste.atleta1.nome,
-      atleta2: partidaTeste.atleta2.nome,
-      atleta3: partidaTeste.atleta3.nome,
-      atleta4: partidaTeste.atleta4.nome,
+      atleta1: partidaTeste.atleta1?.nome,
+      atleta2: partidaTeste.atleta2?.nome,
+      atleta3: partidaTeste.atleta3?.nome,
+      atleta4: partidaTeste.atleta4?.nome,
     });
 
     // Gerar card
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Retornar imagem PNG
-    const response = new NextResponse(cardBuffer, {
+    const response = new NextResponse(new Uint8Array(cardBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
