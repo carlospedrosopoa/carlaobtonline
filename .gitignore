@@ -36,3 +36,11 @@ yarn-error.log*
 next-env.d.ts
 
 # env
+
+# Google Cloud credentials
+sunlit-standard-*.json
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
