@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       gamesTime2: 4,
       tiebreakTime1: null,
       tiebreakTime2: null,
+      templateUrl: null, // Sem template específico para o teste
       atleta1: {
         id: 'atleta1',
         nome: 'João Silva',
