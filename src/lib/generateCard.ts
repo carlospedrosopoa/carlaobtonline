@@ -8,16 +8,14 @@ import axios from 'axios';
 import { getSignedUrl, extractFileNameFromUrl } from './googleCloudStorage';
 
 // Função para obter fonte compatível com o ambiente (Linux no Vercel)
+// Usa apenas fontes genéricas que são sempre disponíveis no canvas
 function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string {
-  // No Linux (Vercel), tentar usar fontes disponíveis
-  // Fallback para fontes genéricas que funcionam em qualquer sistema
   const pesoTexto = peso === 'bold' ? 'bold' : 'normal';
   
-  // Tentar fontes Linux primeiro, depois genéricas
-  // DejaVu Sans é comum em sistemas Linux
-  // Liberation Sans também é comum
-  // Fallback final: sans-serif genérico
-  return `${pesoTexto} ${tamanho}px "DejaVu Sans", "Liberation Sans", "Helvetica Neue", Helvetica, Arial, sans-serif`;
+  // Usar apenas fonte genérica sans-serif que sempre funciona
+  // O canvas sempre tem suporte para fontes genéricas, independente do sistema
+  // Isso garante funcionamento tanto em Windows (local) quanto Linux (Vercel)
+  return `${pesoTexto} ${tamanho}px sans-serif`;
 }
 
 /**
