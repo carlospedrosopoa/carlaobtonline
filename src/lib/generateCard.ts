@@ -45,13 +45,22 @@ async function registrarFonteCustomizada(): Promise<void> {
     // Baixar fonte Regular se não existir
     if (!existsSync(fontPathRegular)) {
       console.log('[generateCard] Baixando fonte Roboto Regular...');
-      const regularUrl = 'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf';
-      const responseRegular = await axios.get(regularUrl, { 
-        responseType: 'arraybuffer',
-        timeout: 10000 // 10 segundos de timeout
-      });
-      writeFileSync(fontPathRegular, Buffer.from(responseRegular.data));
-      console.log('[generateCard] ✅ Fonte Roboto Regular baixada:', fontPathRegular);
+      // Usar URL do Google Fonts CDN (mais confiável)
+      const regularUrl = 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf';
+      try {
+        const responseRegular = await axios.get(regularUrl, { 
+          responseType: 'arraybuffer',
+          timeout: 15000, // 15 segundos de timeout
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+          },
+        });
+        writeFileSync(fontPathRegular, Buffer.from(responseRegular.data));
+        console.log('[generateCard] ✅ Fonte Roboto Regular baixada:', fontPathRegular, 'tamanho:', responseRegular.data.byteLength, 'bytes');
+      } catch (error: any) {
+        console.error('[generateCard] Erro ao baixar Roboto Regular:', error.message);
+        throw error;
+      }
     } else {
       console.log('[generateCard] Fonte Roboto Regular já existe, reutilizando');
     }
@@ -59,13 +68,22 @@ async function registrarFonteCustomizada(): Promise<void> {
     // Baixar fonte Bold se não existir
     if (!existsSync(fontPathBold)) {
       console.log('[generateCard] Baixando fonte Roboto Bold...');
-      const boldUrl = 'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf';
-      const responseBold = await axios.get(boldUrl, { 
-        responseType: 'arraybuffer',
-        timeout: 10000 // 10 segundos de timeout
-      });
-      writeFileSync(fontPathBold, Buffer.from(responseBold.data));
-      console.log('[generateCard] ✅ Fonte Roboto Bold baixada:', fontPathBold);
+      // Usar URL do Google Fonts CDN (mais confiável)
+      const boldUrl = 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf';
+      try {
+        const responseBold = await axios.get(boldUrl, { 
+          responseType: 'arraybuffer',
+          timeout: 15000, // 15 segundos de timeout
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+          },
+        });
+        writeFileSync(fontPathBold, Buffer.from(responseBold.data));
+        console.log('[generateCard] ✅ Fonte Roboto Bold baixada:', fontPathBold, 'tamanho:', responseBold.data.byteLength, 'bytes');
+      } catch (error: any) {
+        console.error('[generateCard] Erro ao baixar Roboto Bold:', error.message);
+        throw error;
+      }
     } else {
       console.log('[generateCard] Fonte Roboto Bold já existe, reutilizando');
     }
