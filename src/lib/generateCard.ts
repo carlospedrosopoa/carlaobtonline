@@ -9,7 +9,7 @@ import { getSignedUrl, extractFileNameFromUrl } from './googleCloudStorage';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 
-// Cache para verificar se a fonte já foi registrada
+// Cache para verificar se a fonte já foi registrada (por instância)
 let fonteRegistrada = false;
 const FONTE_NOME = 'Roboto';
 
@@ -18,16 +18,25 @@ const FONTE_NOME = 'Roboto';
  * Funciona tanto em desenvolvimento quanto em produção (Vercel)
  */
 async function registrarFonteCustomizada(): Promise<void> {
-  // Se já registrou, não precisa fazer novamente
+  // Se já registrou nesta execução, não precisa fazer novamente
   if (fonteRegistrada) {
+    console.log('[generateCard] Fontes já registradas nesta execução');
     return;
   }
 
   try {
-    // Criar diretório temporário para armazenar a fonte
+    // Usar diretório temporário do sistema (funciona no Vercel)
+    // No Vercel, cada função serverless tem seu próprio espaço temporário
     const fontDir = path.join(tmpdir(), 'card-fonts');
-    if (!existsSync(fontDir)) {
-      mkdirSync(fontDir, { recursive: true });
+    
+    // Tentar criar diretório (pode falhar se já existir, mas não é problema)
+    try {
+      if (!existsSync(fontDir)) {
+        mkdirSync(fontDir, { recursive: true });
+        console.log('[generateCard] Diretório de fontes criado:', fontDir);
+      }
+    } catch (mkdirError: any) {
+      console.warn('[generateCard] Erro ao criar diretório (pode já existir):', mkdirError.message);
     }
 
     const fontPathRegular = path.join(fontDir, 'Roboto-Regular.ttf');
@@ -37,30 +46,47 @@ async function registrarFonteCustomizada(): Promise<void> {
     if (!existsSync(fontPathRegular)) {
       console.log('[generateCard] Baixando fonte Roboto Regular...');
       const regularUrl = 'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf';
-      const responseRegular = await axios.get(regularUrl, { responseType: 'arraybuffer' });
+      const responseRegular = await axios.get(regularUrl, { 
+        responseType: 'arraybuffer',
+        timeout: 10000 // 10 segundos de timeout
+      });
       writeFileSync(fontPathRegular, Buffer.from(responseRegular.data));
-      console.log('[generateCard] Fonte Roboto Regular baixada');
+      console.log('[generateCard] ✅ Fonte Roboto Regular baixada:', fontPathRegular);
+    } else {
+      console.log('[generateCard] Fonte Roboto Regular já existe, reutilizando');
     }
 
     // Baixar fonte Bold se não existir
     if (!existsSync(fontPathBold)) {
       console.log('[generateCard] Baixando fonte Roboto Bold...');
       const boldUrl = 'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf';
-      const responseBold = await axios.get(boldUrl, { responseType: 'arraybuffer' });
+      const responseBold = await axios.get(boldUrl, { 
+        responseType: 'arraybuffer',
+        timeout: 10000 // 10 segundos de timeout
+      });
       writeFileSync(fontPathBold, Buffer.from(responseBold.data));
-      console.log('[generateCard] Fonte Roboto Bold baixada');
+      console.log('[generateCard] ✅ Fonte Roboto Bold baixada:', fontPathBold);
+    } else {
+      console.log('[generateCard] Fonte Roboto Bold já existe, reutilizando');
+    }
+
+    // Verificar se os arquivos existem antes de registrar
+    if (!existsSync(fontPathRegular) || !existsSync(fontPathBold)) {
+      throw new Error('Arquivos de fonte não foram baixados corretamente');
     }
 
     // Registrar as fontes no canvas
+    console.log('[generateCard] Registrando fontes no canvas...');
     registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'normal' });
     registerFont(fontPathBold, { family: FONTE_NOME, weight: 'bold' });
     
     fonteRegistrada = true;
-    console.log('[generateCard] ✅ Fontes Roboto registradas com sucesso');
+    console.log('[generateCard] ✅ Fontes Roboto registradas com sucesso no canvas');
   } catch (error: any) {
-    console.warn('[generateCard] ⚠️ Erro ao registrar fonte customizada:', error.message);
+    console.error('[generateCard] ❌ Erro ao registrar fonte customizada:', error.message);
+    console.error('[generateCard] Stack:', error.stack);
     console.warn('[generateCard] Continuando com fonte genérica sans-serif');
-    // Continuar sem registrar - vai usar sans-serif genérico
+    fonteRegistrada = false; // Garantir que não tenta usar fonte não registrada
   }
 }
 
@@ -369,7 +395,9 @@ export async function generateMatchCard(
     
     // Textos - Nomes dos atletas (abaixo das fotos, não sobrepostos)
     ctx.fillStyle = '#ffffff';
-    ctx.font = obterFonteCompativel(32, 'bold'); // Fonte compatível com Linux/Vercel
+    const fonteNomes = obterFonteCompativel(32, 'bold');
+    ctx.font = fonteNomes;
+    console.log('[generateCard] Fonte usada para nomes:', fonteNomes);
     ctx.textAlign = 'center'; // Centralizado abaixo da foto
     ctx.textBaseline = 'top';
     
@@ -383,24 +411,28 @@ export async function generateMatchCard(
       const nome = partida.atleta1.nome || 'A Definir';
       const x = posicoesFotos[0][0] + tamanho / 2; // Centro da foto
       const y = posicoesFotos[0][1] + tamanho + 25; // Abaixo da foto (aumentado espaçamento de 15 para 25)
+      console.log('[generateCard] Desenhando nome atleta1:', nome, 'em', x, y);
       ctx.fillText(nome, x, y);
     }
     if (partida.atleta2) {
       const nome = partida.atleta2.nome || 'A Definir';
       const x = posicoesFotos[1][0] + tamanho / 2;
       const y = posicoesFotos[1][1] + tamanho + 25; // Abaixo da foto (aumentado espaçamento de 15 para 25)
+      console.log('[generateCard] Desenhando nome atleta2:', nome, 'em', x, y);
       ctx.fillText(nome, x, y);
     }
     if (partida.atleta3) {
       const nome = partida.atleta3.nome || 'A Definir';
       const x = posicoesFotos[2][0] + tamanho / 2;
       const y = posicoesFotos[2][1] + tamanho + 25; // Abaixo da foto (aumentado espaçamento de 15 para 25)
+      console.log('[generateCard] Desenhando nome atleta3:', nome, 'em', x, y);
       ctx.fillText(nome, x, y);
     }
     if (partida.atleta4) {
       const nome = partida.atleta4.nome || 'A Definir';
       const x = posicoesFotos[3][0] + tamanho / 2;
       const y = posicoesFotos[3][1] + tamanho + 25; // Abaixo da foto (aumentado espaçamento de 15 para 25)
+      console.log('[generateCard] Desenhando nome atleta4:', nome, 'em', x, y);
       ctx.fillText(nome, x, y);
     }
     
@@ -411,9 +443,13 @@ export async function generateMatchCard(
     ctx.shadowOffsetY = 0;
     
     // Info principal - Título (mais à direita para não sobrepor logo)
-    ctx.font = obterFonteCompativel(36, 'bold');
+    const fonteTitulo = obterFonteCompativel(36, 'bold');
+    ctx.font = fonteTitulo;
+    console.log('[generateCard] Fonte usada para título:', fonteTitulo);
     ctx.textAlign = 'right'; // Alinhado à direita
-    ctx.fillText('Jogo Amistoso', largura - 50, 100); // 50px da borda direita
+    const tituloTexto = 'Jogo Amistoso';
+    console.log('[generateCard] Desenhando título:', tituloTexto);
+    ctx.fillText(tituloTexto, largura - 50, 100); // 50px da borda direita
     
     // Data e hora
     const dataJogo = new Date(partida.data);
@@ -427,16 +463,26 @@ export async function generateMatchCard(
       minute: '2-digit',
     });
     
-    ctx.font = obterFonteCompativel(42, 'bold');
-    ctx.fillText(`${dia} - ${hora}`, largura - 50, 150); // 50px da borda direita
+    const fonteData = obterFonteCompativel(42, 'bold');
+    ctx.font = fonteData;
+    console.log('[generateCard] Fonte usada para data:', fonteData);
+    const dataTexto = `${dia} - ${hora}`;
+    console.log('[generateCard] Desenhando data:', dataTexto);
+    ctx.fillText(dataTexto, largura - 50, 150); // 50px da borda direita
     
     // Local
-    ctx.font = obterFonteCompativel(36, 'bold');
-    ctx.fillText(partida.local || 'Local não informado', largura - 50, 200); // 50px da borda direita
+    const fonteLocal = obterFonteCompativel(36, 'bold');
+    ctx.font = fonteLocal;
+    console.log('[generateCard] Fonte usada para local:', fonteLocal);
+    const localTexto = partida.local || 'Local não informado';
+    console.log('[generateCard] Desenhando local:', localTexto);
+    ctx.fillText(localTexto, largura - 50, 200); // 50px da borda direita
     
     // Placar (se existir) - alinhado com os nomes dos atletas de baixo
     if (partida.gamesTime1 !== null && partida.gamesTime2 !== null) {
-      ctx.font = obterFonteCompativel(200, 'bold'); // Fonte compatível com Linux/Vercel
+      const fontePlacar = obterFonteCompativel(200, 'bold');
+      ctx.font = fontePlacar;
+      console.log('[generateCard] Fonte usada para placar:', fontePlacar);
       ctx.textAlign = 'center'; // Centralizado horizontalmente
       ctx.fillStyle = '#fbbf24'; // Amarelo
       
@@ -450,6 +496,7 @@ export async function generateMatchCard(
       if (partida.tiebreakTime1 !== null && partida.tiebreakTime2 !== null) {
         placarTexto += ` (${partida.tiebreakTime1} x ${partida.tiebreakTime2})`;
       }
+      console.log('[generateCard] Desenhando placar:', placarTexto);
       // Alinhado com os nomes dos atletas de baixo
       // Nomes de baixo: y = posicoesFotos[1][1] + tamanho + 25 = 860 + 440 + 25 = 1325
       ctx.fillText(placarTexto, largura / 2, 1325);
