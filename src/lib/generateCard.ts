@@ -11,7 +11,9 @@ import { tmpdir } from 'os';
 
 // Cache para verificar se a fonte já foi registrada (por instância)
 let fonteRegistrada = false;
+let usandoFonteSistema = false;
 const FONTE_NOME = 'Roboto';
+const FONTE_SISTEMA = 'DejaVu Sans'; // Fonte padrão do Linux disponível no Vercel
 
 /**
  * Registra fonte customizada do Google Fonts para uso no canvas
@@ -42,64 +44,120 @@ async function registrarFonteCustomizada(): Promise<void> {
     const fontPathRegular = path.join(fontDir, 'Roboto-Regular.ttf');
     const fontPathBold = path.join(fontDir, 'Roboto-Bold.ttf');
 
-    // Baixar fonte Regular se não existir
+    // Tentar múltiplas URLs para baixar fonte Regular
+    const urlsRegular = [
+      'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf',
+      'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/Roboto-Regular.ttf',
+      'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf',
+    ];
+
     if (!existsSync(fontPathRegular)) {
-      console.log('[generateCard] Baixando fonte Roboto Regular...');
-      // Usar URL do Google Fonts CDN (mais confiável)
-      const regularUrl = 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf';
-      try {
-        const responseRegular = await axios.get(regularUrl, { 
-          responseType: 'arraybuffer',
-          timeout: 15000, // 15 segundos de timeout
-          headers: {
-            'User-Agent': 'Mozilla/5.0',
-          },
-        });
-        writeFileSync(fontPathRegular, Buffer.from(responseRegular.data));
-        console.log('[generateCard] ✅ Fonte Roboto Regular baixada:', fontPathRegular, 'tamanho:', responseRegular.data.byteLength, 'bytes');
-      } catch (error: any) {
-        console.error('[generateCard] Erro ao baixar Roboto Regular:', error.message);
-        throw error;
+      console.log('[generateCard] Tentando baixar fonte Roboto Regular...');
+      let baixado = false;
+      
+      for (const url of urlsRegular) {
+        try {
+          console.log('[generateCard] Tentando URL:', url);
+          const responseRegular = await axios.get(url, { 
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+          });
+          
+          if (responseRegular.status === 200 && responseRegular.data.byteLength > 0) {
+            writeFileSync(fontPathRegular, Buffer.from(responseRegular.data));
+            console.log('[generateCard] ✅ Fonte Roboto Regular baixada:', fontPathRegular, 'tamanho:', responseRegular.data.byteLength, 'bytes');
+            baixado = true;
+            break;
+          }
+        } catch (error: any) {
+          console.warn('[generateCard] Erro ao baixar de', url, ':', error.message);
+          continue;
+        }
+      }
+      
+      if (!baixado) {
+        console.warn('[generateCard] ⚠️ Não foi possível baixar Roboto Regular de nenhuma URL. Usando fonte do sistema.');
+        usandoFonteSistema = true;
       }
     } else {
       console.log('[generateCard] Fonte Roboto Regular já existe, reutilizando');
     }
 
-    // Baixar fonte Bold se não existir
-    if (!existsSync(fontPathBold)) {
-      console.log('[generateCard] Baixando fonte Roboto Bold...');
-      // Usar URL do Google Fonts CDN (mais confiável)
-      const boldUrl = 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf';
-      try {
-        const responseBold = await axios.get(boldUrl, { 
-          responseType: 'arraybuffer',
-          timeout: 15000, // 15 segundos de timeout
-          headers: {
-            'User-Agent': 'Mozilla/5.0',
-          },
-        });
-        writeFileSync(fontPathBold, Buffer.from(responseBold.data));
-        console.log('[generateCard] ✅ Fonte Roboto Bold baixada:', fontPathBold, 'tamanho:', responseBold.data.byteLength, 'bytes');
-      } catch (error: any) {
-        console.error('[generateCard] Erro ao baixar Roboto Bold:', error.message);
-        throw error;
+    // Tentar múltiplas URLs para baixar fonte Bold
+    const urlsBold = [
+      'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf',
+      'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/Roboto-Bold.ttf',
+      'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf',
+    ];
+
+    if (!existsSync(fontPathBold) && !usandoFonteSistema) {
+      console.log('[generateCard] Tentando baixar fonte Roboto Bold...');
+      let baixado = false;
+      
+      for (const url of urlsBold) {
+        try {
+          console.log('[generateCard] Tentando URL:', url);
+          const responseBold = await axios.get(url, { 
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+          });
+          
+          if (responseBold.status === 200 && responseBold.data.byteLength > 0) {
+            writeFileSync(fontPathBold, Buffer.from(responseBold.data));
+            console.log('[generateCard] ✅ Fonte Roboto Bold baixada:', fontPathBold, 'tamanho:', responseBold.data.byteLength, 'bytes');
+            baixado = true;
+            break;
+          }
+        } catch (error: any) {
+          console.warn('[generateCard] Erro ao baixar de', url, ':', error.message);
+          continue;
+        }
       }
+      
+      if (!baixado) {
+        console.warn('[generateCard] ⚠️ Não foi possível baixar Roboto Bold de nenhuma URL. Usando fonte do sistema.');
+        usandoFonteSistema = true;
+      }
+    } else if (usandoFonteSistema) {
+      console.log('[generateCard] Pulando download de Bold (usando fonte do sistema)');
     } else {
       console.log('[generateCard] Fonte Roboto Bold já existe, reutilizando');
     }
 
+    // Se não conseguiu baixar as fontes, usar fonte do sistema
+    if (usandoFonteSistema) {
+      console.log('[generateCard] Usando fonte do sistema:', FONTE_SISTEMA);
+      fonteRegistrada = true; // Marcar como registrada para usar fonte do sistema
+      return; // Não precisa registrar, vai usar fonte do sistema diretamente
+    }
+
     // Verificar se os arquivos existem antes de registrar
     if (!existsSync(fontPathRegular) || !existsSync(fontPathBold)) {
-      throw new Error('Arquivos de fonte não foram baixados corretamente');
+      console.warn('[generateCard] ⚠️ Arquivos de fonte não encontrados. Usando fonte do sistema.');
+      usandoFonteSistema = true;
+      fonteRegistrada = true;
+      return;
     }
 
     // Registrar as fontes no canvas
     console.log('[generateCard] Registrando fontes no canvas...');
-    registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'normal' });
-    registerFont(fontPathBold, { family: FONTE_NOME, weight: 'bold' });
-    
-    fonteRegistrada = true;
-    console.log('[generateCard] ✅ Fontes Roboto registradas com sucesso no canvas');
+    try {
+      registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'normal' });
+      registerFont(fontPathBold, { family: FONTE_NOME, weight: 'bold' });
+      fonteRegistrada = true;
+      console.log('[generateCard] ✅ Fontes Roboto registradas com sucesso no canvas');
+    } catch (error: any) {
+      console.error('[generateCard] Erro ao registrar fontes:', error.message);
+      console.warn('[generateCard] Usando fonte do sistema como fallback');
+      usandoFonteSistema = true;
+      fonteRegistrada = true;
+    }
   } catch (error: any) {
     console.error('[generateCard] ❌ Erro ao registrar fonte customizada:', error.message);
     console.error('[generateCard] Stack:', error.stack);
@@ -112,7 +170,12 @@ async function registrarFonteCustomizada(): Promise<void> {
 function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string {
   const pesoTexto = peso === 'bold' ? 'bold' : 'normal';
   
-  // Tentar usar fonte customizada se registrada, senão usar genérica
+  // Se está usando fonte do sistema, usar DejaVu Sans (disponível no Linux)
+  if (usandoFonteSistema) {
+    return `${pesoTexto} ${tamanho}px "${FONTE_SISTEMA}", sans-serif`;
+  }
+  
+  // Tentar usar fonte customizada se registrada
   if (fonteRegistrada) {
     return `${pesoTexto} ${tamanho}px "${FONTE_NOME}", sans-serif`;
   }
