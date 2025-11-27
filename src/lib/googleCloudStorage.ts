@@ -71,8 +71,16 @@ const getStorage = () => {
 let storageInstance: Storage | null = null;
 try {
   storageInstance = getStorage();
-} catch (error) {
-  console.error('Erro ao inicializar Google Cloud Storage:', error);
+  if (storageInstance) {
+    console.log('[GCS] Storage inicializado com sucesso');
+  }
+} catch (error: any) {
+  console.error('[GCS] Erro ao inicializar Google Cloud Storage:', error.message);
+  // Em produção, se ADC não estiver disponível, ainda pode funcionar para algumas operações
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[GCS] ADC não disponível. Algumas operações podem falhar.');
+    console.warn('[GCS] Configure GOOGLE_CLOUD_KEY nas variáveis de ambiente do Vercel para habilitar todas as funcionalidades.');
+  }
 }
 
 const bucketName = process.env.GOOGLE_CLOUD_STORAGE_BUCKET || '';
@@ -152,17 +160,42 @@ export async function uploadImage(
 export async function deleteImage(fileUrl: string): Promise<void> {
   if (!storageInstance || !bucketName) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('GCS não configurado - ignorando delete');
+      console.warn('[GCS] Storage não configurado - ignorando delete');
       return;
     }
+    console.warn('[GCS] Storage não configurado - ignorando delete em produção');
     return;
   }
   
   try {
     // Extrair nome do arquivo da URL
-    const fileName = fileUrl.split(`${bucketName}/`)[1];
+    let fileName: string | null = null;
+    
+    // Tentar extrair de diferentes formatos de URL
+    if (fileUrl.includes(`${bucketName}/`)) {
+      fileName = fileUrl.split(`${bucketName}/`)[1];
+    } else if (fileUrl.includes('storage.googleapis.com/')) {
+      const parts = fileUrl.split('storage.googleapis.com/');
+      if (parts.length > 1) {
+        const path = parts[1];
+        const pathParts = path.split('/');
+        if (pathParts.length > 1) {
+          fileName = pathParts.slice(1).join('/');
+        }
+      }
+    } else if (fileUrl.includes('storage.cloud.google.com/')) {
+      const parts = fileUrl.split('storage.cloud.google.com/');
+      if (parts.length > 1) {
+        const path = parts[1];
+        const pathParts = path.split('/');
+        if (pathParts.length > 1) {
+          fileName = pathParts.slice(1).join('/');
+        }
+      }
+    }
+    
     if (!fileName) {
-      console.warn('Não foi possível extrair nome do arquivo da URL:', fileUrl);
+      console.warn('[GCS] Não foi possível extrair nome do arquivo da URL:', fileUrl);
       return;
     }
     
@@ -172,11 +205,20 @@ export async function deleteImage(fileUrl: string): Promise<void> {
     const [exists] = await file.exists();
     if (exists) {
       await file.delete();
-      console.log('Imagem deletada:', fileName);
+      console.log('[GCS] Imagem deletada com sucesso:', fileName);
+    } else {
+      console.log('[GCS] Arquivo não existe (já foi deletado?):', fileName);
     }
-  } catch (error) {
-    console.error('Erro ao deletar imagem:', error);
-    // Não lançar erro - pode ser que a imagem já não exista
+  } catch (error: any) {
+    // Não lançar erro - pode ser que a imagem já não exista ou credenciais não estejam disponíveis
+    // No Vercel, ADC pode não estar disponível, então apenas logar o erro
+    if (error.message?.includes('default credentials') || error.message?.includes('authentication')) {
+      console.warn('[GCS] Credenciais não disponíveis para deletar imagem. Ignorando delete:', fileUrl);
+      console.warn('[GCS] Para habilitar delete no Vercel, configure GOOGLE_CLOUD_KEY nas variáveis de ambiente.');
+    } else {
+      console.error('[GCS] Erro ao deletar imagem:', error.message);
+    }
+    // Não lançar erro - operação não crítica
   }
 }
 
