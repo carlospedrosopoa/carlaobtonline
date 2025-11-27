@@ -6,15 +6,74 @@ import path from 'path';
 import fs from 'fs';
 import axios from 'axios';
 import { getSignedUrl, extractFileNameFromUrl } from './googleCloudStorage';
+import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { tmpdir } from 'os';
+
+// Cache para verificar se a fonte já foi registrada
+let fonteRegistrada = false;
+const FONTE_NOME = 'Roboto';
+
+/**
+ * Registra fonte customizada do Google Fonts para uso no canvas
+ * Funciona tanto em desenvolvimento quanto em produção (Vercel)
+ */
+async function registrarFonteCustomizada(): Promise<void> {
+  // Se já registrou, não precisa fazer novamente
+  if (fonteRegistrada) {
+    return;
+  }
+
+  try {
+    // Criar diretório temporário para armazenar a fonte
+    const fontDir = path.join(tmpdir(), 'card-fonts');
+    if (!existsSync(fontDir)) {
+      mkdirSync(fontDir, { recursive: true });
+    }
+
+    const fontPathRegular = path.join(fontDir, 'Roboto-Regular.ttf');
+    const fontPathBold = path.join(fontDir, 'Roboto-Bold.ttf');
+
+    // Baixar fonte Regular se não existir
+    if (!existsSync(fontPathRegular)) {
+      console.log('[generateCard] Baixando fonte Roboto Regular...');
+      const regularUrl = 'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf';
+      const responseRegular = await axios.get(regularUrl, { responseType: 'arraybuffer' });
+      writeFileSync(fontPathRegular, Buffer.from(responseRegular.data));
+      console.log('[generateCard] Fonte Roboto Regular baixada');
+    }
+
+    // Baixar fonte Bold se não existir
+    if (!existsSync(fontPathBold)) {
+      console.log('[generateCard] Baixando fonte Roboto Bold...');
+      const boldUrl = 'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf';
+      const responseBold = await axios.get(boldUrl, { responseType: 'arraybuffer' });
+      writeFileSync(fontPathBold, Buffer.from(responseBold.data));
+      console.log('[generateCard] Fonte Roboto Bold baixada');
+    }
+
+    // Registrar as fontes no canvas
+    registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'normal' });
+    registerFont(fontPathBold, { family: FONTE_NOME, weight: 'bold' });
+    
+    fonteRegistrada = true;
+    console.log('[generateCard] ✅ Fontes Roboto registradas com sucesso');
+  } catch (error: any) {
+    console.warn('[generateCard] ⚠️ Erro ao registrar fonte customizada:', error.message);
+    console.warn('[generateCard] Continuando com fonte genérica sans-serif');
+    // Continuar sem registrar - vai usar sans-serif genérico
+  }
+}
 
 // Função para obter fonte compatível com o ambiente (Linux no Vercel)
-// Usa apenas fontes genéricas que são sempre disponíveis no canvas
 function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string {
   const pesoTexto = peso === 'bold' ? 'bold' : 'normal';
   
-  // Usar apenas fonte genérica sans-serif que sempre funciona
-  // O canvas sempre tem suporte para fontes genéricas, independente do sistema
-  // Isso garante funcionamento tanto em Windows (local) quanto Linux (Vercel)
+  // Tentar usar fonte customizada se registrada, senão usar genérica
+  if (fonteRegistrada) {
+    return `${pesoTexto} ${tamanho}px "${FONTE_NOME}", sans-serif`;
+  }
+  
+  // Fallback para fonte genérica
   return `${pesoTexto} ${tamanho}px sans-serif`;
 }
 
@@ -30,6 +89,9 @@ export async function generateMatchCard(
 ): Promise<Buffer> {
   try {
     console.log('[generateCard] Iniciando geração do card...');
+    
+    // Registrar fonte customizada antes de criar o canvas
+    await registrarFonteCustomizada();
     
     // Dimensões do card (1080x1920px - formato vertical como no original)
     const largura = 1080;
