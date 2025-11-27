@@ -1,11 +1,24 @@
 // lib/generateCard.ts - Geração de card promocional de partida (baseado no modelo original)
 import sharp from 'sharp';
-import { createCanvas, loadImage } from 'canvas';
+import { createCanvas, loadImage, registerFont } from 'canvas';
 import { PartidaParaCard } from './cardService';
 import path from 'path';
 import fs from 'fs';
 import axios from 'axios';
 import { getSignedUrl, extractFileNameFromUrl } from './googleCloudStorage';
+
+// Função para obter fonte compatível com o ambiente (Linux no Vercel)
+function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string {
+  // No Linux (Vercel), tentar usar fontes disponíveis
+  // Fallback para fontes genéricas que funcionam em qualquer sistema
+  const pesoTexto = peso === 'bold' ? 'bold' : 'normal';
+  
+  // Tentar fontes Linux primeiro, depois genéricas
+  // DejaVu Sans é comum em sistemas Linux
+  // Liberation Sans também é comum
+  // Fallback final: sans-serif genérico
+  return `${pesoTexto} ${tamanho}px "DejaVu Sans", "Liberation Sans", "Helvetica Neue", Helvetica, Arial, sans-serif`;
+}
 
 /**
  * Gera um card promocional PNG da partida
@@ -296,7 +309,7 @@ export async function generateMatchCard(
     
     // Textos - Nomes dos atletas (abaixo das fotos, não sobrepostos)
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px "Segoe UI", Arial, sans-serif'; // Fonte maior e mais legível
+    ctx.font = obterFonteCompativel(32, 'bold'); // Fonte compatível com Linux/Vercel
     ctx.textAlign = 'center'; // Centralizado abaixo da foto
     ctx.textBaseline = 'top';
     
@@ -338,7 +351,7 @@ export async function generateMatchCard(
     ctx.shadowOffsetY = 0;
     
     // Info principal - Título (mais à direita para não sobrepor logo)
-    ctx.font = 'bold 36px Arial';
+    ctx.font = obterFonteCompativel(36, 'bold');
     ctx.textAlign = 'right'; // Alinhado à direita
     ctx.fillText('Jogo Amistoso', largura - 50, 100); // 50px da borda direita
     
@@ -354,16 +367,16 @@ export async function generateMatchCard(
       minute: '2-digit',
     });
     
-    ctx.font = 'bold 42px Arial';
+    ctx.font = obterFonteCompativel(42, 'bold');
     ctx.fillText(`${dia} - ${hora}`, largura - 50, 150); // 50px da borda direita
     
     // Local
-    ctx.font = 'bold 36px Arial';
+    ctx.font = obterFonteCompativel(36, 'bold');
     ctx.fillText(partida.local || 'Local não informado', largura - 50, 200); // 50px da borda direita
     
     // Placar (se existir) - alinhado com os nomes dos atletas de baixo
     if (partida.gamesTime1 !== null && partida.gamesTime2 !== null) {
-      ctx.font = 'bold 200px Arial'; // Aumentado de 144px para 200px
+      ctx.font = obterFonteCompativel(200, 'bold'); // Fonte compatível com Linux/Vercel
       ctx.textAlign = 'center'; // Centralizado horizontalmente
       ctx.fillStyle = '#fbbf24'; // Amarelo
       
