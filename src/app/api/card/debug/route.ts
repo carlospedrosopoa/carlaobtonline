@@ -22,14 +22,8 @@ export async function GET(request: NextRequest) {
       return withCors(authResult, request);
     }
 
-    // Verificar se é ADMIN
-    if (authResult.user.role !== 'ADMIN') {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Acesso negado. Apenas administradores podem acessar este endpoint.' },
-        { status: 403 }
-      );
-      return withCors(errorResponse, request);
-    }
+    // Qualquer usuário autenticado pode acessar o diagnóstico
+    // Isso é útil para diagnosticar problemas ao gerar cards
 
     const templatePadrao = obterTemplatePadrao();
     const diagnosticos: any = {
