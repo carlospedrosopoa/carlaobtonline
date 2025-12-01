@@ -1,0 +1,298 @@
+// app/api/gestao-arena/card-cliente/[id]/pagamento/route.ts - API de Pagamentos do Card
+import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import type { CriarPagamentoCardPayload } from '@/types/gestaoArena';
+
+// GET /api/gestao-arena/card-cliente/[id]/pagamento - Listar pagamentos do card
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    const { id: cardId } = await params;
+
+    // Verificar se o card existe e se o usuário tem acesso
+    const cardResult = await query(
+      'SELECT "pointId" FROM "CardCliente" WHERE id = $1',
+      [cardId]
+    );
+
+    if (cardResult.rows.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'Card não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const card = cardResult.rows[0];
+
+    if (usuario.role === 'ORGANIZER') {
+      if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
+        return NextResponse.json(
+          { mensagem: 'Você não tem acesso a este card' },
+          { status: 403 }
+        );
+      }
+    }
+
+    const result = await query(
+      `SELECT 
+        p.*,
+        fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
+      FROM "PagamentoCard" p
+      LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
+      WHERE p."cardId" = $1
+      ORDER BY p."createdAt" ASC`,
+      [cardId]
+    );
+
+    // Buscar itens vinculados a cada pagamento
+    const pagamentos = await Promise.all(
+      result.rows.map(async (row: any) => {
+        const itensResult = await query(
+          `SELECT 
+            i.*,
+            p.id as "produto_id", p.nome as "produto_nome", p.descricao as "produto_descricao",
+            p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria"
+          FROM "PagamentoItem" pi
+          INNER JOIN "ItemCard" i ON pi."itemCardId" = i.id
+          LEFT JOIN "Produto" p ON i."produtoId" = p.id
+          WHERE pi."pagamentoCardId" = $1
+          ORDER BY i."createdAt" ASC`,
+          [row.id]
+        );
+
+        const itens = itensResult.rows.map((itemRow: any) => ({
+          id: itemRow.id,
+          cardId: itemRow.cardId,
+          produtoId: itemRow.produtoId,
+          quantidade: parseFloat(itemRow.quantidade),
+          precoUnitario: parseFloat(itemRow.precoUnitario),
+          precoTotal: parseFloat(itemRow.precoTotal),
+          observacoes: itemRow.observacoes,
+          createdAt: itemRow.createdAt,
+          updatedAt: itemRow.updatedAt,
+          produto: itemRow.produto_id ? {
+            id: itemRow.produto_id,
+            nome: itemRow.produto_nome,
+            descricao: itemRow.produto_descricao,
+            precoVenda: parseFloat(itemRow.produto_precoVenda),
+            categoria: itemRow.produto_categoria,
+          } : null,
+        }));
+
+        return {
+          id: row.id,
+          cardId: row.cardId,
+          formaPagamentoId: row.formaPagamentoId,
+          valor: parseFloat(row.valor),
+          observacoes: row.observacoes,
+          createdAt: row.createdAt,
+          createdBy: row.createdBy,
+          formaPagamento: row.formaPagamento_id ? {
+            id: row.formaPagamento_id,
+            nome: row.formaPagamento_nome,
+            tipo: row.formaPagamento_tipo,
+          } : null,
+          itens: itens.length > 0 ? itens : undefined,
+        };
+      })
+    );
+
+    return NextResponse.json(pagamentos);
+  } catch (error: any) {
+    console.error('Erro ao listar pagamentos do card:', error);
+    return NextResponse.json(
+      { mensagem: 'Erro ao listar pagamentos do card', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/gestao-arena/card-cliente/[id]/pagamento - Adicionar pagamento ao card
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
+      return NextResponse.json(
+        { mensagem: 'Você não tem permissão para adicionar pagamentos ao card' },
+        { status: 403 }
+      );
+    }
+
+    const { id: cardId } = await params;
+    const body: CriarPagamentoCardPayload = await request.json();
+    const { formaPagamentoId, valor, observacoes, itemIds } = body;
+
+    if (!formaPagamentoId || !valor || valor <= 0) {
+      return NextResponse.json(
+        { mensagem: 'FormaPagamentoId e valor são obrigatórios' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar se o card existe
+    const cardResult = await query(
+      'SELECT "pointId", status, "valorTotal" FROM "CardCliente" WHERE id = $1',
+      [cardId]
+    );
+
+    if (cardResult.rows.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'Card não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const card = cardResult.rows[0];
+
+    if (card.status === 'CANCELADO') {
+      return NextResponse.json(
+        { mensagem: 'Não é possível adicionar pagamentos a um card cancelado' },
+        { status: 400 }
+      );
+    }
+
+    if (usuario.role === 'ORGANIZER') {
+      if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
+        return NextResponse.json(
+          { mensagem: 'Você não tem acesso a este card' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Verificar se a forma de pagamento existe
+    const formaPagamentoResult = await query(
+      'SELECT id, ativo FROM "FormaPagamento" WHERE id = $1',
+      [formaPagamentoId]
+    );
+
+    if (formaPagamentoResult.rows.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'Forma de pagamento não encontrada' },
+        { status: 404 }
+      );
+    }
+
+    if (!formaPagamentoResult.rows[0].ativo) {
+      return NextResponse.json(
+        { mensagem: 'Forma de pagamento não está ativa' },
+        { status: 400 }
+      );
+    }
+
+    // Calcular total já pago
+    const pagamentosResult = await query(
+      'SELECT COALESCE(SUM(valor), 0) as total FROM "PagamentoCard" WHERE "cardId" = $1',
+      [cardId]
+    );
+    const totalPago = parseFloat(pagamentosResult.rows[0].total);
+    const valorTotal = parseFloat(card.valorTotal);
+
+    // Permitir pagamentos parciais e múltiplos pagamentos
+    // O card pode ter saldo pendente e será fechado manualmente quando necessário
+    // Não há limite de pagamento, permitindo ajustes e trocos
+
+    // Se há itens vinculados, validar que eles pertencem ao card e não estão totalmente pagos
+    if (itemIds && itemIds.length > 0) {
+      // Verificar se os itens pertencem ao card
+      const itensResult = await query(
+        `SELECT id, "precoTotal" FROM "ItemCard" WHERE id = ANY($1::text[]) AND "cardId" = $2`,
+        [itemIds, cardId]
+      );
+
+      if (itensResult.rows.length !== itemIds.length) {
+        return NextResponse.json(
+          { mensagem: 'Um ou mais itens não pertencem a este card' },
+          { status: 400 }
+        );
+      }
+
+      // Calcular valor total dos itens selecionados
+      const valorItens = itensResult.rows.reduce((sum, item) => sum + parseFloat(item.precoTotal), 0);
+
+      // Verificar se o valor do pagamento corresponde ao valor dos itens (ou é menor, permitindo pagamento parcial)
+      if (valor > valorItens) {
+        return NextResponse.json(
+          { mensagem: `O valor do pagamento (R$ ${valor.toFixed(2)}) não pode ser maior que o valor dos itens selecionados (R$ ${valorItens.toFixed(2)})` },
+          { status: 400 }
+        );
+      }
+
+      // Verificar se os itens já não estão totalmente pagos
+      for (const item of itensResult.rows) {
+        const pagamentosItemResult = await query(
+          `SELECT COALESCE(SUM(p.valor), 0) as total
+           FROM "PagamentoCard" p
+           INNER JOIN "PagamentoItem" pi ON p.id = pi."pagamentoCardId"
+           WHERE pi."itemCardId" = $1`,
+          [item.id]
+        );
+        const totalPagoItem = parseFloat(pagamentosItemResult.rows[0].total);
+        const valorItem = parseFloat(item.precoTotal);
+
+        if (totalPagoItem >= valorItem) {
+          return NextResponse.json(
+            { mensagem: `O item já está totalmente pago` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Inserir pagamento
+    const pagamentoResult = await query(
+      `INSERT INTO "PagamentoCard" (
+        id, "cardId", "formaPagamentoId", valor, observacoes, "createdAt", "createdBy"
+      ) VALUES (
+        gen_random_uuid()::text, $1, $2, $3, $4, NOW(), $5
+      ) RETURNING *`,
+      [cardId, formaPagamentoId, valor, observacoes || null, usuario.id]
+    );
+
+    const pagamentoId = pagamentoResult.rows[0].id;
+
+    // Vincular itens ao pagamento se informados
+    if (itemIds && itemIds.length > 0) {
+      for (const itemId of itemIds) {
+        await query(
+          `INSERT INTO "PagamentoItem" (id, "pagamentoCardId", "itemCardId", "createdAt")
+           VALUES (gen_random_uuid()::text, $1, $2, NOW())`,
+          [pagamentoId, itemId]
+        );
+      }
+    }
+
+    // Não fechar automaticamente - o card será fechado manualmente quando necessário
+    // O sistema mantém o saldo (valorTotal - totalPago) para controle
+
+    return NextResponse.json(pagamentoResult.rows[0], { status: 201 });
+  } catch (error: any) {
+    console.error('Erro ao adicionar pagamento ao card:', error);
+    return NextResponse.json(
+      { mensagem: 'Erro ao adicionar pagamento ao card', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+

@@ -9,7 +9,9 @@
     "lint": "eslint",
     "migrate": "node scripts/run-migration.js",
     "migrate:template": "node scripts/run-migration-template.js",
-    "migrate:card-url": "node scripts/run-migration-card-url.js"
+    "migrate:card-url": "node scripts/run-migration-card-url.js",
+    "migrate:gestao-arena": "node scripts/run-migration-gestao-arena.js",
+    "migrate:card-usuario": "node scripts/run-migration-card-usuario.js"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.14.0",
@@ -24,6 +26,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.553.0",

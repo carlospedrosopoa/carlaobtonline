@@ -1,0 +1,454 @@
+// app/api/gestao-arena/card-cliente/[id]/route.ts - API de Card de Cliente individual
+import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import type { AtualizarCardClientePayload, StatusCard } from '@/types/gestaoArena';
+
+// GET /api/gestao-arena/card-cliente/[id] - Obter card de cliente
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const incluirItens = searchParams.get('incluirItens') !== 'false'; // Por padrão inclui
+    const incluirPagamentos = searchParams.get('incluirPagamentos') !== 'false'; // Por padrão inclui
+
+    const result = await query(
+      `SELECT 
+        c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
+        c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
+        c."createdBy", c."fechadoAt", c."fechadoBy",
+        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+      FROM "CardCliente" c
+      LEFT JOIN "User" u ON c."usuarioId" = u.id
+      WHERE c.id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'Card de cliente não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const row = result.rows[0];
+    const card: any = {
+      id: row.id,
+      pointId: row.pointId,
+      numeroCard: row.numeroCard,
+      status: row.status,
+      observacoes: row.observacoes,
+      valorTotal: parseFloat(row.valorTotal),
+      usuarioId: row.usuarioId,
+      nomeAvulso: row.nomeAvulso,
+      telefoneAvulso: row.telefoneAvulso,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      createdBy: row.createdBy,
+      fechadoAt: row.fechadoAt,
+      fechadoBy: row.fechadoBy,
+    };
+
+    if (row.usuario_id) {
+      card.usuario = {
+        id: row.usuario_id,
+        name: row.usuario_name,
+        email: row.usuario_email,
+      };
+    }
+
+    // Verificar se ORGANIZER tem acesso
+    if (usuario.role === 'ORGANIZER') {
+      if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
+        return NextResponse.json(
+          { mensagem: 'Você não tem acesso a este card' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Incluir itens se solicitado
+    if (incluirItens) {
+      const itensResult = await query(
+        `SELECT 
+          i.*,
+          p.id as "produto_id", p.nome as "produto_nome", p.descricao as "produto_descricao",
+          p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria"
+        FROM "ItemCard" i
+        LEFT JOIN "Produto" p ON i."produtoId" = p.id
+        WHERE i."cardId" = $1
+        ORDER BY i."createdAt" ASC`,
+        [id]
+      );
+
+      card.itens = itensResult.rows.map((itemRow: any) => ({
+        id: itemRow.id,
+        cardId: itemRow.cardId,
+        produtoId: itemRow.produtoId,
+        quantidade: parseFloat(itemRow.quantidade),
+        precoUnitario: parseFloat(itemRow.precoUnitario),
+        precoTotal: parseFloat(itemRow.precoTotal),
+        observacoes: itemRow.observacoes,
+        createdAt: itemRow.createdAt,
+        updatedAt: itemRow.updatedAt,
+        produto: itemRow.produto_id ? {
+          id: itemRow.produto_id,
+          nome: itemRow.produto_nome,
+          descricao: itemRow.produto_descricao,
+          precoVenda: parseFloat(itemRow.produto_precoVenda),
+          categoria: itemRow.produto_categoria,
+        } : null,
+      }));
+    }
+
+    // Incluir pagamentos se solicitado
+    if (incluirPagamentos) {
+      const pagamentosResult = await query(
+        `SELECT 
+          p.*,
+          fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
+        FROM "PagamentoCard" p
+        LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
+        WHERE p."cardId" = $1
+        ORDER BY p."createdAt" ASC`,
+        [id]
+      );
+
+      // Buscar itens vinculados a cada pagamento
+      card.pagamentos = await Promise.all(
+        pagamentosResult.rows.map(async (pagRow: any) => {
+          const itensResult = await query(
+            `SELECT 
+              i.*,
+              p.id as "produto_id", p.nome as "produto_nome", p.descricao as "produto_descricao",
+              p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria"
+            FROM "PagamentoItem" pi
+            INNER JOIN "ItemCard" i ON pi."itemCardId" = i.id
+            LEFT JOIN "Produto" p ON i."produtoId" = p.id
+            WHERE pi."pagamentoCardId" = $1
+            ORDER BY i."createdAt" ASC`,
+            [pagRow.id]
+          );
+
+          const itens = itensResult.rows.map((itemRow: any) => ({
+            id: itemRow.id,
+            cardId: itemRow.cardId,
+            produtoId: itemRow.produtoId,
+            quantidade: parseFloat(itemRow.quantidade),
+            precoUnitario: parseFloat(itemRow.precoUnitario),
+            precoTotal: parseFloat(itemRow.precoTotal),
+            observacoes: itemRow.observacoes,
+            createdAt: itemRow.createdAt,
+            updatedAt: itemRow.updatedAt,
+            produto: itemRow.produto_id ? {
+              id: itemRow.produto_id,
+              nome: itemRow.produto_nome,
+              descricao: itemRow.produto_descricao,
+              precoVenda: parseFloat(itemRow.produto_precoVenda),
+              categoria: itemRow.produto_categoria,
+            } : null,
+          }));
+
+          return {
+            id: pagRow.id,
+            cardId: pagRow.cardId,
+            formaPagamentoId: pagRow.formaPagamentoId,
+            valor: parseFloat(pagRow.valor),
+            observacoes: pagRow.observacoes,
+            createdAt: pagRow.createdAt,
+            createdBy: pagRow.createdBy,
+            formaPagamento: pagRow.formaPagamento_id ? {
+              id: pagRow.formaPagamento_id,
+              nome: pagRow.formaPagamento_nome,
+              tipo: pagRow.formaPagamento_tipo,
+            } : null,
+            itens: itens.length > 0 ? itens : undefined,
+          };
+        })
+      );
+    }
+
+    // Calcular saldo (valorTotal - totalPago)
+    const totalPagoResult = await query(
+      'SELECT COALESCE(SUM(valor), 0) as total FROM "PagamentoCard" WHERE "cardId" = $1',
+      [id]
+    );
+    const totalPago = parseFloat(totalPagoResult.rows[0].total);
+    card.totalPago = totalPago;
+    card.saldo = card.valorTotal - totalPago;
+
+    return NextResponse.json(card);
+  } catch (error: any) {
+    console.error('Erro ao obter card de cliente:', error);
+    return NextResponse.json(
+      { mensagem: 'Erro ao obter card de cliente', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/gestao-arena/card-cliente/[id] - Atualizar card de cliente
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
+      return NextResponse.json(
+        { mensagem: 'Você não tem permissão para atualizar cards de clientes' },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+    const body: AtualizarCardClientePayload = await request.json();
+
+    // Verificar se o card existe
+    const existe = await query(
+      'SELECT "pointId", status FROM "CardCliente" WHERE id = $1',
+      [id]
+    );
+
+    if (existe.rows.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'Card de cliente não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const cardAtual = existe.rows[0];
+
+    // Verificar se ORGANIZER tem acesso
+    if (usuario.role === 'ORGANIZER') {
+      if (!usuarioTemAcessoAoPoint(usuario, cardAtual.pointId)) {
+        return NextResponse.json(
+          { mensagem: 'Você não tem acesso a este card' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Se está fechando o card, verificar se está totalmente pago
+    // O card pode permanecer aberto com saldo pendente para permitir pagamentos parciais
+    if (body.status === 'FECHADO' && cardAtual.status !== 'FECHADO') {
+      // Calcular valor total dos pagamentos
+      const pagamentosResult = await query(
+        'SELECT COALESCE(SUM(valor), 0) as total FROM "PagamentoCard" WHERE "cardId" = $1',
+        [id]
+      );
+      const totalPago = parseFloat(pagamentosResult.rows[0].total);
+
+      // Obter valor total do card
+      const cardResult = await query(
+        'SELECT "valorTotal" FROM "CardCliente" WHERE id = $1',
+        [id]
+      );
+      const valorTotal = parseFloat(cardResult.rows[0].valorTotal);
+      const saldoPendente = valorTotal - totalPago;
+
+      if (totalPago < valorTotal) {
+        return NextResponse.json(
+          { mensagem: `Não é possível fechar o card com saldo pendente. Valor total: R$ ${valorTotal.toFixed(2)}, já pago: R$ ${totalPago.toFixed(2)}, saldo pendente: R$ ${saldoPendente.toFixed(2)}. O card pode permanecer aberto para receber pagamentos parciais.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (body.status !== undefined) {
+      updates.push(`status = $${paramCount}`);
+      values.push(body.status);
+      paramCount++;
+
+      // Se está fechando, registrar data e usuário
+      if (body.status === 'FECHADO' && cardAtual.status !== 'FECHADO') {
+        updates.push(`"fechadoAt" = NOW()`);
+        updates.push(`"fechadoBy" = $${paramCount}`);
+        values.push(usuario.id);
+        paramCount++;
+      } else if (body.status !== 'FECHADO' && cardAtual.status === 'FECHADO') {
+        // Se está reabrindo, limpar dados de fechamento
+        updates.push(`"fechadoAt" = NULL`);
+        updates.push(`"fechadoBy" = NULL`);
+      }
+    }
+    if (body.observacoes !== undefined) {
+      updates.push(`observacoes = $${paramCount}`);
+      values.push(body.observacoes || null);
+      paramCount++;
+    }
+    if (body.usuarioId !== undefined) {
+      updates.push(`"usuarioId" = $${paramCount}`);
+      values.push(body.usuarioId || null);
+      paramCount++;
+      
+      // Se está removendo o usuário, limpar campos avulsos se não foram informados
+      if (!body.usuarioId && body.nomeAvulso === undefined && body.telefoneAvulso === undefined) {
+        updates.push(`"nomeAvulso" = NULL`);
+        updates.push(`"telefoneAvulso" = NULL`);
+      }
+    }
+    if (body.nomeAvulso !== undefined) {
+      updates.push(`"nomeAvulso" = $${paramCount}`);
+      values.push(body.nomeAvulso || null);
+      paramCount++;
+    }
+    if (body.telefoneAvulso !== undefined) {
+      updates.push(`"telefoneAvulso" = $${paramCount}`);
+      values.push(body.telefoneAvulso || null);
+      paramCount++;
+    }
+
+    // Validação: se está atualizando campos de cliente, verificar se há cliente vinculado ou nome avulso
+    // Esta validação só deve ser executada quando os campos de cliente estão sendo alterados
+    if (body.usuarioId !== undefined || body.nomeAvulso !== undefined || body.telefoneAvulso !== undefined) {
+      const novoUsuarioId = body.usuarioId !== undefined ? body.usuarioId : cardAtual.usuarioId;
+      const novoNomeAvulso = body.nomeAvulso !== undefined ? body.nomeAvulso : cardAtual.nomeAvulso;
+      
+      if (!novoUsuarioId && !novoNomeAvulso) {
+        return NextResponse.json(
+          { mensagem: 'É necessário vincular um cliente ou informar o nome do cliente avulso' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'Nenhum campo para atualizar' },
+        { status: 400 }
+      );
+    }
+
+    updates.push(`"updatedAt" = NOW()`);
+    values.push(id);
+
+    const result = await query(
+      `UPDATE "CardCliente" 
+       SET ${updates.join(', ')} 
+       WHERE id = $${paramCount} 
+       RETURNING *`,
+      values
+    );
+
+    return NextResponse.json(result.rows[0]);
+  } catch (error: any) {
+    console.error('Erro ao atualizar card de cliente:', error);
+    return NextResponse.json(
+      { mensagem: 'Erro ao atualizar card de cliente', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/gestao-arena/card-cliente/[id] - Deletar card de cliente
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
+      return NextResponse.json(
+        { mensagem: 'Você não tem permissão para deletar cards de clientes' },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+
+    const existe = await query(
+      'SELECT "pointId" FROM "CardCliente" WHERE id = $1',
+      [id]
+    );
+
+    if (existe.rows.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'Card de cliente não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const card = existe.rows[0];
+
+    if (usuario.role === 'ORGANIZER') {
+      if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
+        return NextResponse.json(
+          { mensagem: 'Você não tem acesso a este card' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Apenas cards cancelados ou abertos sem itens podem ser deletados
+    const cardInfo = await query(
+      'SELECT status FROM "CardCliente" WHERE id = $1',
+      [id]
+    );
+    const status = cardInfo.rows[0].status;
+
+    if (status === 'FECHADO') {
+      return NextResponse.json(
+        { mensagem: 'Não é possível deletar um card fechado' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar se há itens ou pagamentos
+    const itens = await query(
+      'SELECT id FROM "ItemCard" WHERE "cardId" = $1 LIMIT 1',
+      [id]
+    );
+    const pagamentos = await query(
+      'SELECT id FROM "PagamentoCard" WHERE "cardId" = $1 LIMIT 1',
+      [id]
+    );
+
+    if (itens.rows.length > 0 || pagamentos.rows.length > 0) {
+      return NextResponse.json(
+        { mensagem: 'Não é possível deletar um card que possui itens ou pagamentos. Cancele o card ao invés de deletá-lo.' },
+        { status: 400 }
+      );
+    }
+
+    await query('DELETE FROM "CardCliente" WHERE id = $1', [id]);
+
+    return NextResponse.json({ mensagem: 'Card de cliente deletado com sucesso' });
+  } catch (error: any) {
+    console.error('Erro ao deletar card de cliente:', error);
+    return NextResponse.json(
+      { mensagem: 'Erro ao deletar card de cliente', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
