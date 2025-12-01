@@ -170,7 +170,10 @@ export default function EditarAgendamentoModal({
   const resetarFormulario = () => {
     setPointId('');
     setQuadraId('');
-    setData('');
+    // Definir data atual como padrão para novos agendamentos
+    const hoje = new Date();
+    const dataAtual = hoje.toISOString().split('T')[0];
+    setData(dataAtual);
     setHora('');
     setDuracao(60);
     setObservacoes('');
@@ -354,25 +357,25 @@ export default function EditarAgendamentoModal({
     const agora = new Date();
     const dataHoraSelecionada = new Date(`${data}T${hora}:00`);
 
-    // Se estamos editando um agendamento e o horário selecionado é o mesmo do agendamento atual,
-    // não há conflito (estamos apenas mantendo o mesmo horário)
+    // Se estamos editando um agendamento, verificar se o horário selecionado é o mesmo do agendamento atual
+    // (mesmo que a quadra tenha mudado, não há conflito se mantivermos o mesmo horário)
     if (agendamento) {
       // Extrair data/hora do agendamento atual diretamente da string ISO (sem conversão de timezone)
       const agendamentoDataHoraStr = agendamento.dataHora;
       const agendamentoDataPart = agendamentoDataHoraStr.split('T')[0];
       const agendamentoHoraMatch = agendamentoDataHoraStr.match(/T(\d{2}):(\d{2})/);
       
-      // Comparar diretamente as strings de data e hora para evitar problemas de timezone
+      // Se a data, hora e duração são as mesmas, não há conflito (mesmo que a quadra tenha mudado)
+      // O agendamento atual será ignorado no loop de verificação abaixo
       if (
-        agendamento.quadraId === quadraId &&
         agendamentoDataPart === data &&
         agendamentoHoraMatch &&
         agendamentoHoraMatch[1] === hora.split(':')[0] &&
         agendamentoHoraMatch[2] === hora.split(':')[1] &&
         agendamento.duracao === duracao
       ) {
-        // Mesmo horário, mesma quadra, mesma duração - não há conflito
-        return null;
+        // Mesmo horário e duração - não há conflito (mesmo que a quadra tenha mudado)
+        // O agendamento atual será ignorado no loop abaixo
       }
     }
 
@@ -439,6 +442,34 @@ export default function EditarAgendamentoModal({
       // Se estamos editando um agendamento, garantir que não estamos comparando com ele mesmo
       if (agendamento && ag.id === agendamento.id) {
         continue;
+      }
+
+      // Se estamos editando e mantendo o mesmo horário/data/duração, ignorar qualquer
+      // agendamento que tenha exatamente o mesmo horário (pode ser o próprio agendamento
+      // que ainda está na lista por algum motivo, especialmente quando mudamos a quadra)
+      if (agendamento) {
+        const agendamentoDataHoraStr = agendamento.dataHora;
+        const agendamentoDataPart = agendamentoDataHoraStr.split('T')[0];
+        const agendamentoHoraMatch = agendamentoDataHoraStr.match(/T(\d{2}):(\d{2})/);
+        const agDataPart = ag.dataHora.split('T')[0];
+        const agHoraMatch = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+        
+        // Se o horário selecionado é o mesmo do agendamento atual E o agendamento na lista
+        // tem o mesmo horário/data/duração, ignorar (provavelmente é o próprio agendamento)
+        if (
+          agendamentoDataPart === data &&
+          agendamentoHoraMatch &&
+          agendamentoHoraMatch[1] === hora.split(':')[0] &&
+          agendamentoHoraMatch[2] === hora.split(':')[1] &&
+          agendamento.duracao === duracao &&
+          agendamentoDataPart === agDataPart &&
+          agendamentoHoraMatch && agHoraMatch &&
+          agendamentoHoraMatch[1] === agHoraMatch[1] &&
+          agendamentoHoraMatch[2] === agHoraMatch[2] &&
+          agendamento.duracao === ag.duracao
+        ) {
+          continue;
+        }
       }
 
       const agInicio = new Date(ag.dataHora).getTime();
