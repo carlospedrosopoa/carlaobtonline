@@ -939,20 +939,21 @@ export default function ArenaAgendaSemanalPage() {
                                     }}
                                     onMouseEnter={(e) => {
                                       if (agendamento.observacoes) {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        const scrollY = window.scrollY || window.pageYOffset;
-                                        const scrollX = window.scrollX || window.pageXOffset;
-                                        
-                                        // Posicionar acima do agendamento, centralizado
-                                        let x = rect.left + rect.width / 2 + scrollX;
-                                        let y = rect.top + scrollY - 10;
+                                        // Usar a posição do mouse diretamente
+                                        let x = e.clientX;
+                                        let y = e.clientY - 10; // 10px acima do cursor
                                         
                                         // Ajustar se sair da tela à esquerda ou direita
                                         const tooltipWidth = 200; // largura aproximada do tooltip
-                                        if (x - tooltipWidth / 2 < scrollX) {
-                                          x = scrollX + tooltipWidth / 2 + 10;
-                                        } else if (x + tooltipWidth / 2 > scrollX + window.innerWidth) {
-                                          x = scrollX + window.innerWidth - tooltipWidth / 2 - 10;
+                                        if (x - tooltipWidth / 2 < 10) {
+                                          x = tooltipWidth / 2 + 10;
+                                        } else if (x + tooltipWidth / 2 > window.innerWidth - 10) {
+                                          x = window.innerWidth - tooltipWidth / 2 - 10;
+                                        }
+                                        
+                                        // Ajustar se sair da tela acima
+                                        if (y < 10) {
+                                          y = e.clientY + 20; // Mostrar abaixo do cursor se não couber acima
                                         }
                                         
                                         setTooltipAgendamento(agendamento.observacoes);
@@ -965,18 +966,20 @@ export default function ArenaAgendaSemanalPage() {
                                     }}
                                     onMouseMove={(e) => {
                                       if (agendamento.observacoes && tooltipAgendamento) {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        const scrollY = window.scrollY || window.pageYOffset;
-                                        const scrollX = window.scrollX || window.pageXOffset;
-                                        
-                                        let x = rect.left + rect.width / 2 + scrollX;
-                                        let y = rect.top + scrollY - 10;
+                                        // Usar a posição do mouse diretamente
+                                        let x = e.clientX;
+                                        let y = e.clientY - 10; // 10px acima do cursor
                                         
                                         const tooltipWidth = 200;
-                                        if (x - tooltipWidth / 2 < scrollX) {
-                                          x = scrollX + tooltipWidth / 2 + 10;
-                                        } else if (x + tooltipWidth / 2 > scrollX + window.innerWidth) {
-                                          x = scrollX + window.innerWidth - tooltipWidth / 2 - 10;
+                                        if (x - tooltipWidth / 2 < 10) {
+                                          x = tooltipWidth / 2 + 10;
+                                        } else if (x + tooltipWidth / 2 > window.innerWidth - 10) {
+                                          x = window.innerWidth - tooltipWidth / 2 - 10;
+                                        }
+                                        
+                                        // Ajustar se sair da tela acima
+                                        if (y < 10) {
+                                          y = e.clientY + 20; // Mostrar abaixo do cursor se não couber acima
                                         }
                                         
                                         setTooltipPosicao({ x, y });
