@@ -354,6 +354,28 @@ export default function EditarAgendamentoModal({
     const agora = new Date();
     const dataHoraSelecionada = new Date(`${data}T${hora}:00`);
 
+    // Se estamos editando um agendamento e o horário selecionado é o mesmo do agendamento atual,
+    // não há conflito (estamos apenas mantendo o mesmo horário)
+    if (agendamento) {
+      // Extrair data/hora do agendamento atual diretamente da string ISO (sem conversão de timezone)
+      const agendamentoDataHoraStr = agendamento.dataHora;
+      const agendamentoDataPart = agendamentoDataHoraStr.split('T')[0];
+      const agendamentoHoraMatch = agendamentoDataHoraStr.match(/T(\d{2}):(\d{2})/);
+      
+      // Comparar diretamente as strings de data e hora para evitar problemas de timezone
+      if (
+        agendamento.quadraId === quadraId &&
+        agendamentoDataPart === data &&
+        agendamentoHoraMatch &&
+        agendamentoHoraMatch[1] === hora.split(':')[0] &&
+        agendamentoHoraMatch[2] === hora.split(':')[1] &&
+        agendamento.duracao === duracao
+      ) {
+        // Mesmo horário, mesma quadra, mesma duração - não há conflito
+        return null;
+      }
+    }
+
     // Não permitir agendamento no passado
     if (dataHoraSelecionada < agora) {
       return 'Não é possível agendar no passado';
@@ -414,6 +436,11 @@ export default function EditarAgendamentoModal({
 
     // Verificar conflitos com agendamentos existentes
     for (const ag of agendamentosExistentes) {
+      // Se estamos editando um agendamento, garantir que não estamos comparando com ele mesmo
+      if (agendamento && ag.id === agendamento.id) {
+        continue;
+      }
+
       const agInicio = new Date(ag.dataHora).getTime();
       const agFim = agInicio + ag.duracao * 60000;
 
@@ -599,19 +626,7 @@ export default function EditarAgendamentoModal({
     }
   };
 
-  const getHorariosOcupados = (): string[] => {
-    if (!data) return [];
 
-    return agendamentosExistentes.map((ag) => {
-      const agData = new Date(ag.dataHora);
-      return agData.toLocaleTimeString('pt-BR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    });
-  };
-
-  const horariosOcupados = getHorariosOcupados();
   const conflito = verificarConflito();
 
   const formatCurrency = (v: number | null) =>
@@ -929,29 +944,6 @@ export default function EditarAgendamentoModal({
               </p>
             </div>
 
-            {/* Horários Ocupados */}
-            {quadraId && data && horariosOcupados.length > 0 && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-start gap-2 mb-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-yellow-800 mb-1">
-                      Horários já ocupados neste dia:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {horariosOcupados.map((horario, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium"
-                        >
-                          {horario}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {erro && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
