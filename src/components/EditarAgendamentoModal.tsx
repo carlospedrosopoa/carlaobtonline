@@ -31,11 +31,11 @@ export default function EditarAgendamentoModal({
   onSuccess,
   quadraIdInicial,
 }: EditarAgendamentoModalProps) {
-  const { usuario } = useAuth();
-  // No appatleta, apenas USER pode criar/editar seus próprios agendamentos
-  const isAdmin = false;
-  const isOrganizer = false;
-  const canGerenciarAgendamento = false;
+  const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
+  // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou avulsos)
+  const isAdmin = isAdminContext;
+  const isOrganizer = isOrganizerContext;
+  const canGerenciarAgendamento = isAdmin || isOrganizer;
 
   const [points, setPoints] = useState<any[]>([]);
   const [quadras, setQuadras] = useState<any[]>([]);
