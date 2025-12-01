@@ -170,36 +170,121 @@ export const api = {
         body: body ? JSON.stringify(body) : undefined,
         headers: config?.headers,
       });
-      const data = await response.json().catch(() => ({}));
+      
+      // Tenta parsear JSON, se falhar retorna objeto vazio
+      const data = await response.json().catch(() => {
+        // Se não conseguir parsear e o status não é 200, pode ser erro
+        if (!response.ok) {
+          return { mensagem: 'Erro ao processar resposta', status: response.status };
+        }
+        return {};
+      });
+      
+      // Se a resposta não está ok, lança erro
+      if (!response.ok) {
+        const error: any = new Error(data.mensagem || data.error || 'Erro na requisição');
+        error.status = response.status;
+        error.response = { data };
+        error.data = data;
+        throw error;
+      }
+      
       return { data, status: response.status, headers: response.headers };
     } catch (error: any) {
       console.error('API POST error:', error);
-      // Retorna um objeto com status de erro para compatibilidade
-      return { 
-        data: { mensagem: error.message || 'Erro ao conectar com o servidor' }, 
-        status: 500, 
-        headers: {} 
-      };
+      // Se já tem status, relança o erro
+      if (error.status || error.response) {
+        throw error;
+      }
+      // Caso contrário, cria um erro genérico
+      const apiError: any = new Error(error.message || 'Erro ao conectar com o servidor');
+      apiError.status = 500;
+      throw apiError;
     }
   },
   
   put: async (endpoint: string, body?: any, config?: any) => {
-    const response = await apiRequest(endpoint, {
-      method: 'PUT',
-      body: body ? JSON.stringify(body) : undefined,
-      headers: config?.headers,
-    });
-    const data = await response.json().catch(() => ({}));
-    return { data, status: response.status, headers: response.headers };
+    try {
+      const response = await apiRequest(endpoint, {
+        method: 'PUT',
+        body: body ? JSON.stringify(body) : undefined,
+        headers: config?.headers,
+      });
+      
+      // Tenta parsear JSON, se falhar retorna objeto vazio
+      const data = await response.json().catch(() => {
+        // Se não conseguir parsear e o status não é 200, pode ser erro
+        if (!response.ok) {
+          return { mensagem: 'Erro ao processar resposta', status: response.status };
+        }
+        return {};
+      });
+      
+      // Se a resposta não está ok, lança erro
+      if (!response.ok) {
+        const error: any = new Error(data.mensagem || data.error || 'Erro na requisição');
+        error.status = response.status;
+        error.response = { data };
+        error.data = data;
+        throw error;
+      }
+      
+      return { data, status: response.status, headers: response.headers };
+    } catch (error: any) {
+      console.error('API PUT error:', error);
+      // Se já tem status, relança o erro
+      if (error.status || error.response) {
+        throw error;
+      }
+      // Caso contrário, cria um erro genérico
+      const apiError: any = new Error(error.message || 'Erro ao conectar com o servidor');
+      apiError.status = 500;
+      throw apiError;
+    }
   },
   
   delete: async (endpoint: string, config?: any) => {
-    const response = await apiRequest(endpoint, {
-      method: 'DELETE',
-      headers: config?.headers,
-    });
-    const data = await response.json().catch(() => ({}));
-    return { data, status: response.status, headers: response.headers };
+    try {
+      const response = await apiRequest(endpoint, {
+        method: 'DELETE',
+        headers: config?.headers,
+      });
+      
+      // 204 No Content - não tem body
+      if (response.status === 204) {
+        return { data: null, status: 204, headers: response.headers };
+      }
+      
+      // Tenta parsear JSON, se falhar retorna objeto vazio
+      const data = await response.json().catch(() => {
+        // Se não conseguir parsear e o status não é 200, pode ser erro
+        if (!response.ok) {
+          return { mensagem: 'Erro ao processar resposta', status: response.status };
+        }
+        return {};
+      });
+      
+      // Se a resposta não está ok, lança erro
+      if (!response.ok) {
+        const error: any = new Error(data.mensagem || data.error || 'Erro na requisição');
+        error.status = response.status;
+        error.response = { data };
+        error.data = data;
+        throw error;
+      }
+      
+      return { data, status: response.status, headers: response.headers };
+    } catch (error: any) {
+      console.error('API DELETE error:', error);
+      // Se já tem status, relança o erro
+      if (error.status || error.response) {
+        throw error;
+      }
+      // Caso contrário, cria um erro genérico
+      const apiError: any = new Error(error.message || 'Erro ao conectar com o servidor');
+      apiError.status = 500;
+      throw apiError;
+    }
   },
   
   // Para upload de arquivos (FormData)

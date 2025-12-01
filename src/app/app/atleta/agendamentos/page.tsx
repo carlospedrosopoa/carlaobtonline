@@ -323,7 +323,17 @@ export default function AgendamentosPage() {
                 return (
                   <div
                     key={agendamento.id}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    onClick={() => {
+                      // Só permite editar se o status for CONFIRMADO e o usuário for o dono
+                      if (agendamento.status === 'CONFIRMADO' && agendamento.usuarioId === usuario?.id) {
+                        handleEditar(agendamento);
+                      }
+                    }}
+                    className={`border border-gray-200 rounded-lg p-4 transition-shadow ${
+                      agendamento.status === 'CONFIRMADO' && agendamento.usuarioId === usuario?.id
+                        ? 'hover:shadow-md cursor-pointer hover:border-blue-300' 
+                        : 'cursor-default'
+                    }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                       <div className="flex-1">
@@ -436,14 +446,20 @@ export default function AgendamentosPage() {
                            agendamento.usuarioId === usuario?.id && (
                             <>
                               <button
-                                onClick={() => handleEditar(agendamento)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditar(agendamento);
+                                }}
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
                               >
                                 <Edit className="w-4 h-4" />
                                 Editar
                               </button>
                               <button
-                                onClick={() => handleCancelar(agendamento)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelar(agendamento);
+                                }}
                                 className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
                               >
                                 <X className="w-4 h-4" />

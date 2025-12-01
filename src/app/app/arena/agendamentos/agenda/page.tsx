@@ -921,6 +921,12 @@ export default function ArenaAgendaSemanalPage() {
                                         menuRefs.current[agendamento.id] = el;
                                       }
                                     }}
+                                    onClick={() => {
+                                      // Só permite editar se o status for CONFIRMADO e o menu não estiver aberto
+                                      if (agendamento.status === 'CONFIRMADO' && menuAberto !== agendamento.id) {
+                                        handleEditar(agendamento);
+                                      }
+                                    }}
                                     className={`rounded-md shadow-sm cursor-pointer group overflow-visible relative ${
                                       agendamento.status === 'CONFIRMADO'
                                         ? `${corQuadra.bg} ${corQuadra.text} border-2 ${corQuadra.border}`
@@ -983,21 +989,22 @@ export default function ArenaAgendaSemanalPage() {
                                           <div className="text-[10px] font-bold opacity-90 flex-1">
                                             {quadra?.nome || 'Quadra'}
                                           </div>
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              if (menuAberto === agendamento.id) {
-                                                setMenuAberto(null);
-                                              } else {
-                                                setMenuAberto(agendamento.id);
-                                              }
-                                            }}
-                                            className="opacity-70 hover:opacity-100 transition-opacity z-10 relative"
-                                          >
-                                            <MoreVertical className="w-3 h-3" />
-                                          </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            if (menuAberto === agendamento.id) {
+                                              setMenuAberto(null);
+                                            } else {
+                                              setMenuAberto(agendamento.id);
+                                            }
+                                          }}
+                                          className="opacity-70 hover:opacity-100 transition-opacity z-10 relative"
+                                          title="Menu de ações"
+                                        >
+                                          <MoreVertical className="w-3 h-3" />
+                                        </button>
                                         </div>
                                         <div className="text-xs font-bold truncate mb-0.5">
                                           {info.nome}
