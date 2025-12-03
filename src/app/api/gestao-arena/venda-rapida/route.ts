@@ -7,12 +7,16 @@ import type { CriarVendaRapidaPayload } from '@/types/gestaoArena';
 // POST /api/gestao-arena/venda-rapida - Criar card + itens + pagamento em uma única transação
 export async function POST(request: NextRequest) {
   let client;
+  let clientLiberado = false;
   
   try {
     client = await pool.connect();
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      if (client) client.release();
+      if (client && !clientLiberado) {
+        client.release();
+        clientLiberado = true;
+      }
       return NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
@@ -21,7 +25,10 @@ export async function POST(request: NextRequest) {
 
     // Apenas ADMIN e ORGANIZER podem criar vendas
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      if (client) client.release();
+      if (client && !clientLiberado) {
+        client.release();
+        clientLiberado = true;
+      }
       return NextResponse.json(
         { mensagem: 'Você não tem permissão para criar vendas' },
         { status: 403 }
@@ -33,7 +40,10 @@ export async function POST(request: NextRequest) {
 
     // Validações antes de iniciar transação
     if (!pointId) {
-      if (client) client.release();
+      if (client && !clientLiberado) {
+        client.release();
+        clientLiberado = true;
+      }
       return NextResponse.json(
         { mensagem: 'PointId é obrigatório' },
         { status: 400 }
@@ -42,7 +52,10 @@ export async function POST(request: NextRequest) {
 
     // Se não há usuário vinculado, nome avulso é obrigatório (telefone é opcional)
     if (!usuarioId && !nomeAvulso) {
-      if (client) client.release();
+      if (client && !clientLiberado) {
+        client.release();
+        clientLiberado = true;
+      }
       return NextResponse.json(
         { mensagem: 'É necessário vincular um cliente ou informar o nome do cliente avulso' },
         { status: 400 }
@@ -268,9 +281,10 @@ export async function POST(request: NextRequest) {
       throw error;
     } finally {
       // Liberar client apenas uma vez no finally interno
-      if (client && !client.released) {
+      if (client && !clientLiberado) {
         console.log('Liberando client do pool (finally interno)');
         client.release();
+        clientLiberado = true;
       }
     }
   } catch (error: any) {
