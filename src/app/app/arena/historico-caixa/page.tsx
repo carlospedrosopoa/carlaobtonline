@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { aberturaCaixaService, fluxoCaixaService } from '@/services/gestaoArenaService';
-import type { AberturaCaixa, LancamentoFluxoCaixa } from '@/services/gestaoArenaService';
+import type { AberturaCaixa, LancamentoFluxoCaixa } from '@/types/gestaoArena';
 import { Calendar, Search, ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown, Eye } from 'lucide-react';
 
 export default function HistoricoCaixaPage() {
