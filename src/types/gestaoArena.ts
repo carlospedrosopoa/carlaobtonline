@@ -437,6 +437,31 @@ export interface CriarSaidaCaixaPayload {
 }
 
 // ============================================
+// FLUXO DE CAIXA (Unificado)
+// ============================================
+export interface LancamentoFluxoCaixa {
+  id: string;
+  tipo: 'ENTRADA_MANUAL' | 'ENTRADA_CARD' | 'SAIDA';
+  pointId: string;
+  valor: number;
+  descricao: string;
+  observacoes?: string | null;
+  data: string;
+  createdAt: string;
+  createdBy?: string | null;
+  // Campos específicos de entrada manual
+  formaPagamento?: FormaPagamento;
+  // Campos específicos de entrada de card
+  cardId?: string;
+  numeroCard?: string;
+  // Campos específicos de saída
+  fornecedor?: Fornecedor;
+  categoriaSaida?: CategoriaSaida;
+  tipoDespesa?: TipoDespesa;
+  centroCusto?: CentroCusto;
+}
+
+// ============================================
 // FILTROS
 // ============================================
 export interface FiltrosCardCliente {
