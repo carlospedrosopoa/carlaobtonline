@@ -135,6 +135,21 @@ export async function POST(request: NextRequest) {
       // 5. Adicionar pagamento se informado
       let pagamentoId: string | null = null;
       if (pagamento) {
+        // Verificar se há uma abertura de caixa aberta
+        const aberturaAbertaResult = await client.query(
+          'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+          [pointId, 'ABERTA']
+        );
+
+        if (aberturaAbertaResult.rows.length === 0) {
+          await client.query('ROLLBACK');
+          if (client) client.release();
+          return NextResponse.json(
+            { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
+            { status: 400 }
+          );
+        }
+
         // Validar valor do pagamento
         if (pagamento.valor > valorTotal) {
           throw new Error(`O valor do pagamento (R$ ${pagamento.valor.toFixed(2)}) não pode ser maior que o valor total (R$ ${valorTotal.toFixed(2)})`);
@@ -150,13 +165,20 @@ export async function POST(request: NextRequest) {
           throw new Error('Um ou mais itens não pertencem a este card');
         }
 
+        // Buscar abertura de caixa aberta atual
+        const aberturaResult = await client.query(
+          'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+          [pointId, 'ABERTA']
+        );
+        const aberturaCaixaId = aberturaResult.rows.length > 0 ? aberturaResult.rows[0].id : null;
+
         const pagamentoResult = await client.query(
           `INSERT INTO "PagamentoCard" (
-            id, "cardId", "formaPagamentoId", valor, observacoes, "createdAt", "createdBy"
+            id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdBy"
           ) VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, NOW(), $5
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
           ) RETURNING id`,
-          [cardId, pagamento.formaPagamentoId, pagamento.valor, pagamento.observacoes || null, usuario.id]
+          [cardId, pagamento.formaPagamentoId, pagamento.valor, pagamento.observacoes || null, aberturaCaixaId, usuario.id]
         );
 
         pagamentoId = pagamentoResult.rows[0].id;
@@ -169,6 +191,9 @@ export async function POST(request: NextRequest) {
             [pagamentoId, itemId]
           );
         }
+
+        // Não criar entrada manual - a API de fluxo de caixa busca pagamentos de cards diretamente
+        // Isso evita duplicação e garante que apareça como "ENTRADA_CARD" e não "ENTRADA_MANUAL"
 
         // Se o pagamento quitar o card, fechar automaticamente
         const totalPago = pagamento.valor;

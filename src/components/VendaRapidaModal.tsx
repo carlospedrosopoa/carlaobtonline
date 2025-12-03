@@ -4,7 +4,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, produtoService, formaPagamentoService } from '@/services/gestaoArenaService';
+import { userService } from '@/services/userService';
 import type { Produto, FormaPagamento, CriarVendaRapidaPayload } from '@/types/gestaoArena';
+import type { UsuarioAdmin } from '@/services/userService';
 import { X, Plus, Trash2, ShoppingCart, CreditCard, Search, User, UserPlus } from 'lucide-react';
 
 interface ItemCarrinho {
@@ -39,6 +41,13 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
   const [nomeAvulso, setNomeAvulso] = useState('');
   const [telefoneAvulso, setTelefoneAvulso] = useState('');
   const [observacoesCard, setObservacoesCard] = useState('');
+  
+  // Busca de clientes cadastrados
+  const [clientes, setClientes] = useState<UsuarioAdmin[]>([]);
+  const [buscaCliente, setBuscaCliente] = useState('');
+  const [clientesFiltrados, setClientesFiltrados] = useState<UsuarioAdmin[]>([]);
+  const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
+  const [carregandoClientes, setCarregandoClientes] = useState(false);
 
   // Carrinho de itens (trabalha no frontend)
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
@@ -91,6 +100,54 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
     }
   };
 
+  const carregarClientes = async (buscaTexto?: string) => {
+    try {
+      setCarregandoClientes(true);
+      const clientesData = await userService.buscarClientes(buscaTexto);
+      setClientes(clientesData);
+      setClientesFiltrados(clientesData);
+    } catch (error: any) {
+      console.error('Erro ao carregar clientes:', error);
+      setErro('Erro ao carregar lista de clientes');
+    } finally {
+      setCarregandoClientes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tipoCliente === 'cadastrado') {
+      // Carregar clientes quando mudar para tipo cadastrado
+      if (buscaCliente.trim()) {
+        // Se há busca, fazer busca na API
+        const timeoutId = setTimeout(() => {
+          carregarClientes(buscaCliente);
+        }, 300); // Debounce de 300ms
+        return () => clearTimeout(timeoutId);
+      } else if (clientes.length === 0) {
+        // Se não há busca e não há clientes carregados, carregar todos
+        carregarClientes();
+      } else {
+        // Se já há clientes carregados, apenas filtrar localmente
+        setClientesFiltrados(clientes);
+      }
+    }
+  }, [tipoCliente, buscaCliente]);
+
+  useEffect(() => {
+    // Filtrar clientes localmente enquanto digita (para resposta mais rápida)
+    if (buscaCliente.trim() === '') {
+      setClientesFiltrados(clientes);
+    } else {
+      const buscaLower = buscaCliente.toLowerCase();
+      const filtrados = clientes.filter(
+        (cliente) =>
+          cliente.name.toLowerCase().includes(buscaLower) ||
+          cliente.email.toLowerCase().includes(buscaLower)
+      );
+      setClientesFiltrados(filtrados);
+    }
+  }, [buscaCliente, clientes]);
+
   const resetarFormulario = () => {
     setTipoCliente('avulso');
     setUsuarioId('');
@@ -98,6 +155,8 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
     setTelefoneAvulso('');
     setObservacoesCard('');
     setCarrinho([]);
+    setBuscaCliente('');
+    setMostrarListaClientes(false);
     setIncluirPagamento(false);
     setFormaPagamentoId('');
     setValorPagamento('');
@@ -182,6 +241,24 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
   const valorTotalCarrinho = useMemo(() => {
     return carrinho.reduce((sum, item) => sum + item.precoTotal, 0);
   }, [carrinho]);
+
+  // Calcular saldo pendente
+  const saldoPendente = useMemo(() => {
+    if (!incluirPagamento || !valorPagamento) {
+      return valorTotalCarrinho;
+    }
+    const valorPago = parseFloat(valorPagamento) || 0;
+    return Math.max(0, valorTotalCarrinho - valorPago);
+  }, [incluirPagamento, valorPagamento, valorTotalCarrinho]);
+
+  // Determinar se pode finalizar (pagamento informado e sem saldo pendente)
+  const podeFinalizar = useMemo(() => {
+    return incluirPagamento && 
+           formaPagamentoId && 
+           valorPagamento && 
+           parseFloat(valorPagamento) > 0 &&
+           saldoPendente === 0;
+  }, [incluirPagamento, formaPagamentoId, valorPagamento, saldoPendente]);
 
   // Verificar se o formulário está válido para habilitar o botão
   const formularioValido = useMemo(() => {
@@ -329,7 +406,7 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Venda Rápida</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Nova Venda</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -402,14 +479,90 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                     </div>
                   </div>
                 ) : (
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Selecionar Cliente *</label>
-                    <input
-                      type="text"
-                      placeholder="Buscar cliente..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Funcionalidade de busca de clientes será implementada</p>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                        type="text"
+                        value={buscaCliente}
+                        onChange={(e) => {
+                          setBuscaCliente(e.target.value);
+                          setMostrarListaClientes(true);
+                        }}
+                        onFocus={() => {
+                          if (clientes.length === 0) {
+                            carregarClientes();
+                          }
+                          setMostrarListaClientes(true);
+                        }}
+                        onBlur={() => {
+                          // Delay para permitir clique no item da lista
+                          setTimeout(() => setMostrarListaClientes(false), 200);
+                        }}
+                        placeholder="Buscar cliente por nome ou email..."
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    {mostrarListaClientes && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {carregandoClientes ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto mb-2"></div>
+                            Carregando clientes...
+                          </div>
+                        ) : clientesFiltrados.length > 0 ? (
+                          <div>
+                            {clientesFiltrados.map((cliente) => (
+                              <div
+                                key={cliente.id}
+                                onClick={() => {
+                                  setUsuarioId(String(cliente.id));
+                                  setBuscaCliente(cliente.name);
+                                  setMostrarListaClientes(false);
+                                }}
+                                className={`p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 ${
+                                  usuarioId === String(cliente.id) ? 'bg-emerald-100' : ''
+                                }`}
+                              >
+                                <div className="font-medium text-gray-900">{cliente.name}</div>
+                                <div className="text-sm text-gray-600">{cliente.email}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            {buscaCliente.trim() ? 'Nenhum cliente encontrado' : 'Digite para buscar clientes'}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {usuarioId && (
+                      <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-emerald-900">
+                              {clientes.find((c) => String(c.id) === usuarioId)?.name}
+                            </p>
+                            <p className="text-xs text-emerald-700">
+                              {clientes.find((c) => String(c.id) === usuarioId)?.email}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUsuarioId('');
+                              setBuscaCliente('');
+                            }}
+                            className="text-emerald-600 hover:text-emerald-800"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -628,7 +781,10 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                 : ''
             }
           >
-            {salvando ? 'Finalizando...' : 'Finalizar Venda'}
+            {salvando 
+              ? (podeFinalizar ? 'Finalizando...' : 'Salvando...') 
+              : (podeFinalizar ? 'Finalizar Venda' : 'Salvar')
+            }
           </button>
         </div>
       </div>

@@ -5,7 +5,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, pagamentoCardService, produtoService, formaPagamentoService } from '@/services/gestaoArenaService';
 import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload } from '@/types/gestaoArena';
-import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search } from 'lucide-react';
+import { api } from '@/lib/api';
+import type { Agendamento } from '@/types/agendamento';
+import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search, FileText, Calendar } from 'lucide-react';
 
 interface GerenciarCardModalProps {
   isOpen: boolean;
@@ -64,6 +66,27 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   const [observacoesPagamento, setObservacoesPagamento] = useState('');
   const [itensSelecionadosPagamento, setItensSelecionadosPagamento] = useState<string[]>([]);
 
+  // Estados para agendamentos
+  const [agendamentosVinculados, setAgendamentosVinculados] = useState<Array<{
+    id: string;
+    agendamentoId: string;
+    valor: number;
+    createdAt: string;
+    agendamento?: {
+      id: string;
+      quadra: { id: string; nome: string };
+      dataHora: string;
+      duracao: number;
+      valorCalculado: number | null;
+      valorNegociado: number | null;
+      status: string;
+    };
+  }>>([]);
+  const [modalAgendamentoAberto, setModalAgendamentoAberto] = useState(false);
+  const [agendamentosDisponiveis, setAgendamentosDisponiveis] = useState<Agendamento[]>([]);
+  const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(false);
+  const [buscaAgendamento, setBuscaAgendamento] = useState('');
+
   useEffect(() => {
     if (isOpen && card) {
       carregarDados();
@@ -75,6 +98,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setTemAlteracoesNaoSalvas(false);
     }
   }, [isOpen, card]);
+
 
   // Fechar modal com ESC
   useEffect(() => {
@@ -100,7 +124,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setErro('');
 
       const [cardData, produtosData, formasData] = await Promise.all([
-        cardClienteService.obter(card.id, true, true),
+        cardClienteService.obter(card.id, true, true, true),
         produtoService.listar(usuario.pointIdGestor, true),
         formaPagamentoService.listar(usuario.pointIdGestor, true),
       ]);
@@ -108,6 +132,27 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setCardCompleto(cardData);
       setProdutos(produtosData);
       setFormasPagamento(formasData);
+      
+      // Debug: verificar se observacoes está sendo carregado
+      console.log('Card carregado - observacoes:', cardData.observacoes, 'tipo:', typeof cardData.observacoes);
+      
+      // Inicializar itens locais com os itens do backend
+      if (cardData.itens) {
+        setItensLocais(
+          cardData.itens.map((item) => ({
+            id: item.id,
+            produtoId: item.produtoId,
+            quantidade: item.quantidade,
+            precoUnitario: item.precoUnitario,
+            precoTotal: item.precoTotal,
+            observacoes: item.observacoes || undefined,
+            isNovo: false,
+            itemIdBackend: item.id,
+          }))
+        );
+      } else {
+        setItensLocais([]);
+      }
       
       // Inicializar pagamentos locais com os pagamentos do backend
       if (cardData.pagamentos) {
@@ -124,6 +169,13 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         );
       } else {
         setPagamentosLocais([]);
+      }
+
+      // Inicializar agendamentos vinculados
+      if (cardData.agendamentos) {
+        setAgendamentosVinculados(cardData.agendamentos);
+      } else {
+        setAgendamentosVinculados([]);
       }
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao carregar dados');
@@ -320,6 +372,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setPagamentosRemovidos([]);
       setTemAlteracoesNaoSalvas(false);
       onSuccess();
+      onClose(); // Fechar o modal após salvar
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao salvar alterações');
     } finally {
@@ -331,12 +384,17 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     if (!cardCompleto) return;
 
     // Se há alterações não salvas, perguntar se quer salvar antes de fechar
+    let fechouAoSalvar = false;
     if (temAlteracoesNaoSalvas) {
       const salvarAntes = confirm('Há alterações não salvas. Deseja salvá-las antes de fechar o card?');
       if (salvarAntes) {
         await salvarAlteracoes();
+        fechouAoSalvar = true; // salvarAlteracoes já fecha o modal
       }
     }
+
+    // Se já fechou ao salvar, não precisa continuar
+    if (fechouAoSalvar) return;
 
     if (!confirm('Tem certeza que deseja fechar este card?')) return;
 
@@ -344,6 +402,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       await cardClienteService.atualizar(cardCompleto.id, { status: 'FECHADO' });
       await carregarDados();
       onSuccess();
+      onClose(); // Fechar o modal após fechar o card
     } catch (error: any) {
       alert(error?.response?.data?.mensagem || 'Erro ao fechar card');
     }
@@ -384,6 +443,88 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       minute: '2-digit',
     });
   };
+
+  const formatarDataHora = (dataHora: string) => {
+    return new Date(dataHora).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Funções para gerenciar agendamentos
+  const abrirModalAgendamento = async () => {
+    if (!usuario?.pointIdGestor) return;
+    
+    setModalAgendamentoAberto(true);
+    setCarregandoAgendamentos(true);
+    setBuscaAgendamento('');
+    
+    try {
+      const hoje = new Date();
+      const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      
+      const res = await api.get('/gestao-arena/agendamentos-disponiveis', {
+        params: {
+          pointId: usuario.pointIdGestor,
+          dataInicio: primeiroDiaMes.toISOString(),
+          dataFim: ultimoDiaMes.toISOString(),
+        },
+      });
+      
+      setAgendamentosDisponiveis(res.data);
+    } catch (error: any) {
+      console.error('Erro ao carregar agendamentos disponíveis:', error);
+      setErro('Erro ao carregar agendamentos disponíveis');
+    } finally {
+      setCarregandoAgendamentos(false);
+    }
+  };
+
+  const fecharModalAgendamento = () => {
+    setModalAgendamentoAberto(false);
+    setBuscaAgendamento('');
+  };
+
+  const vincularAgendamento = async (agendamentoId: string) => {
+    if (!cardCompleto) return;
+
+    try {
+      await cardClienteService.vincularAgendamento(cardCompleto.id, agendamentoId);
+      await carregarDados();
+      fecharModalAgendamento();
+      onSuccess();
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao vincular agendamento');
+    }
+  };
+
+  const desvincularAgendamento = async (agendamentoCardId: string) => {
+    if (!cardCompleto || !confirm('Tem certeza que deseja remover este agendamento do card?')) return;
+
+    try {
+      await cardClienteService.desvincularAgendamento(cardCompleto.id, agendamentoCardId);
+      await carregarDados();
+      onSuccess();
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao desvincular agendamento');
+    }
+  };
+
+  const agendamentosDisponiveisFiltrados = useMemo(() => {
+    if (!buscaAgendamento) return agendamentosDisponiveis;
+    
+    const buscaLower = buscaAgendamento.toLowerCase();
+    return agendamentosDisponiveis.filter((ag) => {
+      const quadraNome = ag.quadra?.nome?.toLowerCase() || '';
+      const clienteNome = ag.usuario?.name?.toLowerCase() || ag.nomeAvulso?.toLowerCase() || '';
+      const dataHora = formatarDataHora(ag.dataHora).toLowerCase();
+      return quadraNome.includes(buscaLower) || clienteNome.includes(buscaLower) || dataHora.includes(buscaLower);
+    });
+  }, [agendamentosDisponiveis, buscaAgendamento]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -469,10 +610,25 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
               </div>
             </div>
 
+            {/* Observações do Card */}
+            {cardCompleto.observacoes && typeof cardCompleto.observacoes === 'string' && cardCompleto.observacoes.trim() !== '' && (
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-2">
+                  <FileText className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-blue-900 mb-1">Observações</h3>
+                    <p className="text-sm text-blue-800 whitespace-pre-wrap">{cardCompleto.observacoes}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Resumo Financeiro */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(() => {
-                const valorTotalLocal = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
+                const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
+                const valorTotalAgendamentos = agendamentosVinculados.reduce((sum, ag) => sum + ag.valor, 0);
+                const valorTotalLocal = valorTotalItens + valorTotalAgendamentos;
                 const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
                 const saldoLocal = valorTotalLocal - totalPagoLocal;
                 return (
@@ -635,11 +791,14 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
                             <div className="text-xs font-medium text-blue-900 mb-1">Itens pagos neste pagamento:</div>
                             <div className="space-y-1">
-                              {itensDoPagamento.map((item) => (
-                                <div key={item.id} className="text-sm text-blue-800">
-                                  • {item.produto?.nome || 'Produto não encontrado'} - {formatarMoeda(item.precoTotal)}
-                                </div>
-                              ))}
+                              {itensDoPagamento.map((item) => {
+                                const produto = produtos.find((p) => p.id === item.produtoId);
+                                return (
+                                  <div key={item.id} className="text-sm text-blue-800">
+                                    • {produto?.nome || 'Produto não encontrado'} - {formatarMoeda(item.precoTotal)}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -659,46 +818,126 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
               )}
             </div>
 
-            {/* Ações */}
-            {cardCompleto.status === 'ABERTO' && (
-              <div className="pt-4 border-t border-gray-200">
-                {temAlteracoesNaoSalvas && (
-                  <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-yellow-800 font-medium">⚠️ Alterações não salvas</span>
-                      </div>
-                      <button
-                        onClick={salvarAlteracoes}
-                        disabled={salvando}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {salvando ? 'Salvando...' : 'Salvar Alterações'}
-                      </button>
-                    </div>
-                  </div>
+            {/* Agendamentos */}
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Agendamentos
+                </h3>
+                {cardCompleto.status === 'ABERTO' && (
+                  <button
+                    onClick={abrirModalAgendamento}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Adicionar Agendamento
+                  </button>
                 )}
-                <div className="flex gap-3 mb-3">
-                  <button
-                    onClick={fecharCard}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                  >
-                    Fechar Card
-                  </button>
-                </div>
-                <div className="border-t border-gray-200 pt-3">
-                  <button
-                    onClick={cancelarCard}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                  >
-                    ⚠️ Cancelar Card (Irreversível)
-                  </button>
-                  <p className="text-xs text-gray-500 mt-1 text-center">
-                    Esta ação não pode ser desfeita
-                  </p>
-                </div>
               </div>
-            )}
+              {agendamentosVinculados.length > 0 ? (
+                <div className="space-y-2">
+                  {agendamentosVinculados.map((agendamentoCard) => {
+                    const agendamento = agendamentoCard.agendamento;
+                    if (!agendamento) return null;
+                    
+                    return (
+                      <div 
+                        key={agendamentoCard.id} 
+                        className="p-3 rounded-lg border-2 bg-gray-50 border-gray-200"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">
+                                {agendamento.quadra.nome}
+                              </span>
+                              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                agendamento.status === 'CONFIRMADO' ? 'bg-blue-100 text-blue-800' :
+                                agendamento.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {agendamento.status}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {formatarDataHora(agendamento.dataHora)} - {agendamento.duracao} min
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="font-semibold text-blue-600">{formatarMoeda(agendamentoCard.valor)}</div>
+                            {cardCompleto.status === 'ABERTO' && (
+                              <button
+                                onClick={() => desvincularAgendamento(agendamentoCard.id)}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                  Nenhum agendamento vinculado
+                </div>
+              )}
+            </div>
+
+            {/* Ações */}
+            {cardCompleto.status === 'ABERTO' && (() => {
+              const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
+              const valorTotalAgendamentos = agendamentosVinculados.reduce((sum, ag) => sum + ag.valor, 0);
+              const valorTotalLocal = valorTotalItens + valorTotalAgendamentos;
+              const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
+              const saldoLocal = valorTotalLocal - totalPagoLocal;
+              const saldoIgualZero = Math.abs(saldoLocal) < 0.01; // Permitir pequenas diferenças de arredondamento
+              
+              return (
+                <div className="pt-4 border-t border-gray-200">
+                  {temAlteracoesNaoSalvas && (
+                    <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-800 font-medium">⚠️ Alterações não salvas</span>
+                        </div>
+                        <button
+                          onClick={salvarAlteracoes}
+                          disabled={salvando}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {salvando ? 'Salvando...' : 'Salvar Alterações'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex gap-3 mb-3">
+                    <button
+                      onClick={fecharCard}
+                      disabled={!saldoIgualZero}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={!saldoIgualZero ? 'O saldo deve ser zero para fechar o card' : ''}
+                    >
+                      Fechar Card
+                    </button>
+                  </div>
+                  <div className="border-t border-gray-200 pt-3">
+                    <button
+                      onClick={cancelarCard}
+                      className="w-full px-4 py-2 bg-gray-100 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                    >
+                      ⚠️ Cancelar Card (Irreversível)
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1 text-center">
+                      Esta ação não pode ser desfeita
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ) : null}
 
@@ -974,6 +1213,106 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     {salvando ? 'Adicionando...' : 'Adicionar'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Agendamentos Disponíveis */}
+        {modalAgendamentoAberto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Adicionar Agendamento</h3>
+                  <button onClick={fecharModalAgendamento} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por quadra, cliente ou data..."
+                    value={buscaAgendamento}
+                    onChange={(e) => setBuscaAgendamento(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6">
+                {carregandoAgendamentos ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Carregando agendamentos...</p>
+                  </div>
+                ) : agendamentosDisponiveisFiltrados.length > 0 ? (
+                  <div className="space-y-3">
+                    {agendamentosDisponiveisFiltrados.map((agendamento) => {
+                      const valor = agendamento.valorNegociado || agendamento.valorCalculado || 0;
+                      return (
+                        <div
+                          key={agendamento.id}
+                          className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                          onClick={() => vincularAgendamento(agendamento.id)}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold text-gray-900">{agendamento.quadra?.nome}</span>
+                                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                  agendamento.status === 'CONFIRMADO' ? 'bg-blue-100 text-blue-800' :
+                                  agendamento.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {agendamento.status}
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4" />
+                                  {formatarDataHora(agendamento.dataHora)} - {agendamento.duracao} min
+                                </div>
+                                {agendamento.usuario ? (
+                                  <div className="flex items-center gap-2">
+                                    <User className="w-4 h-4" />
+                                    {agendamento.usuario.name}
+                                  </div>
+                                ) : agendamento.nomeAvulso ? (
+                                  <div className="flex items-center gap-2">
+                                    <UserPlus className="w-4 h-4" />
+                                    {agendamento.nomeAvulso}
+                                    {agendamento.telefoneAvulso && ` - ${agendamento.telefoneAvulso}`}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold text-blue-600">{formatarMoeda(valor)}</div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  vincularAgendamento(agendamento.id);
+                                }}
+                                className="mt-2 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                              >
+                                Adicionar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">
+                      {buscaAgendamento ? 'Nenhum agendamento encontrado' : 'Nenhum agendamento disponível'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

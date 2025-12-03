@@ -182,12 +182,24 @@ export async function POST(
       [cardId, produtoId, quantidade, precoUnit, precoTotal, observacoes || null]
     );
 
-    // Atualizar valor total do card
-    const totalResult = await query(
+    // Atualizar valor total do card (itens + agendamentos)
+    const totalItensResult = await query(
       'SELECT COALESCE(SUM("precoTotal"), 0) as total FROM "ItemCard" WHERE "cardId" = $1',
       [cardId]
     );
-    const novoValorTotal = parseFloat(totalResult.rows[0].total);
+    let totalAgendamentos = 0;
+    try {
+      const totalAgendamentosResult = await query(
+        'SELECT COALESCE(SUM(valor), 0) as total FROM "CardAgendamento" WHERE "cardId" = $1',
+        [cardId]
+      );
+      totalAgendamentos = parseFloat(totalAgendamentosResult.rows[0].total);
+    } catch (error: any) {
+      // Se a tabela não existir, usar 0
+      console.warn('Tabela CardAgendamento não encontrada, usando 0 para agendamentos');
+      totalAgendamentos = 0;
+    }
+    const novoValorTotal = parseFloat(totalItensResult.rows[0].total) + totalAgendamentos;
 
     await query(
       'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW() WHERE id = $2',

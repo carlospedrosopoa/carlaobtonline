@@ -26,6 +26,14 @@ export const userService = {
     return res.data as UsuarioAdmin[];
   },
 
+  buscarClientes: async (busca?: string): Promise<UsuarioAdmin[]> => {
+    const params = new URLSearchParams();
+    if (busca) params.append('busca', busca);
+    const query = params.toString();
+    const res = await api.get(`/user/clientes${query ? `?${query}` : ''}`);
+    return res.data as UsuarioAdmin[];
+  },
+
   atualizarGestor: async (
     id: string | number,
     payload: AtualizarGestorPayload

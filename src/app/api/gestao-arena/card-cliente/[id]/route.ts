@@ -22,6 +22,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const incluirItens = searchParams.get('incluirItens') !== 'false'; // Por padrão inclui
     const incluirPagamentos = searchParams.get('incluirPagamentos') !== 'false'; // Por padrão inclui
+    const incluirAgendamentos = searchParams.get('incluirAgendamentos') !== 'false'; // Por padrão inclui
 
     const result = await query(
       `SELECT 
@@ -177,6 +178,62 @@ export async function GET(
           };
         })
       );
+    }
+
+    // Incluir agendamentos se solicitado
+    if (incluirAgendamentos) {
+      try {
+        // Verificar se a tabela CardAgendamento existe
+        const tableExists = await query(
+          `SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'CardAgendamento'
+          )`
+        );
+
+        if (tableExists.rows[0]?.exists) {
+          const agendamentosResult = await query(
+            `SELECT 
+              ca.id, ca."cardId", ca."agendamentoId", ca.valor, ca."createdAt",
+              a.id as "agendamento_id", a."dataHora", a.duracao, a."valorCalculado", a."valorNegociado", a.status,
+              q.id as "quadra_id", q.nome as "quadra_nome"
+            FROM "CardAgendamento" ca
+            INNER JOIN "Agendamento" a ON ca."agendamentoId" = a.id
+            INNER JOIN "Quadra" q ON a."quadraId" = q.id
+            WHERE ca."cardId" = $1
+            ORDER BY a."dataHora" DESC`,
+            [id]
+          );
+
+          card.agendamentos = agendamentosResult.rows.map((row: any) => ({
+            id: row.id,
+            cardId: row.cardId,
+            agendamentoId: row.agendamentoId,
+            valor: parseFloat(row.valor),
+            createdAt: row.createdAt,
+            agendamento: {
+              id: row.agendamento_id,
+              quadra: {
+                id: row.quadra_id,
+                nome: row.quadra_nome,
+              },
+              dataHora: row.dataHora,
+              duracao: row.duracao,
+              valorCalculado: row.valorCalculado ? parseFloat(row.valorCalculado) : null,
+              valorNegociado: row.valorNegociado ? parseFloat(row.valorNegociado) : null,
+              status: row.status,
+            },
+          }));
+        } else {
+          // Tabela não existe ainda, retornar array vazio
+          card.agendamentos = [];
+        }
+      } catch (error: any) {
+        // Se houver erro, logar mas não quebrar a requisição
+        console.error('Erro ao buscar agendamentos do card:', error);
+        card.agendamentos = [];
+      }
     }
 
     // Calcular saldo (valorTotal - totalPago)

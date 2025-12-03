@@ -59,7 +59,10 @@ export async function DELETE(
 
     // Verificar se o pagamento existe e pertence ao card
     const pagamentoResult = await query(
-      'SELECT id FROM "PagamentoCard" WHERE id = $1 AND "cardId" = $2',
+      `SELECT p.id, p.valor, c."numeroCard"
+       FROM "PagamentoCard" p
+       INNER JOIN "CardCliente" c ON p."cardId" = c.id
+       WHERE p.id = $1 AND p."cardId" = $2`,
       [pagamentoId, cardId]
     );
 
@@ -68,6 +71,31 @@ export async function DELETE(
         { mensagem: 'Pagamento não encontrado' },
         { status: 404 }
       );
+    }
+
+    const pagamento = pagamentoResult.rows[0];
+    const numeroCard = pagamento.numeroCard;
+    const valorPagamento = parseFloat(pagamento.valor);
+
+    // Excluir entrada de caixa relacionada (se existir)
+    // Buscar entrada manual que tenha descrição relacionada ao card
+    try {
+      const entradaResult = await query(
+        `SELECT id FROM "EntradaCaixa" 
+         WHERE "pointId" = $1 
+         AND valor = $2
+         AND descricao LIKE $3
+         ORDER BY "createdAt" DESC
+         LIMIT 1`,
+        [card.pointId, valorPagamento, `%Card #${numeroCard}%`]
+      );
+
+      if (entradaResult.rows.length > 0) {
+        await query('DELETE FROM "EntradaCaixa" WHERE id = $1', [entradaResult.rows[0].id]);
+      }
+    } catch (error: any) {
+      // Log do erro mas não falha a exclusão do pagamento
+      console.error('Erro ao excluir entrada de caixa relacionada:', error);
     }
 
     await query('DELETE FROM "PagamentoCard" WHERE id = $1', [pagamentoId]);

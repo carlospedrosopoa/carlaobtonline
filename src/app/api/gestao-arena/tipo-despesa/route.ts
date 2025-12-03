@@ -1,0 +1,130 @@
+// app/api/gestao-arena/tipo-despesa/route.ts - API de Tipo de Despesa
+import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import type { CriarTipoDespesaPayload, AtualizarTipoDespesaPayload } from '@/types/gestaoArena';
+
+// GET /api/gestao-arena/tipo-despesa - Listar tipos de despesa
+export async function GET(request: NextRequest) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const pointId = searchParams.get('pointId');
+    const apenasAtivos = searchParams.get('apenasAtivos') === 'true';
+
+    let sql = `SELECT 
+      id, "pointId", nome, descricao, ativo, "createdAt", "updatedAt"
+    FROM "TipoDespesa"
+    WHERE 1=1`;
+
+    const params: any[] = [];
+    let paramCount = 1;
+
+    if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
+      sql += ` AND "pointId" = $${paramCount}`;
+      params.push(usuario.pointIdGestor);
+      paramCount++;
+    } else if (pointId) {
+      sql += ` AND "pointId" = $${paramCount}`;
+      params.push(pointId);
+      paramCount++;
+    } else if (usuario.role !== 'ADMIN') {
+      return NextResponse.json(
+        { mensagem: 'Você não tem permissão para listar tipos de despesa' },
+        { status: 403 }
+      );
+    }
+
+    if (apenasAtivos) {
+      sql += ` AND ativo = true`;
+    }
+
+    sql += ` ORDER BY nome ASC`;
+
+    const result = await query(sql, params);
+    
+    return NextResponse.json(result.rows);
+  } catch (error: any) {
+    console.error('Erro ao listar tipos de despesa:', error);
+    return NextResponse.json(
+      { mensagem: 'Erro ao listar tipos de despesa', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/gestao-arena/tipo-despesa - Criar tipo de despesa
+export async function POST(request: NextRequest) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
+      return NextResponse.json(
+        { mensagem: 'Você não tem permissão para criar tipos de despesa' },
+        { status: 403 }
+      );
+    }
+
+    const body: CriarTipoDespesaPayload = await request.json();
+    const { pointId, nome, descricao, ativo = true } = body;
+
+    if (!pointId || !nome) {
+      return NextResponse.json(
+        { mensagem: 'PointId e nome são obrigatórios' },
+        { status: 400 }
+      );
+    }
+
+    if (usuario.role === 'ORGANIZER') {
+      if (!usuarioTemAcessoAoPoint(usuario, pointId)) {
+        return NextResponse.json(
+          { mensagem: 'Você não tem acesso a esta arena' },
+          { status: 403 }
+        );
+      }
+    }
+
+    const existe = await query(
+      'SELECT id FROM "TipoDespesa" WHERE "pointId" = $1 AND nome = $2',
+      [pointId, nome]
+    );
+
+    if (existe.rows.length > 0) {
+      return NextResponse.json(
+        { mensagem: 'Já existe um tipo de despesa com este nome nesta arena' },
+        { status: 400 }
+      );
+    }
+
+    const result = await query(
+      `INSERT INTO "TipoDespesa" (
+        id, "pointId", nome, descricao, ativo, "createdAt", "updatedAt"
+      ) VALUES (
+        gen_random_uuid()::text, $1, $2, $3, $4, NOW(), NOW()
+      ) RETURNING *`,
+      [pointId, nome, descricao || null, ativo]
+    );
+
+    return NextResponse.json(result.rows[0], { status: 201 });
+  } catch (error: any) {
+    console.error('Erro ao criar tipo de despesa:', error);
+    return NextResponse.json(
+      { mensagem: 'Erro ao criar tipo de despesa', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+

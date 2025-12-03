@@ -152,7 +152,7 @@ export async function POST(
 
     // Verificar se o card existe
     const cardResult = await query(
-      'SELECT "pointId", status, "valorTotal" FROM "CardCliente" WHERE id = $1',
+      'SELECT "pointId", status, "valorTotal", "numeroCard" FROM "CardCliente" WHERE id = $1',
       [cardId]
     );
 
@@ -197,6 +197,19 @@ export async function POST(
     if (!formaPagamentoResult.rows[0].ativo) {
       return NextResponse.json(
         { mensagem: 'Forma de pagamento não está ativa' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar se há uma abertura de caixa aberta
+    const aberturaAbertaResult = await query(
+      'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+      [card.pointId, 'ABERTA']
+    );
+
+    if (aberturaAbertaResult.rows.length === 0) {
+      return NextResponse.json(
+        { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
         { status: 400 }
       );
     }
@@ -260,14 +273,21 @@ export async function POST(
       }
     }
 
+    // Buscar abertura de caixa aberta atual
+    const aberturaResult = await query(
+      'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+      [card.pointId, 'ABERTA']
+    );
+    const aberturaCaixaId = aberturaResult.rows.length > 0 ? aberturaResult.rows[0].id : null;
+
     // Inserir pagamento
     const pagamentoResult = await query(
       `INSERT INTO "PagamentoCard" (
-        id, "cardId", "formaPagamentoId", valor, observacoes, "createdAt", "createdBy"
+        id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdBy"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, NOW(), $5
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
       ) RETURNING *`,
-      [cardId, formaPagamentoId, valor, observacoes || null, usuario.id]
+      [cardId, formaPagamentoId, valor, observacoes || null, aberturaCaixaId, usuario.id]
     );
 
     const pagamentoId = pagamentoResult.rows[0].id;
@@ -282,6 +302,9 @@ export async function POST(
         );
       }
     }
+
+    // Não criar entrada manual - a API de fluxo de caixa busca pagamentos de cards diretamente
+    // Isso evita duplicação e garante que apareça como "ENTRADA_CARD" e não "ENTRADA_MANUAL"
 
     // Não fechar automaticamente - o card será fechado manualmente quando necessário
     // O sistema mantém o saldo (valorTotal - totalPago) para controle

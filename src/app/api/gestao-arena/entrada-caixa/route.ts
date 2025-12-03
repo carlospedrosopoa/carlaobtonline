@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const dataFim = searchParams.get('dataFim');
 
     let sql = `SELECT 
-      e.id, e."pointId", e.valor, e.descricao, e."formaPagamentoId", e.observacoes,
+      e.id, e."pointId", e."aberturaCaixaId", e.valor, e.descricao, e."formaPagamentoId", e.observacoes,
       e."dataEntrada", e."createdAt", e."createdBy",
       fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
     FROM "EntradaCaixa" e
@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     const entradas = result.rows.map((row: any) => ({
       id: row.id,
       pointId: row.pointId,
+      aberturaCaixaId: row.aberturaCaixaId,
       valor: parseFloat(row.valor),
       descricao: row.descricao,
       formaPagamentoId: row.formaPagamentoId,
@@ -110,13 +111,58 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CriarEntradaCaixaPayload = await request.json();
-    const { pointId, valor, descricao, formaPagamentoId, observacoes, dataEntrada } = body;
+    const { pointId, aberturaCaixaId, valor, descricao, formaPagamentoId, observacoes, dataEntrada } = body;
 
     if (!pointId || !valor || !descricao || !formaPagamentoId) {
       return NextResponse.json(
         { mensagem: 'PointId, valor, descricao e formaPagamentoId são obrigatórios' },
         { status: 400 }
       );
+    }
+
+    // Buscar abertura de caixa (informada ou a aberta atual)
+    let aberturaId = aberturaCaixaId;
+    if (!aberturaId) {
+      const aberturaAbertaResult = await query(
+        'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2',
+        [pointId, 'ABERTA']
+      );
+
+      if (aberturaAbertaResult.rows.length === 0) {
+        return NextResponse.json(
+          { mensagem: 'Não há uma abertura de caixa aberta. Por favor, abra o caixa primeiro.' },
+          { status: 400 }
+        );
+      }
+
+      aberturaId = aberturaAbertaResult.rows[0].id;
+    } else {
+      // Verificar se a abertura informada existe e está aberta
+      const aberturaResult = await query(
+        'SELECT id, status, "pointId" FROM "AberturaCaixa" WHERE id = $1',
+        [aberturaId]
+      );
+
+      if (aberturaResult.rows.length === 0) {
+        return NextResponse.json(
+          { mensagem: 'Abertura de caixa não encontrada' },
+          { status: 404 }
+        );
+      }
+
+      if (aberturaResult.rows[0].status !== 'ABERTA') {
+        return NextResponse.json(
+          { mensagem: 'A abertura de caixa informada está fechada' },
+          { status: 400 }
+        );
+      }
+
+      if (aberturaResult.rows[0].pointId !== pointId) {
+        return NextResponse.json(
+          { mensagem: 'A abertura de caixa não pertence a esta arena' },
+          { status: 400 }
+        );
+      }
     }
 
     if (valor <= 0) {
@@ -161,11 +207,11 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO "EntradaCaixa" (
-        id, "pointId", valor, descricao, "formaPagamentoId", observacoes, "dataEntrada", "createdAt", "createdBy"
+        id, "pointId", "aberturaCaixaId", valor, descricao, "formaPagamentoId", observacoes, "dataEntrada", "createdAt", "createdBy"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), $7
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, NOW(), $8
       ) RETURNING *`,
-      [pointId, valor, descricao, formaPagamentoId, observacoes || null, dataEntradaFinal, usuario.id]
+      [pointId, aberturaId, valor, descricao, formaPagamentoId, observacoes || null, dataEntradaFinal, usuario.id]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });

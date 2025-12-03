@@ -12,10 +12,10 @@ export default function AtletaLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
 
   const navItems = [
+    { to: '/app/atleta/agendamentos/agenda', label: 'Agenda Semanal' },
     { to: '/app/atleta/dashboard', label: 'Dashboard' },
     { to: '/app/atleta/perfil', label: 'Meu Perfil' },
     { to: '/app/atleta/agendamentos', label: 'Agendamentos' },
-    { to: '/app/atleta/agendamentos/agenda', label: 'Agenda Semanal' },
   ];
 
   const handleLogout = () => {

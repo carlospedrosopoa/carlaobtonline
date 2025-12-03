@@ -8,7 +8,7 @@ import type { CardCliente, StatusCard } from '@/types/gestaoArena';
 import GerenciarCardModal from '@/components/GerenciarCardModal';
 import CriarEditarCardModal from '@/components/CriarEditarCardModal';
 import VendaRapidaModal from '@/components/VendaRapidaModal';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap } from 'lucide-react';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText } from 'lucide-react';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
@@ -126,7 +126,7 @@ export default function CardsClientesPage() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Zap className="w-5 h-5" />
-            Venda Rápida
+            Nova Venda
           </button>
         </div>
       </div>
@@ -156,110 +156,101 @@ export default function CardsClientesPage() {
       </div>
 
       {/* Lista de Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {cardsFiltrados.map((card) => (
-          <div
-            key={card.id}
-            onClick={() => abrirDetalhes(card)}
-            className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <CreditCard className="w-5 h-5 text-emerald-600" />
-                  <span className="text-lg font-bold text-gray-900">Card #{card.numeroCard}</span>
-                </div>
-                {getStatusBadge(card.status)}
-              </div>
-            </div>
-
-            {card.usuario ? (
-              <div className="mb-3 p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-                <div className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-emerald-600" />
-                  <div>
-                    <div className="font-semibold text-emerald-900">{card.usuario.name}</div>
-                    {card.usuario.email && (
-                      <div className="text-xs text-emerald-700">{card.usuario.email}</div>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Card</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Cliente</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Valor Total</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Total Pago</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Saldo</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Data</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {cardsFiltrados.map((card) => (
+                <tr
+                  key={card.id}
+                  onClick={() => abrirDetalhes(card)}
+                  className="cursor-pointer hover:bg-emerald-50 transition-colors"
+                >
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-emerald-600" />
+                      <span className="font-bold text-gray-900">#{card.numeroCard}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    {card.usuario ? (
+                      <div>
+                        <div className="font-semibold text-gray-900">{card.usuario.name}</div>
+                        {card.usuario.email && (
+                          <div className="text-xs text-gray-500">{card.usuario.email}</div>
+                        )}
+                      </div>
+                    ) : card.nomeAvulso ? (
+                      <div>
+                        <div className="font-semibold text-gray-900">{card.nomeAvulso}</div>
+                        {card.telefoneAvulso && (
+                          <div className="text-xs text-gray-500">{card.telefoneAvulso}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400 italic">Não informado</span>
                     )}
-                  </div>
-                </div>
-              </div>
-            ) : card.nomeAvulso ? (
-              <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <div className="font-semibold text-blue-900">{card.nomeAvulso}</div>
-                    {card.telefoneAvulso && (
-                      <div className="text-xs text-blue-700">{card.telefoneAvulso}</div>
+                    {card.observacoes && (
+                      <div className="mt-1 flex items-start gap-1">
+                        <FileText className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-gray-500 line-clamp-1">{card.observacoes}</p>
+                      </div>
                     )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center gap-2 text-sm text-gray-500 italic">
-                  <User className="w-4 h-4" />
-                  <span>Cliente não informado</span>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Valor Total:</span>
-                <span className="font-semibold text-gray-900">{formatarMoeda(card.valorTotal)}</span>
-              </div>
-              {card.totalPago !== undefined && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Total Pago:</span>
-                  <span className="font-semibold text-green-600">{formatarMoeda(card.totalPago)}</span>
-                </div>
-              )}
-              {/* Saldo sempre visível e destacado */}
-              <div className={`mt-3 p-2 rounded-lg border-2 ${
-                card.saldo !== undefined && card.saldo > 0 
-                  ? 'bg-red-50 border-red-200' 
-                  : card.saldo !== undefined && card.saldo === 0
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-gray-50 border-gray-200'
-              }`}>
-                <div className="flex justify-between items-center">
-                  <span className={`text-sm font-medium ${
-                    card.saldo !== undefined && card.saldo > 0 
-                      ? 'text-red-900' 
-                      : card.saldo !== undefined && card.saldo === 0
-                      ? 'text-green-900'
-                      : 'text-gray-700'
-                  }`}>
-                    Saldo:
-                  </span>
-                  <span className={`text-lg font-bold ${
-                    card.saldo !== undefined && card.saldo > 0 
-                      ? 'text-red-600' 
-                      : card.saldo !== undefined && card.saldo === 0
-                      ? 'text-green-600'
-                      : 'text-gray-600'
-                  }`}>
-                    {formatarMoeda(card.saldo !== undefined ? card.saldo : card.valorTotal)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Calendar className="w-4 h-4" />
-              <span>{formatarData(card.createdAt)}</span>
-            </div>
-          </div>
-        ))}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {getStatusBadge(card.status)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-right">
+                    <span className="font-semibold text-gray-900">{formatarMoeda(card.valorTotal)}</span>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-right">
+                    {card.totalPago !== undefined ? (
+                      <span className="font-semibold text-green-600">{formatarMoeda(card.totalPago)}</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-right">
+                    <span className={`font-bold ${
+                      card.saldo !== undefined && card.saldo > 0 
+                        ? 'text-red-600' 
+                        : card.saldo !== undefined && card.saldo === 0
+                        ? 'text-green-600'
+                        : 'text-gray-600'
+                    }`}>
+                      {formatarMoeda(card.saldo !== undefined ? card.saldo : card.valorTotal)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Calendar className="w-4 h-4" />
+                      <span>{formatarData(card.createdAt)}</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {cardsFiltrados.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Nenhum card encontrado</p>
+        <div className="bg-white rounded-lg shadow">
+          <div className="text-center py-12">
+            <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">Nenhum card encontrado</p>
+          </div>
         </div>
       )}
 

@@ -20,6 +20,9 @@ import type {
   CentroCusto,
   CriarCentroCustoPayload,
   AtualizarCentroCustoPayload,
+  TipoDespesa,
+  CriarTipoDespesaPayload,
+  AtualizarTipoDespesaPayload,
   ItemCard,
   CriarItemCardPayload,
   AtualizarItemCardPayload,
@@ -29,6 +32,9 @@ import type {
   CriarEntradaCaixaPayload,
   SaidaCaixa,
   CriarSaidaCaixaPayload,
+  AberturaCaixa,
+  CriarAberturaCaixaPayload,
+  FecharAberturaCaixaPayload,
 } from "@/types/gestaoArena";
 
 // ========== CARDS DE CLIENTES ==========
@@ -44,10 +50,11 @@ export const cardClienteService = {
     return res.data;
   },
 
-  obter: async (id: string, incluirItens?: boolean, incluirPagamentos?: boolean): Promise<CardCliente> => {
+  obter: async (id: string, incluirItens?: boolean, incluirPagamentos?: boolean, incluirAgendamentos?: boolean): Promise<CardCliente> => {
     const params = new URLSearchParams();
     if (incluirItens !== false) params.append('incluirItens', 'true');
     if (incluirPagamentos !== false) params.append('incluirPagamentos', 'true');
+    if (incluirAgendamentos !== false) params.append('incluirAgendamentos', 'true');
     const query = params.toString();
     const res = await api.get(`/gestao-arena/card-cliente/${id}${query ? `?${query}` : ''}`);
     return res.data;
@@ -70,6 +77,21 @@ export const cardClienteService = {
 
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/gestao-arena/card-cliente/${id}`);
+  },
+
+  // Agendamentos do card
+  vincularAgendamento: async (cardId: string, agendamentoId: string): Promise<any> => {
+    const res = await api.post(`/gestao-arena/card-cliente/${cardId}/agendamento`, { agendamentoId });
+    return res.data;
+  },
+
+  desvincularAgendamento: async (cardId: string, agendamentoCardId: string): Promise<void> => {
+    await api.delete(`/gestao-arena/card-cliente/${cardId}/agendamento/${agendamentoCardId}`);
+  },
+
+  listarAgendamentos: async (cardId: string): Promise<any[]> => {
+    const res = await api.get(`/gestao-arena/card-cliente/${cardId}/agendamento`);
+    return res.data;
   },
 };
 
@@ -268,6 +290,37 @@ export const centroCustoService = {
   },
 };
 
+// ========== TIPO DE DESPESA ==========
+export const tipoDespesaService = {
+  listar: async (pointId?: string, apenasAtivos?: boolean): Promise<TipoDespesa[]> => {
+    const params = new URLSearchParams();
+    if (pointId) params.append('pointId', pointId);
+    if (apenasAtivos) params.append('apenasAtivos', 'true');
+    const query = params.toString();
+    const res = await api.get(`/gestao-arena/tipo-despesa${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+
+  obter: async (id: string): Promise<TipoDespesa> => {
+    const res = await api.get(`/gestao-arena/tipo-despesa/${id}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarTipoDespesaPayload): Promise<TipoDespesa> => {
+    const res = await api.post("/gestao-arena/tipo-despesa", payload);
+    return res.data;
+  },
+
+  atualizar: async (id: string, payload: AtualizarTipoDespesaPayload): Promise<TipoDespesa> => {
+    const res = await api.put(`/gestao-arena/tipo-despesa/${id}`, payload);
+    return res.data;
+  },
+
+  deletar: async (id: string): Promise<void> => {
+    await api.delete(`/gestao-arena/tipo-despesa/${id}`);
+  },
+};
+
 // ========== ENTRADAS DE CAIXA ==========
 export const entradaCaixaService = {
   listar: async (pointId?: string, dataInicio?: string, dataFim?: string): Promise<EntradaCaixa[]> => {
@@ -319,6 +372,83 @@ export const saidaCaixaService = {
 
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/gestao-arena/saida-caixa/${id}`);
+  },
+};
+
+// ========== FLUXO DE CAIXA (Unificado) ==========
+export interface LancamentoFluxoCaixa {
+  id: string;
+  tipo: 'ENTRADA_MANUAL' | 'ENTRADA_CARD' | 'SAIDA';
+  pointId: string;
+  valor: number;
+  descricao: string;
+  observacoes?: string | null;
+  data: string;
+  createdAt: string;
+  createdBy?: string | null;
+  // Campos específicos de entrada manual
+  formaPagamento?: FormaPagamento;
+  // Campos específicos de entrada de card
+  cardId?: string;
+  numeroCard?: string;
+  // Campos específicos de saída
+  fornecedor?: Fornecedor;
+  categoriaSaida?: CategoriaSaida;
+  tipoDespesa?: TipoDespesa;
+  centroCusto?: CentroCusto;
+}
+
+export const fluxoCaixaService = {
+  listar: async (
+    pointId?: string,
+    aberturaCaixaId?: string,
+    dataInicio?: string,
+    dataFim?: string,
+    tipo?: 'ENTRADA' | 'SAIDA' | 'TODOS'
+  ): Promise<LancamentoFluxoCaixa[]> => {
+    const params = new URLSearchParams();
+    if (pointId) params.append('pointId', pointId);
+    if (aberturaCaixaId) params.append('aberturaCaixaId', aberturaCaixaId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    if (tipo) params.append('tipo', tipo);
+    const query = params.toString();
+    const res = await api.get(`/gestao-arena/fluxo-caixa${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+};
+
+// ========== ABERTURA DE CAIXA ==========
+export const aberturaCaixaService = {
+  listar: async (
+    pointId?: string,
+    status?: 'ABERTA' | 'FECHADA',
+    dataInicio?: string,
+    dataFim?: string
+  ): Promise<AberturaCaixa[]> => {
+    const params = new URLSearchParams();
+    if (pointId) params.append('pointId', pointId);
+    if (status) params.append('status', status);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    const query = params.toString();
+    const res = await api.get(`/gestao-arena/abertura-caixa${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+
+  obter: async (id: string): Promise<AberturaCaixa> => {
+    const res = await api.get(`/gestao-arena/abertura-caixa/${id}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarAberturaCaixaPayload): Promise<AberturaCaixa> => {
+    const res = await api.post('/gestao-arena/abertura-caixa', payload);
+    return res.data;
+  },
+
+  fechar: async (id: string, payload?: FecharAberturaCaixaPayload): Promise<AberturaCaixa> => {
+    const res = await api.put(`/gestao-arena/abertura-caixa/${id}`, payload || {});
+    return res.data;
   },
 };
 

@@ -1,4 +1,4 @@
-// app/app/arena/page.tsx - Página index da arena (redireciona para agendamentos)
+// app/app/arena/page.tsx - Página index da arena (redireciona para agenda semanal)
 'use client';
 
 import { useEffect } from 'react';
@@ -8,7 +8,7 @@ export default function ArenaIndexPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/app/arena/agendamentos');
+    router.replace('/app/arena/agendamentos/agenda');
   }, [router]);
 
   return (

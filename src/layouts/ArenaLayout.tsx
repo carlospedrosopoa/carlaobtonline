@@ -55,10 +55,18 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       items: [{ to: '/app/arena/cards-clientes', label: 'Cards de Clientes' }],
     },
     {
+      label: 'Fluxo de Caixa',
+      items: [
+        { to: '/app/arena/fluxo-caixa', label: 'Fluxo de Caixa' },
+        { to: '/app/arena/historico-caixa', label: 'Histórico de Caixa' },
+        { to: '/app/arena/dashboard-caixa', label: 'Dashboard do Caixa' },
+      ],
+    },
+    {
       label: 'Locações',
       items: [
-        { to: '/app/arena/agendamentos', label: 'Agenda' },
         { to: '/app/arena/agendamentos/agenda', label: 'Agenda Semanal' },
+        { to: '/app/arena/agendamentos', label: 'Agenda' },
         { to: '/app/arena/quadras', label: 'Minhas Quadras' },
         { to: '/app/arena/tabela-precos', label: 'Tabela de Preços' },
         { to: '/app/arena/bloqueios', label: 'Bloqueios' },
@@ -76,6 +84,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       items: [
         { to: '/app/arena/formas-pagamento', label: 'Formas de Pagamento' },
         { to: '/app/arena/centro-custo', label: 'Centro de Custo' },
+        { to: '/app/arena/tipo-despesa', label: 'Tipo de Despesa' },
       ],
     },
   ];

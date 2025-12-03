@@ -30,6 +30,24 @@ export interface CardCliente {
   } | null;
   itens?: ItemCard[];
   pagamentos?: PagamentoCard[];
+  agendamentos?: Array<{
+    id: string;
+    agendamentoId: string;
+    valor: number; // Valor do agendamento quando foi vinculado
+    createdAt: string;
+    agendamento?: {
+      id: string;
+      quadra: {
+        id: string;
+        nome: string;
+      };
+      dataHora: string;
+      duracao: number;
+      valorCalculado: number | null;
+      valorNegociado: number | null;
+      status: string;
+    };
+  }>;
 }
 
 export interface CriarCardClientePayload {
@@ -287,11 +305,74 @@ export interface AtualizarCentroCustoPayload {
 }
 
 // ============================================
+// TIPO DE DESPESA
+// ============================================
+export interface TipoDespesa {
+  id: string;
+  pointId: string;
+  nome: string;
+  descricao?: string | null;
+  ativo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CriarTipoDespesaPayload {
+  pointId: string;
+  nome: string;
+  descricao?: string;
+  ativo?: boolean;
+}
+
+export interface AtualizarTipoDespesaPayload {
+  nome?: string;
+  descricao?: string;
+  ativo?: boolean;
+}
+
+// ============================================
+// ABERTURA DE CAIXA
+// ============================================
+export type StatusAberturaCaixa = 'ABERTA' | 'FECHADA';
+
+export interface AberturaCaixa {
+  id: string;
+  pointId: string;
+  saldoInicial: number;
+  status: StatusAberturaCaixa;
+  dataAbertura: string;
+  dataFechamento?: string | null;
+  saldoFinal?: number | null;
+  observacoes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string | null;
+  fechadoBy?: string | null;
+  // Calculados
+  totalEntradas?: number;
+  totalSaidas?: number;
+  saldoAtual?: number;
+}
+
+export interface CriarAberturaCaixaPayload {
+  pointId: string;
+  saldoInicial: number;
+  observacoes?: string;
+  dataAbertura?: string; // Se não informado, usa a data atual
+}
+
+export interface FecharAberturaCaixaPayload {
+  saldoFinal?: number; // Saldo informado no fechamento (para conferência)
+  observacoes?: string;
+}
+
+// ============================================
 // ENTRADA DE CAIXA (Manual)
 // ============================================
 export interface EntradaCaixa {
   id: string;
   pointId: string;
+  aberturaCaixaId: string; // Vinculado à abertura de caixa
   valor: number;
   descricao: string;
   formaPagamentoId: string;
@@ -301,10 +382,12 @@ export interface EntradaCaixa {
   createdBy?: string | null;
   // Relacionamentos
   formaPagamento?: FormaPagamento;
+  aberturaCaixa?: AberturaCaixa;
 }
 
 export interface CriarEntradaCaixaPayload {
   pointId: string;
+  aberturaCaixaId?: string; // Opcional: se não informado, usa a abertura aberta atual
   valor: number;
   descricao: string;
   formaPagamentoId: string;
@@ -318,10 +401,12 @@ export interface CriarEntradaCaixaPayload {
 export interface SaidaCaixa {
   id: string;
   pointId: string;
+  aberturaCaixaId: string; // Vinculado à abertura de caixa
   valor: number;
   descricao: string;
   fornecedorId?: string | null;
-  categoriaSaidaId: string;
+  categoriaSaidaId?: string | null;
+  tipoDespesaId?: string | null;
   centroCustoId: string;
   formaPagamentoId: string;
   observacoes?: string | null;
@@ -331,16 +416,20 @@ export interface SaidaCaixa {
   // Relacionamentos
   fornecedor?: Fornecedor;
   categoriaSaida?: CategoriaSaida;
+  tipoDespesa?: TipoDespesa;
   centroCusto?: CentroCusto;
   formaPagamento?: FormaPagamento;
+  aberturaCaixa?: AberturaCaixa;
 }
 
 export interface CriarSaidaCaixaPayload {
   pointId: string;
+  aberturaCaixaId?: string; // Opcional: se não informado, usa a abertura aberta atual
   valor: number;
   descricao: string;
   fornecedorId?: string | null;
-  categoriaSaidaId: string;
+  categoriaSaidaId?: string | null;
+  tipoDespesaId?: string | null;
   centroCustoId: string;
   formaPagamentoId: string;
   observacoes?: string;
