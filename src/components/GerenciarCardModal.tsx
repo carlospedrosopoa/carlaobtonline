@@ -358,6 +358,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       // Adicionar novos pagamentos
       for (const pagamento of pagamentosLocais.filter((p) => p.isNovo)) {
         const payload: CriarPagamentoCardPayload = {
+          cardId: cardCompleto.id,
           formaPagamentoId: pagamento.formaPagamentoId,
           valor: pagamento.valor,
           observacoes: pagamento.observacoes,
