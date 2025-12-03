@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { fluxoCaixaService, entradaCaixaService, saidaCaixaService, formaPagamentoService, centroCustoService, tipoDespesaService, fornecedorService, aberturaCaixaService } from '@/services/gestaoArenaService';
-import type { LancamentoFluxoCaixa } from '@/services/gestaoArenaService';
+import type { LancamentoFluxoCaixa } from '@/types/gestaoArena';
 import type { FormaPagamento, CentroCusto, TipoDespesa, Fornecedor, CriarEntradaCaixaPayload, CriarSaidaCaixaPayload, AberturaCaixa, CriarAberturaCaixaPayload } from '@/types/gestaoArena';
 import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, X, Trash2 } from 'lucide-react';
 

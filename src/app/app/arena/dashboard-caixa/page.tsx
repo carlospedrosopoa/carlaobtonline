@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { fluxoCaixaService } from '@/services/gestaoArenaService';
-import type { LancamentoFluxoCaixa } from '@/services/gestaoArenaService';
+import type { LancamentoFluxoCaixa } from '@/types/gestaoArena';
 import { 
   BarChart, 
   Bar, 
