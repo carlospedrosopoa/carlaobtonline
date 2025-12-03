@@ -58,10 +58,12 @@ export default function HistoricoCaixaPage() {
       return;
     }
 
+    if (!usuario?.pointIdGestor) return;
+
     try {
       setCarregandoMovimentacoes((prev) => ({ ...prev, [aberturaId]: true }));
       const lancamentos = await fluxoCaixaService.listar(
-        usuario?.pointIdGestor,
+        usuario.pointIdGestor,
         aberturaId
       );
       setMovimentacoes((prev) => ({ ...prev, [aberturaId]: lancamentos }));
