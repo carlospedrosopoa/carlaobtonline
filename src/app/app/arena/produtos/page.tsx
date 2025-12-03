@@ -133,7 +133,7 @@ export default function ProdutosPage() {
     return matchBusca && matchCategoria;
   });
 
-  const categorias = Array.from(new Set(produtos.map((p) => p.categoria).filter(Boolean)));
+  const categorias = Array.from(new Set(produtos.map((p) => p.categoria).filter((cat): cat is string => Boolean(cat))));
 
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
