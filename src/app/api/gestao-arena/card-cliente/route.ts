@@ -21,12 +21,16 @@ export async function GET(request: NextRequest) {
     const incluirItens = searchParams.get('incluirItens') === 'true';
     const incluirPagamentos = searchParams.get('incluirPagamentos') === 'true';
 
+    // Query base - tentar com whatsapp primeiro, se falhar usar sem
     let sql = `SELECT 
       c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
       c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdBy", c."fechadoAt", c."fechadoBy",
-      u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+      u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
+      u.whatsapp as "usuario_whatsapp",
+      at.fone as "atleta_fone"
     FROM "CardCliente" c
     LEFT JOIN "User" u ON c."usuarioId" = u.id
+    LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
     WHERE 1=1`;
 
     const params: any[] = [];
@@ -56,7 +60,48 @@ export async function GET(request: NextRequest) {
 
     sql += ` ORDER BY c."numeroCard" DESC`;
 
-    const result = await query(sql, params);
+    let result;
+    try {
+      result = await query(sql, params);
+    } catch (error: any) {
+      // Se falhar por coluna whatsapp não encontrada, tentar sem whatsapp
+      if (error.code === '42703' || error.message?.includes('whatsapp') || error.message?.includes('column')) {
+        sql = `SELECT 
+          c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
+          c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdBy", c."fechadoAt", c."fechadoBy",
+          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", NULL as "usuario_whatsapp",
+          at.fone as "atleta_fone"
+        FROM "CardCliente" c
+        LEFT JOIN "User" u ON c."usuarioId" = u.id
+        LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+        WHERE 1=1`;
+        
+        // Reconstruir WHERE clauses
+        const params2: any[] = [];
+        let paramCount2 = 1;
+        
+        if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
+          sql += ` AND c."pointId" = $${paramCount2}`;
+          params2.push(usuario.pointIdGestor);
+          paramCount2++;
+        } else if (pointId) {
+          sql += ` AND c."pointId" = $${paramCount2}`;
+          params2.push(pointId);
+          paramCount2++;
+        }
+        
+        if (status) {
+          sql += ` AND c.status = $${paramCount2}`;
+          params2.push(status);
+          paramCount2++;
+        }
+        
+        sql += ` ORDER BY c."numeroCard" DESC`;
+        result = await query(sql, params2);
+      } else {
+        throw error;
+      }
+    }
     
     const cards = result.rows.map((row: any) => {
       const card: any = {
@@ -81,6 +126,8 @@ export async function GET(request: NextRequest) {
           id: row.usuario_id,
           name: row.usuario_name,
           email: row.usuario_email,
+          whatsapp: row.usuario_whatsapp || null,
+          telefone: row.atleta_fone || null, // Telefone vem do atleta vinculado
         };
       }
 

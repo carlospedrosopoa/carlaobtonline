@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { pointService } from '@/services/agendamentoService';
 import type { Point, CriarPointPayload } from '@/types/agendamento';
-import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminPointsPage() {
   const [points, setPoints] = useState<Point[]>([]);
@@ -21,11 +21,17 @@ export default function AdminPointsPage() {
     latitude: null,
     longitude: null,
     ativo: true,
+    whatsappAccessToken: null,
+    whatsappPhoneNumberId: null,
+    whatsappBusinessAccountId: null,
+    whatsappApiVersion: 'v21.0',
+    whatsappAtivo: false,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [buscandoGeolocalizacao, setBuscandoGeolocalizacao] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
+  const [mostrarTokenWhatsApp, setMostrarTokenWhatsApp] = useState(false);
 
   useEffect(() => {
     carregarPoints();
@@ -56,6 +62,11 @@ export default function AdminPointsPage() {
         latitude: point.latitude || null,
         longitude: point.longitude || null,
         ativo: point.ativo,
+        whatsappAccessToken: point.whatsappAccessToken || null,
+        whatsappPhoneNumberId: point.whatsappPhoneNumberId || null,
+        whatsappBusinessAccountId: point.whatsappBusinessAccountId || null,
+        whatsappApiVersion: point.whatsappApiVersion || 'v21.0',
+        whatsappAtivo: point.whatsappAtivo ?? false,
       });
       setLogoPreview(point.logoUrl || null);
     } else {
@@ -70,6 +81,11 @@ export default function AdminPointsPage() {
         latitude: null,
         longitude: null,
         ativo: true,
+        whatsappAccessToken: null,
+        whatsappPhoneNumberId: null,
+        whatsappBusinessAccountId: null,
+        whatsappApiVersion: 'v21.0',
+        whatsappAtivo: false,
       });
       setLogoPreview(null);
     }
@@ -82,6 +98,7 @@ export default function AdminPointsPage() {
     setPointEditando(null);
     setErro('');
     setLogoPreview(null);
+    setMostrarTokenWhatsApp(false);
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,6 +161,19 @@ export default function AdminPointsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
+
+    // Validação: se WhatsApp está ativo, campos obrigatórios devem estar preenchidos
+    if (form.whatsappAtivo) {
+      if (!form.whatsappAccessToken || !form.whatsappAccessToken.trim()) {
+        setErro('Access Token é obrigatório quando o WhatsApp está ativo');
+        return;
+      }
+      if (!form.whatsappPhoneNumberId || !form.whatsappPhoneNumberId.trim()) {
+        setErro('Phone Number ID é obrigatório quando o WhatsApp está ativo');
+        return;
+      }
+    }
+
     setSalvando(true);
 
     try {
@@ -284,6 +314,14 @@ export default function AdminPointsPage() {
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{point.descricao}</p>
                 )}
 
+                {/* Indicador WhatsApp */}
+                {point.whatsappAtivo && (
+                  <div className="flex items-center gap-2 mb-3 px-2 py-1 bg-green-50 border border-green-200 rounded-lg">
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-xs font-medium text-green-700">WhatsApp Ativo</span>
+                  </div>
+                )}
+
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => abrirModal(point)}
@@ -417,6 +455,118 @@ export default function AdminPointsPage() {
                 <label htmlFor="ativo" className="text-sm font-medium text-gray-700">
                   Estabelecimento ativo
                 </label>
+              </div>
+
+              {/* Seção WhatsApp */}
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <MessageCircle className="w-5 h-5 text-green-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Configurações WhatsApp Business</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Configure as credenciais da API do WhatsApp Business da Meta para esta arena.
+                </p>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="whatsappAtivo"
+                      checked={form.whatsappAtivo ?? false}
+                      onChange={(e) => setForm({ ...form, whatsappAtivo: e.target.checked })}
+                      className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                    />
+                    <label htmlFor="whatsappAtivo" className="text-sm font-medium text-gray-700">
+                      Ativar WhatsApp para esta arena
+                    </label>
+                  </div>
+
+                  {form.whatsappAtivo && (
+                    <div className="space-y-4 pl-6 border-l-2 border-green-200">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Access Token *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={mostrarTokenWhatsApp ? 'text' : 'password'}
+                            value={form.whatsappAccessToken || ''}
+                            onChange={(e) => setForm({ ...form, whatsappAccessToken: e.target.value })}
+                            placeholder="EAAxxxxxxxxxxxxx"
+                            className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMostrarTokenWhatsApp(!mostrarTokenWhatsApp)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          >
+                            {mostrarTokenWhatsApp ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Token de acesso da API do WhatsApp Business (Meta)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Phone Number ID *
+                        </label>
+                          <input
+                            type="text"
+                            value={form.whatsappPhoneNumberId || ''}
+                            onChange={(e) => setForm({ ...form, whatsappPhoneNumberId: e.target.value })}
+                            placeholder="123456789012345"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                          />
+                        <p className="text-xs text-gray-500 mt-1">
+                          ⚠️ <strong>NÃO é o número de telefone!</strong> É o ID do número que você encontra em <strong>WhatsApp → API Setup</strong> no Meta Business Suite. Geralmente tem 15-17 dígitos e é diferente do número de telefone.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Business Account ID (Opcional)
+                        </label>
+                        <input
+                          type="text"
+                          value={form.whatsappBusinessAccountId || ''}
+                          onChange={(e) => setForm({ ...form, whatsappBusinessAccountId: e.target.value })}
+                          placeholder="123456789012345"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          ID da conta comercial do WhatsApp Business (opcional)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Versão da API
+                        </label>
+                        <select
+                          value={form.whatsappApiVersion || 'v21.0'}
+                          onChange={(e) => setForm({ ...form, whatsappApiVersion: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                        >
+                          <option value="v21.0">v21.0</option>
+                          <option value="v20.0">v20.0</option>
+                          <option value="v19.0">v19.0</option>
+                          <option value="v18.0">v18.0</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Versão da API do WhatsApp Business (padrão: v21.0)
+                        </p>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-sm text-blue-800">
+                          <strong>💡 Dica:</strong> Consulte o arquivo <code className="bg-blue-100 px-1 rounded">GUIA_API_META.md</code> para obter instruções detalhadas sobre como obter essas credenciais.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {erro && (

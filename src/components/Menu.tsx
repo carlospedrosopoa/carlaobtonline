@@ -23,6 +23,7 @@ const Menu = () => {
 
   const menuItems = [
     { path: '/app/atleta/agendamentos/agenda', label: 'Agenda Semanal', roles: ['USER'] },
+    { path: '/app/atleta/locacoes', label: 'Locações', roles: ['USER'] },
     { path: '/dashboard', label: 'Dashboard', roles: ['USER'] },
     { path: '/perfil', label: 'Meu Perfil', roles: ['USER'] },
     { path: '/app/atleta/agendamentos', label: 'Agendamentos', roles: ['USER'] },

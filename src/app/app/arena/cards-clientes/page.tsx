@@ -8,7 +8,10 @@ import type { CardCliente, StatusCard } from '@/types/gestaoArena';
 import GerenciarCardModal from '@/components/GerenciarCardModal';
 import CriarEditarCardModal from '@/components/CriarEditarCardModal';
 import VendaRapidaModal from '@/components/VendaRapidaModal';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText } from 'lucide-react';
+import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
+import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, Trash2 } from 'lucide-react';
+import { whatsappService } from '@/services/whatsappService';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
@@ -21,6 +24,10 @@ export default function CardsClientesPage() {
   const [modalCriarEditarAberto, setModalCriarEditarAberto] = useState(false);
   const [modalVendaRapidaAberto, setModalVendaRapidaAberto] = useState(false);
   const [cardEditando, setCardEditando] = useState<CardCliente | null>(null);
+  const [modalItensAberto, setModalItensAberto] = useState(false);
+  const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false);
+  const [cardGerenciando, setCardGerenciando] = useState<CardCliente | null>(null);
+  const [limpandoCards, setLimpandoCards] = useState(false);
 
   useEffect(() => {
     if (usuario?.pointIdGestor) {
@@ -90,6 +97,76 @@ export default function CardsClientesPage() {
     });
   };
 
+  const formatarMensagemCard = (card: CardCliente): string => {
+    const nomeCliente = card.usuario?.name || card.nomeAvulso || 'Cliente';
+    const dataFormatada = formatarData(card.createdAt);
+    const valorTotal = formatarMoeda(card.valorTotal);
+    const totalPago = formatarMoeda(card.totalPago || 0);
+    const saldo = formatarMoeda(card.saldo !== undefined ? card.saldo : card.valorTotal);
+    const status = card.status === 'ABERTO' ? 'Aberto' : card.status === 'FECHADO' ? 'Fechado' : 'Cancelado';
+
+    let mensagem = `📋 *Card #${card.numeroCard}*\n\n`;
+    mensagem += `👤 *Cliente:* ${nomeCliente}\n`;
+    mensagem += `📅 *Data:* ${dataFormatada}\n`;
+    mensagem += `📊 *Status:* ${status}\n\n`;
+    mensagem += `💰 *Valores:*\n`;
+    mensagem += `• Total: ${valorTotal}\n`;
+    mensagem += `• Pago: ${totalPago}\n`;
+    mensagem += `• Saldo: ${saldo}\n`;
+
+    if (card.observacoes) {
+      mensagem += `\n📝 *Observações:*\n${card.observacoes}\n`;
+    }
+
+    return mensagem;
+  };
+
+  const obterTelefoneCliente = (card: CardCliente): string | null => {
+    // Prioridade: telefoneAvulso > telefone do atleta vinculado > whatsapp do usuário
+    if (card.telefoneAvulso) {
+      return card.telefoneAvulso;
+    }
+    if (card.usuario?.telefone) {
+      return card.usuario.telefone; // Telefone do atleta vinculado ao usuário
+    }
+    if (card.usuario?.whatsapp) {
+      return card.usuario.whatsapp;
+    }
+    return null;
+  };
+
+  const enviarWhatsAppCard = async (card: CardCliente, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar que o clique abra o modal de detalhes
+
+    const telefone = obterTelefoneCliente(card);
+    if (!telefone) {
+      alert('Telefone do cliente não encontrado. Por favor, adicione o telefone do cliente no cadastro.');
+      return;
+    }
+
+    const mensagem = formatarMensagemCard(card);
+    const pointId = usuario?.pointIdGestor;
+
+    if (!pointId) {
+      alert('Erro: Arena não identificada.');
+      return;
+    }
+
+    try {
+      await whatsappService.enviar({
+        destinatario: telefone,
+        mensagem: mensagem,
+        tipo: 'texto',
+        pointId: pointId,
+      });
+      alert('Mensagem WhatsApp enviada com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao enviar WhatsApp:', error);
+      const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao enviar mensagem WhatsApp';
+      alert(`Erro ao enviar WhatsApp: ${mensagemErro}`);
+    }
+  };
+
   const getStatusBadge = (status: StatusCard) => {
     switch (status) {
       case 'ABERTO':
@@ -98,6 +175,37 @@ export default function CardsClientesPage() {
         return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Fechado</span>;
       case 'CANCELADO':
         return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3 h-3" /> Cancelado</span>;
+    }
+  };
+
+  const limparTodosCards = async () => {
+    if (!usuario?.pointIdGestor) {
+      alert('Erro: Arena não identificada.');
+      return;
+    }
+
+    const confirmacao = confirm(
+      `⚠️ ATENÇÃO: Esta ação irá DELETAR TODOS os cards de clientes desta arena (${cards.length} card(s) encontrado(s)).\n\n` +
+      `Esta ação é IRREVERSÍVEL e irá remover:\n` +
+      `- Todos os cards\n` +
+      `- Todos os itens dos cards\n` +
+      `- Todos os pagamentos dos cards\n\n` +
+      `Deseja continuar?`
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      setLimpandoCards(true);
+      const resultado = await cardClienteService.limparTodos(usuario.pointIdGestor);
+      alert(`${resultado.mensagem}\n\nTotal de cards deletados: ${resultado.totalCards}`);
+      carregarCards();
+    } catch (error: any) {
+      console.error('Erro ao limpar cards:', error);
+      const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao limpar cards';
+      alert(`Erro ao limpar cards: ${mensagemErro}`);
+    } finally {
+      setLimpandoCards(false);
     }
   };
 
@@ -128,6 +236,29 @@ export default function CardsClientesPage() {
             <Zap className="w-5 h-5" />
             Nova Venda
           </button>
+          {(usuario?.role === 'ADMIN' || usuario?.role === 'ORGANIZER') && (
+            <button
+              onClick={limparTodosCards}
+              disabled={limpandoCards || !usuario?.pointIdGestor}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Limpar todos os cards desta arena (apenas desenvolvimento)"
+            >
+              {limpandoCards ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Limpando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-5 h-5" />
+                  Limpar Todos
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -168,6 +299,7 @@ export default function CardsClientesPage() {
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Total Pago</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Saldo</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Data</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -238,6 +370,51 @@ export default function CardsClientesPage() {
                       <span>{formatarData(card.createdAt)}</span>
                     </div>
                   </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCardGerenciando(card);
+                          setModalItensAberto(true);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs font-medium"
+                        title="Gerenciar Itens"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Itens
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCardGerenciando(card);
+                          setModalPagamentosAberto(true);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs font-medium"
+                        title="Gerenciar Pagamentos"
+                      >
+                        <DollarSign className="w-4 h-4" />
+                        Pagamentos
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          if (obterTelefoneCliente(card)) {
+                            enviarWhatsAppCard(card, e);
+                          }
+                        }}
+                        disabled={!obterTelefoneCliente(card)}
+                        className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-xs font-medium ${
+                          obterTelefoneCliente(card)
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                        }`}
+                        title={obterTelefoneCliente(card) ? 'Enviar informações do card por WhatsApp' : 'Telefone do cliente não cadastrado'}
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        WhatsApp
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -300,6 +477,37 @@ export default function CardsClientesPage() {
           setModalVendaRapidaAberto(false);
         }}
       />
+
+      {/* Modal Gerenciar Itens */}
+      {modalItensAberto && cardGerenciando && (
+        <ModalGerenciarItensCard
+          isOpen={modalItensAberto}
+          card={cardGerenciando}
+          onClose={() => {
+            setModalItensAberto(false);
+            setCardGerenciando(null);
+          }}
+          onSuccess={() => {
+            carregarCards();
+          }}
+        />
+      )}
+
+      {/* Modal Gerenciar Pagamentos */}
+      {modalPagamentosAberto && cardGerenciando && (
+        <ModalGerenciarPagamentosCard
+          isOpen={modalPagamentosAberto}
+          card={cardGerenciando}
+          onClose={() => {
+            setModalPagamentosAberto(false);
+            setCardGerenciando(null);
+          }}
+          onSuccess={() => {
+            carregarCards();
+          }}
+        />
+      )}
+
     </div>
   );
 }

@@ -202,6 +202,68 @@ export async function GET(request: NextRequest) {
       } : null,
     }));
 
+    // Buscar atletas participantes para cada agendamento
+    try {
+      const agendamentosIds = agendamentos.map(a => a.id);
+      if (agendamentosIds.length > 0) {
+        const participantesResult = await query(
+          `SELECT 
+            aa."agendamentoId", aa.id, aa."atletaId", aa."createdAt",
+            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+            at."usuarioId" as "atleta_usuarioId",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+          FROM "AgendamentoAtleta" aa
+          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+          LEFT JOIN "User" u ON at."usuarioId" = u.id
+          WHERE aa."agendamentoId" = ANY($1::text[])
+          ORDER BY aa."agendamentoId", aa."createdAt" ASC`,
+          [agendamentosIds]
+        );
+
+        // Agrupar participantes por agendamento
+        const participantesPorAgendamento: Record<string, any[]> = {};
+        participantesResult.rows.forEach((rowPart: any) => {
+          if (!participantesPorAgendamento[rowPart.agendamentoId]) {
+            participantesPorAgendamento[rowPart.agendamentoId] = [];
+          }
+          participantesPorAgendamento[rowPart.agendamentoId].push({
+            id: rowPart.id,
+            atletaId: rowPart.atletaId,
+            atleta: {
+              id: rowPart.atleta_id,
+              nome: rowPart.atleta_nome,
+              fone: rowPart.atleta_fone,
+              usuarioId: rowPart.atleta_usuarioId || null,
+              usuario: rowPart.usuario_id ? {
+                id: rowPart.usuario_id,
+                name: rowPart.usuario_name,
+                email: rowPart.usuario_email,
+              } : null,
+            },
+            createdAt: rowPart.createdAt,
+          });
+        });
+
+        // Adicionar participantes a cada agendamento
+        agendamentos.forEach(agendamento => {
+          agendamento.atletasParticipantes = participantesPorAgendamento[agendamento.id] || [];
+        });
+      }
+    } catch (error: any) {
+      // Se a tabela AgendamentoAtleta não existir ainda, apenas logar o erro
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        console.warn('Tabela AgendamentoAtleta não encontrada, retornando array vazio para participantes');
+        agendamentos.forEach(agendamento => {
+          agendamento.atletasParticipantes = [];
+        });
+      } else {
+        console.error('Erro ao buscar atletas participantes:', error);
+        agendamentos.forEach(agendamento => {
+          agendamento.atletasParticipantes = [];
+        });
+      }
+    }
+
     return NextResponse.json(agendamentos);
   } catch (error: any) {
     console.error('Erro ao listar agendamentos:', error);
@@ -234,6 +296,7 @@ export async function POST(request: NextRequest) {
       telefoneAvulso,
       valorNegociado,
       recorrencia,
+      atletasParticipantesIds,
     } = body as {
       quadraId: string;
       dataHora: string;
@@ -244,6 +307,7 @@ export async function POST(request: NextRequest) {
       telefoneAvulso?: string;
       valorNegociado?: number;
       recorrencia?: RecorrenciaConfig;
+      atletasParticipantesIds?: string[];
     };
 
     if (!quadraId || !dataHora) {
@@ -591,6 +655,64 @@ export async function POST(request: NextRequest) {
         fone: row.atleta_fone,
       } : null,
     };
+
+    // Salvar atletas participantes se fornecido
+    if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
+      try {
+        for (const atletaIdPart of atletasParticipantesIds) {
+          await query(
+            `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "createdBy", "createdAt")
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING`,
+            [agendamentoId, atletaIdPart, usuario.id]
+          );
+        }
+
+        // Buscar atletas participantes para retorno
+        const participantesResult = await query(
+          `SELECT 
+            aa.id, aa."atletaId", aa."createdAt",
+            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+            at."usuarioId" as "atleta_usuarioId",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+          FROM "AgendamentoAtleta" aa
+          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+          LEFT JOIN "User" u ON at."usuarioId" = u.id
+          WHERE aa."agendamentoId" = $1
+          ORDER BY aa."createdAt" ASC`,
+          [agendamentoId]
+        );
+
+        agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => ({
+          id: rowPart.id,
+          atletaId: rowPart.atletaId,
+          atleta: {
+            id: rowPart.atleta_id,
+            nome: rowPart.atleta_nome,
+            fone: rowPart.atleta_fone,
+            usuarioId: rowPart.atleta_usuarioId || null,
+            usuario: rowPart.usuario_id ? {
+              id: rowPart.usuario_id,
+              name: rowPart.usuario_name,
+              email: rowPart.usuario_email,
+            } : null,
+          },
+          createdAt: rowPart.createdAt,
+        }));
+      } catch (error: any) {
+        // Se a tabela AgendamentoAtleta não existir ainda, apenas logar o erro
+        if (error.message?.includes('does not exist') || error.code === '42P01') {
+          console.warn('Tabela AgendamentoAtleta não encontrada, ignorando salvamento de participantes');
+          agendamento.atletasParticipantes = [];
+        } else {
+          console.error('Erro ao salvar atletas participantes:', error);
+          // Não falhar a requisição, apenas logar o erro
+          agendamento.atletasParticipantes = [];
+        }
+      }
+    } else {
+      agendamento.atletasParticipantes = [];
+    }
 
     // Enviar notificação WhatsApp para o gestor (em background, não bloqueia a resposta)
     if (agendamento.quadra?.point?.id) {

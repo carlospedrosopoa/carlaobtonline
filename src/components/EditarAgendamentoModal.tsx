@@ -7,13 +7,19 @@ import { useAuth } from '@/context/AuthContext';
 import { pointService, quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
 import type { Agendamento, ModoAgendamento } from '@/types/agendamento';
-import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat } from 'lucide-react';
+import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat, CreditCard } from 'lucide-react';
 import type { RecorrenciaConfig, TipoRecorrencia } from '@/types/agendamento';
 
 interface Atleta {
   id: string;
   nome: string;
   fone?: string;
+  usuarioId?: string | null;
+  usuario?: {
+    id: string;
+    name: string;
+    email: string | null;
+  } | null;
 }
 
 interface EditarAgendamentoModalProps {
@@ -22,6 +28,8 @@ interface EditarAgendamentoModalProps {
   onClose: () => void;
   onSuccess: () => void;
   quadraIdInicial?: string; // Para pré-selecionar uma quadra ao criar novo agendamento
+  dataInicial?: string; // Para pré-preencher a data ao criar novo agendamento (formato: YYYY-MM-DD)
+  horaInicial?: string; // Para pré-preencher a hora ao criar novo agendamento (formato: HH:mm)
 }
 
 export default function EditarAgendamentoModal({
@@ -30,6 +38,8 @@ export default function EditarAgendamentoModal({
   onClose,
   onSuccess,
   quadraIdInicial,
+  dataInicial,
+  horaInicial,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
   // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou avulsos)
@@ -44,6 +54,7 @@ export default function EditarAgendamentoModal({
   const [bloqueiosExistentes, setBloqueiosExistentes] = useState<any[]>([]);
   const [carregandoAtletas, setCarregandoAtletas] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [gerandoCards, setGerandoCards] = useState(false);
   const [erro, setErro] = useState('');
 
   // Modo de agendamento (apenas para admin)
@@ -65,6 +76,10 @@ export default function EditarAgendamentoModal({
   const [nomeAvulso, setNomeAvulso] = useState('');
   const [telefoneAvulso, setTelefoneAvulso] = useState('');
   const [buscaAtleta, setBuscaAtleta] = useState('');
+  // Atletas participantes (múltiplos)
+  const [atletasParticipantesIds, setAtletasParticipantesIds] = useState<string[]>([]);
+  const [mostrarSelecaoAtletas, setMostrarSelecaoAtletas] = useState(false);
+  const [buscaAtletasParticipantes, setBuscaAtletasParticipantes] = useState('');
 
   // Campos de recorrência
   const [temRecorrencia, setTemRecorrencia] = useState(false);
@@ -85,6 +100,13 @@ export default function EditarAgendamentoModal({
       } else {
         // Modo criação - resetar formulário
         resetarFormulario();
+        // Se houver dataInicial e horaInicial, pré-preencher
+        if (dataInicial) {
+          setData(dataInicial);
+        }
+        if (horaInicial) {
+          setHora(horaInicial);
+        }
         // Se houver quadraIdInicial, pré-selecionar após carregar dados
         if (quadraIdInicial) {
           // Aguardar um pouco para os dados carregarem
@@ -94,7 +116,7 @@ export default function EditarAgendamentoModal({
         }
       }
     }
-  }, [isOpen, agendamento, quadraIdInicial]);
+  }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial]);
 
   useEffect(() => {
     if (pointId && !isOrganizer) {
@@ -187,6 +209,9 @@ export default function EditarAgendamentoModal({
     setModo('normal');
     setAgendamentosExistentes([]);
     setErro('');
+    setAtletasParticipantesIds([]);
+    setMostrarSelecaoAtletas(false);
+    setBuscaAtletasParticipantes('');
   };
 
   const selecionarQuadraInicial = async (quadraIdParaSelecionar: string) => {
@@ -276,6 +301,13 @@ export default function EditarAgendamentoModal({
     
     // Resetar opção de aplicar recorrência
     setAplicarARecorrencia(false);
+
+    // Preencher atletas participantes
+    if (agendamento.atletasParticipantes && agendamento.atletasParticipantes.length > 0) {
+      setAtletasParticipantesIds(agendamento.atletasParticipantes.map(ap => ap.atletaId));
+    } else {
+      setAtletasParticipantesIds([]);
+    }
   };
 
   const carregarQuadras = async (pointId: string) => {
@@ -621,8 +653,16 @@ export default function EditarAgendamentoModal({
         payload.recorrencia = null;
       }
 
+      // Atletas participantes (múltiplos)
+      if (atletasParticipantesIds.length > 0) {
+        payload.atletasParticipantesIds = atletasParticipantesIds;
+      } else {
+        payload.atletasParticipantesIds = [];
+      }
+
       let resultado;
-      if (agendamento) {
+      // Verificar se é edição: agendamento existe E tem ID válido (não vazio)
+      if (agendamento && agendamento.id && agendamento.id.trim() !== '') {
         // Modo edição
         // Se o agendamento já é recorrente, adicionar opção de aplicar apenas neste ou em todos os futuros
         if (agendamentoJaRecorrente) {
@@ -630,7 +670,7 @@ export default function EditarAgendamentoModal({
         }
         resultado = await agendamentoService.atualizar(agendamento.id, payload);
       } else {
-        // Modo criação
+        // Modo criação (agendamento é null ou não tem ID válido)
         resultado = await agendamentoService.criar(payload);
       }
 
@@ -771,6 +811,127 @@ export default function EditarAgendamentoModal({
                 )}
               </div>
             )}
+
+            {/* Seleção de Atletas Participantes (múltiplos) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  <Users className="inline w-4 h-4 mr-1" />
+                  Atletas Participantes (opcional)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setMostrarSelecaoAtletas(!mostrarSelecaoAtletas)}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  {mostrarSelecaoAtletas ? 'Ocultar' : 'Selecionar'}
+                </button>
+              </div>
+              {mostrarSelecaoAtletas && (
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                  {carregandoAtletas ? (
+                    <div className="text-center text-gray-600 py-4">
+                      Carregando atletas...
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={buscaAtletasParticipantes}
+                        onChange={(e) => setBuscaAtletasParticipantes(e.target.value)}
+                        placeholder="Buscar atleta por nome ou telefone..."
+                        className="mb-3 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      />
+                      <div className="max-h-48 overflow-y-auto space-y-2">
+                        {(() => {
+                          const atletasFiltradosParticipantes = !buscaAtletasParticipantes.trim() 
+                            ? atletas 
+                            : atletas.filter((a) => {
+                                const termo = buscaAtletasParticipantes.toLowerCase();
+                                const nomeMatch = a.nome?.toLowerCase().includes(termo);
+                                const foneMatch = a.fone?.toLowerCase().includes(termo);
+                                return nomeMatch || foneMatch;
+                              });
+                          
+                          if (atletasFiltradosParticipantes.length === 0 && buscaAtletasParticipantes.trim()) {
+                            return (
+                              <div className="text-center text-gray-500 py-4">
+                                Nenhum atleta encontrado
+                              </div>
+                            );
+                          }
+                          
+                          return atletasFiltradosParticipantes.map((atleta) => {
+                            const isSelected = atletasParticipantesIds.includes(atleta.id);
+                            return (
+                              <label
+                                key={atleta.id}
+                                className={`flex items-center gap-3 p-2 rounded-lg border-2 cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? 'bg-blue-50 border-blue-300'
+                                    : 'bg-white border-gray-200 hover:border-blue-200'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setAtletasParticipantesIds([...atletasParticipantesIds, atleta.id]);
+                                    } else {
+                                      setAtletasParticipantesIds(atletasParticipantesIds.filter(id => id !== atleta.id));
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                />
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-900">{atleta.nome}</div>
+                                  {atleta.fone && (
+                                    <div className="text-xs text-gray-600">{atleta.fone}</div>
+                                  )}
+                                  {atleta.usuario && (
+                                    <div className="text-xs text-blue-600">
+                                      Usuário: {atleta.usuario.name} ({atleta.usuario.email})
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          });
+                        })()}
+                      </div>
+                      {atletasParticipantesIds.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="text-sm font-medium text-gray-700 mb-2">
+                            Selecionados: {atletasParticipantesIds.length}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {atletasParticipantesIds.map((id) => {
+                              const atleta = atletas.find(a => a.id === id);
+                              return atleta ? (
+                                <span
+                                  key={id}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
+                                >
+                                  {atleta.nome}
+                                  <button
+                                    type="button"
+                                    onClick={() => setAtletasParticipantesIds(atletasParticipantesIds.filter(aid => aid !== id))}
+                                    className="text-blue-600 hover:text-blue-800"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Campos Avulso (modo avulso) */}
             {canGerenciarAgendamento && modo === 'avulso' && (
@@ -1176,6 +1337,87 @@ export default function EditarAgendamentoModal({
                         </span>
                       </label>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botão Gerar Cards - apenas para agendamentos existentes com valor */}
+            {agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && (
+              <div className="mt-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                <div className="flex items-start gap-3">
+                  <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-emerald-900 mb-2">
+                      Gerar Cards de Cliente
+                    </p>
+                    <p className="text-xs text-emerald-700 mb-3">
+                      Cria um card para cada cliente envolvido no agendamento (original + participantes) com o item "Locação" dividido proporcionalmente. Se o cliente já tiver um card aberto, o item será adicionado ao card existente.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!agendamento?.id) return;
+                        if (!confirm('Deseja gerar cards de cliente para todos os participantes deste agendamento?')) return;
+
+                        try {
+                          setGerandoCards(true);
+                          setErro('');
+                          const resultado = await agendamentoService.gerarCards(agendamento.id);
+                          if (resultado && resultado.mensagem) {
+                            // Garantir que os valores sejam números antes de usar toFixed
+                            const valorTotal = typeof resultado.valorTotal === 'number' ? resultado.valorTotal : parseFloat(resultado.valorTotal) || 0;
+                            const valorPorCliente = typeof resultado.valorPorCliente === 'number' ? resultado.valorPorCliente : parseFloat(resultado.valorPorCliente) || 0;
+                            const totalClientes = resultado.totalClientes || 0;
+                            const totalCardsCriados = resultado.totalCardsCriados || 0;
+                            const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
+                            
+                            let mensagemDetalhada = `${resultado.mensagem}\n\n`;
+                            mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
+                            mensagemDetalhada += `Valor por cliente: R$ ${valorPorCliente.toFixed(2)}\n`;
+                            mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
+                            if (totalCardsCriados > 0) {
+                              mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
+                            }
+                            if (totalCardsAtualizados > 0) {
+                              mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
+                            }
+                            
+                            alert(mensagemDetalhada);
+                            onSuccess();
+                          } else {
+                            throw new Error('Resposta inválida da API');
+                          }
+                        } catch (error: any) {
+                          console.error('Erro completo ao gerar cards:', error);
+                          const mensagemErro = error?.response?.data?.mensagem || error?.data?.mensagem || error?.message || 'Erro ao gerar cards';
+                          setErro(mensagemErro);
+                          // Não mostrar alert de erro se os cards foram criados (pode ser um erro de parsing)
+                          if (!error?.response?.data?.cards && !error?.data?.cards) {
+                            alert(`Erro: ${mensagemErro}`);
+                          }
+                        } finally {
+                          setGerandoCards(false);
+                        }
+                      }}
+                      disabled={gerandoCards || salvando}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {gerandoCards ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-4 h-4" />
+                          Gerar Cards
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>

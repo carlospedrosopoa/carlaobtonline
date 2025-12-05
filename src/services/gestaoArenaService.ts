@@ -80,6 +80,11 @@ export const cardClienteService = {
     await api.delete(`/gestao-arena/card-cliente/${id}`);
   },
 
+  limparTodos: async (pointId: string): Promise<{ mensagem: string; totalCards: number }> => {
+    const res = await api.post('/gestao-arena/card-cliente/limpar-todos', { pointId });
+    return res.data;
+  },
+
   // Agendamentos do card
   vincularAgendamento: async (cardId: string, agendamentoId: string): Promise<any> => {
     const res = await api.post(`/gestao-arena/card-cliente/${cardId}/agendamento`, { agendamentoId });

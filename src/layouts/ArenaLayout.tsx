@@ -51,6 +51,16 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       items: [{ to: '/app/arena/agendamentos/agenda', label: 'Agenda Semanal' }],
     },
     {
+      label: 'Locações',
+      items: [
+        { to: '/app/arena/agendamentos/agenda', label: 'Agenda Semanal' },
+        { to: '/app/arena/agendamentos', label: 'Agenda' },
+        { to: '/app/arena/quadras', label: 'Minhas Quadras' },
+        { to: '/app/arena/tabela-precos', label: 'Tabela de Preços' },
+        { to: '/app/arena/bloqueios', label: 'Bloqueios' },
+      ],
+    },
+    {
       label: 'Cards de Clientes',
       items: [{ to: '/app/arena/cards-clientes', label: 'Cards de Clientes' }],
     },
@@ -60,16 +70,6 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         { to: '/app/arena/fluxo-caixa', label: 'Fluxo de Caixa' },
         { to: '/app/arena/historico-caixa', label: 'Histórico de Caixa' },
         { to: '/app/arena/dashboard-caixa', label: 'Dashboard do Caixa' },
-      ],
-    },
-    {
-      label: 'Locações',
-      items: [
-        { to: '/app/arena/agendamentos/agenda', label: 'Agenda Semanal' },
-        { to: '/app/arena/agendamentos', label: 'Agenda' },
-        { to: '/app/arena/quadras', label: 'Minhas Quadras' },
-        { to: '/app/arena/tabela-precos', label: 'Tabela de Preços' },
-        { to: '/app/arena/bloqueios', label: 'Bloqueios' },
       ],
     },
     {

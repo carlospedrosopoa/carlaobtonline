@@ -11,6 +11,12 @@ export interface Point {
   latitude?: number | null;
   longitude?: number | null;
   ativo: boolean;
+  // Configurações WhatsApp
+  whatsappAccessToken?: string | null;
+  whatsappPhoneNumberId?: string | null;
+  whatsappBusinessAccountId?: string | null;
+  whatsappApiVersion?: string | null;
+  whatsappAtivo?: boolean;
   createdAt: string;
   updatedAt: string;
   quadras?: Quadra[];
@@ -50,12 +56,35 @@ export interface Agendamento {
     name: string;
     email: string;
   } | null;
-  atletaId: string | null;
+  atletaId: string | null; // Mantido para compatibilidade (atleta principal)
   atleta?: {
     id: string;
     nome: string;
     fone?: string;
+    usuarioId?: string | null; // ID do usuário vinculado ao atleta
+    usuario?: {
+      id: string;
+      name: string;
+      email: string;
+    } | null;
   } | null;
+  // Atletas participantes (múltiplos)
+  atletasParticipantes?: Array<{
+    id: string; // ID do relacionamento AgendamentoAtleta
+    atletaId: string;
+    atleta: {
+      id: string;
+      nome: string;
+      fone?: string;
+      usuarioId?: string | null;
+      usuario?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
+    };
+    createdAt: string;
+  }> | null;
   nomeAvulso: string | null;
   telefoneAvulso: string | null;
   dataHora: string; // ISO string
@@ -83,6 +112,12 @@ export interface CriarPointPayload {
   latitude?: number | null;
   longitude?: number | null;
   ativo?: boolean;
+  // Configurações WhatsApp (opcionais)
+  whatsappAccessToken?: string | null;
+  whatsappPhoneNumberId?: string | null;
+  whatsappBusinessAccountId?: string | null;
+  whatsappApiVersion?: string | null;
+  whatsappAtivo?: boolean;
 }
 
 export interface CriarQuadraPayload {
@@ -122,6 +157,8 @@ export interface CriarAgendamentoPayload {
   telefoneAvulso?: string;
   // Valor negociado (opcional, admin)
   valorNegociado?: number;
+  // Atletas participantes (múltiplos)
+  atletasParticipantesIds?: string[]; // IDs dos atletas que participarão do agendamento
 }
 
 export type ModoAgendamento = "normal" | "atleta" | "avulso";
@@ -137,6 +174,8 @@ export interface AtualizarAgendamentoPayload {
   telefoneAvulso?: string | null;
   // Valor negociado (opcional, admin)
   valorNegociado?: number | null;
+  // Atletas participantes (múltiplos)
+  atletasParticipantesIds?: string[] | null; // IDs dos atletas que participarão do agendamento
   // Opções de recorrência
   aplicarARecorrencia?: boolean; // true = aplicar a este e todos futuros, false = apenas este
 }

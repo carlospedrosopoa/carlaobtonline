@@ -6,8 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, pagamentoCardService, produtoService, formaPagamentoService } from '@/services/gestaoArenaService';
 import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload } from '@/types/gestaoArena';
 import { api } from '@/lib/api';
-import type { Agendamento } from '@/types/agendamento';
-import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search, FileText, Calendar } from 'lucide-react';
+import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search, FileText } from 'lucide-react';
 
 interface GerenciarCardModalProps {
   isOpen: boolean;
@@ -66,26 +65,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   const [observacoesPagamento, setObservacoesPagamento] = useState('');
   const [itensSelecionadosPagamento, setItensSelecionadosPagamento] = useState<string[]>([]);
 
-  // Estados para agendamentos
-  const [agendamentosVinculados, setAgendamentosVinculados] = useState<Array<{
-    id: string;
-    agendamentoId: string;
-    valor: number;
-    createdAt: string;
-    agendamento?: {
-      id: string;
-      quadra: { id: string; nome: string };
-      dataHora: string;
-      duracao: number;
-      valorCalculado: number | null;
-      valorNegociado: number | null;
-      status: string;
-    };
-  }>>([]);
-  const [modalAgendamentoAberto, setModalAgendamentoAberto] = useState(false);
-  const [agendamentosDisponiveis, setAgendamentosDisponiveis] = useState<Agendamento[]>([]);
-  const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(false);
-  const [buscaAgendamento, setBuscaAgendamento] = useState('');
 
   useEffect(() => {
     if (isOpen && card) {
@@ -124,7 +103,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setErro('');
 
       const [cardData, produtosData, formasData] = await Promise.all([
-        cardClienteService.obter(card.id, true, true, true),
+        cardClienteService.obter(card.id, true, true, false), // incluirAgendamentos: false
         produtoService.listar(usuario.pointIdGestor, true),
         formaPagamentoService.listar(usuario.pointIdGestor, true),
       ]);
@@ -171,12 +150,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         setPagamentosLocais([]);
       }
 
-      // Inicializar agendamentos vinculados
-      if (cardData.agendamentos) {
-        setAgendamentosVinculados(cardData.agendamentos);
-      } else {
-        setAgendamentosVinculados([]);
-      }
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao carregar dados');
     } finally {
@@ -455,77 +428,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     });
   };
 
-  // Funções para gerenciar agendamentos
-  const abrirModalAgendamento = async () => {
-    if (!usuario?.pointIdGestor) return;
-    
-    setModalAgendamentoAberto(true);
-    setCarregandoAgendamentos(true);
-    setBuscaAgendamento('');
-    
-    try {
-      const hoje = new Date();
-      const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-      
-      const res = await api.get('/gestao-arena/agendamentos-disponiveis', {
-        params: {
-          pointId: usuario.pointIdGestor,
-          dataInicio: primeiroDiaMes.toISOString(),
-          dataFim: ultimoDiaMes.toISOString(),
-        },
-      });
-      
-      setAgendamentosDisponiveis(res.data);
-    } catch (error: any) {
-      console.error('Erro ao carregar agendamentos disponíveis:', error);
-      setErro('Erro ao carregar agendamentos disponíveis');
-    } finally {
-      setCarregandoAgendamentos(false);
-    }
-  };
-
-  const fecharModalAgendamento = () => {
-    setModalAgendamentoAberto(false);
-    setBuscaAgendamento('');
-  };
-
-  const vincularAgendamento = async (agendamentoId: string) => {
-    if (!cardCompleto) return;
-
-    try {
-      await cardClienteService.vincularAgendamento(cardCompleto.id, agendamentoId);
-      await carregarDados();
-      fecharModalAgendamento();
-      onSuccess();
-    } catch (error: any) {
-      alert(error?.response?.data?.mensagem || 'Erro ao vincular agendamento');
-    }
-  };
-
-  const desvincularAgendamento = async (agendamentoCardId: string) => {
-    if (!cardCompleto || !confirm('Tem certeza que deseja remover este agendamento do card?')) return;
-
-    try {
-      await cardClienteService.desvincularAgendamento(cardCompleto.id, agendamentoCardId);
-      await carregarDados();
-      onSuccess();
-    } catch (error: any) {
-      alert(error?.response?.data?.mensagem || 'Erro ao desvincular agendamento');
-    }
-  };
-
-  const agendamentosDisponiveisFiltrados = useMemo(() => {
-    if (!buscaAgendamento) return agendamentosDisponiveis;
-    
-    const buscaLower = buscaAgendamento.toLowerCase();
-    return agendamentosDisponiveis.filter((ag) => {
-      const quadraNome = ag.quadra?.nome?.toLowerCase() || '';
-      const clienteNome = ag.usuario?.name?.toLowerCase() || ag.nomeAvulso?.toLowerCase() || '';
-      const dataHora = formatarDataHora(ag.dataHora).toLowerCase();
-      return quadraNome.includes(buscaLower) || clienteNome.includes(buscaLower) || dataHora.includes(buscaLower);
-    });
-  }, [agendamentosDisponiveis, buscaAgendamento]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -628,8 +530,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(() => {
                 const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
-                const valorTotalAgendamentos = agendamentosVinculados.reduce((sum, ag) => sum + ag.valor, 0);
-                const valorTotalLocal = valorTotalItens + valorTotalAgendamentos;
+                const valorTotalLocal = valorTotalItens;
                 const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
                 const saldoLocal = valorTotalLocal - totalPagoLocal;
                 return (
@@ -701,6 +602,11 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           <div className="text-sm text-gray-600">
                             {item.quantidade}x {formatarMoeda(item.precoUnitario)} = {formatarMoeda(item.precoTotal)}
                           </div>
+                          {item.observacoes && (
+                            <div className="text-xs text-gray-500 mt-1 italic">
+                              {item.observacoes}
+                            </div>
+                          )}
                         </div>
                         {cardCompleto.status === 'ABERTO' && (
                           <button
@@ -819,80 +725,11 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
               )}
             </div>
 
-            {/* Agendamentos */}
-            <div>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Agendamentos
-                </h3>
-                {cardCompleto.status === 'ABERTO' && (
-                  <button
-                    onClick={abrirModalAgendamento}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Adicionar Agendamento
-                  </button>
-                )}
-              </div>
-              {agendamentosVinculados.length > 0 ? (
-                <div className="space-y-2">
-                  {agendamentosVinculados.map((agendamentoCard) => {
-                    const agendamento = agendamentoCard.agendamento;
-                    if (!agendamento) return null;
-                    
-                    return (
-                      <div 
-                        key={agendamentoCard.id} 
-                        className="p-3 rounded-lg border-2 bg-gray-50 border-gray-200"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">
-                                {agendamento.quadra.nome}
-                              </span>
-                              <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                agendamento.status === 'CONFIRMADO' ? 'bg-blue-100 text-blue-800' :
-                                agendamento.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {agendamento.status}
-                              </span>
-                            </div>
-                            <div className="text-sm text-gray-600 mt-1">
-                              {formatarDataHora(agendamento.dataHora)} - {agendamento.duracao} min
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="font-semibold text-blue-600">{formatarMoeda(agendamentoCard.valor)}</div>
-                            {cardCompleto.status === 'ABERTO' && (
-                              <button
-                                onClick={() => desvincularAgendamento(agendamentoCard.id)}
-                                className="p-1 text-red-600 hover:bg-red-50 rounded"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                  Nenhum agendamento vinculado
-                </div>
-              )}
-            </div>
 
             {/* Ações */}
             {cardCompleto.status === 'ABERTO' && (() => {
               const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
-              const valorTotalAgendamentos = agendamentosVinculados.reduce((sum, ag) => sum + ag.valor, 0);
-              const valorTotalLocal = valorTotalItens + valorTotalAgendamentos;
+              const valorTotalLocal = valorTotalItens;
               const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
               const saldoLocal = valorTotalLocal - totalPagoLocal;
               const saldoIgualZero = Math.abs(saldoLocal) < 0.01; // Permitir pequenas diferenças de arredondamento
@@ -1219,105 +1056,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
           </div>
         )}
 
-        {/* Modal de Agendamentos Disponíveis */}
-        {modalAgendamentoAberto && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-gray-900">Adicionar Agendamento</h3>
-                  <button onClick={fecharModalAgendamento} className="text-gray-400 hover:text-gray-600">
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por quadra, cliente ou data..."
-                    value={buscaAgendamento}
-                    onChange={(e) => setBuscaAgendamento(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="p-6">
-                {carregandoAgendamentos ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Carregando agendamentos...</p>
-                  </div>
-                ) : agendamentosDisponiveisFiltrados.length > 0 ? (
-                  <div className="space-y-3">
-                    {agendamentosDisponiveisFiltrados.map((agendamento) => {
-                      const valor = agendamento.valorNegociado || agendamento.valorCalculado || 0;
-                      return (
-                        <div
-                          key={agendamento.id}
-                          className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                          onClick={() => vincularAgendamento(agendamento.id)}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="font-semibold text-gray-900">{agendamento.quadra?.nome}</span>
-                                <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                  agendamento.status === 'CONFIRMADO' ? 'bg-blue-100 text-blue-800' :
-                                  agendamento.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {agendamento.status}
-                                </span>
-                              </div>
-                              <div className="text-sm text-gray-600 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <Clock className="w-4 h-4" />
-                                  {formatarDataHora(agendamento.dataHora)} - {agendamento.duracao} min
-                                </div>
-                                {agendamento.usuario ? (
-                                  <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4" />
-                                    {agendamento.usuario.name}
-                                  </div>
-                                ) : agendamento.nomeAvulso ? (
-                                  <div className="flex items-center gap-2">
-                                    <UserPlus className="w-4 h-4" />
-                                    {agendamento.nomeAvulso}
-                                    {agendamento.telefoneAvulso && ` - ${agendamento.telefoneAvulso}`}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-semibold text-blue-600">{formatarMoeda(valor)}</div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  vincularAgendamento(agendamento.id);
-                                }}
-                                className="mt-2 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                              >
-                                Adicionar
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">
-                      {buscaAgendamento ? 'Nenhum agendamento encontrado' : 'Nenhum agendamento disponível'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -59,7 +59,7 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
   // ORGANIZER pode ver todos os atletas para poder agendar para qualquer um na sua arena
   if (usuario.role === "ADMIN" || usuario.role === "ORGANIZER") {
     const result = await query(
-      `SELECT DISTINCT a.*, u.name as "usuarioName", u.role as "usuarioRole" 
+      `SELECT DISTINCT a.*, u.id as "usuarioId", u.name as "usuarioName", u.email as "usuarioEmail", u.role as "usuarioRole" 
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        ORDER BY a.nome ASC`,
@@ -68,23 +68,35 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     
     atletas = result.rows.map((row: any) => ({
       ...row,
-      usuario: row.usuarioName ? { name: row.usuarioName, role: row.usuarioRole } : null,
+      usuarioId: row.usuarioId || null,
+      usuario: row.usuarioName ? { 
+        id: row.usuarioId,
+        name: row.usuarioName, 
+        email: row.usuarioEmail || null,
+        role: row.usuarioRole 
+      } : null,
       idade: calcularIdade(row.dataNascimento),
     }));
   } else {
     // USER comum vê apenas seus próprios atletas
     const result = await query(
-      `SELECT a.*, u.name as "usuarioName", u.role as "usuarioRole" 
+      `SELECT a.*, u.id as "usuarioId", u.name as "usuarioName", u.email as "usuarioEmail", u.role as "usuarioRole" 
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        WHERE a."usuarioId" = $1
        ORDER BY a.nome ASC`,
       [usuario.id]
     );
-      
+    
     atletas = result.rows.map((row: any) => ({
       ...row,
-      usuario: row.usuarioName ? { name: row.usuarioName, role: row.usuarioRole } : null,
+      usuarioId: row.usuarioId || null,
+      usuario: row.usuarioName ? { 
+        id: row.usuarioId,
+        name: row.usuarioName, 
+        email: row.usuarioEmail || null,
+        role: row.usuarioRole 
+      } : null,
       idade: calcularIdade(row.dataNascimento),
     }));
   }

@@ -27,6 +27,8 @@ export interface CardCliente {
     id: string;
     name: string;
     email: string;
+    whatsapp?: string | null;
+    telefone?: string | null; // Telefone do atleta vinculado ao usuário
   } | null;
   itens?: ItemCard[];
   pagamentos?: PagamentoCard[];

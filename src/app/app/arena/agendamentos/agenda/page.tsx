@@ -7,8 +7,9 @@ import { quadraService, agendamentoService, bloqueioAgendaService } from '@/serv
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
+import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle } from 'lucide-react';
 
 export default function ArenaAgendaSemanalPage() {
   const { usuario } = useAuth();
@@ -27,6 +28,7 @@ export default function ArenaAgendaSemanalPage() {
   const [carregandoLimpeza, setCarregandoLimpeza] = useState(false);
   const [erroLimpeza, setErroLimpeza] = useState('');
   const [menuAberto, setMenuAberto] = useState<string | null>(null);
+  const [modalQuadrasDisponiveisAberto, setModalQuadrasDisponiveisAberto] = useState(false);
   const [tooltipAgendamento, setTooltipAgendamento] = useState<string | null>(null);
   const [tooltipPosicao, setTooltipPosicao] = useState<{ x: number; y: number } | null>(null);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -618,7 +620,14 @@ export default function ArenaAgendaSemanalPage() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Agenda Semanal</h1>
           <p className="text-gray-600">Visualize todos os agendamentos da sua arena</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setModalQuadrasDisponiveisAberto(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Quadras Disponíveis
+          </button>
           <button
             onClick={() => setApenasReservados(!apenasReservados)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -1132,6 +1141,43 @@ export default function ArenaAgendaSemanalPage() {
         onConfirmar={handleLimparFutura}
         carregando={carregandoLimpeza}
         erro={erroLimpeza}
+      />
+
+      {/* Modal de Quadras Disponíveis por Horário */}
+      <QuadrasDisponiveisPorHorarioModal
+        isOpen={modalQuadrasDisponiveisAberto}
+        onClose={() => setModalQuadrasDisponiveisAberto(false)}
+        quadras={quadras}
+        onSelecionarQuadra={(quadraId, data, hora) => {
+          // Abrir modal de novo agendamento com os dados preenchidos
+          setModalQuadrasDisponiveisAberto(false);
+          // Criar um agendamento temporário apenas para passar os dados iniciais
+          // Mas com id vazio para que seja tratado como criação
+          const agendamentoTemp = {
+            id: '', // ID vazio indica que é criação
+            quadraId,
+            usuarioId: usuario?.id || '',
+            atletaId: null,
+            nomeAvulso: null,
+            telefoneAvulso: null,
+            dataHora: `${data}T${hora}:00`,
+            duracao: 60,
+            valorHora: null,
+            valorCalculado: null,
+            valorNegociado: null,
+            status: 'CONFIRMADO' as StatusAgendamento,
+            observacoes: null,
+            recorrenciaId: null,
+            recorrenciaConfig: null,
+            createdAt: '',
+            updatedAt: '',
+            quadra: quadras.find(q => q.id === quadraId) || quadras[0],
+            usuario: null,
+            atleta: null,
+          };
+          setAgendamentoEditando(agendamentoTemp as Agendamento);
+          setModalEditarAberto(true);
+        }}
       />
 
       {/* Tooltip de Observações */}

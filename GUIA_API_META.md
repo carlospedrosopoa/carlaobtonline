@@ -59,13 +59,29 @@ Antes de começar, você precisa:
 Você precisará das seguintes informações:
 
 1. **Access Token** (Token de Acesso)
+   - ⚠️ **IMPORTANTE**: Use o **App Token** (também chamado de System User Token ou Permanent Token), NÃO o User Token
    - Vá em **WhatsApp → API Setup**
-   - Copie o **Temporary Access Token** (para testes)
-   - Para produção, gere um **Permanent Access Token**
+   - Para testes: Copie o **Temporary Access Token** (expira em 24 horas)
+   - Para produção: Gere um **Permanent Access Token** (System User Token)
+   - **Como gerar Permanent Token**:
+     1. Vá em **WhatsApp → API Setup**
+     2. Role até **"System User Token"** ou **"Permanent Token"**
+     3. Clique em **"Generate Token"** ou **"Criar Token"**
+     4. Selecione as permissões necessárias: `whatsapp_business_messaging`, `whatsapp_business_management`
+     5. Copie o token gerado (começa com "EAA..." e é muito longo)
+   - **NÃO use**: User Token (tokens temporários que expiram rapidamente)
 
-2. **Phone Number ID**
-   - Encontrado em **WhatsApp → API Setup**
-   - É o ID do número de telefone que enviará mensagens
+2. **Phone Number ID** ⚠️ **IMPORTANTE**
+   - ⚠️ **NÃO é o número de telefone em si!**
+   - É um **ID numérico diferente** que identifica seu número na API da Meta
+   - Encontrado em **WhatsApp → API Setup** no Meta Business Suite
+   - Geralmente tem **15-17 dígitos** e é diferente do número de telefone
+   - Exemplo: Se seu número é `5511999999999`, o Phone Number ID será algo como `123456789012345` (um número diferente)
+   - **Como encontrar**:
+     1. Acesse https://business.facebook.com
+     2. Vá em **WhatsApp → API Setup**
+     3. Procure por **"Phone number ID"** ou **"From"**
+     4. Copie o ID numérico (não o número de telefone)
 
 3. **Business Account ID** (opcional, mas recomendado)
    - ID da sua conta comercial Meta
@@ -191,15 +207,23 @@ curl -X POST "https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages" \
 
 ### Erro: "Invalid OAuth access token"
 
-- Verifique se o Access Token está correto
-- Tokens temporários expiram em 24 horas
-- Gere um token permanente para produção
+- ⚠️ **Você está usando o token correto?**
+  - ✅ **USE**: App Token / System User Token / Permanent Token
+  - ❌ **NÃO USE**: User Token (tokens temporários de usuário)
+- Verifique se o Access Token está correto e completo (sem espaços extras)
+- Tokens temporários expiram em 24 horas - gere um token permanente
+- O token deve começar com "EAA..." e ser muito longo (centenas de caracteres)
+- Se copiou do Meta Business Suite, certifique-se de copiar o token completo
 
-### Erro: "Invalid phone number"
+### Erro: "Invalid phone number" ou "Object with ID '...' does not exist"
 
-- O número deve estar no formato internacional (ex: 5511999999999)
+- ⚠️ **Você está usando o Phone Number ID correto?**
+  - ✅ **USE**: O ID numérico que aparece em **WhatsApp → API Setup** (geralmente 15-17 dígitos)
+  - ❌ **NÃO USE**: O número de telefone em si (ex: 5511999999999)
+- O Phone Number ID é diferente do número de telefone
+- Verifique se copiou o ID correto do Meta Business Suite
+- O número de telefone (destinatário) deve estar no formato internacional (ex: 5511999999999)
 - O número deve estar verificado no Meta Business
-- Verifique se o número está associado à sua conta
 
 ### Erro: "Rate limit exceeded"
 
@@ -264,6 +288,7 @@ Após a integração básica, você pode:
 - Monitore os logs para identificar problemas
 - Considere implementar retry logic para falhas temporárias
 - Documente qualquer configuração específica do seu projeto
+
 
 
 

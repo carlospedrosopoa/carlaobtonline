@@ -28,7 +28,7 @@ export async function GET(
         q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
         p.id as "point_id", p.nome as "point_nome",
         u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-        at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+        at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId"
       FROM "Agendamento" a
       LEFT JOIN "Quadra" q ON a."quadraId" = q.id
       LEFT JOIN "Point" p ON q."pointId" = p.id
@@ -99,8 +99,52 @@ export async function GET(
         id: row.atleta_id,
         nome: row.atleta_nome,
         fone: row.atleta_fone,
+        usuarioId: row.atleta_usuarioId || null,
       } : null,
     };
+
+    // Buscar atletas participantes (múltiplos)
+    try {
+      const participantesResult = await query(
+        `SELECT 
+          aa.id, aa."atletaId", aa."createdAt",
+          at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+          at."usuarioId" as "atleta_usuarioId",
+          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+        FROM "AgendamentoAtleta" aa
+        LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+        LEFT JOIN "User" u ON at."usuarioId" = u.id
+        WHERE aa."agendamentoId" = $1
+        ORDER BY aa."createdAt" ASC`,
+        [id]
+      );
+
+      agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => ({
+        id: rowPart.id,
+        atletaId: rowPart.atletaId,
+        atleta: {
+          id: rowPart.atleta_id,
+          nome: rowPart.atleta_nome,
+          fone: rowPart.atleta_fone,
+          usuarioId: rowPart.atleta_usuarioId || null,
+          usuario: rowPart.usuario_id ? {
+            id: rowPart.usuario_id,
+            name: rowPart.usuario_name,
+            email: rowPart.usuario_email,
+          } : null,
+        },
+        createdAt: rowPart.createdAt,
+      }));
+    } catch (error: any) {
+      // Se a tabela AgendamentoAtleta não existir ainda, retornar array vazio
+      if (error.message?.includes('does not exist') || error.code === '42P01') {
+        console.warn('Tabela AgendamentoAtleta não encontrada, retornando array vazio');
+        agendamento.atletasParticipantes = [];
+      } else {
+        console.error('Erro ao buscar atletas participantes:', error);
+        agendamento.atletasParticipantes = [];
+      }
+    }
 
     return NextResponse.json(agendamento);
   } catch (error: any) {
@@ -189,6 +233,7 @@ export async function PUT(
       valorNegociado,
       aplicarARecorrencia = false, // false = apenas este, true = este e todos futuros
       recorrencia, // Configuração de recorrência (opcional, para criar ou atualizar recorrência)
+      atletasParticipantesIds, // IDs dos atletas participantes
     } = body as {
       quadraId?: string;
       dataHora?: string;
@@ -200,6 +245,7 @@ export async function PUT(
       valorNegociado?: number | null;
       aplicarARecorrencia?: boolean;
       recorrencia?: RecorrenciaConfig;
+      atletasParticipantesIds?: string[] | null;
     };
 
     // Se quadraId foi alterado, verificar se o usuário tem acesso à nova quadra
@@ -591,7 +637,7 @@ export async function PUT(
           q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
           p.id as "point_id", p.nome as "point_nome",
           u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-          at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+          at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId"
         FROM "Agendamento" a
         LEFT JOIN "Quadra" q ON a."quadraId" = q.id
         LEFT JOIN "Point" p ON q."pointId" = p.id
@@ -745,6 +791,112 @@ export async function PUT(
           fone: row.atleta_fone,
         } : null,
       };
+
+      // Atualizar atletas participantes se fornecido
+      if (atletasParticipantesIds !== undefined) {
+        try {
+          // Remover todos os participantes existentes
+          await query(
+            'DELETE FROM "AgendamentoAtleta" WHERE "agendamentoId" = $1',
+            [id]
+          );
+
+          // Adicionar novos participantes
+          if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
+            for (const atletaIdPart of atletasParticipantesIds) {
+              await query(
+                `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "createdBy", "createdAt")
+                 VALUES ($1, $2, $3, NOW())
+                 ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING`,
+                [id, atletaIdPart, usuario.id]
+              );
+            }
+          }
+
+          // Buscar atletas participantes atualizados para retorno
+          const participantesResult = await query(
+            `SELECT 
+              aa.id, aa."atletaId", aa."createdAt",
+              at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+              at."usuarioId" as "atleta_usuarioId",
+              u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+            FROM "AgendamentoAtleta" aa
+            LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+            LEFT JOIN "User" u ON at."usuarioId" = u.id
+            WHERE aa."agendamentoId" = $1
+            ORDER BY aa."createdAt" ASC`,
+            [id]
+          );
+
+          agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => ({
+            id: rowPart.id,
+            atletaId: rowPart.atletaId,
+            atleta: {
+              id: rowPart.atleta_id,
+              nome: rowPart.atleta_nome,
+              fone: rowPart.atleta_fone,
+              usuarioId: rowPart.atleta_usuarioId || null,
+              usuario: rowPart.usuario_id ? {
+                id: rowPart.usuario_id,
+                name: rowPart.usuario_name,
+                email: rowPart.usuario_email,
+              } : null,
+            },
+            createdAt: rowPart.createdAt,
+          }));
+        } catch (error: any) {
+          // Se a tabela AgendamentoAtleta não existir ainda, apenas logar o erro
+          if (error.message?.includes('does not exist') || error.code === '42P01') {
+            console.warn('Tabela AgendamentoAtleta não encontrada, ignorando atualização de participantes');
+            agendamento.atletasParticipantes = [];
+          } else {
+            console.error('Erro ao atualizar atletas participantes:', error);
+            // Não falhar a requisição, apenas logar o erro
+            agendamento.atletasParticipantes = [];
+          }
+        }
+      } else {
+        // Se não foi fornecido, buscar os existentes
+        try {
+          const participantesResult = await query(
+            `SELECT 
+              aa.id, aa."atletaId", aa."createdAt",
+              at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+              at."usuarioId" as "atleta_usuarioId",
+              u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+            FROM "AgendamentoAtleta" aa
+            LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+            LEFT JOIN "User" u ON at."usuarioId" = u.id
+            WHERE aa."agendamentoId" = $1
+            ORDER BY aa."createdAt" ASC`,
+            [id]
+          );
+
+          agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => ({
+            id: rowPart.id,
+            atletaId: rowPart.atletaId,
+            atleta: {
+              id: rowPart.atleta_id,
+              nome: rowPart.atleta_nome,
+              fone: rowPart.atleta_fone,
+              usuarioId: rowPart.atleta_usuarioId || null,
+              usuario: rowPart.usuario_id ? {
+                id: rowPart.usuario_id,
+                name: rowPart.usuario_name,
+                email: rowPart.usuario_email,
+              } : null,
+            },
+            createdAt: rowPart.createdAt,
+          }));
+        } catch (error: any) {
+          if (error.message?.includes('does not exist') || error.code === '42P01') {
+            agendamento.atletasParticipantes = [];
+          } else {
+            console.error('Erro ao buscar atletas participantes:', error);
+            agendamento.atletasParticipantes = [];
+          }
+        }
+      }
 
       return NextResponse.json(agendamento);
     }

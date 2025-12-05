@@ -118,6 +118,11 @@ export const agendamentoService = {
     });
     return res.data;
   },
+
+  gerarCards: async (id: string): Promise<{ mensagem: string; cards: any[]; valorTotal: number; valorPorCliente: number; totalClientes: number }> => {
+    const res = await api.post(`/agendamento/${id}/gerar-cards`);
+    return res.data;
+  },
 };
 
 // ========== TABELA DE PREÇOS ==========
