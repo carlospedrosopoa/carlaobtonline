@@ -104,7 +104,7 @@ export async function POST(
       telefoneAvulso?: string | null;
     }> = [];
 
-    // Adicionar cliente original (apenas se for do tipo user - com usuarioId)
+    // Adicionar cliente original
     if (agendamento.atletaId) {
       // Buscar dados do atleta original
       const atletaOriginalResult = await query(
@@ -119,15 +119,21 @@ export async function POST(
 
       if (atletaOriginalResult.rows.length > 0) {
         const atletaOriginal = atletaOriginalResult.rows[0];
-        // Só adiciona se tiver usuarioId (tipo user)
+        // Se tiver usuarioId, adiciona como cliente tipo user
         if (atletaOriginal.usuario_id) {
           clientes.push({
             usuarioId: atletaOriginal.usuario_id,
             nomeAvulso: null,
             telefoneAvulso: null,
           });
+        } else if (atletaOriginal.nome && atletaOriginal.fone) {
+          // Se não tiver usuarioId, é avulso - criar card para cliente avulso
+          clientes.push({
+            usuarioId: null,
+            nomeAvulso: atletaOriginal.nome,
+            telefoneAvulso: atletaOriginal.fone,
+          });
         }
-        // Se não tiver usuarioId, é avulso e não cria card
       }
     } else if (agendamento.usuarioId) {
       // Usuário direto (sem atleta) - sempre cria card
@@ -136,13 +142,19 @@ export async function POST(
         nomeAvulso: null,
         telefoneAvulso: null,
       });
+    } else if (agendamento.nomeAvulso && agendamento.telefoneAvulso) {
+      // Cliente avulso - criar card para cliente avulso
+      clientes.push({
+        usuarioId: null,
+        nomeAvulso: agendamento.nomeAvulso,
+        telefoneAvulso: agendamento.telefoneAvulso,
+      });
     }
-    // Se for nomeAvulso (cliente avulso), não cria card do titular
 
-    // Adicionar atletas participantes (apenas os que têm usuarioId - tipo user)
+    // Adicionar atletas participantes
     participantesResult.rows.forEach((row: any) => {
-      // Só adiciona se tiver usuarioId (tipo user)
       if (row.usuario_id) {
+        // Atleta com usuarioId (tipo user) - verificar se já existe
         const jaExiste = clientes.some(
           (c) => c.usuarioId && c.usuarioId === row.usuario_id
         );
@@ -154,8 +166,20 @@ export async function POST(
             telefoneAvulso: null,
           });
         }
+      } else if (row.atleta_nome && row.atleta_fone) {
+        // Atleta avulso (sem usuarioId) - criar card para cliente avulso
+        const jaExiste = clientes.some(
+          (c) => c.nomeAvulso === row.atleta_nome && c.telefoneAvulso === row.atleta_fone
+        );
+
+        if (!jaExiste) {
+          clientes.push({
+            usuarioId: null,
+            nomeAvulso: row.atleta_nome,
+            telefoneAvulso: row.atleta_fone,
+          });
+        }
       }
-      // Se não tiver usuarioId, é avulso e não cria card
     });
 
     if (clientes.length === 0) {
@@ -241,6 +265,20 @@ export async function POST(
            ORDER BY "createdAt" DESC
            LIMIT 1`,
           [pointId, cliente.usuarioId]
+        );
+
+        if (cardAbertoResult.rows.length > 0) {
+          cardExistente = cardAbertoResult.rows[0];
+        }
+      } else if (cliente.nomeAvulso && cliente.telefoneAvulso) {
+        // Buscar card aberto do cliente avulso
+        const cardAbertoResult = await query(
+          `SELECT id, "numeroCard", "valorTotal" 
+           FROM "CardCliente" 
+           WHERE "pointId" = $1 AND "nomeAvulso" = $2 AND "telefoneAvulso" = $3 AND status = 'ABERTO'
+           ORDER BY "createdAt" DESC
+           LIMIT 1`,
+          [pointId, cliente.nomeAvulso, cliente.telefoneAvulso]
         );
 
         if (cardAbertoResult.rows.length > 0) {
