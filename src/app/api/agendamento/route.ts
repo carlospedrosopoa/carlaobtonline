@@ -613,7 +613,7 @@ export async function POST(request: NextRequest) {
     }
 
     const row = agendamentoCompleto.rows[0];
-    const agendamento = {
+    const agendamento: any = {
       id: row.id,
       quadraId: row.quadraId,
       usuarioId: row.usuarioId,
