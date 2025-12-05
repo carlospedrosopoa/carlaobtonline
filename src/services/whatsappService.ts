@@ -19,8 +19,8 @@ export const whatsappService = {
    * Envia uma mensagem WhatsApp
    */
   enviar: async (payload: EnviarMensagemPayload): Promise<EnviarMensagemResponse> => {
-    const response = await api.post<EnviarMensagemResponse>('/whatsapp/enviar', payload);
-    return response.data;
+    const response = await api.post('/whatsapp/enviar', payload);
+    return response.data as EnviarMensagemResponse;
   },
 };
 
