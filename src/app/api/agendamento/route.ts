@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
 
     // Formatar resultado
     // Garantir que dataHora seja sempre retornada como ISO string UTC
-    const agendamentos = result.rows.map((row) => ({
+    const agendamentos: any[] = result.rows.map((row) => ({
       id: row.id,
       quadraId: row.quadraId,
       usuarioId: row.usuarioId,
