@@ -65,7 +65,7 @@ export async function GET(
         );
       }
     }
-    const agendamento = {
+    const agendamento: any = {
       id: row.id,
       quadraId: row.quadraId,
       usuarioId: row.usuarioId,
@@ -648,7 +648,7 @@ export async function PUT(
       );
       
       const row = agendamentoCompleto.rows[0];
-      const agendamento = {
+      const agendamento: any = {
         id: row.id,
         quadraId: row.quadraId,
         usuarioId: row.usuarioId,
@@ -749,7 +749,7 @@ export async function PUT(
       }
 
       const row = agendamentoCompleto.rows[0];
-      const agendamento = {
+      const agendamento: any = {
         id: row.id,
         quadraId: row.quadraId,
         usuarioId: row.usuarioId,
