@@ -119,7 +119,7 @@ export const agendamentoService = {
     return res.data;
   },
 
-  gerarCards: async (id: string): Promise<{ mensagem: string; cards: any[]; valorTotal: number; valorPorCliente: number; totalClientes: number }> => {
+  gerarCards: async (id: string): Promise<{ mensagem: string; cards: any[]; cardsAtualizados?: any[]; valorTotal: number; valorPorCliente: number; totalClientes: number; totalCardsCriados?: number; totalCardsAtualizados?: number }> => {
     const res = await api.post(`/agendamento/${id}/gerar-cards`);
     return res.data;
   },
