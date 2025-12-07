@@ -1,11 +1,19 @@
 // app/api/point/route.ts - Rotas de API para Points (CRUD completo)
+// IMPORTANTE: Esta rota requer autenticação e expõe dados sensíveis (tokens WhatsApp)
+// Para o frontend externo, use /api/point/public que não requer autenticação e não expõe dados sensíveis
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { getUsuarioFromRequest } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 
-// GET /api/point - Listar todos os points
+// GET /api/point - Listar todos os points (requer autenticação)
 export async function GET(request: NextRequest) {
   try {
+    // Verificar autenticação
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Retorna erro 401
+    }
+
     const { searchParams } = new URL(request.url);
     const apenasAtivos = searchParams.get('apenasAtivos') === 'true';
     
@@ -59,9 +67,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/point - Criar novo point
+// POST /api/point - Criar novo point (requer autenticação)
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticação
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Retorna erro 401
+    }
+
     const body = await request.json();
     const { 
       nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo = true,

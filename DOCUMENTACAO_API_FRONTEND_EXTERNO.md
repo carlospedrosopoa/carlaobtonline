@@ -117,16 +117,16 @@ Retorna os dados do usuário autenticado.
 
 ## 🏟️ 2. Points (Arenas)
 
-### 2.1. Listar Arenas Ativas
+### 2.1. Listar Arenas Ativas (Público)
 
-Lista todas as arenas (points) ativas disponíveis. **Importante:** Use o parâmetro `apenasAtivos=true` para obter apenas arenas ativas.
+Lista todas as arenas (points) ativas disponíveis. **Esta é uma rota pública que não requer autenticação e retorna apenas informações públicas (sem dados sensíveis).**
 
-**Endpoint:** `GET /api/point?apenasAtivos=true`
+**Endpoint:** `GET /api/point/public?apenasAtivos=true`
 
-**Autenticação:** Requerida (JWT Bearer Token)
+**Autenticação:** Não requerida (rota pública)
 
 **Query Parameters:**
-- `apenasAtivos` (opcional): `true` para retornar apenas arenas ativas. **Recomendado usar sempre `true` no frontend externo.**
+- `apenasAtivos` (opcional): `true` para retornar apenas arenas ativas. **Padrão: `true`** (apenas arenas ativas são retornadas por padrão). Use `apenasAtivos=false` para listar todas as arenas (incluindo inativas).
 
 **Resposta de Sucesso (200):**
 ```json
@@ -142,17 +142,15 @@ Lista todas as arenas (points) ativas disponíveis. **Importante:** Use o parâm
     "latitude": -23.5505,
     "longitude": -46.6333,
     "ativo": true,
-    "assinante": false,
-    "whatsappAtivo": false,
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "assinante": false
   }
 ]
 ```
 
+**Nota:** Esta rota retorna apenas campos públicos. Dados sensíveis (como tokens WhatsApp) não são incluídos.
+
 **Respostas de Erro:**
-- `401`: `{ "mensagem": "Não autenticado" }`
-- `500`: `{ "mensagem": "Erro ao listar estabelecimentos", "error": "..." }`
+- `500`: `{ "mensagem": "Erro ao listar arenas", "error": "..." }`
 
 ---
 
@@ -856,9 +854,9 @@ Atualiza o perfil do atleta.
 
 ### 7.2. Fluxo de Seleção de Arena
 
-1. **Listar Arenas Ativas:** `GET /api/point?apenasAtivos=true`
+1. **Listar Arenas Ativas:** `GET /api/point/public?apenasAtivos=true` (rota pública, sem autenticação)
 2. **Selecionar Arena:** Guardar o `pointId` selecionado
-3. **Listar Quadras da Arena:** `GET /api/quadra?pointId={pointId}`
+3. **Listar Quadras da Arena:** `GET /api/quadra?pointId={pointId}` (requer autenticação)
 4. **Selecionar Quadra:** Guardar o `quadraId` selecionado
 
 ### 7.3. Fluxo de Agendamento
@@ -893,7 +891,7 @@ Atualiza o perfil do atleta.
 
 ## 📝 9. Observações Importantes
 
-1. **Arenas Ativas:** Sempre use `?apenasAtivos=true` ao listar arenas para garantir que apenas arenas ativas sejam exibidas.
+1. **Arenas Ativas:** Use a rota pública `/api/point/public?apenasAtivos=true` para listar arenas. Por padrão, apenas arenas ativas são retornadas. Esta rota não requer autenticação e não expõe dados sensíveis.
 
 2. **Seleção de Arena:** Em todas as operações que envolvem arenas (agendamentos e partidas), o atleta deve selecionar a arena desejada primeiro.
 
@@ -939,10 +937,8 @@ const loginResponse = await fetch('/api/auth/login', {
 });
 const { token } = await loginResponse.json();
 
-// 3. Listar arenas ativas
-const arenasResponse = await fetch('/api/point?apenasAtivos=true', {
-  headers: { 'Authorization': `Bearer ${token}` }
-});
+// 3. Listar arenas ativas (rota pública, sem autenticação)
+const arenasResponse = await fetch('/api/point/public?apenasAtivos=true');
 const arenas = await arenasResponse.json();
 
 // 4. Selecionar arena e listar quadras
