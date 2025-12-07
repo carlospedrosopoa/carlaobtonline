@@ -6,26 +6,33 @@ import { getUsuarioFromRequest } from '@/lib/auth';
 // GET /api/point - Listar todos os points
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const apenasAtivos = searchParams.get('apenasAtivos') === 'true';
+    
     // Tentar primeiro com campos WhatsApp (se existirem)
     let result;
     try {
+      const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
       result = await query(
         `SELECT 
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
+        ${whereClause}
         ORDER BY nome ASC`
       );
     } catch (error: any) {
       // Se falhar (colunas WhatsApp não existem), tentar sem elas
       if (error.message?.includes('whatsapp') || error.message?.includes('column') || error.code === '42703') {
         console.log('⚠️ Campos WhatsApp não encontrados, usando query sem eles');
+        const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
         result = await query(
           `SELECT 
             id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
             assinante, "createdAt", "updatedAt"
           FROM "Point"
+          ${whereClause}
           ORDER BY nome ASC`
         );
         // Adicionar campos WhatsApp como null para compatibilidade
