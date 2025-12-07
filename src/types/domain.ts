@@ -20,6 +20,7 @@ export interface Atleta {
     nome: string;
     logoUrl?: string | null;
   } | null;
+  assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
 }
 
 export interface Partida {

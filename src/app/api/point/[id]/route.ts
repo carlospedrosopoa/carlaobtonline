@@ -1,6 +1,7 @@
 // app/api/point/[id]/route.ts - Rotas de API para Point individual (GET, PUT, DELETE)
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getUsuarioFromRequest } from '@/lib/auth';
 
 // GET /api/point/[id] - Obter point por ID
 export async function GET(
@@ -16,7 +17,7 @@ export async function GET(
         `SELECT 
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
-          "createdAt", "updatedAt"
+          assinante, "createdAt", "updatedAt"
         FROM "Point"
         WHERE id = $1`,
         [id]
@@ -28,7 +29,7 @@ export async function GET(
         result = await query(
           `SELECT 
             id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
-            "createdAt", "updatedAt"
+            assinante, "createdAt", "updatedAt"
           FROM "Point"
           WHERE id = $1`,
           [id]
@@ -42,6 +43,7 @@ export async function GET(
             whatsappBusinessAccountId: null,
             whatsappApiVersion: 'v21.0',
             whatsappAtivo: false,
+            assinante: result.rows[0].assinante ?? false,
           };
         }
       } else {

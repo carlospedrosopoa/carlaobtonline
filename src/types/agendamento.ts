@@ -17,6 +17,7 @@ export interface Point {
   whatsappBusinessAccountId?: string | null;
   whatsappApiVersion?: string | null;
   whatsappAtivo?: boolean;
+  assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
   createdAt: string;
   updatedAt: string;
   quadras?: Quadra[];

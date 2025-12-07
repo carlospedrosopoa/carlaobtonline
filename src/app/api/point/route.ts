@@ -1,6 +1,7 @@
 // app/api/point/route.ts - Rotas de API para Points (CRUD completo)
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getUsuarioFromRequest } from '@/lib/auth';
 
 // GET /api/point - Listar todos os points
 export async function GET(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
         `SELECT 
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
-          "createdAt", "updatedAt"
+          assinante, "createdAt", "updatedAt"
         FROM "Point"
         ORDER BY nome ASC`
       );
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
         result = await query(
           `SELECT 
             id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
-            "createdAt", "updatedAt"
+            assinante, "createdAt", "updatedAt"
           FROM "Point"
           ORDER BY nome ASC`
         );
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
           whatsappBusinessAccountId: null,
           whatsappApiVersion: 'v21.0',
           whatsappAtivo: false,
+          assinante: row.assinante ?? false,
         }));
       } else {
         throw error;
