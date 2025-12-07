@@ -1,24 +1,21 @@
-// app/api/point/public/route.ts - Rota pública para listar arenas (frontend externo)
-// Retorna apenas informações públicas, sem dados sensíveis
+// app/api/point/public/route.ts - Rota pública para listar arenas assinantes (frontend externo)
+// Retorna apenas informações públicas de arenas assinantes e ativas, sem dados sensíveis
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { withCors } from '@/lib/cors';
 
-// GET /api/point/public - Listar arenas ativas (público, sem autenticação)
+// GET /api/point/public - Listar arenas assinantes ativas (público, sem autenticação)
+// IMPORTANTE: Esta rota retorna apenas arenas que são assinantes (assinante = true) e estão ativas
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const apenasAtivos = searchParams.get('apenasAtivos') !== 'false'; // Por padrão, apenas ativos
-    
-    const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
-    
     // Retornar apenas campos públicos (sem tokens WhatsApp, etc)
+    // Filtrar apenas arenas assinantes e ativas
     const result = await query(
       `SELECT 
         id, nome, endereco, telefone, email, descricao, "logoUrl", 
         latitude, longitude, ativo, assinante
       FROM "Point"
-      ${whereClause}
+      WHERE assinante = true AND ativo = true
       ORDER BY nome ASC`
     );
 
