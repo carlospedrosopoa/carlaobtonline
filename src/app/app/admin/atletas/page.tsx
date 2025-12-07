@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { pointService } from '@/services/agendamentoService';
 import type { Point } from '@/types/agendamento';
+import { Crown } from 'lucide-react';
 
 interface Atleta {
   id: string;
@@ -16,6 +17,7 @@ interface Atleta {
   fotoUrl?: string;
   fone?: string;
   usuarioId: string;
+  assinante?: boolean;
 }
 
 interface ModalEditarFotoProps {
@@ -551,6 +553,37 @@ export default function AdminAtletasPage() {
                 <p>Idade: {atleta.idade ?? '—'}</p>
                 <p>Categoria: {atleta.categoria ?? '—'}</p>
                 <p>Gênero: {atleta.genero ?? '—'}</p>
+              </div>
+
+              {/* Toggle Assinante */}
+              <div className="mt-3 w-full px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-purple-600" />
+                    <span className="text-xs font-medium text-purple-700">Assinante</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const novoValor = !atleta.assinante;
+                        await api.put(`/atleta/${atleta.id}/assinante`, { assinante: novoValor });
+                        await fetchAtletas();
+                      } catch (error: any) {
+                        console.error('Erro ao atualizar assinante:', error);
+                        alert(error?.response?.data?.mensagem || 'Erro ao atualizar flag de assinante');
+                      }
+                    }}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      atleta.assinante ? 'bg-purple-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        atleta.assinante ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 flex flex-col gap-2 w-full">

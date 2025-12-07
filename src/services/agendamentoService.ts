@@ -40,6 +40,11 @@ export const pointService = {
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/point/${id}`);
   },
+
+  atualizarAssinante: async (id: string, assinante: boolean): Promise<{ mensagem: string; point: Point }> => {
+    const res = await api.put(`/point/${id}/assinante`, { assinante });
+    return res.data;
+  },
 };
 
 // ========== QUADRAS ==========

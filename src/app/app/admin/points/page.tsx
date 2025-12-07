@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { pointService } from '@/services/agendamentoService';
 import type { Point, CriarPointPayload } from '@/types/agendamento';
-import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff, Crown } from 'lucide-react';
 
 export default function AdminPointsPage() {
   const [points, setPoints] = useState<Point[]>([]);
@@ -321,6 +321,35 @@ export default function AdminPointsPage() {
                     <span className="text-xs font-medium text-green-700">WhatsApp Ativo</span>
                   </div>
                 )}
+
+                {/* Indicador Assinante */}
+                <div className="flex items-center justify-between mb-3 px-2 py-1 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-purple-600" />
+                    <span className="text-xs font-medium text-purple-700">Assinante</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const novoValor = !point.assinante;
+                        await pointService.atualizarAssinante(point.id, novoValor);
+                        await carregarPoints();
+                      } catch (error: any) {
+                        console.error('Erro ao atualizar assinante:', error);
+                        alert(error?.response?.data?.mensagem || 'Erro ao atualizar flag de assinante');
+                      }
+                    }}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      point.assinante ? 'bg-purple-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        point.assinante ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
 
                 <div className="flex gap-2 mt-4">
                   <button
