@@ -1,4 +1,6 @@
 // app/api/auth/login/route.ts
+// ⚠️ DEPRECATED: Esta rota está mantida para compatibilidade.
+// Use /api/user/auth/login para novas implementações.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
@@ -6,8 +8,9 @@ import { generateAccessToken, generateRefreshToken } from '@/lib/jwt';
 import { withCors } from '@/lib/cors';
 
 export async function OPTIONS(request: NextRequest) {
-  // Preflight já é tratado pelo middleware, mas podemos adicionar aqui também
-  return new NextResponse(null, { status: 204 });
+  // Handler para requisições preflight (CORS)
+  const response = new NextResponse(null, { status: 204 });
+  return withCors(response, request);
 }
 
 export async function POST(request: NextRequest) {
