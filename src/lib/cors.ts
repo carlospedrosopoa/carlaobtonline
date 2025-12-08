@@ -3,17 +3,19 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Domínios permitidos para consumir a API
 // Configure via variável de ambiente ALLOWED_ORIGINS (separados por vírgula)
-// Exemplo: ALLOWED_ORIGINS=https://parceiro1.com,https://parceiro2.com
+// Exemplo: ALLOWED_ORIGINS=https://parceiro1.com,https://parceiro2.com,http://localhost:3000
 const getAllowedOrigins = (): string[] => {
   const envOrigins = process.env.ALLOWED_ORIGINS;
   if (envOrigins) {
+    // Se a variável está configurada, usa ela (pode incluir localhost para desenvolvimento)
     return envOrigins.split(',').map(origin => origin.trim());
   }
-  // Em desenvolvimento, permite localhost
+  // Em desenvolvimento local da API, permite localhost automaticamente
   if (process.env.NODE_ENV === 'development') {
     return ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'];
   }
-  // Em produção, retorna array vazio (nenhum domínio externo permitido por padrão)
+  // Em produção no Vercel, retorna array vazio (nenhum domínio externo permitido por padrão)
+  // Para permitir localhost em produção, configure ALLOWED_ORIGINS no Vercel
   return [];
 };
 
@@ -30,12 +32,25 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
     return {}; // Retorna vazio = nenhum header CORS adicionado = funcionamento normal
   }
 
+  // Debug: logs para diagnóstico de CORS
+  console.log('[CORS DEBUG] Origin recebida:', origin);
+  console.log('[CORS DEBUG] Origens permitidas:', allowedOrigins);
+  console.log('[CORS DEBUG] NODE_ENV:', process.env.NODE_ENV);
+  
   // Verifica se a origem está na lista de permitidas
   const isAllowed = allowedOrigins.includes(origin) || allowedOrigins.includes('*');
   
+  console.log('[CORS DEBUG] Origem permitida?', isAllowed);
+  console.log('[CORS DEBUG] Match exato?', allowedOrigins.includes(origin));
+  
   if (!isAllowed && allowedOrigins.length > 0) {
     // Origem não permitida - retorna headers vazios (será bloqueado pelo browser)
+    console.log('[CORS DEBUG] ❌ Origem NÃO permitida - bloqueando requisição');
     return {};
+  }
+  
+  if (isAllowed) {
+    console.log('[CORS DEBUG] ✅ Origem permitida - adicionando headers CORS');
   }
 
   // Headers CORS para origem permitida
