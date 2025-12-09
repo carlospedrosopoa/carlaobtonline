@@ -295,19 +295,34 @@ export async function PUT(
     // Normalizar dataHora para comparação (extrair apenas YYYY-MM-DDTHH:mm)
     const normalizarDataHoraParaComparacao = (dataHoraStr: string) => {
       if (!dataHoraStr) return null;
-      // Extrair apenas data e hora (sem segundos/milissegundos)
+      // Extrair apenas data e hora (sem segundos/milissegundos/timezone)
       // Formato esperado: YYYY-MM-DDTHH:mm ou YYYY-MM-DDTHH:mm:ss ou YYYY-MM-DDTHH:mm:ss.sssZ
       const match = dataHoraStr.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
       return match ? match[1] : null;
     };
     
     // Verificar se está tentando alterar data/hora/duração
-    const dataHoraNormalizada = dataHora ? normalizarDataHoraParaComparacao(dataHora) : null;
-    const dataHoraAtualNormalizada = normalizarDataHoraParaComparacao(agendamentoAtual.dataHora);
+    // Só considerar como alteração se o campo foi enviado E o valor normalizado for diferente
+    let tentandoAlterarDataHora = false;
     
-    const tentandoAlterarDataHora = (dataHora !== undefined && dataHoraNormalizada !== null && dataHoraNormalizada !== dataHoraAtualNormalizada) || 
-                                    (duracao !== undefined && duracao !== agendamentoAtual.duracao) ||
-                                    (quadraId !== undefined && quadraId !== agendamentoAtual.quadraId);
+    if (dataHora !== undefined) {
+      const dataHoraNormalizada = normalizarDataHoraParaComparacao(dataHora);
+      const dataHoraAtualNormalizada = normalizarDataHoraParaComparacao(agendamentoAtual.dataHora);
+      
+      // Só considerar alteração se ambos existirem E forem diferentes
+      if (dataHoraNormalizada && dataHoraAtualNormalizada && dataHoraNormalizada !== dataHoraAtualNormalizada) {
+        tentandoAlterarDataHora = true;
+      }
+    }
+    
+    // Verificar duração e quadraId
+    if (duracao !== undefined && duracao !== agendamentoAtual.duracao) {
+      tentandoAlterarDataHora = true;
+    }
+    
+    if (quadraId !== undefined && quadraId !== agendamentoAtual.quadraId) {
+      tentandoAlterarDataHora = true;
+    }
     
     if (tentandoAlterarDataHora && !podeAlterarDataHora && usuario.role !== 'ADMIN') {
       const errorResponse = NextResponse.json(
