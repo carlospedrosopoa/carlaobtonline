@@ -103,30 +103,66 @@ export async function PUT(
         fotoUrlProcessada = null;
       } else if (fotoUrl.startsWith('data:image/')) {
         // É base64 - fazer upload para GCS
+        let buffer: Buffer;
+        let fileName: string;
+        let extension: string;
+        
         try {
-          const buffer = base64ToBuffer(fotoUrl);
+          console.log('[UPLOAD FOTO DEBUG] Iniciando upload de foto base64');
+          buffer = base64ToBuffer(fotoUrl);
+          console.log('[UPLOAD FOTO DEBUG] Buffer criado, tamanho:', buffer.length);
+          
           // Detectar extensão do base64
           const mimeMatch = fotoUrl.match(/data:image\/(\w+);base64,/);
-          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
-          const fileName = `atleta-foto.${extension}`;
+          extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          fileName = `atleta-foto.${extension}`;
+          console.log('[UPLOAD FOTO DEBUG] File name:', fileName, 'Extension:', extension);
           
+          console.log('[UPLOAD FOTO DEBUG] Chamando uploadImage...');
           const result = await uploadImage(buffer, fileName, 'atletas');
+          console.log('[UPLOAD FOTO DEBUG] Upload concluído, URL:', result.url);
           
           // Deletar foto antiga se existir
           if (atletaExistente.fotoUrl && atletaExistente.fotoUrl.startsWith('https://storage.googleapis.com/')) {
             try {
+              console.log('[UPLOAD FOTO DEBUG] Deletando foto antiga:', atletaExistente.fotoUrl);
               await deleteImage(atletaExistente.fotoUrl);
-            } catch (error) {
-              console.error('Erro ao deletar imagem antiga:', error);
+              console.log('[UPLOAD FOTO DEBUG] Foto antiga deletada com sucesso');
+            } catch (error: any) {
+              console.error('[UPLOAD FOTO DEBUG] Erro ao deletar imagem antiga (não crítico):', error?.message);
               // Continua mesmo se não conseguir deletar
             }
           }
           
           fotoUrlProcessada = result.url;
-        } catch (error) {
-          console.error('Erro ao fazer upload da imagem:', error);
+        } catch (error: any) {
+          console.error('[UPLOAD FOTO DEBUG] ❌ Erro ao fazer upload da imagem:', error);
+          console.error('[UPLOAD FOTO DEBUG] Erro message:', error?.message);
+          console.error('[UPLOAD FOTO DEBUG] Erro name:', error?.name);
+          console.error('[UPLOAD FOTO DEBUG] Erro code:', error?.code);
+          if (buffer) {
+            console.error('[UPLOAD FOTO DEBUG] Buffer size:', buffer.length);
+          }
+          if (fileName) {
+            console.error('[UPLOAD FOTO DEBUG] File name:', fileName);
+          }
+          if (extension) {
+            console.error('[UPLOAD FOTO DEBUG] Extension:', extension);
+          }
+          
+          // Verificar se é erro de configuração do GCS
+          const isGcsConfigError = error?.message?.includes('não configurado') || 
+                                   error?.message?.includes('not configured') ||
+                                   error?.code === 'ENOENT';
+          
           const errorResponse = NextResponse.json(
-            { mensagem: 'Erro ao fazer upload da imagem' },
+            { 
+              mensagem: isGcsConfigError 
+                ? 'Serviço de armazenamento de imagens não configurado. Entre em contato com o suporte.'
+                : 'Erro ao fazer upload da imagem. Tente novamente.',
+              error: error?.message || 'Erro desconhecido',
+              details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+            },
             { status: 500 }
           );
           return withCors(errorResponse, request);
