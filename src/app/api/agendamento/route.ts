@@ -502,8 +502,8 @@ export async function POST(request: NextRequest) {
       if (perfilAtletaResult.rows.length > 0) {
         // Vincular automaticamente ao atleta do usuário
         atletaIdFinal = perfilAtletaResult.rows[0].id;
-        nomeAvulsoFinal = null;
-        telefoneAvulsoFinal = null;
+        nomeAvulsoFinal = undefined;
+        telefoneAvulsoFinal = undefined;
       } else {
         // Se não tiver perfil de atleta, retornar erro
         const errorResponse = NextResponse.json(
