@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import type { AtualizarBloqueioAgendaPayload } from '@/types/agendamento';
 
 // Converter hora "HH:mm" para minutos desde 00:00
@@ -18,10 +19,11 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -39,20 +41,22 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Bloqueio não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const row = result.rows[0];
 
     // Verificar permissões
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor !== row.pointId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Sem permissão para acessar este bloqueio' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const bloqueio = {
@@ -74,13 +78,15 @@ export async function GET(
       } : null,
     };
 
-    return NextResponse.json(bloqueio);
+    const response = NextResponse.json(bloqueio);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter bloqueio:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter bloqueio', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -92,18 +98,20 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem atualizar bloqueios
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Sem permissão para atualizar bloqueios' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await routeParams;
@@ -116,20 +124,22 @@ export async function PUT(
     );
 
     if (bloqueioCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Bloqueio não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const pointIdAtual = bloqueioCheck.rows[0].pointId;
 
     // Verificar permissões
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor !== pointIdAtual) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Sem permissão para atualizar este bloqueio' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Construir query de atualização dinamicamente
@@ -186,10 +196,11 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Adicionar updatedAt
@@ -221,13 +232,15 @@ export async function PUT(
       point: point ? { id: point.id, nome: point.nome } : null,
     };
 
-    return NextResponse.json(bloqueioCompleto);
+    const response = NextResponse.json(bloqueioCompleto);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar bloqueio:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar bloqueio', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -239,18 +252,20 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem deletar bloqueios
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Sem permissão para deletar bloqueios' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await routeParams;
@@ -262,31 +277,40 @@ export async function DELETE(
     );
 
     if (bloqueioCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Bloqueio não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const pointId = bloqueioCheck.rows[0].pointId;
 
     // Verificar permissões
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor !== pointId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Sem permissão para deletar este bloqueio' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     await query(`DELETE FROM "BloqueioAgenda" WHERE id = $1`, [id]);
 
-    return NextResponse.json({ mensagem: 'Bloqueio deletado com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Bloqueio deletado com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar bloqueio:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar bloqueio', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

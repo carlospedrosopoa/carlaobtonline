@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import type { CriarBloqueioAgendaPayload } from '@/types/agendamento';
 
 // Converter hora "HH:mm" para minutos desde 00:00
@@ -22,10 +23,11 @@ export async function GET(request: NextRequest) {
     // Obter usuário autenticado
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Construir SQL base
@@ -104,13 +106,15 @@ export async function GET(request: NextRequest) {
       return bloqueio;
     });
 
-    return NextResponse.json(bloqueios);
+    const response = NextResponse.json(bloqueios);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar bloqueios:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar bloqueios', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -119,45 +123,50 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem criar bloqueios
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Sem permissão para criar bloqueios' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body: CriarBloqueioAgendaPayload = await request.json();
 
     // Validações
     if (!body.pointId || !body.titulo || !body.dataInicio || !body.dataFim) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Campos obrigatórios: pointId, titulo, dataInicio, dataFim' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar acesso ao point
     if (usuario.role === 'ORGANIZER') {
       if (usuario.pointIdGestor !== body.pointId) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Sem permissão para criar bloqueio neste point' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     } else if (usuario.role === 'ADMIN') {
       const temAcesso = await usuarioTemAcessoAoPoint(usuario, body.pointId);
       if (!temAcesso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Sem permissão para criar bloqueio neste point' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -167,10 +176,11 @@ export async function POST(request: NextRequest) {
 
     // Validar que dataInicio <= dataFim
     if (dataInicio > dataFim) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'dataInicio deve ser anterior ou igual a dataFim' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Converter horas para minutos (se fornecidas)
@@ -186,17 +196,19 @@ export async function POST(request: NextRequest) {
 
     // Validar que se horaInicio fornecida, horaFim também deve ser
     if ((horaInicio !== null && horaFim === null) || (horaInicio === null && horaFim !== null)) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'horaInicio e horaFim devem ser fornecidas juntas ou ambas null' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (horaInicio !== null && horaFim !== null && horaInicio >= horaFim) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'horaInicio deve ser anterior a horaFim' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Validar quadras (se fornecidas)
@@ -208,10 +220,11 @@ export async function POST(request: NextRequest) {
       );
 
       if (quadrasCheck.rows.length !== body.quadraIds.length) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Uma ou mais quadras não pertencem ao point especificado' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -255,13 +268,20 @@ export async function POST(request: NextRequest) {
       point: point ? { id: point.id, nome: point.nome } : null,
     };
 
-    return NextResponse.json(bloqueioCompleto, { status: 201 });
+    const response = NextResponse.json(bloqueioCompleto, { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar bloqueio:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar bloqueio', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
