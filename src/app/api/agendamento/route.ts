@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Tentar incluir campos de recorrência
     let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig",
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
-      p.id as "point_id", p.nome as "point_nome",
+      p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
       at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
     FROM "Agendamento" a
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
         sql = sqlBase + `
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
-      p.id as "point_id", p.nome as "point_nome",
+      p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
       at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
     FROM "Agendamento" a
@@ -256,6 +256,7 @@ export async function GET(request: NextRequest) {
         point: {
           id: row.point_id,
           nome: row.point_nome,
+          logoUrl: row.point_logoUrl || null,
         },
       },
       usuario: row.usuario_id ? {
@@ -761,6 +762,7 @@ export async function POST(request: NextRequest) {
         point: {
           id: row.point_id,
           nome: row.point_nome,
+          logoUrl: row.point_logoUrl || null,
         },
       },
       usuario: row.usuario_id ? {

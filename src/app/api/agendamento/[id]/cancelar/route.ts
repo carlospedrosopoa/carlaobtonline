@@ -123,7 +123,7 @@ export async function POST(
         a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
         a.status, a.observacoes, a."createdAt", a."updatedAt",
         q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
-        p.id as "point_id", p.nome as "point_nome",
+        p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
         u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
         at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
       FROM "Agendamento" a
@@ -159,6 +159,7 @@ export async function POST(
         point: {
           id: row.point_id,
           nome: row.point_nome,
+          logoUrl: row.point_logoUrl || null,
         },
       },
       usuario: row.usuario_id ? {
