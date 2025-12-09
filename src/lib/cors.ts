@@ -6,17 +6,24 @@ import { NextRequest, NextResponse } from 'next/server';
 // Exemplo: ALLOWED_ORIGINS=https://parceiro1.com,https://parceiro2.com,http://localhost:3000
 const getAllowedOrigins = (): string[] => {
   const envOrigins = process.env.ALLOWED_ORIGINS;
+  const origins: string[] = [];
+  
   if (envOrigins) {
-    // Se a variável está configurada, usa ela (pode incluir localhost para desenvolvimento)
-    return envOrigins.split(',').map(origin => origin.trim());
+    // Se a variável está configurada, adiciona as origens configuradas
+    origins.push(...envOrigins.split(',').map(origin => origin.trim()));
   }
-  // Em desenvolvimento local da API, permite localhost automaticamente
-  if (process.env.NODE_ENV === 'development') {
-    return ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'];
-  }
-  // Em produção no Vercel, retorna array vazio (nenhum domínio externo permitido por padrão)
-  // Para permitir localhost em produção, configure ALLOWED_ORIGINS no Vercel
-  return [];
+  
+  // Sempre permite localhost (mesmo que ALLOWED_ORIGINS esteja configurado)
+  // Isso facilita o desenvolvimento local mesmo quando a API está em produção
+  // É seguro porque localhost só funciona localmente
+  const localhostOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'];
+  localhostOrigins.forEach(origin => {
+    if (!origins.includes(origin)) {
+      origins.push(origin);
+    }
+  });
+  
+  return origins;
 };
 
 // Headers CORS padrão
@@ -32,13 +39,21 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
     return {}; // Retorna vazio = nenhum header CORS adicionado = funcionamento normal
   }
 
+  // Sempre permite localhost (seguro porque só funciona localmente)
+  const isLocalhost = origin && (
+    origin.startsWith('http://localhost:') || 
+    origin.startsWith('http://127.0.0.1:')
+  );
+  
   // Debug: logs para diagnóstico de CORS
   console.log('[CORS DEBUG] Origin recebida:', origin);
   console.log('[CORS DEBUG] Origens permitidas:', allowedOrigins);
   console.log('[CORS DEBUG] NODE_ENV:', process.env.NODE_ENV);
+  console.log('[CORS DEBUG] É localhost?', isLocalhost);
   
   // Verifica se a origem está na lista de permitidas
-  const isAllowed = allowedOrigins.includes(origin) || allowedOrigins.includes('*');
+  // Sempre permite localhost, mesmo que não esteja na lista
+  const isAllowed = isLocalhost || allowedOrigins.includes(origin) || allowedOrigins.includes('*');
   
   console.log('[CORS DEBUG] Origem permitida?', isAllowed);
   console.log('[CORS DEBUG] Match exato?', allowedOrigins.includes(origin));
