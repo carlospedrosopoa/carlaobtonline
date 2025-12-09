@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 
 // GET /api/quadra - Listar todas as quadras (com filtro opcional por pointId)
 export async function GET(request: NextRequest) {
@@ -59,13 +60,15 @@ export async function GET(request: NextRequest) {
       } : null,
     }));
 
-    return NextResponse.json(quadras);
+    const response = NextResponse.json(quadras);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar quadras:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar quadras', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -74,47 +77,52 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar permissões
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Apenas administradores e organizadores podem criar quadras' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json();
     const { nome, pointId, tipo, capacidade, ativo = true } = body;
 
     if (!nome || !pointId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nome e estabelecimento são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se o point existe
     const pointCheck = await query('SELECT id FROM "Point" WHERE id = $1', [pointId]);
     if (pointCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Estabelecimento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
       const temAcesso = usuarioTemAcessoAoPoint(usuario, pointId);
       if (!temAcesso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para criar quadras nesta arena' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -132,13 +140,20 @@ export async function POST(request: NextRequest) {
       point: pointResult.rows[0] || null,
     };
 
-    return NextResponse.json(quadra, { status: 201 });
+    const response = NextResponse.json(quadra, { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar quadra:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar quadra', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
