@@ -57,10 +57,17 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
   
   console.log('[CORS DEBUG] Origem permitida?', isAllowed);
   console.log('[CORS DEBUG] Match exato?', allowedOrigins.includes(origin));
+  console.log('[CORS DEBUG] allowedOrigins.length:', allowedOrigins.length);
+  console.log('[CORS DEBUG] envOrigins existe?', !!process.env.ALLOWED_ORIGINS);
   
-  if (!isAllowed && allowedOrigins.length > 0) {
+  // Se não está permitida E há origens configuradas (exceto apenas localhost), bloqueia
+  // Se não há origens configuradas (apenas localhost), também bloqueia (segurança)
+  const hasNonLocalhostOrigins = allowedOrigins.some(o => !o.startsWith('http://localhost:') && !o.startsWith('http://127.0.0.1:'));
+  
+  if (!isAllowed) {
     // Origem não permitida - retorna headers vazios (será bloqueado pelo browser)
     console.log('[CORS DEBUG] ❌ Origem NÃO permitida - bloqueando requisição');
+    console.log('[CORS DEBUG] Tem origens não-localhost?', hasNonLocalhostOrigins);
     return {};
   }
   
