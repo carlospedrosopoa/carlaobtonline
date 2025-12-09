@@ -25,7 +25,7 @@ export async function criarAtleta(usuarioId: string, dados: {
   const dataNasc = new Date(dados.dataNascimento);
   
   await query(
-    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "pointIdPrincipal", "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())',
+    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())',
     [id, dados.nome, dataNasc, dados.categoria || null, dados.genero || null, dados.fone || null, dados.fotoUrl || null, usuarioId, dados.pointIdPrincipal || null]
   );
   
