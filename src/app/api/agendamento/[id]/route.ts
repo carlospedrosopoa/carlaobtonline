@@ -60,7 +60,7 @@ export async function GET(
         return withCors(errorResponse, request);
       }
     } else if (usuario.role === 'USER') {
-      // USER comum só pode ver seus próprios agendamentos
+      // USER comum só pode ver seus próprios agendamentos (onde ele é o proprietário direto)
       if (row.usuarioId !== usuario.id) {
         const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para visualizar este agendamento' },
@@ -219,7 +219,7 @@ export async function PUT(
       const temAcesso = await usuarioTemAcessoAQuadra(usuario, agendamentoAtual.quadraId);
       podeEditar = temAcesso;
     } else {
-      // USER comum pode editar apenas seus próprios agendamentos
+      // USER comum pode editar apenas seus próprios agendamentos (onde ele é o proprietário direto)
       podeEditar = agendamentoAtual.usuarioId === usuario.id;
     }
 
