@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
+import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
 
 // GET /api/point/[id] - Obter point por ID
 export async function GET(
@@ -52,19 +54,22 @@ export async function GET(
     }
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Estabelecimento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter point:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter estabelecimento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -82,11 +87,77 @@ export async function PUT(
     } = body;
 
     if (!nome) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nome é obrigatório' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
+
+    // Buscar point existente para verificar logo antigo
+    const pointExistente = await query(
+      `SELECT "logoUrl" FROM "Point" WHERE id = $1`,
+      [id]
+    );
+
+    // Processar logoUrl: se for base64, fazer upload para GCS
+    let logoUrlProcessada: string | null | undefined = undefined;
+    if (logoUrl !== undefined) {
+      if (logoUrl === null) {
+        // Se for null, deletar logo antigo se existir
+        if (pointExistente.rows.length > 0 && pointExistente.rows[0].logoUrl) {
+          const logoAntigo = pointExistente.rows[0].logoUrl;
+          if (logoAntigo && logoAntigo.startsWith('https://storage.googleapis.com/')) {
+            try {
+              await deleteImage(logoAntigo);
+            } catch (error) {
+              console.error('Erro ao deletar logo antigo:', error);
+            }
+          }
+        }
+        logoUrlProcessada = null;
+      } else if (logoUrl.startsWith('data:image/')) {
+        // Se for base64, fazer upload
+        try {
+          const buffer = base64ToBuffer(logoUrl);
+          const mimeMatch = logoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `point-logo-${id}-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'points');
+          
+          // Deletar logo antigo se existir
+          if (pointExistente.rows.length > 0 && pointExistente.rows[0].logoUrl) {
+            const logoAntigo = pointExistente.rows[0].logoUrl;
+            if (logoAntigo && logoAntigo.startsWith('https://storage.googleapis.com/')) {
+              try {
+                await deleteImage(logoAntigo);
+              } catch (error) {
+                console.error('Erro ao deletar logo antigo:', error);
+              }
+            }
+          }
+          
+          logoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload do logo:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload do logo' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+        // Se já for uma URL, manter como está
+        logoUrlProcessada = logoUrl;
+      } else {
+        logoUrlProcessada = null;
+      }
+    }
+
+    // Usar logoUrlProcessada se foi processado, senão usar logoUrl original ou manter o atual
+    const logoUrlFinal = logoUrlProcessada !== undefined 
+      ? logoUrlProcessada 
+      : (logoUrl !== undefined ? logoUrl : (pointExistente.rows.length > 0 ? pointExistente.rows[0].logoUrl : null));
 
     // Tentar primeiro com campos WhatsApp (se existirem)
     let result;
@@ -101,7 +172,7 @@ export async function PUT(
                    "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
                    "createdAt", "updatedAt"`,
         [
-          nome, endereco || null, telefone || null, email || null, descricao || null, logoUrl || null, 
+          nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
           latitude || null, longitude || null, ativo ?? true,
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
@@ -119,7 +190,7 @@ export async function PUT(
            RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
                      "createdAt", "updatedAt"`,
           [
-            nome, endereco || null, telefone || null, email || null, descricao || null, logoUrl || null, 
+            nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
             latitude || null, longitude || null, ativo ?? true,
             id
           ]
@@ -141,19 +212,22 @@ export async function PUT(
     }
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Estabelecimento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar point:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar estabelecimento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -171,10 +245,11 @@ export async function DELETE(
     );
 
     if (parseInt(quadrasResult.rows[0].count) > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível deletar estabelecimento com quadras vinculadas' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     const result = await query(
@@ -183,19 +258,27 @@ export async function DELETE(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Estabelecimento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
-    return NextResponse.json({ mensagem: 'Estabelecimento deletado com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Estabelecimento deletado com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar point:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar estabelecimento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

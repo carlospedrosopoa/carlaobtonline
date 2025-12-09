@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 
 // PUT /api/tabela-preco/[id] - Atualizar tabela de preço
 export async function PUT(
@@ -12,18 +13,20 @@ export async function PUT(
     const { id } = await params;
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar permissões
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Apenas administradores e organizadores podem editar tabelas de preço' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json();
@@ -36,10 +39,11 @@ export async function PUT(
     );
 
     if (tabelaCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Tabela de preço não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const tabelaAtual = tabelaCheck.rows[0];
@@ -49,10 +53,11 @@ export async function PUT(
     if (usuario.role === 'ORGANIZER') {
       const temAcesso = await usuarioTemAcessoAQuadra(usuario, quadraId);
       if (!temAcesso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para editar esta tabela de preço' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -68,10 +73,11 @@ export async function PUT(
       const fimMinutoDia = horaFimH * 60 + horaFimM;
 
       if (inicioMinutoDia >= fimMinutoDia) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Horário de início deve ser anterior ao horário de fim' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       // Verificar sobreposição com outras tabelas de preço da mesma quadra (exceto esta)
@@ -89,10 +95,11 @@ export async function PUT(
       );
 
       if (sobreposicao.rows.length > 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Já existe uma tabela de preço ativa com horário sobreposto para esta quadra' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       updates.push(`"inicioMinutoDia" = $${paramCount}`);
@@ -117,10 +124,11 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -141,13 +149,15 @@ export async function PUT(
       quadra: quadraResult.rows[0] || null,
     };
 
-    return NextResponse.json(tabelaPreco);
+    const response = NextResponse.json(tabelaPreco);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar tabela de preço:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar tabela de preço', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -160,18 +170,20 @@ export async function DELETE(
     const { id } = await params;
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar permissões
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Apenas administradores e organizadores podem deletar tabelas de preço' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se a tabela existe e obter quadraId
@@ -181,10 +193,11 @@ export async function DELETE(
     );
 
     if (tabelaCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Tabela de preço não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a esta quadra
@@ -192,10 +205,11 @@ export async function DELETE(
       const quadraId = tabelaCheck.rows[0].quadraId;
       const temAcesso = await usuarioTemAcessoAQuadra(usuario, quadraId);
       if (!temAcesso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para deletar esta tabela de preço' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -205,19 +219,27 @@ export async function DELETE(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Tabela de preço não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
-    return NextResponse.json({ mensagem: 'Tabela de preço deletada com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Tabela de preço deletada com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar tabela de preço:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar tabela de preço', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

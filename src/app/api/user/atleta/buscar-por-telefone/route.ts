@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 
 // POST /api/user/atleta/buscar-por-telefone
 // Busca um atleta pelo telefone. Se não existir, cria um atleta "avulso" temporário
@@ -10,20 +11,22 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json();
     const { telefone } = body as { telefone: string };
 
     if (!telefone) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Telefone é obrigatório' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Normalizar telefone (remover caracteres não numéricos)
@@ -83,28 +86,36 @@ export async function POST(request: NextRequest) {
     if (atletaExistente.rows.length > 0) {
       // Atleta encontrado - retornar apenas ID e nome (sem expor outros dados)
       const atleta = atletaExistente.rows[0];
-      return NextResponse.json({
+      const response = NextResponse.json({
         id: atleta.id,
         nome: atleta.nome,
         telefone: atleta.fone,
         existe: true,
       });
+      return withCors(response, request);
     }
 
     // Atleta não encontrado - retornar erro informando que não está cadastrado
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { 
         mensagem: 'Este número não está cadastrado como usuário do app',
         codigo: 'ATLETA_NAO_ENCONTRADO'
       },
       { status: 404 }
     );
+    return withCors(errorResponse, request);
   } catch (error: any) {
     console.error('Erro ao buscar/criar atleta por telefone:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao processar solicitação', erro: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

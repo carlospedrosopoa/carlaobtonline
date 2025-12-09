@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
+import { uploadImage, base64ToBuffer } from '@/lib/googleCloudStorage';
 
 // GET /api/point - Listar todos os points (requer autenticação)
 export async function GET(request: NextRequest) {
@@ -11,7 +13,7 @@ export async function GET(request: NextRequest) {
     // Verificar autenticação
     const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
-      return authResult; // Retorna erro 401
+      return withCors(authResult, request); // Retorna erro 401
     }
 
     const { searchParams } = new URL(request.url);
@@ -57,13 +59,15 @@ export async function GET(request: NextRequest) {
         throw error;
       }
     }
-    return NextResponse.json(result.rows);
+    const response = NextResponse.json(result.rows);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar points:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar estabelecimentos', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -73,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Verificar autenticação
     const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
-      return authResult; // Retorna erro 401
+      return withCors(authResult, request); // Retorna erro 401
     }
 
     const body = await request.json();
@@ -83,10 +87,38 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!nome) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nome é obrigatório' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
+    }
+
+    // Processar logoUrl: se for base64, fazer upload para GCS
+    let logoUrlProcessada: string | null = null;
+    if (logoUrl) {
+      if (logoUrl.startsWith('data:image/')) {
+        try {
+          const buffer = base64ToBuffer(logoUrl);
+          const mimeMatch = logoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `point-logo-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'points');
+          logoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload do logo:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload do logo' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+        // Se já for uma URL, manter como está
+        logoUrlProcessada = logoUrl;
+      } else {
+        logoUrlProcessada = null;
+      }
     }
 
     // Tentar primeiro com campos WhatsApp (se existirem)
@@ -108,7 +140,7 @@ export async function POST(request: NextRequest) {
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "createdAt", "updatedAt"`,
         [
-          nome, endereco || null, telefone || null, email || null, descricao || null, logoUrl || null, 
+          nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
           latitude || null, longitude || null, ativo,
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false
@@ -131,7 +163,7 @@ export async function POST(request: NextRequest) {
             id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
             "createdAt", "updatedAt"`,
           [
-            nome, endereco || null, telefone || null, email || null, descricao || null, logoUrl || null, 
+            nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
             latitude || null, longitude || null, ativo
           ]
         );
@@ -151,13 +183,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const response = NextResponse.json(result.rows[0], { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar point:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar estabelecimento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

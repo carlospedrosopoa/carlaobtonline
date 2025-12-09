@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import { temRecorrencia } from '@/lib/recorrenciaService';
 
 // POST /api/agendamento/[id]/cancelar - Cancelar agendamento
@@ -13,10 +14,11 @@ export async function POST(
     const { id } = await params;
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se o agendamento existe e se o usuário tem permissão
@@ -38,19 +40,21 @@ export async function POST(
     }
 
     if (agendamentoCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Agendamento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const agendamento = agendamentoCheck.rows[0];
     
     if (agendamento.status === 'CANCELADO') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Agendamento já está cancelado' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar permissões
@@ -68,10 +72,11 @@ export async function POST(
     }
 
     if (!podeCancelar) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para cancelar este agendamento' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json().catch(() => ({}));
@@ -189,13 +194,20 @@ export async function POST(
       });
     }
 
-    return NextResponse.json(agendamentoRetorno);
+    const response = NextResponse.json(agendamentoRetorno);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao cancelar agendamento:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao cancelar agendamento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

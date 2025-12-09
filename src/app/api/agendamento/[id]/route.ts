@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 import { temRecorrencia, gerarAgendamentosRecorrentes } from '@/lib/recorrenciaService';
 import type { RecorrenciaConfig } from '@/types/agendamento';
 
@@ -39,10 +40,11 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Agendamento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const row = result.rows[0];
@@ -51,18 +53,20 @@ export async function GET(
     if (usuario.role === 'ORGANIZER') {
       const temAcesso = await usuarioTemAcessoAQuadra(usuario, row.quadraId);
       if (!temAcesso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para visualizar este agendamento' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     } else if (usuario.role === 'USER') {
       // USER comum só pode ver seus próprios agendamentos
       if (row.usuarioId !== usuario.id) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para visualizar este agendamento' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
     const agendamento: any = {
@@ -146,13 +150,15 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(agendamento);
+    const response = NextResponse.json(agendamento);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter agendamento:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter agendamento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -165,10 +171,11 @@ export async function PUT(
     const { id } = await params;
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se o agendamento existe e se o usuário tem permissão
@@ -191,10 +198,11 @@ export async function PUT(
     }
 
     if (agendamentoCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Agendamento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const agendamentoAtual = agendamentoCheck.rows[0];
@@ -215,10 +223,11 @@ export async function PUT(
     }
 
     if (!podeEditar) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para editar este agendamento' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json();
@@ -254,20 +263,22 @@ export async function PUT(
       // Verificar se a nova quadra existe
       const quadraCheck = await query('SELECT id, "pointId" FROM "Quadra" WHERE id = $1', [quadraId]);
       if (quadraCheck.rows.length === 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Quadra não encontrada' },
           { status: 404 }
         );
+        return withCors(errorResponse, request);
       }
 
       // Verificar se ORGANIZER tem acesso à nova quadra
       if (usuario.role === 'ORGANIZER') {
         const temAcesso = await usuarioTemAcessoAQuadra(usuario, quadraId);
         if (!temAcesso) {
-          return NextResponse.json(
+          const errorResponse = NextResponse.json(
             { mensagem: 'Você não tem acesso a esta quadra' },
             { status: 403 }
           );
+          return withCors(errorResponse, request);
         }
       }
     }
@@ -299,10 +310,11 @@ export async function PUT(
       );
 
       if (conflitos.rows.length > 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Já existe um agendamento confirmado neste horário para esta quadra' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -431,10 +443,11 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -551,10 +564,11 @@ export async function PUT(
       }
 
       if (conflitosEncontrados.length > 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: `Existem conflitos em ${conflitosEncontrados.length} agendamento(s) da recorrência` },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
       
       // Criar novos agendamentos recorrentes
@@ -691,7 +705,8 @@ export async function PUT(
         } : null,
       };
       
-      return NextResponse.json(agendamento);
+      const response = NextResponse.json(agendamento);
+      return withCors(response, request);
     } else {
       // Apenas atualizar o agendamento atual (sem recriar recorrências)
       paramsUpdate.push(id);
@@ -898,14 +913,16 @@ export async function PUT(
         }
       }
 
-      return NextResponse.json(agendamento);
+      const response = NextResponse.json(agendamento);
+      return withCors(response, request);
     }
   } catch (error: any) {
     console.error('Erro ao atualizar agendamento:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar agendamento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -918,10 +935,11 @@ export async function DELETE(
     const { id } = await params;
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se o agendamento existe e se o usuário tem permissão
@@ -943,10 +961,11 @@ export async function DELETE(
     }
 
     if (agendamentoCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Agendamento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const agendamento = agendamentoCheck.rows[0];
@@ -963,10 +982,11 @@ export async function DELETE(
     }
 
     if (!podeDeletar) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para deletar este agendamento' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json().catch(() => ({}));
@@ -986,7 +1006,8 @@ export async function DELETE(
            AND "dataHora" >= $2`,
           [recorrenciaId, dataHoraAtual.toISOString()]
         );
-        return NextResponse.json({ mensagem: 'Agendamento(s) deletado(s) com sucesso' });
+        const response = NextResponse.json({ mensagem: 'Agendamento(s) deletado(s) com sucesso' });
+        return withCors(response, request);
       } catch (error: any) {
         // Se o campo não existe, apenas deletar este
         if (!error.message?.includes('recorrenciaId')) {
@@ -1001,13 +1022,20 @@ export async function DELETE(
       [id]
     );
 
-    return NextResponse.json({ mensagem: 'Agendamento deletado com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Agendamento deletado com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar agendamento:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar agendamento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

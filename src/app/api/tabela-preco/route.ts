@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 
 // GET /api/tabela-preco - Listar todas as tabelas de preço (com filtro opcional por quadraId)
 export async function GET(request: NextRequest) {
@@ -65,13 +66,15 @@ export async function GET(request: NextRequest) {
       } : null,
     }));
 
-    return NextResponse.json(tabelasPreco);
+    const response = NextResponse.json(tabelasPreco);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar tabelas de preço:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar tabelas de preço', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -80,47 +83,52 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar permissões
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Apenas administradores e organizadores podem criar tabelas de preço' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json();
     const { quadraId, horaInicio, horaFim, valorHora, ativo = true } = body;
 
     if (!quadraId || !horaInicio || !horaFim || valorHora === undefined) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Quadra, horário de início, horário de fim e valor são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se a quadra existe
     const quadraCheck = await query('SELECT id FROM "Quadra" WHERE id = $1', [quadraId]);
     if (quadraCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Quadra não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a esta quadra
     if (usuario.role === 'ORGANIZER') {
       const temAcesso = await usuarioTemAcessoAQuadra(usuario, quadraId);
       if (!temAcesso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para criar tabelas de preço para esta quadra' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -131,10 +139,11 @@ export async function POST(request: NextRequest) {
     const fimMinutoDia = horaFimH * 60 + horaFimM;
 
     if (inicioMinutoDia >= fimMinutoDia) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Horário de início deve ser anterior ao horário de fim' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar sobreposição com outras tabelas de preço da mesma quadra
@@ -151,10 +160,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (sobreposicao.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Já existe uma tabela de preço ativa com horário sobreposto para esta quadra' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     const result = await query(
@@ -172,13 +182,20 @@ export async function POST(request: NextRequest) {
       quadra: quadraResult.rows[0] || null,
     };
 
-    return NextResponse.json(tabelaPreco, { status: 201 });
+    const response = NextResponse.json(tabelaPreco, { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar tabela de preço:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar tabela de preço', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
