@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { gerarAgendamentosRecorrentes } from '@/lib/recorrenciaService';
+import { withCors } from '@/lib/cors';
 import type { RecorrenciaConfig } from '@/types/agendamento';
 
 // GET /api/agendamento - Listar agendamentos com filtros
@@ -15,14 +16,16 @@ export async function GET(request: NextRequest) {
     const dataFim = searchParams.get('dataFim');
     const status = searchParams.get('status');
     const apenasMeus = searchParams.get('apenasMeus') === 'true';
+    const incluirPassados = searchParams.get('incluirPassados') === 'true';
 
     // Obter usuário autenticado
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Construir SQL base
@@ -59,7 +62,15 @@ export async function GET(request: NextRequest) {
       paramCount++;
     }
 
-    if (dataInicio) {
+    // Por padrão, mostrar apenas agendamentos de hoje e futuros (a menos que incluirPassados seja true)
+    if (!incluirPassados && !dataInicio) {
+      // Filtrar apenas agendamentos >= início do dia de hoje (UTC)
+      const hoje = new Date();
+      hoje.setUTCHours(0, 0, 0, 0);
+      sql += ` AND a."dataHora" >= $${paramCount}`;
+      params.push(hoje.toISOString());
+      paramCount++;
+    } else if (dataInicio) {
       // dataInicio vem como ISO string UTC (ex: "2024-01-15T00:00:00.000Z")
       // Usar diretamente como UTC para comparação no banco
       sql += ` AND a."dataHora" >= $${paramCount}`;
@@ -88,9 +99,33 @@ export async function GET(request: NextRequest) {
       paramCount++;
     } else if (apenasMeus && usuario.role !== 'ADMIN') {
       // USER comum vê apenas seus próprios agendamentos
-      sql += ` AND a."usuarioId" = $${paramCount}`;
-      params.push(usuario.id);
-      paramCount++;
+      // Buscar agendamentos onde usuarioId = usuario.id OU onde atletaId corresponde ao atleta do usuário
+      if (usuario.role === 'USER') {
+        // Buscar o atletaId do usuário
+        const atletaResult = await query(
+          `SELECT id FROM "Atleta" WHERE "usuarioId" = $1 LIMIT 1`,
+          [usuario.id]
+        );
+        
+        if (atletaResult.rows.length > 0) {
+          const atletaId = atletaResult.rows[0].id;
+          // Incluir agendamentos onde usuarioId = usuario.id OU atletaId = atleta do usuário
+          sql += ` AND (a."usuarioId" = $${paramCount} OR a."atletaId" = $${paramCount + 1})`;
+          params.push(usuario.id);
+          params.push(atletaId);
+          paramCount += 2;
+        } else {
+          // Se não tiver atleta, buscar apenas por usuarioId
+          sql += ` AND a."usuarioId" = $${paramCount}`;
+          params.push(usuario.id);
+          paramCount++;
+        }
+      } else {
+        // Para outros roles (ORGANIZER), buscar apenas por usuarioId
+        sql += ` AND a."usuarioId" = $${paramCount}`;
+        params.push(usuario.id);
+        paramCount++;
+      }
     }
 
     sql += ` ORDER BY a."dataHora" ASC`;
@@ -124,7 +159,15 @@ export async function GET(request: NextRequest) {
           sql += ` AND q."pointId" = $${paramCount}`;
           paramCount++;
         }
-        if (dataInicio) {
+        // Por padrão, mostrar apenas agendamentos de hoje e futuros (a menos que incluirPassados seja true)
+        if (!incluirPassados && !dataInicio) {
+          // Filtrar apenas agendamentos >= início do dia de hoje (UTC)
+          const hoje = new Date();
+          hoje.setUTCHours(0, 0, 0, 0);
+          sql += ` AND a."dataHora" >= $${paramCount}`;
+          params.push(hoje.toISOString());
+          paramCount++;
+        } else if (dataInicio) {
           // dataInicio vem como ISO string UTC
           sql += ` AND a."dataHora" >= $${paramCount}`;
           params.push(dataInicio);
@@ -146,9 +189,34 @@ export async function GET(request: NextRequest) {
           params.push(usuario.pointIdGestor);
           paramCount++;
         } else if (apenasMeus && usuario.role !== 'ADMIN') {
-          sql += ` AND a."usuarioId" = $${paramCount}`;
-          params.push(usuario.id);
-          paramCount++;
+          // USER comum vê apenas seus próprios agendamentos
+          // Buscar agendamentos onde usuarioId = usuario.id OU onde atletaId corresponde ao atleta do usuário
+          if (usuario.role === 'USER') {
+            // Buscar o atletaId do usuário
+            const atletaResult = await query(
+              `SELECT id FROM "Atleta" WHERE "usuarioId" = $1 LIMIT 1`,
+              [usuario.id]
+            );
+            
+            if (atletaResult.rows.length > 0) {
+              const atletaId = atletaResult.rows[0].id;
+              // Incluir agendamentos onde usuarioId = usuario.id OU atletaId = atleta do usuário
+              sql += ` AND (a."usuarioId" = $${paramCount} OR a."atletaId" = $${paramCount + 1})`;
+              params.push(usuario.id);
+              params.push(atletaId);
+              paramCount += 2;
+            } else {
+              // Se não tiver atleta, buscar apenas por usuarioId
+              sql += ` AND a."usuarioId" = $${paramCount}`;
+              params.push(usuario.id);
+              paramCount++;
+            }
+          } else {
+            // Para outros roles (ORGANIZER), buscar apenas por usuarioId
+            sql += ` AND a."usuarioId" = $${paramCount}`;
+            params.push(usuario.id);
+            paramCount++;
+          }
         }
         sql += ` ORDER BY a."dataHora" ASC`;
         result = await query(sql, params);
@@ -200,6 +268,8 @@ export async function GET(request: NextRequest) {
         nome: row.atleta_nome,
         fone: row.atleta_fone,
       } : null,
+      // Inicializar atletasParticipantes como array vazio (será preenchido depois)
+      atletasParticipantes: [],
     }));
 
     // Buscar atletas participantes para cada agendamento
@@ -219,6 +289,9 @@ export async function GET(request: NextRequest) {
           ORDER BY aa."agendamentoId", aa."createdAt" ASC`,
           [agendamentosIds]
         );
+
+        console.log(`[GET /api/agendamento] Buscando participantes para ${agendamentosIds.length} agendamentos`);
+        console.log(`[GET /api/agendamento] Encontrados ${participantesResult.rows.length} registros de participantes`);
 
         // Agrupar participantes por agendamento
         const participantesPorAgendamento: Record<string, any[]> = {};
@@ -247,6 +320,14 @@ export async function GET(request: NextRequest) {
         // Adicionar participantes a cada agendamento
         agendamentos.forEach(agendamento => {
           agendamento.atletasParticipantes = participantesPorAgendamento[agendamento.id] || [];
+          if (agendamento.atletasParticipantes.length > 0) {
+            console.log(`[GET /api/agendamento] Agendamento ${agendamento.id} tem ${agendamento.atletasParticipantes.length} participantes`);
+          }
+        });
+      } else {
+        // Se não há agendamentos, garantir que o array está vazio
+        agendamentos.forEach(agendamento => {
+          agendamento.atletasParticipantes = [];
         });
       }
     } catch (error: any) {
@@ -258,19 +339,22 @@ export async function GET(request: NextRequest) {
         });
       } else {
         console.error('Erro ao buscar atletas participantes:', error);
+        console.error('Stack trace:', error.stack);
         agendamentos.forEach(agendamento => {
           agendamento.atletasParticipantes = [];
         });
       }
     }
 
-    return NextResponse.json(agendamentos);
+    const response = NextResponse.json(agendamentos);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar agendamentos:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar agendamentos', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -279,10 +363,11 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json();
@@ -311,29 +396,32 @@ export async function POST(request: NextRequest) {
     };
 
     if (!quadraId || !dataHora) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Quadra e data/hora são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se a quadra existe
     const quadraCheck = await query('SELECT id, "pointId" FROM "Quadra" WHERE id = $1', [quadraId]);
     if (quadraCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Quadra não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a esta quadra
     if (usuario.role === 'ORGANIZER') {
       const temAcesso = await usuarioTemAcessoAQuadra(usuario, quadraId);
       if (!temAcesso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem permissão para criar agendamentos nesta quadra' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -364,10 +452,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (conflitos.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Já existe um agendamento confirmado neste horário' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Calcular valores (buscar tabela de preços da quadra)
@@ -398,8 +487,35 @@ export async function POST(request: NextRequest) {
     // Se valorNegociado foi informado, usar ele; senão usar valorCalculado
     const valorFinal = valorNegociado != null ? valorNegociado : valorCalculado;
 
+    // Se for USER (appatleta), buscar e vincular automaticamente o perfil de atleta
+    let atletaIdFinal = atletaId;
+    let nomeAvulsoFinal = nomeAvulso;
+    let telefoneAvulsoFinal = telefoneAvulso;
+
+    if (usuario.role === 'USER') {
+      // Buscar perfil de atleta do usuário
+      const perfilAtletaResult = await query(
+        `SELECT id FROM "Atleta" WHERE "usuarioId" = $1 LIMIT 1`,
+        [usuario.id]
+      );
+
+      if (perfilAtletaResult.rows.length > 0) {
+        // Vincular automaticamente ao atleta do usuário
+        atletaIdFinal = perfilAtletaResult.rows[0].id;
+        nomeAvulsoFinal = null;
+        telefoneAvulsoFinal = null;
+      } else {
+        // Se não tiver perfil de atleta, retornar erro
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Você precisa ter um perfil de atleta cadastrado para criar agendamentos' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+    }
+
     // Determinar usuarioId: se for admin/organizer agendando para atleta ou avulso, pode ser null
-    const usuarioIdFinal = (atletaId || nomeAvulso) ? null : usuario.id;
+    const usuarioIdFinal = (atletaIdFinal || nomeAvulsoFinal) ? null : usuario.id;
 
     // Função auxiliar para criar um agendamento
     const criarAgendamentoUnico = async (dataHoraAgendamento: Date, recorrenciaId?: string, recorrenciaConfig?: RecorrenciaConfig) => {
@@ -436,9 +552,9 @@ export async function POST(request: NextRequest) {
           [
             quadraId,
             usuarioIdFinal,
-            atletaId || null,
-            nomeAvulso || null,
-            telefoneAvulso || null,
+            atletaIdFinal || null,
+            nomeAvulsoFinal || null,
+            telefoneAvulsoFinal || null,
             dataHoraAgendamento.toISOString(), // Já está em UTC
             duracao,
             valorHora,
@@ -466,9 +582,9 @@ export async function POST(request: NextRequest) {
             [
               quadraId,
               usuarioIdFinal,
-              atletaId || null,
-              nomeAvulso || null,
-              telefoneAvulso || null,
+              atletaIdFinal || null,
+              nomeAvulsoFinal || null,
+              telefoneAvulsoFinal || null,
               dataHoraAgendamento.toISOString(), // Já está em UTC
               duracao,
               valorHora,
@@ -491,9 +607,9 @@ export async function POST(request: NextRequest) {
       const dadosBase = {
         quadraId,
         usuarioId: usuarioIdFinal,
-        atletaId: atletaId || null,
-        nomeAvulso: nomeAvulso || null,
-        telefoneAvulso: telefoneAvulso || null,
+        atletaId: atletaIdFinal || null,
+        nomeAvulso: nomeAvulsoFinal || null,
+        telefoneAvulso: telefoneAvulsoFinal || null,
         duracao,
         valorHora,
         valorCalculado,
@@ -526,10 +642,11 @@ export async function POST(request: NextRequest) {
       }
 
       if (conflitosEncontrados.length > 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: `Existem conflitos em ${conflitosEncontrados.length} agendamento(s) da recorrência` },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       // Criar todos os agendamentos recorrentes
@@ -546,10 +663,11 @@ export async function POST(request: NextRequest) {
       }
 
       if (idsCriados.length === 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Não foi possível criar nenhum agendamento da recorrência' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       // Retornar o primeiro agendamento criado
@@ -558,10 +676,11 @@ export async function POST(request: NextRequest) {
       // Criar agendamento único (sem recorrência)
       const idCriado = await criarAgendamentoUnico(dataHoraUTC);
       if (!idCriado) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Já existe um agendamento confirmado neste horário' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
       agendamentoId = idCriado;
     }
@@ -658,14 +777,21 @@ export async function POST(request: NextRequest) {
 
     // Salvar atletas participantes se fornecido
     if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
+      console.log(`[POST /api/agendamento] Salvando ${atletasParticipantesIds.length} participantes para agendamento ${agendamentoId}`);
       try {
         for (const atletaIdPart of atletasParticipantesIds) {
-          await query(
+          const insertResult = await query(
             `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "createdBy", "createdAt")
              VALUES ($1, $2, $3, NOW())
-             ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING`,
+             ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING
+             RETURNING id`,
             [agendamentoId, atletaIdPart, usuario.id]
           );
+          if (insertResult.rows.length > 0) {
+            console.log(`[POST /api/agendamento] Participante ${atletaIdPart} adicionado ao agendamento ${agendamentoId}`);
+          } else {
+            console.log(`[POST /api/agendamento] Participante ${atletaIdPart} já existe no agendamento ${agendamentoId} (conflito ignorado)`);
+          }
         }
 
         // Buscar atletas participantes para retorno
@@ -738,13 +864,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(agendamento, { status: 201 });
+    const response = NextResponse.json(agendamento, { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar agendamento:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar agendamento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 
