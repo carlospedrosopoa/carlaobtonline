@@ -368,8 +368,8 @@ export async function PUT(
         horaAgendamento = hora * 60 + minuto;
       } else if (agendamentoAtual.dataHora) {
         // Se não mudou dataHora, usar a atual para calcular valores
-        const dataHoraAtual = new Date(agendamentoAtual.dataHora);
-        horaAgendamento = dataHoraAtual.getUTCHours() * 60 + dataHoraAtual.getUTCMinutes();
+        const dataHoraAtualValores = new Date(agendamentoAtual.dataHora);
+        horaAgendamento = dataHoraAtualValores.getUTCHours() * 60 + dataHoraAtualValores.getUTCMinutes();
       }
 
       const tabelaPrecoResult = await query(
@@ -506,7 +506,7 @@ export async function PUT(
     }
     
     const dadosAtuais = agendamentoDataAtual.rows[0];
-    const dataHoraAtual = new Date(dadosAtuais.dataHora);
+    const dataHoraAtualRecorrencia = new Date(dadosAtuais.dataHora);
     const recorrenciaIdAtual = dadosAtuais.recorrenciaId;
     
     // Se há recorrência e o usuário quer aplicar a todos os futuros E há nova configuração de recorrência
@@ -518,7 +518,7 @@ export async function PUT(
            WHERE "recorrenciaId" = $1
            AND "dataHora" > $2
            AND id != $3`,
-          [recorrenciaIdAtual, dataHoraAtual.toISOString(), id]
+          [recorrenciaIdAtual, dataHoraAtualRecorrencia.toISOString(), id]
         );
       }
       
@@ -528,7 +528,7 @@ export async function PUT(
         const [ano, mes, dia] = dataPart.split('-').map(Number);
         const [hora, minuto] = horaPart.split(':').map(Number);
         return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
-      })() : dataHoraAtual;
+      })() : dataHoraAtualRecorrencia;
       
       const duracaoFinal = duracao !== undefined ? duracao : dadosAtuais.duracao;
       const valorHoraFinal = valorHora !== null ? valorHora : dadosAtuais.valorHora;
