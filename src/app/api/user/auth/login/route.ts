@@ -25,10 +25,29 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    const result = await query('SELECT * FROM "User" WHERE email = $1', [email]);
+    // Debug: log do email sendo buscado
+    console.log('[LOGIN DEBUG] Buscando usuário com email:', email);
+    
+    // Garantir que a busca use o email normalizado (lowercase/trim) igual à criação
+    const emailNormalizado = email.toLowerCase().trim();
+    console.log('[LOGIN DEBUG] Email normalizado (lowercase/trim):', emailNormalizado);
+    
+    const result = await query('SELECT * FROM "User" WHERE email = $1', [emailNormalizado]);
     const usuarioDb = result.rows[0];
     
+    // Debug: log do resultado da busca
+    console.log('[LOGIN DEBUG] Resultado da busca:', {
+      encontrado: !!usuarioDb,
+      id: usuarioDb?.id,
+      email: usuarioDb?.email,
+      emailNormalizado: usuarioDb?.email?.toLowerCase().trim(),
+      temAtletaId: usuarioDb?.atletaId !== undefined && usuarioDb?.atletaId !== null,
+      atletaId: usuarioDb?.atletaId,
+      role: usuarioDb?.role
+    });
+    
     if (!usuarioDb) {
+      console.log('[LOGIN DEBUG] ❌ Usuário não encontrado no banco de dados');
       const errorResponse = NextResponse.json(
         { mensagem: "Usuário não encontrado" },
         { status: 401 }
