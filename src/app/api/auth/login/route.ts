@@ -21,36 +21,40 @@ export async function POST(request: NextRequest) {
     const email = emailRaw.trim().toLowerCase();
 
     if (!email || !senha) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: "Informe email e senha." },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     const result = await query('SELECT * FROM "User" WHERE email = $1', [email]);
     const usuarioDb = result.rows[0];
     
     if (!usuarioDb) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: "Usuário não encontrado" },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const senhaHash = (usuarioDb as any).password ?? (usuarioDb as any).senhaHash ?? "";
     if (!senhaHash) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: "Erro na configuração do usuário" },
         { status: 500 }
       );
+      return withCors(errorResponse, request);
     }
 
     const ok = await bcrypt.compare(senha, senhaHash);
     if (!ok) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: "Senha incorreta" },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const usuario = {
