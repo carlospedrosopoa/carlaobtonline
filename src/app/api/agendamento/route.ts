@@ -515,8 +515,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Determinar usuarioId: se for admin/organizer agendando para atleta ou avulso, pode ser null
-    const usuarioIdFinal = (atletaIdFinal || nomeAvulsoFinal) ? null : usuario.id;
+    // Determinar usuarioId: 
+    // - Para USER: sempre deve ser o id do usuário (mesmo que tenha atletaId vinculado)
+    // - Para ADMIN/ORGANIZER: pode ser null se estiver agendando para atleta ou avulso
+    const usuarioIdFinal = usuario.role === 'USER' 
+      ? usuario.id 
+      : ((atletaIdFinal || nomeAvulsoFinal) ? null : usuario.id);
 
     // Função auxiliar para criar um agendamento
     const criarAgendamentoUnico = async (dataHoraAgendamento: Date, recorrenciaId?: string, recorrenciaConfig?: RecorrenciaConfig) => {
