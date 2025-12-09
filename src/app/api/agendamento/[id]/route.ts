@@ -284,6 +284,40 @@ export async function PUT(
       }
     }
 
+    // Validar regras de negócio para alteração
+    // 1. Verificar se pode alterar data/hora/duração (precisa faltar 12 horas ou mais)
+    const dataHoraAtual = new Date(agendamentoAtual.dataHora);
+    const agora = new Date();
+    const diferencaMs = dataHoraAtual.getTime() - agora.getTime();
+    const diferencaHoras = diferencaMs / (1000 * 60 * 60);
+    const podeAlterarDataHora = diferencaHoras >= 12;
+    
+    // Verificar se está tentando alterar data/hora/duração
+    const tentandoAlterarDataHora = (dataHora !== undefined && dataHora !== agendamentoAtual.dataHora) || 
+                                    (duracao !== undefined && duracao !== agendamentoAtual.duracao) ||
+                                    (quadraId !== undefined && quadraId !== agendamentoAtual.quadraId);
+    
+    if (tentandoAlterarDataHora && !podeAlterarDataHora && usuario.role !== 'ADMIN') {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Não é possível alterar data, hora ou duração. Faltam menos de 12 horas para o início do agendamento.' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+    
+    // 2. Verificar se pode alterar observações e atletas (não pode se status for CONCLUIDO ou CANCELADO)
+    const podeAlterarDetalhes = agendamentoAtual.status !== 'CONCLUIDO' && agendamentoAtual.status !== 'CANCELADO';
+    const tentandoAlterarDetalhes = (observacoes !== undefined && observacoes !== (agendamentoAtual.observacoes || null)) ||
+                                     (atletasParticipantesIds !== undefined);
+    
+    if (tentandoAlterarDetalhes && !podeAlterarDetalhes && usuario.role !== 'ADMIN') {
+      const errorResponse = NextResponse.json(
+        { mensagem: `Não é possível alterar observações ou participantes. O agendamento está ${agendamentoAtual.status === 'CONCLUIDO' ? 'concluído' : 'cancelado'}.` },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     // Se dataHora ou quadraId foi alterado, verificar conflitos
     if (dataHora || (quadraId && quadraId !== agendamentoAtual.quadraId)) {
       // Tratar dataHora como horário local do usuário e converter para UTC
