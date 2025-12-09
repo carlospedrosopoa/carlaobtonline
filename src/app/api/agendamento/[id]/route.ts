@@ -292,8 +292,20 @@ export async function PUT(
     const diferencaHoras = diferencaMs / (1000 * 60 * 60);
     const podeAlterarDataHora = diferencaHoras >= 12;
     
+    // Normalizar dataHora para comparação (extrair apenas YYYY-MM-DDTHH:mm)
+    const normalizarDataHoraParaComparacao = (dataHoraStr: string) => {
+      if (!dataHoraStr) return null;
+      // Extrair apenas data e hora (sem segundos/milissegundos)
+      // Formato esperado: YYYY-MM-DDTHH:mm ou YYYY-MM-DDTHH:mm:ss ou YYYY-MM-DDTHH:mm:ss.sssZ
+      const match = dataHoraStr.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+      return match ? match[1] : null;
+    };
+    
     // Verificar se está tentando alterar data/hora/duração
-    const tentandoAlterarDataHora = (dataHora !== undefined && dataHora !== agendamentoAtual.dataHora) || 
+    const dataHoraNormalizada = dataHora ? normalizarDataHoraParaComparacao(dataHora) : null;
+    const dataHoraAtualNormalizada = normalizarDataHoraParaComparacao(agendamentoAtual.dataHora);
+    
+    const tentandoAlterarDataHora = (dataHora !== undefined && dataHoraNormalizada !== null && dataHoraNormalizada !== dataHoraAtualNormalizada) || 
                                     (duracao !== undefined && duracao !== agendamentoAtual.duracao) ||
                                     (quadraId !== undefined && quadraId !== agendamentoAtual.quadraId);
     
