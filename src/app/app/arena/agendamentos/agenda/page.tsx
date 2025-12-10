@@ -10,7 +10,8 @@ import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoReco
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle } from 'lucide-react';
+import { gzappyService } from '@/services/gzappyService';
 
 export default function ArenaAgendaSemanalPage() {
   const { usuario, isAdmin, isOrganizer } = useAuth();
@@ -581,6 +582,102 @@ export default function ArenaAgendaSemanalPage() {
     }
   };
 
+  const obterTelefoneCliente = (agendamento: Agendamento): string | null => {
+    // Prioridade: telefoneAvulso > telefone do atleta > whatsapp do usuário
+    if (agendamento.telefoneAvulso) {
+      return agendamento.telefoneAvulso;
+    }
+    if (agendamento.atleta?.fone) {
+      return agendamento.atleta.fone;
+    }
+    if (agendamento.usuario?.email) {
+      // Se não tiver telefone, não podemos enviar
+      return null;
+    }
+    return null;
+  };
+
+  const formatarMensagemConfirmacao = (agendamento: Agendamento): string => {
+    const nomeArena = agendamento.quadra?.point?.nome || 'Arena';
+    const nomeCliente = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
+    const nomeQuadra = agendamento.quadra?.nome || 'Quadra';
+    
+    const dataHora = new Date(agendamento.dataHora);
+    const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const horas = Math.floor(agendamento.duracao / 60);
+    const minutos = agendamento.duracao % 60;
+    const duracaoTexto = horas > 0 
+      ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
+      : `${minutos}min`;
+
+    let mensagem = `*${nomeArena}*\n\n`;
+    mensagem += `✅ *Agendamento Confirmado*\n\n`;
+    mensagem += `👤 *Cliente:* ${nomeCliente}\n`;
+    mensagem += `🏸 *Quadra:* ${nomeQuadra}\n`;
+    mensagem += `📅 *Data:* ${dataFormatada}\n`;
+    mensagem += `🕐 *Horário:* ${horaFormatada}\n`;
+    mensagem += `⏱️ *Duração:* ${duracaoTexto}\n`;
+
+    if (agendamento.valorCalculado || agendamento.valorNegociado) {
+      const valor = agendamento.valorNegociado || agendamento.valorCalculado || 0;
+      const valorFormatado = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(valor);
+      mensagem += `💰 *Valor:* ${valorFormatado}\n`;
+    }
+
+    if (agendamento.observacoes) {
+      mensagem += `\n📝 *Observações:*\n${agendamento.observacoes}\n`;
+    }
+
+    mensagem += `\nEsperamos você! 🎾`;
+
+    return mensagem;
+  };
+
+  const handleEnviarConfirmacao = async (agendamento: Agendamento) => {
+    setMenuAberto(null);
+
+    const telefone = obterTelefoneCliente(agendamento);
+    if (!telefone) {
+      alert('Telefone do cliente não encontrado. Não é possível enviar a confirmação.');
+      return;
+    }
+
+    const pointId = usuario?.pointIdGestor || agendamento.quadra?.point?.id;
+    if (!pointId) {
+      alert('Erro: Arena não identificada.');
+      return;
+    }
+
+    try {
+      const mensagem = formatarMensagemConfirmacao(agendamento);
+      
+      await gzappyService.enviar({
+        destinatario: telefone,
+        mensagem: mensagem,
+        tipo: 'texto',
+        pointId: pointId,
+      });
+
+      alert('✅ Mensagem de confirmação enviada com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao enviar confirmação:', error);
+      const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao enviar mensagem de confirmação';
+      alert(`Erro ao enviar confirmação: ${mensagemErro}`);
+    }
+  };
+
   const getInfoAgendamento = (agendamento: Agendamento) => {
     if (agendamento.atletaId && agendamento.atleta) {
       return {
@@ -1076,6 +1173,20 @@ export default function ArenaAgendaSemanalPage() {
                                           <Edit className="w-4 h-4" />
                                           Editar
                                         </button>
+                                        {agendamento.status === 'CONFIRMADO' && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              handleEnviarConfirmacao(agendamento);
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                                          >
+                                            <MessageCircle className="w-4 h-4" />
+                                            Enviar Confirmação
+                                          </button>
+                                        )}
                                         <button
                                           type="button"
                                           onClick={(e) => {
