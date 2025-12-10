@@ -121,7 +121,15 @@ export default function CardsClientesPage() {
     const saldo = formatarMoeda(card.saldo !== undefined ? card.saldo : card.valorTotal);
     const status = card.status === 'ABERTO' ? 'Aberto' : card.status === 'FECHADO' ? 'Fechado' : 'Cancelado';
 
-    let mensagem = `📋 *Card #${card.numeroCard}${nomeArena ? ` - ${nomeArena}` : ''}*\n\n`;
+    let mensagem = '';
+    
+    // Título: Nome da Arena
+    if (nomeArena) {
+      mensagem += `*${nomeArena}*\n\n`;
+    }
+    
+    // Card: informações do cliente, data e status
+    mensagem += `📋 *Card #${card.numeroCard}:*\n`;
     mensagem += `👤 *Cliente:* ${nomeCliente}\n`;
     mensagem += `📅 *Data:* ${dataFormatada}\n`;
     mensagem += `📊 *Status:* ${status}\n\n`;
