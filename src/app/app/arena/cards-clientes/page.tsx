@@ -12,6 +12,7 @@ import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
 import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, Trash2 } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
+import { pointService } from '@/services/agendamentoService';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
@@ -28,12 +29,27 @@ export default function CardsClientesPage() {
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false);
   const [cardGerenciando, setCardGerenciando] = useState<CardCliente | null>(null);
   const [limpandoCards, setLimpandoCards] = useState(false);
+  const [nomeArena, setNomeArena] = useState<string>('');
 
   useEffect(() => {
     if (usuario?.pointIdGestor) {
       carregarCards();
+      carregarNomeArena();
     }
   }, [usuario?.pointIdGestor, filtroStatus]);
+
+  const carregarNomeArena = async () => {
+    if (!usuario?.pointIdGestor) return;
+    
+    try {
+      const point = await pointService.obter(usuario.pointIdGestor);
+      if (point) {
+        setNomeArena(point.nome);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar nome da arena:', error);
+    }
+  };
 
   const carregarCards = async () => {
     if (!usuario?.pointIdGestor) return;
@@ -105,7 +121,7 @@ export default function CardsClientesPage() {
     const saldo = formatarMoeda(card.saldo !== undefined ? card.saldo : card.valorTotal);
     const status = card.status === 'ABERTO' ? 'Aberto' : card.status === 'FECHADO' ? 'Fechado' : 'Cancelado';
 
-    let mensagem = `📋 *Card #${card.numeroCard}*\n\n`;
+    let mensagem = `📋 *Card #${card.numeroCard}${nomeArena ? ` - ${nomeArena}` : ''}*\n\n`;
     mensagem += `👤 *Cliente:* ${nomeCliente}\n`;
     mensagem += `📅 *Data:* ${dataFormatada}\n`;
     mensagem += `📊 *Status:* ${status}\n\n`;
@@ -114,8 +130,35 @@ export default function CardsClientesPage() {
     mensagem += `• Pago: ${totalPago}\n`;
     mensagem += `• Saldo: ${saldo}\n`;
 
+    // Adicionar itens com observações
+    if (card.itens && card.itens.length > 0) {
+      mensagem += `\n🛒 *Itens:*\n`;
+      card.itens.forEach((item, index) => {
+        const nomeProduto = item.produto?.nome || 'Produto';
+        mensagem += `${index + 1}. ${nomeProduto} - ${item.quantidade}x ${formatarMoeda(item.precoUnitario)} = ${formatarMoeda(item.precoTotal)}\n`;
+        if (item.observacoes) {
+          mensagem += `   📝 ${item.observacoes}\n`;
+        }
+      });
+    }
+
+    // Adicionar pagamentos com data e forma de pagamento
+    if (card.pagamentos && card.pagamentos.length > 0) {
+      mensagem += `\n💳 *Pagamentos:*\n`;
+      card.pagamentos.forEach((pagamento, index) => {
+        const dataPagamento = formatarData(pagamento.createdAt);
+        const formaPagamento = pagamento.formaPagamento?.nome || 'Não informado';
+        mensagem += `${index + 1}. ${formatarMoeda(pagamento.valor)} - ${formaPagamento}\n`;
+        mensagem += `   📅 ${dataPagamento}\n`;
+        if (pagamento.observacoes) {
+          mensagem += `   📝 ${pagamento.observacoes}\n`;
+        }
+      });
+    }
+
+    // Observações gerais do card
     if (card.observacoes) {
-      mensagem += `\n📝 *Observações:*\n${card.observacoes}\n`;
+      mensagem += `\n📝 *Observações Gerais:*\n${card.observacoes}\n`;
     }
 
     return mensagem;
@@ -144,7 +187,19 @@ export default function CardsClientesPage() {
       return;
     }
 
-    const mensagem = formatarMensagemCard(card);
+    // Buscar dados completos do card (com itens e pagamentos) para garantir que tudo esteja disponível
+    let cardCompleto = card;
+    try {
+      // Se o card não tiver itens ou pagamentos carregados, buscar dados completos
+      if (!card.itens || !card.pagamentos) {
+        cardCompleto = await cardClienteService.obter(card.id, true, true, false);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados completos do card:', error);
+      // Continuar com o card original se houver erro
+    }
+
+    const mensagem = formatarMensagemCard(cardCompleto);
     const pointId = usuario?.pointIdGestor;
 
     if (!pointId) {
