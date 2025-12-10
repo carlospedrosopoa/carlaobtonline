@@ -69,19 +69,37 @@ const getStorage = () => {
 };
 
 let storageInstance: Storage | null = null;
-try {
-  storageInstance = getStorage();
-  if (storageInstance) {
-    console.log('[GCS] Storage inicializado com sucesso');
+let initializationAttempted = false;
+
+const initializeStorage = () => {
+  if (initializationAttempted && storageInstance) {
+    return storageInstance;
   }
-} catch (error: any) {
-  console.error('[GCS] Erro ao inicializar Google Cloud Storage:', error.message);
-  // Em produção, se ADC não estiver disponível, ainda pode funcionar para algumas operações
-  if (process.env.NODE_ENV === 'production') {
-    console.warn('[GCS] ADC não disponível. Algumas operações podem falhar.');
-    console.warn('[GCS] Configure GOOGLE_CLOUD_KEY nas variáveis de ambiente do Vercel para habilitar todas as funcionalidades.');
+  
+  initializationAttempted = true;
+  
+  try {
+    storageInstance = getStorage();
+    if (storageInstance) {
+      console.log('[GCS] Storage inicializado com sucesso');
+    } else {
+      console.warn('[GCS] Storage não inicializado - getStorage retornou null');
+    }
+  } catch (error: any) {
+    console.error('[GCS] Erro ao inicializar Google Cloud Storage:', error.message);
+    // Em produção, se ADC não estiver disponível, ainda pode funcionar para algumas operações
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[GCS] ADC não disponível. Algumas operações podem falhar.');
+      console.warn('[GCS] Configure GOOGLE_CLOUD_KEY nas variáveis de ambiente do Vercel para habilitar todas as funcionalidades.');
+    }
+    storageInstance = null;
   }
-}
+  
+  return storageInstance;
+};
+
+// Tentar inicializar na carga do módulo
+initializeStorage();
 
 const bucketName = process.env.GOOGLE_CLOUD_STORAGE_BUCKET || '';
 
@@ -103,55 +121,100 @@ export async function uploadImage(
   originalName: string,
   folder: string = 'uploads'
 ): Promise<UploadResult> {
-  // Se não configurado, retornar URL mock em desenvolvimento
-  if (!storageInstance || !bucketName) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('GCS não configurado - retornando URL mock');
-      return {
-        url: `https://via.placeholder.com/300?text=${encodeURIComponent(originalName)}`,
-        fileName: `${folder}/${uuidv4()}.jpg`,
-        size: fileBuffer.length,
-      };
+  console.log('[GCS uploadImage] Iniciando upload:', { originalName, folder, bufferSize: fileBuffer.length });
+  
+  // Tentar inicializar/reinicializar se necessário
+  if (!storageInstance) {
+    console.warn('[GCS uploadImage] Storage instance não inicializado, tentando reinicializar...');
+    const newStorage = initializeStorage();
+    if (!newStorage) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[GCS uploadImage] GCS não configurado - retornando URL mock');
+        return {
+          url: `https://via.placeholder.com/300?text=${encodeURIComponent(originalName)}`,
+          fileName: `${folder}/${uuidv4()}.jpg`,
+          size: fileBuffer.length,
+        };
+      }
+      throw new Error('Google Cloud Storage não configurado. Verifique as variáveis de ambiente GOOGLE_CLOUD_PROJECT_ID e GOOGLE_CLOUD_STORAGE_BUCKET.');
     }
-    throw new Error('Google Cloud Storage não configurado');
   }
 
-  const bucket = storageInstance.bucket(bucketName);
-  
-  // Gerar nome único para o arquivo
-  const extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
-  const fileName = `${folder}/${uuidv4()}.${extension}`;
-  
-  // Criar arquivo no bucket
-  const file = bucket.file(fileName);
-  
-  // Determinar content type
-  const contentTypeMap: Record<string, string> = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-  };
-  const contentType = contentTypeMap[extension] || 'image/jpeg';
-  
-  // Upload do buffer
-  await file.save(fileBuffer, {
-    metadata: {
-      contentType,
-      cacheControl: 'public, max-age=31536000', // Cache por 1 ano
-    },
-    public: true, // Tornar público
-  });
-  
-  // Retornar URL pública
-  const url = `https://storage.googleapis.com/${bucketName}/${fileName}`;
-  
-  return {
-    url,
-    fileName,
-    size: fileBuffer.length,
-  };
+  if (!bucketName) {
+    console.error('[GCS uploadImage] Bucket name não configurado');
+    throw new Error('GOOGLE_CLOUD_STORAGE_BUCKET não configurado nas variáveis de ambiente');
+  }
+
+  try {
+    const bucket = storageInstance.bucket(bucketName);
+    
+    // Verificar se o bucket existe e está acessível
+    const [exists] = await bucket.exists();
+    if (!exists) {
+      throw new Error(`Bucket "${bucketName}" não existe ou não está acessível`);
+    }
+    
+    // Gerar nome único para o arquivo
+    const extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${folder}/${uuidv4()}.${extension}`;
+    
+    console.log('[GCS uploadImage] Criando arquivo:', fileName);
+    
+    // Criar arquivo no bucket
+    const file = bucket.file(fileName);
+    
+    // Determinar content type
+    const contentTypeMap: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+    };
+    const contentType = contentTypeMap[extension] || 'image/jpeg';
+    
+    console.log('[GCS uploadImage] Fazendo upload com contentType:', contentType);
+    
+    // Upload do buffer
+    await file.save(fileBuffer, {
+      metadata: {
+        contentType,
+        cacheControl: 'public, max-age=31536000', // Cache por 1 ano
+      },
+      public: true, // Tornar público
+    });
+    
+    console.log('[GCS uploadImage] Upload concluído com sucesso');
+    
+    // Retornar URL pública
+    const url = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+    
+    return {
+      url,
+      fileName,
+      size: fileBuffer.length,
+    };
+  } catch (error: any) {
+    console.error('[GCS uploadImage] Erro durante upload:', {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+      stack: error.stack,
+    });
+    
+    // Verificar tipos específicos de erro
+    if (error.code === 403 || error.message?.includes('permission') || error.message?.includes('Permission denied')) {
+      throw new Error('Sem permissão para fazer upload no Google Cloud Storage. Verifique as credenciais.');
+    }
+    if (error.code === 404 || error.message?.includes('not found')) {
+      throw new Error(`Bucket "${bucketName}" não encontrado. Verifique o nome do bucket.`);
+    }
+    if (error.message?.includes('authentication') || error.message?.includes('credentials')) {
+      throw new Error('Erro de autenticação no Google Cloud Storage. Verifique as credenciais configuradas.');
+    }
+    
+    throw error;
+  }
 }
 
 /**

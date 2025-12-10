@@ -140,6 +140,13 @@ export async function PUT(
           console.error('[UPLOAD FOTO DEBUG] Erro message:', error?.message);
           console.error('[UPLOAD FOTO DEBUG] Erro name:', error?.name);
           console.error('[UPLOAD FOTO DEBUG] Erro code:', error?.code);
+          console.error('[UPLOAD FOTO DEBUG] Stack:', error?.stack);
+          
+          // Verificar variáveis de ambiente
+          console.error('[UPLOAD FOTO DEBUG] GOOGLE_CLOUD_PROJECT_ID:', process.env.GOOGLE_CLOUD_PROJECT_ID ? 'configurado' : 'não configurado');
+          console.error('[UPLOAD FOTO DEBUG] GOOGLE_CLOUD_STORAGE_BUCKET:', process.env.GOOGLE_CLOUD_STORAGE_BUCKET ? 'configurado' : 'não configurado');
+          console.error('[UPLOAD FOTO DEBUG] GOOGLE_CLOUD_KEY:', process.env.GOOGLE_CLOUD_KEY ? 'configurado' : 'não configurado');
+          
           if (buffer) {
             console.error('[UPLOAD FOTO DEBUG] Buffer size:', buffer.length);
           }
@@ -153,14 +160,17 @@ export async function PUT(
           // Verificar se é erro de configuração do GCS
           const isGcsConfigError = error?.message?.includes('não configurado') || 
                                    error?.message?.includes('not configured') ||
-                                   error?.code === 'ENOENT';
+                                   error?.message?.includes('não configurado') ||
+                                   error?.code === 'ENOENT' ||
+                                   error?.message?.includes('GOOGLE_CLOUD');
           
           const errorResponse = NextResponse.json(
             { 
               mensagem: isGcsConfigError 
                 ? 'Serviço de armazenamento de imagens não configurado. Entre em contato com o suporte.'
-                : 'Erro ao fazer upload da imagem. Tente novamente.',
+                : `Erro ao fazer upload da imagem: ${error?.message || 'Erro desconhecido'}`,
               error: error?.message || 'Erro desconhecido',
+              code: error?.code,
               details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
             },
             { status: 500 }
