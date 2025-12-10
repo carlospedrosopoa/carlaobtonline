@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
   */
 }
 
+/* Funções auxiliares comentadas - não são mais necessárias com Gzappy
 /**
  * Processa uma mensagem recebida do WhatsApp
  */
@@ -197,6 +198,5 @@ async function processarStatusMensagem(status: any) {
     console.error('Erro ao processar status de mensagem:', error);
   }
 }
-  */
-}
+*/
 
