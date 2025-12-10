@@ -363,11 +363,8 @@ export async function PUT(
          WHERE "quadraId" = $1
          AND id != $2
          AND status = 'CONFIRMADO'
-         AND (
-           ("dataHora" >= $3 AND "dataHora" < $4)
-           OR ("dataHora" + ($5 * INTERVAL '1 minute') >= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') <= $4)
-           OR ("dataHora" <= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') >= $4)
-         )`,
+         AND "dataHora" < $4
+         AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
         [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal]
       );
 
@@ -612,11 +609,8 @@ export async function PUT(
            WHERE "quadraId" = $1
            AND status = 'CONFIRMADO'
            AND id != $2
-           AND (
-             ("dataHora" >= $3 AND "dataHora" < $4)
-             OR ("dataHora" + ($5 * INTERVAL '1 minute') >= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') <= $4)
-             OR ("dataHora" <= $3 AND "dataHora" + ($5 * INTERVAL '1 minute') >= $4)
-           )`,
+           AND "dataHora" < $4
+           AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
           [quadraIdFinal, id, dataAgendamento.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal]
         );
 

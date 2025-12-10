@@ -56,6 +56,24 @@ export default function EditarAgendamentoModal({
   const [salvando, setSalvando] = useState(false);
   const [gerandoCards, setGerandoCards] = useState(false);
   const [erro, setErro] = useState('');
+  const [agendamentoCompleto, setAgendamentoCompleto] = useState<Agendamento | null>(null);
+  const [carregandoAgendamento, setCarregandoAgendamento] = useState(false);
+  // Armazenar dados completos dos participantes para exibição
+  const [participantesCompletos, setParticipantesCompletos] = useState<Array<{
+    id: string;
+    atletaId: string;
+    atleta: {
+      id: string;
+      nome: string;
+      fone?: string;
+      usuarioId?: string | null;
+      usuario?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
+    };
+  }>>([]);
 
   // Modo de agendamento (apenas para admin)
   const [modo, setModo] = useState<ModoAgendamento>('normal');
@@ -96,7 +114,8 @@ export default function EditarAgendamentoModal({
     if (isOpen) {
       carregarDados();
       if (agendamento) {
-        preencherFormulario();
+        // Buscar agendamento completo para garantir que os participantes sejam carregados
+        carregarAgendamentoCompleto(agendamento.id);
       } else {
         // Modo criação - resetar formulário
         resetarFormulario();
@@ -115,8 +134,18 @@ export default function EditarAgendamentoModal({
           }, 100);
         }
       }
+    } else {
+      // Limpar quando fechar
+      setAgendamentoCompleto(null);
     }
   }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial]);
+
+  // Preencher formulário quando o agendamento completo for carregado
+  useEffect(() => {
+    if (agendamentoCompleto) {
+      preencherFormulario(agendamentoCompleto);
+    }
+  }, [agendamentoCompleto]);
 
   useEffect(() => {
     if (pointId && !isOrganizer) {
@@ -212,6 +241,7 @@ export default function EditarAgendamentoModal({
     setAtletasParticipantesIds([]);
     setMostrarSelecaoAtletas(false);
     setBuscaAtletasParticipantes('');
+    setParticipantesCompletos([]);
   };
 
   const selecionarQuadraInicial = async (quadraIdParaSelecionar: string) => {
@@ -234,48 +264,63 @@ export default function EditarAgendamentoModal({
     }
   };
 
-  const preencherFormulario = () => {
-    if (!agendamento) return;
+  const carregarAgendamentoCompleto = async (agendamentoId: string) => {
+    try {
+      setCarregandoAgendamento(true);
+      const agendamentoCompleto = await agendamentoService.obter(agendamentoId);
+      setAgendamentoCompleto(agendamentoCompleto);
+    } catch (error) {
+      console.error('Erro ao carregar agendamento completo:', error);
+      // Em caso de erro, usar o agendamento passado como prop
+      setAgendamentoCompleto(agendamento);
+    } finally {
+      setCarregandoAgendamento(false);
+    }
+  };
+
+  const preencherFormulario = (agendamentoParaPreencher?: Agendamento) => {
+    const agendamentoParaUsar = agendamentoParaPreencher || agendamento;
+    if (!agendamentoParaUsar) return;
 
     // Preenche dados básicos
     // Extrair data/hora diretamente da string UTC sem conversão de timezone
     // Isso garante que 20h gravado = 20h exibido no formulário
-    const dataHoraStr = agendamento.dataHora;
+    const dataHoraStr = agendamentoParaUsar.dataHora;
     setData(dataHoraStr.split('T')[0]);
     const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
     setHora(match ? `${match[1]}:${match[2]}` : '00:00');
-    setDuracao(agendamento.duracao);
-    setObservacoes(agendamento.observacoes || '');
-    setValorHora(agendamento.valorHora ?? null);
-    setValorCalculado(agendamento.valorCalculado ?? null);
+    setDuracao(agendamentoParaUsar.duracao);
+    setObservacoes(agendamentoParaUsar.observacoes || '');
+    setValorHora(agendamentoParaUsar.valorHora ?? null);
+    setValorCalculado(agendamentoParaUsar.valorCalculado ?? null);
     setValorNegociado(
-      agendamento.valorNegociado != null
-        ? agendamento.valorNegociado.toString().replace('.', ',')
+      agendamentoParaUsar.valorNegociado != null
+        ? agendamentoParaUsar.valorNegociado.toString().replace('.', ',')
         : ''
     );
 
     // Preenche quadra e point
-    setQuadraId(agendamento.quadraId);
-    setPointId(agendamento.quadra.point.id);
+    setQuadraId(agendamentoParaUsar.quadraId);
+    setPointId(agendamentoParaUsar.quadra.point.id);
 
     // Determina o modo baseado no agendamento
-    if (agendamento.atletaId && agendamento.atleta) {
+    if (agendamentoParaUsar.atletaId && agendamentoParaUsar.atleta) {
       setModo('atleta');
-      setAtletaId(agendamento.atletaId);
-    } else if (agendamento.nomeAvulso) {
+      setAtletaId(agendamentoParaUsar.atletaId);
+    } else if (agendamentoParaUsar.nomeAvulso) {
       setModo('avulso');
-      setNomeAvulso(agendamento.nomeAvulso);
-      setTelefoneAvulso(agendamento.telefoneAvulso || '');
+      setNomeAvulso(agendamentoParaUsar.nomeAvulso);
+      setTelefoneAvulso(agendamentoParaUsar.telefoneAvulso || '');
     } else {
       setModo('normal');
     }
 
     // Preenche campos de recorrência se o agendamento já for recorrente
-    const temRecorrenciaAtual = !!agendamento.recorrenciaId || !!agendamento.recorrenciaConfig;
+    const temRecorrenciaAtual = !!agendamentoParaUsar.recorrenciaId || !!agendamentoParaUsar.recorrenciaConfig;
     setAgendamentoJaRecorrente(temRecorrenciaAtual);
     
-    if (temRecorrenciaAtual && agendamento.recorrenciaConfig) {
-      const config = agendamento.recorrenciaConfig;
+    if (temRecorrenciaAtual && agendamentoParaUsar.recorrenciaConfig) {
+      const config = agendamentoParaUsar.recorrenciaConfig;
       setTemRecorrencia(true);
       setTipoRecorrencia(config.tipo || null);
       setIntervaloRecorrencia(config.intervalo || 1);
@@ -303,10 +348,17 @@ export default function EditarAgendamentoModal({
     setAplicarARecorrencia(false);
 
     // Preencher atletas participantes
-    if (agendamento.atletasParticipantes && agendamento.atletasParticipantes.length > 0) {
-      setAtletasParticipantesIds(agendamento.atletasParticipantes.map(ap => ap.atletaId));
+    if (agendamentoParaUsar.atletasParticipantes && agendamentoParaUsar.atletasParticipantes.length > 0) {
+      console.log('[EditarAgendamentoModal] Carregando participantes:', agendamentoParaUsar.atletasParticipantes);
+      const idsParticipantes = agendamentoParaUsar.atletasParticipantes.map(ap => ap.atletaId).filter(id => id);
+      console.log('[EditarAgendamentoModal] IDs dos participantes:', idsParticipantes);
+      setAtletasParticipantesIds(idsParticipantes);
+      // Armazenar dados completos dos participantes para exibição
+      setParticipantesCompletos(agendamentoParaUsar.atletasParticipantes);
     } else {
+      console.log('[EditarAgendamentoModal] Nenhum participante encontrado. atletasParticipantes:', agendamentoParaUsar.atletasParticipantes);
       setAtletasParticipantesIds([]);
+      setParticipantesCompletos([]);
     }
   };
 
@@ -456,9 +508,7 @@ export default function EditarAgendamentoModal({
       const bloqueioFim = bloqueio.horaFim;
 
       if (
-        (minutosInicio >= bloqueioInicio && minutosInicio < bloqueioFim) ||
-        (minutosFim > bloqueioInicio && minutosFim <= bloqueioFim) ||
-        (minutosInicio <= bloqueioInicio && minutosFim >= bloqueioFim)
+        minutosInicio < bloqueioFim && minutosFim > bloqueioInicio
       ) {
         const horaInicioBloqueio = Math.floor(bloqueioInicio / 60);
         const minutoInicioBloqueio = bloqueioInicio % 60;
@@ -508,9 +558,7 @@ export default function EditarAgendamentoModal({
       const agFim = agInicio + ag.duracao * 60000;
 
       if (
-        (horaInicio >= agInicio && horaInicio < agFim) ||
-        (horaFim > agInicio && horaFim <= agFim) ||
-        (horaInicio <= agInicio && horaFim >= agFim)
+        horaInicio < agFim && horaFim > agInicio
       ) {
         const inicio = new Date(agInicio).toLocaleTimeString('pt-BR', {
           hour: '2-digit',
@@ -715,6 +763,11 @@ export default function EditarAgendamentoModal({
           <Dialog.Title className="text-2xl font-bold text-gray-900 mb-2">
             {agendamento ? 'Editar Agendamento' : 'Novo Agendamento'}
           </Dialog.Title>
+          {carregandoAgendamento && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">Carregando dados do agendamento...</p>
+            </div>
+          )}
           <p className="text-sm text-gray-600 mb-6">
             {agendamento
               ? 'Atualize as informações do agendamento'
@@ -818,6 +871,11 @@ export default function EditarAgendamentoModal({
                 <label className="block text-sm font-medium text-gray-700">
                   <Users className="inline w-4 h-4 mr-1" />
                   Atletas Participantes (opcional)
+                  {atletasParticipantesIds.length > 0 && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      ({atletasParticipantesIds.length} selecionado{atletasParticipantesIds.length !== 1 ? 's' : ''})
+                    </span>
+                  )}
                 </label>
                 <button
                   type="button"
@@ -827,6 +885,86 @@ export default function EditarAgendamentoModal({
                   {mostrarSelecaoAtletas ? 'Ocultar' : 'Selecionar'}
                 </button>
               </div>
+              
+              {/* Mostrar participantes selecionados mesmo quando a seleção está oculta */}
+              {!mostrarSelecaoAtletas && (atletasParticipantesIds.length > 0 || participantesCompletos.length > 0) && (
+                <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <p className="text-xs font-medium text-purple-700 mb-2">
+                    Participantes adicionados:
+                  </p>
+                  <div className="space-y-1.5">
+                    {participantesCompletos.length > 0 ? (
+                      // Usar dados completos do agendamento
+                      participantesCompletos.map((participante) => (
+                        <div
+                          key={participante.id}
+                          className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {participante.atleta.nome}
+                            </p>
+                            {participante.atleta.fone && (
+                              <p className="text-xs text-gray-600 truncate">
+                                {participante.atleta.fone}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAtletasParticipantesIds(atletasParticipantesIds.filter(aid => aid !== participante.atletaId));
+                              setParticipantesCompletos(participantesCompletos.filter(p => p.id !== participante.id));
+                            }}
+                            className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Remover participante"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      // Fallback: tentar encontrar na lista de atletas
+                      atletasParticipantesIds.map((id) => {
+                        const atleta = atletas.find(a => a.id === id);
+                        return atleta ? (
+                          <div
+                            key={id}
+                            className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {atleta.nome}
+                              </p>
+                              {atleta.fone && (
+                                <p className="text-xs text-gray-600 truncate">
+                                  {atleta.fone}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setAtletasParticipantesIds(atletasParticipantesIds.filter(aid => aid !== id))}
+                              className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                              title="Remover participante"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div key={id} className="text-xs text-gray-500 p-2">
+                            Atleta {id} (não encontrado na lista)
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
               {mostrarSelecaoAtletas && (
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                   {carregandoAtletas ? (

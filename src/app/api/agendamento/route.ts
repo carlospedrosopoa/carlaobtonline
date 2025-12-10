@@ -444,11 +444,8 @@ export async function POST(request: NextRequest) {
       `SELECT id FROM "Agendamento"
        WHERE "quadraId" = $1
        AND status = 'CONFIRMADO'
-       AND (
-         ("dataHora" >= $2 AND "dataHora" < $3)
-         OR ("dataHora" + (duracao * INTERVAL '1 minute') >= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') <= $3)
-         OR ("dataHora" <= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') >= $3)
-       )`,
+       AND "dataHora" < $3
+       AND ("dataHora" + (duracao * INTERVAL '1 minute')) > $2`,
         [quadraId, dataHoraUTC.toISOString(), dataHoraFim.toISOString()]
     );
 
@@ -530,11 +527,8 @@ export async function POST(request: NextRequest) {
         `SELECT id FROM "Agendamento"
          WHERE "quadraId" = $1
          AND status = 'CONFIRMADO'
-         AND (
-           ("dataHora" >= $2 AND "dataHora" < $3)
-           OR ("dataHora" + (duracao * INTERVAL '1 minute') >= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') <= $3)
-           OR ("dataHora" <= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') >= $3)
-         )`,
+         AND "dataHora" < $3
+         AND ("dataHora" + (duracao * INTERVAL '1 minute')) > $2`,
         [quadraId, dataHoraAgendamento.toISOString(), dataFimAgendamento.toISOString()]
       );
 
@@ -633,11 +627,8 @@ export async function POST(request: NextRequest) {
           `SELECT id FROM "Agendamento"
            WHERE "quadraId" = $1
            AND status = 'CONFIRMADO'
-           AND (
-             ("dataHora" >= $2 AND "dataHora" < $3)
-             OR ("dataHora" + (duracao * INTERVAL '1 minute') >= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') <= $3)
-             OR ("dataHora" <= $2 AND "dataHora" + (duracao * INTERVAL '1 minute') >= $3)
-           )`,
+           AND "dataHora" < $3
+           AND ("dataHora" + (duracao * INTERVAL '1 minute')) > $2`,
           [quadraId, dataAgendamento.toISOString(), dataFimAgendamento.toISOString()]
         );
 
