@@ -24,7 +24,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
   const { usuario, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [nomeArena, setNomeArena] = useState<string>('Carlão BT Online');
+  const [nomeArena, setNomeArena] = useState<string>('Play Na Quadra');
   const [logoArena, setLogoArena] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);

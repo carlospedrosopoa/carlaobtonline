@@ -4,7 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import MenuWrapper from "@/components/MenuWrapper";
 
 export const metadata: Metadata = {
-  title: "Carlão BT Online",
+  title: "Play Na Quadra",
   description: "Sistema completo de gestão de tênis",
 };
 

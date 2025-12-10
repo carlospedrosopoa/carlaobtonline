@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xl font-bold text-purple-600">Carlão BT Online</span>
+            <span className="text-xl font-bold text-purple-600">Play Na Quadra</span>
             <span className="text-xs px-2 py-1 rounded-full bg-purple-50 text-purple-700 font-semibold">
               Área do Admin
             </span>
