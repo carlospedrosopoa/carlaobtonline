@@ -17,6 +17,10 @@ export interface Point {
   whatsappBusinessAccountId?: string | null;
   whatsappApiVersion?: string | null;
   whatsappAtivo?: boolean;
+  // Configurações Gzappy
+  gzappyApiKey?: string | null;
+  gzappyInstanceId?: string | null;
+  gzappyAtivo?: boolean;
   assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
   createdAt: string;
   updatedAt: string;
@@ -119,6 +123,10 @@ export interface CriarPointPayload {
   whatsappBusinessAccountId?: string | null;
   whatsappApiVersion?: string | null;
   whatsappAtivo?: boolean;
+  // Configurações Gzappy (opcionais)
+  gzappyApiKey?: string | null;
+  gzappyInstanceId?: string | null;
+  gzappyAtivo?: boolean;
 }
 
 export interface CriarQuadraPayload {

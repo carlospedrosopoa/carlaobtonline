@@ -12,22 +12,23 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    // Tentar primeiro com campos WhatsApp (se existirem)
+    // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
     try {
       result = await query(
         `SELECT 
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
+          "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         WHERE id = $1`,
         [id]
       );
     } catch (error: any) {
-      // Se falhar (colunas WhatsApp não existem), tentar sem elas
-      if (error.message?.includes('whatsapp') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Campos WhatsApp não encontrados, usando query sem eles');
+      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
+      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
+        console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, usando query sem eles');
         result = await query(
           `SELECT 
             id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
@@ -36,7 +37,7 @@ export async function GET(
           WHERE id = $1`,
           [id]
         );
-        // Adicionar campos WhatsApp como null para compatibilidade
+        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
@@ -45,6 +46,9 @@ export async function GET(
             whatsappBusinessAccountId: null,
             whatsappApiVersion: 'v21.0',
             whatsappAtivo: false,
+            gzappyApiKey: null,
+            gzappyInstanceId: null,
+            gzappyAtivo: false,
             assinante: result.rows[0].assinante ?? false,
           };
         }
@@ -83,7 +87,8 @@ export async function PUT(
     const body = await request.json();
     const { 
       nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo,
-      whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo
+      whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
+      gzappyApiKey, gzappyInstanceId, gzappyAtivo
     } = body;
 
     if (!nome) {
@@ -159,30 +164,33 @@ export async function PUT(
       ? logoUrlProcessada 
       : (logoUrl !== undefined ? logoUrl : (pointExistente.rows.length > 0 ? pointExistente.rows[0].logoUrl : null));
 
-    // Tentar primeiro com campos WhatsApp (se existirem)
+    // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
     try {
       result = await query(
         `UPDATE "Point"
          SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, latitude = $7, longitude = $8, ativo = $9,
              "whatsappAccessToken" = $10, "whatsappPhoneNumberId" = $11, "whatsappBusinessAccountId" = $12, 
-             "whatsappApiVersion" = $13, "whatsappAtivo" = $14, "updatedAt" = NOW()
-         WHERE id = $15
+             "whatsappApiVersion" = $13, "whatsappAtivo" = $14,
+             "gzappyApiKey" = $15, "gzappyInstanceId" = $16, "gzappyAtivo" = $17, "updatedAt" = NOW()
+         WHERE id = $18
          RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
                    "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
+                   "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
                    "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
           latitude || null, longitude || null, ativo ?? true,
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
+          gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
           id
         ]
       );
     } catch (error: any) {
-      // Se falhar (colunas WhatsApp não existem), tentar sem elas
-      if (error.message?.includes('whatsapp') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Campos WhatsApp não encontrados, atualizando sem eles');
+      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
+      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
+        console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, atualizando sem eles');
         result = await query(
           `UPDATE "Point"
            SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, latitude = $7, longitude = $8, ativo = $9, "updatedAt" = NOW()
@@ -195,7 +203,7 @@ export async function PUT(
             id
           ]
         );
-        // Adicionar campos WhatsApp como null para compatibilidade
+        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
@@ -204,6 +212,9 @@ export async function PUT(
             whatsappBusinessAccountId: null,
             whatsappApiVersion: 'v21.0',
             whatsappAtivo: false,
+            gzappyApiKey: null,
+            gzappyInstanceId: null,
+            gzappyAtivo: false,
           };
         }
       } else {

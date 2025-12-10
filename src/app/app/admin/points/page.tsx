@@ -26,12 +26,16 @@ export default function AdminPointsPage() {
     whatsappBusinessAccountId: null,
     whatsappApiVersion: 'v21.0',
     whatsappAtivo: false,
+    gzappyApiKey: null,
+    gzappyInstanceId: null,
+    gzappyAtivo: false,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [buscandoGeolocalizacao, setBuscandoGeolocalizacao] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [mostrarTokenWhatsApp, setMostrarTokenWhatsApp] = useState(false);
+  const [mostrarApiKeyGzappy, setMostrarApiKeyGzappy] = useState(false);
 
   useEffect(() => {
     carregarPoints();
@@ -67,6 +71,9 @@ export default function AdminPointsPage() {
         whatsappBusinessAccountId: point.whatsappBusinessAccountId || null,
         whatsappApiVersion: point.whatsappApiVersion || 'v21.0',
         whatsappAtivo: point.whatsappAtivo ?? false,
+        gzappyApiKey: point.gzappyApiKey || null,
+        gzappyInstanceId: point.gzappyInstanceId || null,
+        gzappyAtivo: point.gzappyAtivo ?? false,
       });
       setLogoPreview(point.logoUrl || null);
     } else {
@@ -86,6 +93,9 @@ export default function AdminPointsPage() {
         whatsappBusinessAccountId: null,
         whatsappApiVersion: 'v21.0',
         whatsappAtivo: false,
+        gzappyApiKey: null,
+        gzappyInstanceId: null,
+        gzappyAtivo: false,
       });
       setLogoPreview(null);
     }
@@ -170,6 +180,18 @@ export default function AdminPointsPage() {
       }
       if (!form.whatsappPhoneNumberId || !form.whatsappPhoneNumberId.trim()) {
         setErro('Phone Number ID é obrigatório quando o WhatsApp está ativo');
+        return;
+      }
+    }
+
+    // Validação: se Gzappy está ativo, campos obrigatórios devem estar preenchidos
+    if (form.gzappyAtivo) {
+      if (!form.gzappyApiKey || !form.gzappyApiKey.trim()) {
+        setErro('API Key é obrigatória quando o Gzappy está ativo');
+        return;
+      }
+      if (!form.gzappyInstanceId || !form.gzappyInstanceId.trim()) {
+        setErro('Instance ID é obrigatório quando o Gzappy está ativo');
         return;
       }
     }
@@ -591,6 +613,83 @@ export default function AdminPointsPage() {
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <p className="text-sm text-blue-800">
                           <strong>💡 Dica:</strong> Consulte o arquivo <code className="bg-blue-100 px-1 rounded">GUIA_API_META.md</code> para obter instruções detalhadas sobre como obter essas credenciais.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Seção Gzappy */}
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <MessageCircle className="w-5 h-5 text-purple-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Configurações Gzappy</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Configure as credenciais da API do Gzappy para esta arena.
+                </p>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="gzappyAtivo"
+                      checked={form.gzappyAtivo ?? false}
+                      onChange={(e) => setForm({ ...form, gzappyAtivo: e.target.checked })}
+                      className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                    />
+                    <label htmlFor="gzappyAtivo" className="text-sm font-medium text-gray-700">
+                      Ativar Gzappy para esta arena
+                    </label>
+                  </div>
+
+                  {form.gzappyAtivo && (
+                    <div className="space-y-4 pl-6 border-l-2 border-purple-200">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          API Key *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={mostrarApiKeyGzappy ? 'text' : 'password'}
+                            value={form.gzappyApiKey || ''}
+                            onChange={(e) => setForm({ ...form, gzappyApiKey: e.target.value })}
+                            placeholder="Sua API Key do Gzappy"
+                            className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMostrarApiKeyGzappy(!mostrarApiKeyGzappy)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          >
+                            {mostrarApiKeyGzappy ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Chave de API do Gzappy para autenticação
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Instance ID *
+                        </label>
+                        <input
+                          type="text"
+                          value={form.gzappyInstanceId || ''}
+                          onChange={(e) => setForm({ ...form, gzappyInstanceId: e.target.value })}
+                          placeholder="ID da instância do Gzappy"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          ID da instância do Gzappy configurada para esta arena
+                        </p>
+                      </div>
+
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <p className="text-sm text-purple-800">
+                          <strong>💡 Dica:</strong> Consulte a documentação do Gzappy para obter instruções detalhadas sobre como obter essas credenciais.
                         </p>
                       </div>
                     </div>

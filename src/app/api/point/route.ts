@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const apenasAtivos = searchParams.get('apenasAtivos') === 'true';
     
-    // Tentar primeiro com campos WhatsApp (se existirem)
+    // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
     try {
       const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
@@ -27,15 +27,16 @@ export async function GET(request: NextRequest) {
         `SELECT 
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
+          "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         ${whereClause}
         ORDER BY nome ASC`
       );
     } catch (error: any) {
-      // Se falhar (colunas WhatsApp não existem), tentar sem elas
-      if (error.message?.includes('whatsapp') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Campos WhatsApp não encontrados, usando query sem eles');
+      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
+      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
+        console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, usando query sem eles');
         const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
         result = await query(
           `SELECT 
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
           ${whereClause}
           ORDER BY nome ASC`
         );
-        // Adicionar campos WhatsApp como null para compatibilidade
+        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
         result.rows = result.rows.map((row: any) => ({
           ...row,
           whatsappAccessToken: null,
@@ -53,6 +54,9 @@ export async function GET(request: NextRequest) {
           whatsappBusinessAccountId: null,
           whatsappApiVersion: 'v21.0',
           whatsappAtivo: false,
+          gzappyApiKey: null,
+          gzappyInstanceId: null,
+          gzappyAtivo: false,
           assinante: row.assinante ?? false,
         }));
       } else {
@@ -83,7 +87,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { 
       nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo = true,
-      whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo
+      whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
+      gzappyApiKey, gzappyInstanceId, gzappyAtivo
     } = body;
 
     if (!nome) {
@@ -121,35 +126,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Tentar primeiro com campos WhatsApp (se existirem)
+    // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
     try {
       result = await query(
         `INSERT INTO "Point" (
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
+          "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "createdAt", "updatedAt"
         )
          VALUES (
           gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9,
           $10, $11, $12, $13, $14,
+          $15, $16, $17,
           NOW(), NOW()
          )
          RETURNING 
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
+          "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
           latitude || null, longitude || null, ativo,
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
-          whatsappApiVersion || 'v21.0', whatsappAtivo ?? false
+          whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
+          gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false
         ]
       );
     } catch (error: any) {
-      // Se falhar (colunas WhatsApp não existem), tentar sem elas
-      if (error.message?.includes('whatsapp') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Campos WhatsApp não encontrados, criando sem eles');
+      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
+      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
+        console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, criando sem eles');
         result = await query(
           `INSERT INTO "Point" (
             id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
@@ -167,7 +176,7 @@ export async function POST(request: NextRequest) {
             latitude || null, longitude || null, ativo
           ]
         );
-        // Adicionar campos WhatsApp como null para compatibilidade
+        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
@@ -176,6 +185,9 @@ export async function POST(request: NextRequest) {
             whatsappBusinessAccountId: null,
             whatsappApiVersion: 'v21.0',
             whatsappAtivo: false,
+            gzappyApiKey: null,
+            gzappyInstanceId: null,
+            gzappyAtivo: false,
           };
         }
       } else {
