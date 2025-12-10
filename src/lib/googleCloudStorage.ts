@@ -145,6 +145,19 @@ export async function uploadImage(
     throw new Error('GOOGLE_CLOUD_STORAGE_BUCKET não configurado nas variáveis de ambiente');
   }
 
+  // Verificação final - garantir que storageInstance não é null
+  if (!storageInstance) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[GCS uploadImage] Storage não configurado - retornando URL mock');
+      return {
+        url: `https://via.placeholder.com/300?text=${encodeURIComponent(originalName)}`,
+        fileName: `${folder}/${uuidv4()}.jpg`,
+        size: fileBuffer.length,
+      };
+    }
+    throw new Error('Google Cloud Storage não configurado. Verifique as variáveis de ambiente.');
+  }
+
   try {
     const bucket = storageInstance.bucket(bucketName);
     
