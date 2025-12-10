@@ -11,7 +11,7 @@ import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
 import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, Trash2 } from 'lucide-react';
-import { whatsappService } from '@/services/whatsappService';
+import { gzappyService } from '@/services/gzappyService';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
@@ -153,17 +153,17 @@ export default function CardsClientesPage() {
     }
 
     try {
-      await whatsappService.enviar({
+      await gzappyService.enviar({
         destinatario: telefone,
         mensagem: mensagem,
         tipo: 'texto',
         pointId: pointId,
       });
-      alert('Mensagem WhatsApp enviada com sucesso!');
+      alert('Mensagem enviada com sucesso via Gzappy!');
     } catch (error: any) {
-      console.error('Erro ao enviar WhatsApp:', error);
-      const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao enviar mensagem WhatsApp';
-      alert(`Erro ao enviar WhatsApp: ${mensagemErro}`);
+      console.error('Erro ao enviar mensagem via Gzappy:', error);
+      const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao enviar mensagem';
+      alert(`Erro ao enviar mensagem: ${mensagemErro}`);
     }
   };
 
