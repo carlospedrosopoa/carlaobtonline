@@ -99,16 +99,10 @@ export async function POST(request: NextRequest) {
       { 
         sucesso: false,
         mensagem: 'Serviço WhatsApp temporariamente desabilitado. Migrando para Gzappy.',
-        // destinatario: numeroFormatado,
+        destinatario: destinatario, // Usar o destinatário original já que não formatamos mais
       },
       { status: 503 } // Service Unavailable
     );
-
-    return NextResponse.json({
-      sucesso: true,
-      mensagem: 'Mensagem enviada com sucesso',
-      destinatario: numeroFormatado,
-    });
   } catch (error: any) {
     console.error('Erro ao enviar mensagem WhatsApp:', error);
     return NextResponse.json(
