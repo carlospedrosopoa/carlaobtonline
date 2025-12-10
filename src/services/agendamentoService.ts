@@ -111,8 +111,10 @@ export const agendamentoService = {
     return res.data;
   },
 
-  deletar: async (id: string): Promise<void> => {
-    await api.delete(`/agendamento/${id}`);
+  deletar: async (id: string, aplicarARecorrencia: boolean = false): Promise<void> => {
+    await api.delete(`/agendamento/${id}`, {
+      data: { aplicarARecorrencia },
+    });
   },
 
   limparFuturos: async (dataLimite: string, senha: string, pointId?: string): Promise<{ mensagem: string; quantidadeDeletada: number }> => {

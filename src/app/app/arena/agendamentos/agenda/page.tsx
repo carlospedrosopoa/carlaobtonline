@@ -6,13 +6,14 @@ import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
+import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoRecorrenteModal';
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle } from 'lucide-react';
 
 export default function ArenaAgendaSemanalPage() {
-  const { usuario } = useAuth();
+  const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [bloqueios, setBloqueios] = useState<BloqueioAgenda[]>([]);
@@ -23,6 +24,8 @@ export default function ArenaAgendaSemanalPage() {
   const [agendamentoEditando, setAgendamentoEditando] = useState<Agendamento | null>(null);
   const [modalCancelarAberto, setModalCancelarAberto] = useState(false);
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
+  const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
+  const [agendamentoExcluindo, setAgendamentoExcluindo] = useState<Agendamento | null>(null);
   const [modalLimparFuturaAberto, setModalLimparFuturaAberto] = useState(false);
   const [dataLimiteLimpeza, setDataLimiteLimpeza] = useState<Date>(new Date());
   const [carregandoLimpeza, setCarregandoLimpeza] = useState(false);
@@ -558,6 +561,26 @@ export default function ArenaAgendaSemanalPage() {
     }
   };
 
+  const handleDeletar = (agendamento: Agendamento) => {
+    setMenuAberto(null);
+    setAgendamentoExcluindo(agendamento);
+    setModalExcluirAberto(true);
+  };
+
+  const confirmarExclusao = async (aplicarARecorrencia: boolean) => {
+    if (!agendamentoExcluindo) return;
+
+    try {
+      await agendamentoService.deletar(agendamentoExcluindo.id, aplicarARecorrencia);
+      setModalExcluirAberto(false);
+      setAgendamentoExcluindo(null);
+      alert('Agendamento(s) excluído(s) com sucesso');
+      carregarAgendamentos();
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao excluir agendamento');
+    }
+  };
+
   const getInfoAgendamento = (agendamento: Agendamento) => {
     if (agendamento.atletaId && agendamento.atleta) {
       return {
@@ -1065,6 +1088,20 @@ export default function ArenaAgendaSemanalPage() {
                                           <X className="w-4 h-4" />
                                           Cancelar
                                         </button>
+                                        {(isAdmin || isOrganizer) && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              handleDeletar(agendamento);
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-100 flex items-center gap-2 font-semibold border-t border-gray-200 mt-1 pt-2"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                            Excluir Permanentemente
+                                          </button>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -1129,6 +1166,17 @@ export default function ArenaAgendaSemanalPage() {
           setAgendamentoCancelando(null);
         }}
         onConfirmar={confirmarCancelamento}
+      />
+
+      {/* Modal de Confirmação de Exclusão */}
+      <ConfirmarExclusaoRecorrenteModal
+        isOpen={modalExcluirAberto}
+        agendamento={agendamentoExcluindo}
+        onClose={() => {
+          setModalExcluirAberto(false);
+          setAgendamentoExcluindo(null);
+        }}
+        onConfirmar={confirmarExclusao}
       />
 
       <LimparAgendaFuturaModal

@@ -6,11 +6,12 @@ import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
+import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoRecorrenteModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
 import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search, Lock } from 'lucide-react';
 
 export default function ArenaAgendamentosPage() {
-  const { usuario } = useAuth();
+  const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [bloqueios, setBloqueios] = useState<BloqueioAgenda[]>([]);
@@ -23,6 +24,8 @@ export default function ArenaAgendamentosPage() {
   const [agendamentoEditando, setAgendamentoEditando] = useState<Agendamento | null>(null);
   const [modalCancelarAberto, setModalCancelarAberto] = useState(false);
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
+  const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
+  const [agendamentoExcluindo, setAgendamentoExcluindo] = useState<Agendamento | null>(null);
 
   useEffect(() => {
     carregarDados();
@@ -112,6 +115,25 @@ export default function ArenaAgendamentosPage() {
       carregarAgendamentos();
     } catch (error: any) {
       alert(error?.response?.data?.mensagem || 'Erro ao cancelar agendamento');
+    }
+  };
+
+  const handleDeletar = (agendamento: Agendamento) => {
+    setAgendamentoExcluindo(agendamento);
+    setModalExcluirAberto(true);
+  };
+
+  const confirmarExclusao = async (aplicarARecorrencia: boolean) => {
+    if (!agendamentoExcluindo) return;
+
+    try {
+      await agendamentoService.deletar(agendamentoExcluindo.id, aplicarARecorrencia);
+      setModalExcluirAberto(false);
+      setAgendamentoExcluindo(null);
+      alert('Agendamento(s) excluído(s) com sucesso');
+      carregarAgendamentos();
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao excluir agendamento');
     }
   };
 
@@ -471,6 +493,35 @@ export default function ArenaAgendamentosPage() {
                         </div>
                       </div>
 
+                      {/* Participantes */}
+                      {agendamento.atletasParticipantes && agendamento.atletasParticipantes.length > 0 && (
+                        <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <p className="text-sm font-medium text-purple-700 mb-2 flex items-center gap-1.5">
+                            <Users className="w-4 h-4" />
+                            Participantes ({agendamento.atletasParticipantes.length})
+                          </p>
+                          <div className="space-y-1.5">
+                            {agendamento.atletasParticipantes.map((participante) => (
+                              <div
+                                key={participante.id}
+                                className="flex items-center gap-2 p-2 bg-white rounded border border-purple-100"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {participante.atleta.nome}
+                                  </p>
+                                  {participante.atleta.fone && (
+                                    <p className="text-xs text-gray-600 truncate">
+                                      {participante.atleta.fone}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {agendamento.observacoes && (
                         <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-700">
@@ -506,7 +557,33 @@ export default function ArenaAgendamentosPage() {
                               <X className="w-4 h-4" />
                               Cancelar
                             </button>
+                            {(isAdmin || isOrganizer) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletar(agendamento);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                                title="Excluir permanentemente"
+                              >
+                                <X className="w-4 h-4" />
+                                Excluir
+                              </button>
+                            )}
                           </>
+                        )}
+                        {(isAdmin || isOrganizer) && agendamento.status !== 'CONFIRMADO' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletar(agendamento);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                            title="Excluir permanentemente"
+                          >
+                            <X className="w-4 h-4" />
+                            Excluir
+                          </button>
                         )}
                       </div>
                     </div>
@@ -613,6 +690,17 @@ export default function ArenaAgendamentosPage() {
           setAgendamentoCancelando(null);
         }}
         onConfirmar={confirmarCancelamento}
+      />
+
+      {/* Modal de Confirmação de Exclusão */}
+      <ConfirmarExclusaoRecorrenteModal
+        isOpen={modalExcluirAberto}
+        agendamento={agendamentoExcluindo}
+        onClose={() => {
+          setModalExcluirAberto(false);
+          setAgendamentoExcluindo(null);
+        }}
+        onConfirmar={confirmarExclusao}
       />
     </div>
   );

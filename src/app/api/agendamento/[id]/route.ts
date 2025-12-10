@@ -1026,20 +1026,20 @@ export async function DELETE(
 
     const agendamento = agendamentoCheck.rows[0];
     
-    // Verificar permissões
+    // Verificar permissões - apenas ADMIN e ORGANIZER podem deletar
     let podeDeletar = false;
     if (usuario.role === 'ADMIN') {
-      podeDeletar = true;
+      podeDeletar = true; // ADMIN pode deletar tudo
     } else if (usuario.role === 'ORGANIZER') {
+      // ORGANIZER pode deletar agendamentos das quadras da sua arena
       const temAcesso = await usuarioTemAcessoAQuadra(usuario, agendamento.quadraId);
       podeDeletar = temAcesso;
-    } else {
-      podeDeletar = agendamento.usuarioId === usuario.id;
     }
+    // USER comum não pode deletar, apenas cancelar
 
     if (!podeDeletar) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Você não tem permissão para deletar este agendamento' },
+        { mensagem: 'Apenas administradores e organizadores podem excluir agendamentos' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
