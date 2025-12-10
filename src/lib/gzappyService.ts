@@ -15,17 +15,32 @@ export async function obterCredenciaisGzappy(pointId: string): Promise<{
   instanceId: string | null;
 } | null> {
   try {
-    const result = await query(
-      `SELECT 
-        "gzappyApiKey",
-        "gzappyInstanceId",
-        "gzappyAtivo"
-      FROM "Point"
-      WHERE id = $1 AND "gzappyAtivo" = true`,
-      [pointId]
-    );
+    // Tentar buscar com campos Gzappy (se existirem)
+    let result;
+    try {
+      result = await query(
+        `SELECT 
+          "gzappyApiKey",
+          "gzappyInstanceId",
+          "gzappyAtivo"
+        FROM "Point"
+        WHERE id = $1 AND "gzappyAtivo" = true`,
+        [pointId]
+      );
+    } catch (error: any) {
+      // Se falhar (colunas Gzappy não existem), retornar null
+      if (error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
+        console.warn('⚠️ Campos Gzappy não encontrados no banco de dados. Execute a migration adicionar-gzappy-point.sql', {
+          pointId,
+          error: error.message,
+        });
+        return null;
+      }
+      throw error;
+    }
 
     if (result.rows.length === 0) {
+      console.warn('⚠️ Point não encontrado ou Gzappy não está ativo', { pointId });
       return null;
     }
 
@@ -37,6 +52,7 @@ export async function obterCredenciaisGzappy(pointId: string): Promise<{
         pointId,
         temApiKey: !!point.gzappyApiKey,
         temInstanceId: !!point.gzappyInstanceId,
+        gzappyAtivo: point.gzappyAtivo,
       });
       return null;
     }
@@ -53,7 +69,11 @@ export async function obterCredenciaisGzappy(pointId: string): Promise<{
       instanceId: point.gzappyInstanceId?.trim() || null, // Instance ID é opcional (apenas para identificação)
     };
   } catch (error: any) {
-    console.error('Erro ao obter credenciais Gzappy do point:', error);
+    console.error('❌ Erro ao obter credenciais Gzappy do point:', {
+      pointId,
+      error: error.message,
+      stack: error.stack,
+    });
     return null;
   }
 }
@@ -94,14 +114,23 @@ export async function enviarMensagemGzappy(
 
   // Verificar se o JWT Token está configurado (único campo obrigatório)
   if (!apiKey) {
-    console.warn('⚠️ Gzappy API não configurada. Configure GZAPPY_API_KEY ou configure nas credenciais da arena');
-    console.log('📱 Gzappy - Simulando envio de mensagem:', {
-      para: mensagem.destinatario,
-      mensagem: mensagem.mensagem.substring(0, 50) + '...',
-      tipo: mensagem.tipo || 'texto',
+    const erroMsg = pointId 
+      ? 'Gzappy não está configurado para esta arena. Configure o JWT Token nas configurações da arena.'
+      : 'Gzappy API não configurada. Configure GZAPPY_API_KEY ou configure nas credenciais da arena.';
+    
+    console.warn('⚠️', erroMsg, {
+      pointId: pointId || 'não fornecido',
+      temApiKey: !!apiKey,
+      temInstanceId: !!instanceId,
     });
-    // Em desenvolvimento, retorna true para não quebrar o fluxo
-    return process.env.NODE_ENV === 'development';
+    
+    // Em produção, lançar erro para que seja capturado pela API route
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(erroMsg);
+    }
+    
+    // Em desenvolvimento, retorna false para indicar falha
+    return false;
   }
 
   // Validar formato do JWT Token (API Key é na verdade um JWT Token)
@@ -138,7 +167,23 @@ export async function enviarMensagemGzappy(
         body: JSON.stringify(payload),
       });
 
-      const responseData = await response.json();
+      let responseData: any;
+      try {
+        const responseText = await response.text();
+        if (responseText) {
+          responseData = JSON.parse(responseText);
+        } else {
+          responseData = {};
+        }
+      } catch (parseError: any) {
+        console.error('❌ Erro ao fazer parse da resposta do Gzappy:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseText: 'Não foi possível ler a resposta',
+          parseError: parseError.message,
+        });
+        throw new Error(`Erro ao processar resposta da API Gzappy: ${parseError.message}`);
+      }
 
       if (!response.ok) {
         // Verificar se é um erro recuperável

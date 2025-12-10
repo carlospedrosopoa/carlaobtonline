@@ -74,6 +74,12 @@ export async function POST(request: NextRequest) {
 
     // Enviar mensagem via Gzappy
     try {
+      console.log('📱 Tentando enviar mensagem via Gzappy:', {
+        destinatario: numeroFormatado,
+        pointId: pointIdFinal,
+        tamanhoMensagem: mensagem.trim().length,
+      });
+
       const sucesso = await enviarMensagemGzappy({
         destinatario: numeroFormatado,
         mensagem: mensagem.trim(),
@@ -81,11 +87,20 @@ export async function POST(request: NextRequest) {
       }, pointIdFinal);
 
       if (!sucesso) {
+        console.error('❌ Falha ao enviar mensagem via Gzappy (retornou false)', {
+          destinatario: numeroFormatado,
+          pointId: pointIdFinal,
+        });
         return NextResponse.json(
           { mensagem: 'Erro ao enviar mensagem via Gzappy. Verifique as configurações da arena e os logs do servidor.' },
           { status: 500 }
         );
       }
+
+      console.log('✅ Mensagem Gzappy enviada com sucesso:', {
+        destinatario: numeroFormatado,
+        pointId: pointIdFinal,
+      });
 
       return NextResponse.json({
         sucesso: true,
@@ -93,8 +108,15 @@ export async function POST(request: NextRequest) {
         destinatario: numeroFormatado,
       });
     } catch (error: any) {
+      console.error('❌ Erro ao enviar mensagem via Gzappy:', {
+        error: error.message,
+        stack: error.stack,
+        destinatario: numeroFormatado,
+        pointId: pointIdFinal,
+      });
+
       // Capturar erros específicos do Gzappy
-      if (error.message?.includes('Gzappy') || error.message?.includes('API Key') || error.message?.includes('Instance ID')) {
+      if (error.message?.includes('Gzappy') || error.message?.includes('JWT Token') || error.message?.includes('API Key') || error.message?.includes('Instance ID')) {
         return NextResponse.json(
           { 
             mensagem: error.message,
