@@ -5,8 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { pointService } from '@/services/agendamentoService';
-import type { Point } from '@/types/agendamento';
+import { userArenaService, userAtletaService, type Arena } from '@/services/userAtletaService';
 
 interface AtletaForm {
   nome: string;
@@ -26,7 +25,7 @@ export default function PreencherPerfilAtletaPage() {
     categoria: '',
   });
 
-  const [points, setPoints] = useState<Point[]>([]);
+  const [points, setPoints] = useState<Arena[]>([]);
   const [pointIdPrincipal, setPointIdPrincipal] = useState<string>('');
   const [pointIdsFrequentes, setPointIdsFrequentes] = useState<string[]>([]);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
@@ -44,8 +43,9 @@ export default function PreencherPerfilAtletaPage() {
 
     const carregarArenas = async () => {
       try {
-        const data = await pointService.listar();
-        setPoints(data.filter((p) => p.ativo));
+        // Usa o serviço específico para frontend externo (já retorna apenas arenas assinantes e ativas)
+        const data = await userArenaService.listar();
+        setPoints(data);
       } catch (error) {
         console.error('Erro ao carregar arenas:', error);
       } finally {
@@ -55,8 +55,8 @@ export default function PreencherPerfilAtletaPage() {
 
     const verificarAtleta = async () => {
       try {
-        const res = await api.get('/atleta/me/atleta');
-        if (res.status === 200 && res.data) {
+        const atleta = await userAtletaService.obter();
+        if (atleta) {
           // Já tem atleta, redireciona
           router.push('/dashboard');
           return;
@@ -143,15 +143,11 @@ export default function PreencherPerfilAtletaPage() {
     };
 
     try {
-      const { status } = await api.post('/atleta/criarAtleta', payload);
-      if (status === 201 || status === 200) {
-        router.push('/dashboard');
-      } else {
-        setErro('Erro ao salvar perfil. Tente novamente.');
-      }
-    } catch (error) {
+      await userAtletaService.criar(payload);
+      router.push('/dashboard');
+    } catch (error: any) {
       console.error('Erro ao criar atleta:', error);
-      setErro('Erro ao salvar perfil. Tente novamente.');
+      setErro(error?.response?.data?.mensagem || error?.message || 'Erro ao salvar perfil. Tente novamente.');
     }
   };
 

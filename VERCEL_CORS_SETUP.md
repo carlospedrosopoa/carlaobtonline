@@ -41,18 +41,25 @@ https://meu-frontend.vercel.app,https://outro-frontend.com,https://app.exemplo.c
 
 #### Um único frontend:
 ```
-https://meu-frontend.vercel.app
+https://appatleta.vercel.app
 ```
 
 #### Múltiplos frontends:
 ```
-https://frontend1.vercel.app,https://frontend2.com,https://app.exemplo.com.br
+https://appatleta.vercel.app,https://frontend2.com,https://app.exemplo.com.br
 ```
 
 #### Frontend em subdomínio:
 ```
 https://app.exemplo.com.br,https://admin.exemplo.com.br
 ```
+
+#### Permitir desenvolvimento local (frontend local acessando API do Vercel):
+```
+http://localhost:3000,http://localhost:3001,https://appatleta.vercel.app
+```
+
+**💡 Dica:** Se você quer testar localmente (`npm run dev`) fazendo requisições para a API do Vercel, adicione `http://localhost:3000` (ou a porta que você usa) na variável `ALLOWED_ORIGINS`.
 
 ### 4. Fazer Redeploy
 
@@ -93,9 +100,11 @@ Se funcionar, você verá os dados. Se houver erro de CORS, verifique:
 
 O código em `src/lib/cors.ts` verifica:
 
-1. **Em desenvolvimento**: Permite automaticamente `localhost:3000`, `localhost:3001`, `localhost:5173`
-2. **Em produção**: Usa a variável `ALLOWED_ORIGINS` para determinar quais domínios são permitidos
-3. **Sem variável configurada**: Nenhum domínio externo é permitido (apenas requisições do mesmo domínio)
+1. **Quando a API roda localmente** (`npm run dev`): Permite automaticamente `localhost:3000`, `localhost:3001`, `localhost:5173`
+2. **Quando a API está no Vercel** (produção): Usa a variável `ALLOWED_ORIGINS` para determinar quais domínios são permitidos
+3. **Sem variável configurada no Vercel**: Nenhum domínio externo é permitido (apenas requisições do mesmo domínio)
+
+**⚠️ Importante:** Quando a API está no Vercel, ela roda em produção, então mesmo que você esteja testando localmente (`npm run dev`), o Vercel precisa ter `localhost` configurado na variável `ALLOWED_ORIGINS` para permitir que seu frontend local acesse a API do Vercel.
 
 ## 📝 Notas Importantes
 

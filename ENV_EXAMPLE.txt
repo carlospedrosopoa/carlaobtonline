@@ -27,10 +27,19 @@ JWT_SECRET=sua-chave-secreta-jwt-aqui-gerar-com-comando-acima
 # ============================================
 
 # CORS - Domínios permitidos para consumir a API (separados por vírgula)
-# Em desenvolvimento, localhost é permitido automaticamente
-# Em produção, configure no Vercel: Settings → Environment Variables
-# Exemplo: ALLOWED_ORIGINS=https://frontend1.vercel.app,https://frontend2.com
-# ALLOWED_ORIGINS=http://localhost:3001
+# 
+# Quando a API roda localmente (npm run dev), localhost é permitido automaticamente
+# 
+# Quando a API está no Vercel (produção), configure no Vercel: Settings → Environment Variables
+# 
+# Para permitir frontend local (npm run dev) acessar a API do Vercel:
+# ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+# 
+# Para permitir frontend em produção:
+# ALLOWED_ORIGINS=https://appatleta.vercel.app
+# 
+# Para permitir ambos (local e produção):
+# ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,https://appatleta.vercel.app
 
 # ============================================
 # OPCIONAIS - Google Cloud Storage (Upload de Imagens)

@@ -55,15 +55,12 @@ function ModalEditarFoto({ isOpen, atletaId, fotoAtual, onClose, onSuccess }: Mo
     setSalvando(true);
     setErro('');
     try {
-      const { status } = await api.put(`/atleta/${atletaId}`, { fotoUrl });
-      if (status === 200) {
-        onSuccess();
-      } else {
-        setErro('Erro ao salvar foto. Tente novamente.');
-      }
-    } catch (error) {
+      const { userAtletaService } = await import('@/services/userAtletaService');
+      await userAtletaService.atualizar({ fotoUrl });
+      onSuccess();
+    } catch (error: any) {
       console.error('Erro ao atualizar foto:', error);
-      setErro('Erro ao salvar foto. Tente novamente.');
+      setErro(error?.response?.data?.mensagem || error?.message || 'Erro ao salvar foto. Tente novamente.');
     } finally {
       setSalvando(false);
     }
@@ -73,16 +70,13 @@ function ModalEditarFoto({ isOpen, atletaId, fotoAtual, onClose, onSuccess }: Mo
     setSalvando(true);
     setErro('');
     try {
-      const { status } = await api.put(`/atleta/${atletaId}`, { fotoUrl: null });
-      if (status === 200) {
-        setFotoPreview(null);
-        onSuccess();
-      } else {
-        setErro('Erro ao remover foto. Tente novamente.');
-      }
-    } catch (error) {
+      const { userAtletaService } = await import('@/services/userAtletaService');
+      await userAtletaService.atualizar({ fotoUrl: null });
+      setFotoPreview(null);
+      onSuccess();
+    } catch (error: any) {
       console.error('Erro ao remover foto:', error);
-      setErro('Erro ao remover foto. Tente novamente.');
+      setErro(error?.response?.data?.mensagem || error?.message || 'Erro ao remover foto. Tente novamente.');
     } finally {
       setSalvando(false);
     }
@@ -220,14 +214,9 @@ export default function PerfilPage() {
 
   const fetchAtleta = async () => {
     try {
-      const res = await api.get('/atleta/me/atleta');
-      if (res.status === 204 || !res.data) {
-        setAtleta(null);
-        return;
-      }
-      if (res.status >= 200 && res.status < 300) {
-        setAtleta(res.data);
-      }
+      const { userAtletaService } = await import('@/services/userAtletaService');
+      const atleta = await userAtletaService.obter();
+      setAtleta(atleta);
     } catch (error: any) {
       if (error?.status !== 204 && error?.status !== 404) {
         console.error('Erro ao buscar atleta', error);
@@ -368,10 +357,9 @@ export default function PerfilPage() {
             setModalEditarFoto(false);
             // Recarregar dados do atleta
             try {
-              const res = await api.get('/atleta/me/atleta');
-              if (res.status === 200 && res.data) {
-                setAtleta(res.data);
-              }
+              const { userAtletaService } = await import('@/services/userAtletaService');
+              const atleta = await userAtletaService.obter();
+              setAtleta(atleta);
             } catch (error) {
               console.error('Erro ao recarregar atleta:', error);
             }

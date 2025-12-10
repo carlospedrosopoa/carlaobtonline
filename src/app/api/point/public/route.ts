@@ -1,4 +1,6 @@
 // app/api/point/public/route.ts - Rota pública para listar arenas assinantes (frontend externo)
+// ⚠️ DEPRECATED: Esta rota está mantida para compatibilidade.
+// Use /api/user/arenas/listar para novas implementações.
 // Retorna apenas informações públicas de arenas assinantes e ativas, sem dados sensíveis
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';

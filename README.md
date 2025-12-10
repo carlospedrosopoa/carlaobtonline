@@ -28,7 +28,8 @@ DATABASE_URL=postgresql://...
 # Em desenvolvimento, localhost é permitido automaticamente
 # Em produção, configure no Vercel: Settings → Environment Variables
 # Exemplo: ALLOWED_ORIGINS=https://frontend1.vercel.app,https://frontend2.com
-# ALLOWED_ORIGINS=https://meu-frontend.vercel.app
+# Para permitir https://appatleta.vercel.app:
+# ALLOWED_ORIGINS=https://appatleta.vercel.app
 
 # Google Cloud Storage (opcional - para upload de imagens)
 # Em produção (Vercel), apenas estas duas variáveis são necessárias:
@@ -51,7 +52,9 @@ Para permitir que frontends externos consumam a API em produção:
    - **Environment**: Production (e Preview se necessário)
 3. Faça um **Redeploy** do projeto
 
-📖 **Guia completo**: Veja `VERCEL_CORS_SETUP.md` para instruções detalhadas.
+📖 **Guias:**
+- `VERCEL_CORS_SETUP.md` - Configuração de CORS para produção
+- `DESENVOLVIMENTO_LOCAL_API_VERCEL.md` - Como usar frontend local com API do Vercel
 
 ### Instalação
 

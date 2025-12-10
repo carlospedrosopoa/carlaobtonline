@@ -1,4 +1,6 @@
 // app/api/auth/register-public/route.ts - Registro público de usuários (para frontend externo)
+// ⚠️ DEPRECATED: Esta rota está mantida para compatibilidade.
+// Use /api/user/auth/register para novas implementações.
 import { NextRequest, NextResponse } from 'next/server';
 import { withCors } from '@/lib/cors';
 import * as userService from '@/lib/userService';

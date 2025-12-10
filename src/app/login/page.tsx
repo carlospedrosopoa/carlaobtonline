@@ -35,7 +35,7 @@ export default function LoginPage() {
     setErro('');
 
     try {
-      const { data, status } = await api.post('/auth/login', { email, password });
+      const { data, status } = await api.post('/user/auth/login', { email, password });
 
       if (status !== 200) {
         setErro(data.mensagem || data.error || 'Erro ao fazer login');

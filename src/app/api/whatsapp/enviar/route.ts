@@ -1,7 +1,8 @@
 // app/api/whatsapp/enviar/route.ts - API para enviar mensagens WhatsApp
+// TODO: Temporariamente desabilitado - migrando para Gzappy
 import { NextRequest, NextResponse } from 'next/server';
 import { getUsuarioFromRequest } from '@/lib/auth';
-import { enviarMensagemWhatsApp, formatarNumeroWhatsApp } from '@/lib/whatsappService';
+// import { enviarMensagemWhatsApp, formatarNumeroWhatsApp } from '@/lib/whatsappService';
 
 /**
  * POST /api/whatsapp/enviar
@@ -58,39 +59,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // TODO: Temporariamente desabilitado - migrando para Gzappy
     // Formatar número do destinatário
-    const numeroFormatado = formatarNumeroWhatsApp(destinatario);
+    // const numeroFormatado = formatarNumeroWhatsApp(destinatario);
 
     // Determinar pointId (prioridade: fornecido > pointIdGestor do usuário)
-    const pointIdFinal = pointId || (usuario.role === 'ORGANIZER' ? usuario.pointIdGestor : undefined);
+    // const pointIdFinal = pointId || (usuario.role === 'ORGANIZER' ? usuario.pointIdGestor : undefined);
 
     // Enviar mensagem
-    try {
-      const sucesso = await enviarMensagemWhatsApp({
-        destinatario: numeroFormatado,
-        mensagem: mensagem.trim(),
-        tipo: tipo || 'texto',
-      }, pointIdFinal || undefined);
+    // try {
+    //   const sucesso = await enviarMensagemWhatsApp({
+    //     destinatario: numeroFormatado,
+    //     mensagem: mensagem.trim(),
+    //     tipo: tipo || 'texto',
+    //   }, pointIdFinal || undefined);
 
-      if (!sucesso) {
-        return NextResponse.json(
-          { mensagem: 'Erro ao enviar mensagem WhatsApp. Verifique as configurações da arena e os logs do servidor.' },
-          { status: 500 }
-        );
-      }
-    } catch (error: any) {
-      // Capturar erros específicos do WhatsApp (como token inválido)
-      if (error.message?.includes('Token de acesso WhatsApp')) {
-        return NextResponse.json(
-          { 
-            mensagem: error.message,
-            detalhes: 'Verifique se o Access Token está correto e não expirou nas configurações da arena.'
-          },
-          { status: 400 }
-        );
-      }
-      throw error; // Re-lançar outros erros
-    }
+    //   if (!sucesso) {
+    //     return NextResponse.json(
+    //       { mensagem: 'Erro ao enviar mensagem WhatsApp. Verifique as configurações da arena e os logs do servidor.' },
+    //       { status: 500 }
+    //     );
+    //   }
+    // } catch (error: any) {
+    //   // Capturar erros específicos do WhatsApp (como token inválido)
+    //   if (error.message?.includes('Token de acesso WhatsApp')) {
+    //     return NextResponse.json(
+    //       { 
+    //         mensagem: error.message,
+    //         detalhes: 'Verifique se o Access Token está correto e não expirou nas configurações da arena.'
+    //       },
+    //       { status: 400 }
+    //     );
+    //   }
+    //   throw error; // Re-lançar outros erros
+    // }
+
+    // TODO: Implementar envio via Gzappy
+    return NextResponse.json(
+      { 
+        sucesso: false,
+        mensagem: 'Serviço WhatsApp temporariamente desabilitado. Migrando para Gzappy.',
+        // destinatario: numeroFormatado,
+      },
+      { status: 503 } // Service Unavailable
+    );
 
     return NextResponse.json({
       sucesso: true,

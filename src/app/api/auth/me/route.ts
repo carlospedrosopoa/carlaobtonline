@@ -1,4 +1,6 @@
 // app/api/auth/me/route.ts
+// ⚠️ DEPRECATED: Esta rota está mantida para compatibilidade.
+// Use /api/user/auth/me para novas implementações.
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';

@@ -33,7 +33,7 @@ export default function CriarContaPage() {
     setErro('');
 
     try {
-      const { data, status } = await api.post('/auth/register', {
+      const { data, status } = await api.post('/user/auth/register', {
         name,
         email,
         password,

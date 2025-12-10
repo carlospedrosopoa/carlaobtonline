@@ -1,4 +1,5 @@
 // app/api/whatsapp/webhook/route.ts - Webhook para receber mensagens e status do WhatsApp
+// TODO: Temporariamente desabilitado - migrando para Gzappy
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -53,6 +54,13 @@ export async function GET(request: NextRequest) {
  * Body: JSON do Meta com eventos do WhatsApp
  */
 export async function POST(request: NextRequest) {
+  // TODO: Temporariamente desabilitado - migrando para Gzappy
+  return NextResponse.json(
+    { mensagem: 'Webhook temporariamente desabilitado. Migrando para Gzappy.' },
+    { status: 503 }
+  );
+  
+  /* Código original comentado - será removido após migração para Gzappy
   try {
     let data: any;
     
@@ -125,6 +133,7 @@ export async function POST(request: NextRequest) {
     // Retornar 200 mesmo em caso de erro para não bloquear o webhook
     return NextResponse.json({ sucesso: false, erro: error.message }, { status: 200 });
   }
+  */
 }
 
 /**
@@ -187,5 +196,7 @@ async function processarStatusMensagem(status: any) {
   } catch (error: any) {
     console.error('Erro ao processar status de mensagem:', error);
   }
+}
+  */
 }
 

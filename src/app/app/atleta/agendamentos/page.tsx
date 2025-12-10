@@ -4,16 +4,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { pointService, quadraService, agendamentoService } from '@/services/agendamentoService';
+import { quadraService, agendamentoService } from '@/services/agendamentoService';
+import { userArenaService, type Arena } from '@/services/userAtletaService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
-import type { Point, Quadra, Agendamento, StatusAgendamento } from '@/types/agendamento';
+import type { Quadra, Agendamento, StatusAgendamento } from '@/types/agendamento';
 import { Calendar, Clock, MapPin, Plus, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit } from 'lucide-react';
 
 export default function AgendamentosPage() {
   const router = useRouter();
   const { usuario } = useAuth();
-  const [points, setPoints] = useState<Point[]>([]);
+  const [points, setPoints] = useState<Arena[]>([]);
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,10 +47,10 @@ export default function AgendamentosPage() {
     try {
       setLoading(true);
       const [pointsData, agendamentosData] = await Promise.all([
-        pointService.listar(),
+        userArenaService.listar(), // Já retorna apenas arenas assinantes e ativas
         agendamentoService.listar({ apenasMeus: true }),
       ]);
-      setPoints(pointsData.filter((p) => p.ativo));
+      setPoints(pointsData);
       setAgendamentos(agendamentosData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);

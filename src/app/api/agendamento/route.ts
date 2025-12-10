@@ -837,29 +837,37 @@ export async function POST(request: NextRequest) {
       agendamento.atletasParticipantes = [];
     }
 
+    // TODO: Temporariamente desabilitado - migrando para Gzappy
     // Enviar notificação WhatsApp para o gestor (em background, não bloqueia a resposta)
-    if (agendamento.quadra?.point?.id) {
-      const clienteNome = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
-      const clienteTelefone = agendamento.atleta?.fone || agendamento.telefoneAvulso || null;
-      
-      // Não aguardar a resposta do WhatsApp para não bloquear a API
-      import('@/lib/whatsappService').then(({ notificarNovoAgendamento }) => {
-        notificarNovoAgendamento(
-          agendamento.quadra.point.id,
-          {
-            quadra: agendamento.quadra.nome,
-            dataHora: agendamento.dataHora,
-            cliente: clienteNome,
-            telefone: clienteTelefone,
-            duracao: agendamento.duracao,
-          }
-        ).catch((err) => {
-          console.error('Erro ao enviar notificação WhatsApp (não crítico):', err);
-        });
-      }).catch((err) => {
-        console.error('Erro ao importar serviço WhatsApp (não crítico):', err);
-      });
-    }
+    // if (agendamento.quadra?.point?.id) {
+    //   const clienteNome = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
+    //   const clienteTelefone = agendamento.atleta?.fone || agendamento.telefoneAvulso || null;
+    //   
+    //   // Não aguardar a resposta do WhatsApp para não bloquear a API
+    //   import('@/lib/whatsappService').then(({ notificarNovoAgendamento }) => {
+    //     notificarNovoAgendamento(
+    //       agendamento.quadra.point.id,
+    //       {
+    //         quadra: agendamento.quadra.nome,
+    //         dataHora: agendamento.dataHora,
+    //         cliente: clienteNome,
+    //         telefone: clienteTelefone,
+    //         duracao: agendamento.duracao,
+    //       }
+    //     ).catch((err) => {
+    //       console.error('Erro ao enviar notificação WhatsApp (não crítico):', err);
+    //     });
+    //   }).catch((err) => {
+    //     console.error('Erro ao importar serviço WhatsApp (não crítico):', err);
+    //   });
+    // }
+    
+    // TODO: Implementar notificação via Gzappy
+    // if (agendamento.quadra?.point?.id) {
+    //   const clienteNome = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
+    //   const clienteTelefone = agendamento.atleta?.fone || agendamento.telefoneAvulso || null;
+    //   // Chamar serviço Gzappy aqui
+    // }
 
     const response = NextResponse.json(agendamento, { status: 201 });
     return withCors(response, request);
