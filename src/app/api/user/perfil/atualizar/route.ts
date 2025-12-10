@@ -47,9 +47,9 @@ export async function PUT(request: NextRequest) {
         fotoUrlProcessada = null;
       } else if (fotoUrl.startsWith('data:image/')) {
         // É base64 - fazer upload para GCS
-        let buffer: Buffer;
-        let fileName: string;
-        let extension: string;
+        let buffer: Buffer | undefined;
+        let fileName: string | undefined;
+        let extension: string | undefined;
         
         try {
           console.log('[UPLOAD FOTO DEBUG] Iniciando upload de foto base64 (user/perfil/atualizar)');
