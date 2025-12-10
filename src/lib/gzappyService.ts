@@ -155,15 +155,35 @@ export async function enviarMensagemGzappy(
   };
 
   // Tentar enviar com retry
+  // Rate limiting: 10 requisições por segundo por IP/instância (conforme documentação)
   let ultimoErro: any = null;
   for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
     try {
+      // Preparar headers
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${apiKeyLimpa}`, // JWT Token conforme documentação
+        'Content-Type': 'application/json',
+      };
+
+      // Se Instance ID estiver disponível, adicionar como header (pode ser necessário)
+      if (instanceIdLimpo) {
+        headers['X-Instance-Id'] = instanceIdLimpo;
+      }
+
+      console.log('📤 Enviando requisição para Gzappy:', {
+        url: apiUrl,
+        payload,
+        headers: {
+          ...headers,
+          'Authorization': `Bearer ${apiKeyLimpa.substring(0, 20)}...`, // Log apenas início do token por segurança
+          'X-Instance-Id': instanceIdLimpo || 'não fornecido',
+        },
+        pointId: pointId || 'não fornecido',
+      });
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKeyLimpa}`, // JWT Token conforme documentação
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -196,7 +216,7 @@ export async function enviarMensagemGzappy(
           errorCode === 403    // Forbidden
         ) {
           const mensagemErro = errorCode === 401 
-            ? 'JWT Token Gzappy inválido ou expirado. Verifique as configurações da arena.'
+            ? `JWT Token Gzappy inválido ou expirado. ${responseData.action || 'Verifique se o token está correto nas configurações da arena.'}`
             : errorCode === 403
             ? 'Acesso negado. Verifique se o JWT Token está correto.'
             : `Erro na API Gzappy: ${responseData.message || 'Erro desconhecido'}`;
