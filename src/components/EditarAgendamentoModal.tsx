@@ -136,6 +136,7 @@ export default function EditarAgendamentoModal({
   const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros
   const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente
   const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
+  const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
 
   useEffect(() => {
     if (isOpen) {
@@ -149,16 +150,46 @@ export default function EditarAgendamentoModal({
         
         // Se houver dados preservados via prop, restaurá-los
         if (dadosPreservadosProp) {
+          setRestaurandoDados(true); // Marcar que estamos restaurando dados
+          
+          // Aplicar dados básicos primeiro
           if (dadosPreservadosProp.data) setData(dadosPreservadosProp.data);
           if (dadosPreservadosProp.hora) setHora(dadosPreservadosProp.hora);
           if (dadosPreservadosProp.duracao) setDuracao(dadosPreservadosProp.duracao);
           if (dadosPreservadosProp.observacoes !== undefined) setObservacoes(dadosPreservadosProp.observacoes);
           if (dadosPreservadosProp.valorNegociado !== undefined) setValorNegociado(dadosPreservadosProp.valorNegociado);
-          if (dadosPreservadosProp.modo) setModo(dadosPreservadosProp.modo);
-          if (dadosPreservadosProp.atletaId) setAtletaId(dadosPreservadosProp.atletaId);
-          if (dadosPreservadosProp.nomeAvulso !== undefined) setNomeAvulso(dadosPreservadosProp.nomeAvulso);
-          if (dadosPreservadosProp.telefoneAvulso !== undefined) setTelefoneAvulso(dadosPreservadosProp.telefoneAvulso);
           if (dadosPreservadosProp.manterNaTela !== undefined) setManterNaTela(dadosPreservadosProp.manterNaTela);
+          
+          // Aplicar modo primeiro, depois os dados específicos do modo
+          // Isso evita que o useEffect limpe os dados antes de aplicá-los
+          if (dadosPreservadosProp.modo) {
+            setModo(dadosPreservadosProp.modo);
+            
+            // Função para aplicar dados específicos do modo após carregar atletas
+            const aplicarDadosModo = () => {
+              if (dadosPreservadosProp.modo === 'atleta' && dadosPreservadosProp.atletaId) {
+                // Verificar se os atletas já foram carregados
+                if (atletas.length > 0) {
+                  setAtletaId(dadosPreservadosProp.atletaId);
+                  setRestaurandoDados(false);
+                } else {
+                  // Se ainda não carregou, tentar novamente após um delay
+                  setTimeout(aplicarDadosModo, 100);
+                }
+              } else if (dadosPreservadosProp.modo === 'avulso') {
+                if (dadosPreservadosProp.nomeAvulso !== undefined) setNomeAvulso(dadosPreservadosProp.nomeAvulso);
+                if (dadosPreservadosProp.telefoneAvulso !== undefined) setTelefoneAvulso(dadosPreservadosProp.telefoneAvulso);
+                setRestaurandoDados(false);
+              } else {
+                setRestaurandoDados(false);
+              }
+            };
+            
+            // Aguardar um pouco para o modo ser aplicado e os atletas serem carregados
+            setTimeout(aplicarDadosModo, 300);
+          } else {
+            setRestaurandoDados(false);
+          }
           // Limpar dados preservados após usar (via callback no componente pai)
           // Isso será feito pelo componente pai após um pequeno delay
         } else {
@@ -208,7 +239,21 @@ export default function EditarAgendamentoModal({
     }
   }, [quadraId, data]);
 
+  // Aplicar atletaId quando os atletas forem carregados durante restauração de dados
   useEffect(() => {
+    if (restaurandoDados && modo === 'atleta' && dadosPreservadosProp?.atletaId && atletas.length > 0 && !atletaId) {
+      setAtletaId(dadosPreservadosProp.atletaId);
+      // Aguardar um pouco antes de marcar que terminamos de restaurar
+      setTimeout(() => {
+        setRestaurandoDados(false);
+      }, 100);
+    }
+  }, [atletas, modo, restaurandoDados, dadosPreservadosProp, atletaId]);
+
+  useEffect(() => {
+    // Não limpar campos se estivermos restaurando dados preservados
+    if (restaurandoDados) return;
+    
     if (modo === 'normal') {
       setAtletaId('');
       setNomeAvulso('');
@@ -220,7 +265,7 @@ export default function EditarAgendamentoModal({
     } else if (modo === 'avulso') {
       setAtletaId('');
     }
-  }, [modo]);
+  }, [modo, restaurandoDados]);
 
   const atletasFiltrados = useMemo(() => {
     if (!buscaAtleta.trim()) return atletas;
