@@ -116,3 +116,4 @@ Se após seguir todos os passos ainda houver erro de CORS:
 3. **Verifique se a rota `/api/auth/login` tem `withCors` aplicado**
 4. **Verifique se a rota tem handler `OPTIONS`**
 
+

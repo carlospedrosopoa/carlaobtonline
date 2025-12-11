@@ -109,6 +109,7 @@ export default function EditarAgendamentoModal({
   const [quantidadeOcorrencias, setQuantidadeOcorrencias] = useState<number>(12);
   const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros
   const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente
+  const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
 
   useEffect(() => {
     if (isOpen) {
@@ -137,6 +138,7 @@ export default function EditarAgendamentoModal({
     } else {
       // Limpar quando fechar
       setAgendamentoCompleto(null);
+      setManterNaTela(false); // Resetar flag ao fechar modal
     }
   }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial]);
 
@@ -242,6 +244,7 @@ export default function EditarAgendamentoModal({
     setMostrarSelecaoAtletas(false);
     setBuscaAtletasParticipantes('');
     setParticipantesCompletos([]);
+    setManterNaTela(false); // Resetar flag ao resetar formulário
   };
 
   const selecionarQuadraInicial = async (quadraIdParaSelecionar: string) => {
@@ -731,8 +734,23 @@ export default function EditarAgendamentoModal({
           : ''
       );
 
-      onSuccess();
-      onClose();
+      // Se a flag "manterNaTela" estiver marcada (apenas para gestores), limpar apenas quadra e participantes
+      if (manterNaTela && canGerenciarAgendamento && !agendamento) {
+        // Limpar apenas seleção de quadras e participantes
+        setQuadraId('');
+        setAtletasParticipantesIds([]);
+        setParticipantesCompletos([]);
+        setMostrarSelecaoAtletas(false);
+        setBuscaAtletasParticipantes('');
+        // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, etc)
+        // Não fechar o modal
+        onSuccess();
+        // Não chamar onClose() - mantém o modal aberto
+      } else {
+        // Comportamento normal: fechar o modal
+        onSuccess();
+        onClose();
+      }
     } catch (error: any) {
       console.error(`Erro ao ${agendamento ? 'atualizar' : 'criar'} agendamento:`, error);
       setErro(
@@ -1558,6 +1576,26 @@ export default function EditarAgendamentoModal({
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Flag para manter na tela após salvar (apenas para gestores em modo criação) */}
+            {canGerenciarAgendamento && !agendamento && (
+              <div className="pt-4 pb-2 border-t border-gray-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={manterNaTela}
+                    onChange={(e) => setManterNaTela(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Manter na tela após salvar (limpa apenas quadra e participantes)
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-6">
+                  Quando marcado, após salvar o agendamento, o formulário permanece aberto com os dados preenchidos, limpando apenas a seleção de quadras e participantes.
+                </p>
               </div>
             )}
 
