@@ -30,6 +30,30 @@ interface EditarAgendamentoModalProps {
   quadraIdInicial?: string; // Para pré-selecionar uma quadra ao criar novo agendamento
   dataInicial?: string; // Para pré-preencher a data ao criar novo agendamento (formato: YYYY-MM-DD)
   horaInicial?: string; // Para pré-preencher a hora ao criar novo agendamento (formato: HH:mm)
+  dadosPreservados?: {
+    data?: string;
+    hora?: string;
+    duracao?: number;
+    observacoes?: string;
+    valorNegociado?: string;
+    modo?: ModoAgendamento;
+    atletaId?: string;
+    nomeAvulso?: string;
+    telefoneAvulso?: string;
+    manterNaTela?: boolean;
+  } | null; // Dados preservados para reabertura
+  onReopenWithData?: (data: {
+    data?: string;
+    hora?: string;
+    duracao?: number;
+    observacoes?: string;
+    valorNegociado?: string;
+    modo?: ModoAgendamento;
+    atletaId?: string;
+    nomeAvulso?: string;
+    telefoneAvulso?: string;
+    manterNaTela?: boolean;
+  }) => void; // Callback para reabrir o modal com dados preservados
 }
 
 export default function EditarAgendamentoModal({
@@ -40,6 +64,8 @@ export default function EditarAgendamentoModal({
   quadraIdInicial,
   dataInicial,
   horaInicial,
+  dadosPreservados: dadosPreservadosProp,
+  onReopenWithData,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
   // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou avulsos)
@@ -120,13 +146,31 @@ export default function EditarAgendamentoModal({
       } else {
         // Modo criação - resetar formulário
         resetarFormulario();
-        // Se houver dataInicial e horaInicial, pré-preencher
-        if (dataInicial) {
-          setData(dataInicial);
+        
+        // Se houver dados preservados via prop, restaurá-los
+        if (dadosPreservadosProp) {
+          if (dadosPreservadosProp.data) setData(dadosPreservadosProp.data);
+          if (dadosPreservadosProp.hora) setHora(dadosPreservadosProp.hora);
+          if (dadosPreservadosProp.duracao) setDuracao(dadosPreservadosProp.duracao);
+          if (dadosPreservadosProp.observacoes !== undefined) setObservacoes(dadosPreservadosProp.observacoes);
+          if (dadosPreservadosProp.valorNegociado !== undefined) setValorNegociado(dadosPreservadosProp.valorNegociado);
+          if (dadosPreservadosProp.modo) setModo(dadosPreservadosProp.modo);
+          if (dadosPreservadosProp.atletaId) setAtletaId(dadosPreservadosProp.atletaId);
+          if (dadosPreservadosProp.nomeAvulso !== undefined) setNomeAvulso(dadosPreservadosProp.nomeAvulso);
+          if (dadosPreservadosProp.telefoneAvulso !== undefined) setTelefoneAvulso(dadosPreservadosProp.telefoneAvulso);
+          if (dadosPreservadosProp.manterNaTela !== undefined) setManterNaTela(dadosPreservadosProp.manterNaTela);
+          // Limpar dados preservados após usar (via callback no componente pai)
+          // Isso será feito pelo componente pai após um pequeno delay
+        } else {
+          // Se não houver dados preservados, usar dataInicial e horaInicial
+          if (dataInicial) {
+            setData(dataInicial);
+          }
+          if (horaInicial) {
+            setHora(horaInicial);
+          }
         }
-        if (horaInicial) {
-          setHora(horaInicial);
-        }
+        
         // Se houver quadraIdInicial, pré-selecionar após carregar dados
         if (quadraIdInicial) {
           // Aguardar um pouco para os dados carregarem
@@ -138,9 +182,12 @@ export default function EditarAgendamentoModal({
     } else {
       // Limpar quando fechar
       setAgendamentoCompleto(null);
-      setManterNaTela(false); // Resetar flag ao fechar modal
+      // Resetar a flag apenas se não houver dados preservados para reabertura
+      if (!dadosPreservadosProp) {
+        setManterNaTela(false);
+      }
     }
-  }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial]);
+  }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial, dadosPreservadosProp]);
 
   // Preencher formulário quando o agendamento completo for carregado
   useEffect(() => {
@@ -734,18 +781,30 @@ export default function EditarAgendamentoModal({
           : ''
       );
 
-      // Se a flag "manterNaTela" estiver marcada (apenas para gestores), limpar apenas quadra e participantes
-      if (manterNaTela && canGerenciarAgendamento && !agendamento) {
-        // Limpar apenas seleção de quadras e participantes
-        setQuadraId('');
-        setAtletasParticipantesIds([]);
-        setParticipantesCompletos([]);
-        setMostrarSelecaoAtletas(false);
-        setBuscaAtletasParticipantes('');
-        // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, etc)
-        // Não fechar o modal
+      // Se a flag "manterNaTela" estiver marcada (apenas para gestores), preservar dados e reabrir
+      if (manterNaTela && canGerenciarAgendamento && !agendamento && onReopenWithData) {
+        // Preservar dados antes de fechar
+        const dadosPreservados = {
+          data,
+          hora,
+          duracao,
+          observacoes,
+          valorNegociado: valorNegociado || undefined,
+          modo,
+          atletaId: modo === 'atleta' ? atletaId : undefined,
+          nomeAvulso: modo === 'avulso' ? nomeAvulso : undefined,
+          telefoneAvulso: modo === 'avulso' ? telefoneAvulso : undefined,
+          manterNaTela: true, // Manter a flag marcada
+        };
+        
+        // Fechar o modal primeiro
         onSuccess();
-        // Não chamar onClose() - mantém o modal aberto
+        onClose();
+        
+        // Reabrir com dados preservados após um pequeno delay
+        setTimeout(() => {
+          onReopenWithData(dadosPreservados);
+        }, 100);
       } else {
         // Comportamento normal: fechar o modal
         onSuccess();
