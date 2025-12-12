@@ -22,20 +22,6 @@ export default function ArenaAgendamentosPage() {
   const [mostrarAntigos, setMostrarAntigos] = useState(false);
   const [modalEditarAberto, setModalEditarAberto] = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState<Agendamento | null>(null);
-  const [dadosPreservadosReabertura, setDadosPreservadosReabertura] = useState<{
-    data?: string;
-    hora?: string;
-    duracao?: number;
-    observacoes?: string;
-    valorNegociado?: string;
-    valorHora?: number;
-    valorCalculado?: number;
-    modo?: 'normal' | 'atleta' | 'avulso';
-    atletaId?: string;
-    nomeAvulso?: string;
-    telefoneAvulso?: string;
-    manterNaTela?: boolean;
-  } | null>(null);
   const [modalCancelarAberto, setModalCancelarAberto] = useState(false);
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
@@ -694,32 +680,10 @@ export default function ArenaAgendamentosPage() {
         }}
         onSuccess={() => {
           carregarAgendamentos();
-          // Se houver dados preservados, não fechar ainda (será fechado e reaberto pelo componente)
-          // O componente vai chamar onReopenWithData que fecha e reabre
-          if (!dadosPreservadosReabertura) {
-            setModalEditarAberto(false);
-            setAgendamentoEditando(null);
-          }
+          // O componente agora mantém o modal aberto se a flag estiver marcada
+          // Então só fechamos se não houver flag marcada (comportamento normal)
+          // O componente gerencia isso internamente, não precisamos fazer nada aqui
         }}
-        onReopenWithData={(dados) => {
-          // Armazenar dados preservados
-          setDadosPreservadosReabertura(dados);
-          // Fechar modal primeiro
-          setModalEditarAberto(false);
-          setAgendamentoEditando(null);
-          // Reabrir após um pequeno delay com dados preservados
-          setTimeout(() => {
-            setAgendamentoEditando(null); // Garantir que é modo criação
-            setModalEditarAberto(true);
-            // Limpar dados preservados após reabrir (para não ficar sempre reabrindo com os mesmos dados)
-            setTimeout(() => {
-              setDadosPreservadosReabertura(null);
-            }, 300);
-          }, 150);
-        }}
-        dadosPreservados={dadosPreservadosReabertura}
-        dataInicial={dadosPreservadosReabertura?.data}
-        horaInicial={dadosPreservadosReabertura?.hora}
       />
 
       {/* Modal de Confirmação de Cancelamento */}

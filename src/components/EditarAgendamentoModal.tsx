@@ -30,34 +30,6 @@ interface EditarAgendamentoModalProps {
   quadraIdInicial?: string; // Para pré-selecionar uma quadra ao criar novo agendamento
   dataInicial?: string; // Para pré-preencher a data ao criar novo agendamento (formato: YYYY-MM-DD)
   horaInicial?: string; // Para pré-preencher a hora ao criar novo agendamento (formato: HH:mm)
-  dadosPreservados?: {
-    data?: string;
-    hora?: string;
-    duracao?: number;
-    observacoes?: string;
-    valorNegociado?: string;
-    valorHora?: number;
-    valorCalculado?: number;
-    modo?: ModoAgendamento;
-    atletaId?: string;
-    nomeAvulso?: string;
-    telefoneAvulso?: string;
-    manterNaTela?: boolean;
-  } | null; // Dados preservados para reabertura
-  onReopenWithData?: (data: {
-    data?: string;
-    hora?: string;
-    duracao?: number;
-    observacoes?: string;
-    valorNegociado?: string;
-    valorHora?: number;
-    valorCalculado?: number;
-    modo?: ModoAgendamento;
-    atletaId?: string;
-    nomeAvulso?: string;
-    telefoneAvulso?: string;
-    manterNaTela?: boolean;
-  }) => void; // Callback para reabrir o modal com dados preservados
 }
 
 export default function EditarAgendamentoModal({
@@ -68,8 +40,6 @@ export default function EditarAgendamentoModal({
   quadraIdInicial,
   dataInicial,
   horaInicial,
-  dadosPreservados: dadosPreservadosProp,
-  onReopenWithData,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
   // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou avulsos)
@@ -152,63 +122,12 @@ export default function EditarAgendamentoModal({
         // Modo criação - resetar formulário
         resetarFormulario();
         
-        // Se houver dados preservados via prop, restaurá-los
-        if (dadosPreservadosProp) {
-          setRestaurandoDados(true); // Marcar que estamos restaurando dados
-          
-          // Aplicar dados básicos primeiro (usar setTimeout para garantir ordem)
-          setTimeout(() => {
-            if (dadosPreservadosProp.data) setData(dadosPreservadosProp.data);
-            if (dadosPreservadosProp.hora) setHora(dadosPreservadosProp.hora);
-            if (dadosPreservadosProp.duracao) setDuracao(dadosPreservadosProp.duracao);
-            if (dadosPreservadosProp.observacoes !== undefined) setObservacoes(dadosPreservadosProp.observacoes || '');
-            if (dadosPreservadosProp.valorNegociado !== undefined) setValorNegociado(dadosPreservadosProp.valorNegociado || '');
-            // Preservar valores calculados também
-            if (dadosPreservadosProp.valorHora !== undefined) setValorHora(dadosPreservadosProp.valorHora);
-            if (dadosPreservadosProp.valorCalculado !== undefined) setValorCalculado(dadosPreservadosProp.valorCalculado);
-            if (dadosPreservadosProp.manterNaTela !== undefined) setManterNaTela(dadosPreservadosProp.manterNaTela);
-            
-            // Aplicar modo primeiro, depois os dados específicos do modo
-            // Isso evita que o useEffect limpe os dados antes de aplicá-los
-            if (dadosPreservadosProp.modo) {
-              setModo(dadosPreservadosProp.modo);
-              
-              // Função para aplicar dados específicos do modo após carregar atletas
-              const aplicarDadosModo = () => {
-                if (dadosPreservadosProp.modo === 'atleta' && dadosPreservadosProp.atletaId) {
-                  // Verificar se os atletas já foram carregados
-                  if (atletas.length > 0) {
-                    setAtletaId(dadosPreservadosProp.atletaId);
-                    setRestaurandoDados(false);
-                  } else {
-                    // Se ainda não carregou, tentar novamente após um delay
-                    setTimeout(aplicarDadosModo, 100);
-                  }
-                } else if (dadosPreservadosProp.modo === 'avulso') {
-                  if (dadosPreservadosProp.nomeAvulso !== undefined) setNomeAvulso(dadosPreservadosProp.nomeAvulso || '');
-                  if (dadosPreservadosProp.telefoneAvulso !== undefined) setTelefoneAvulso(dadosPreservadosProp.telefoneAvulso || '');
-                  setRestaurandoDados(false);
-                } else {
-                  setRestaurandoDados(false);
-                }
-              };
-              
-              // Aguardar um pouco para o modo ser aplicado e os atletas serem carregados
-              setTimeout(aplicarDadosModo, 300);
-            } else {
-              setRestaurandoDados(false);
-            }
-          }, 50); // Pequeno delay para garantir que resetarFormulario terminou
-          // Limpar dados preservados após usar (via callback no componente pai)
-          // Isso será feito pelo componente pai após um pequeno delay
-        } else {
-          // Se não houver dados preservados, usar dataInicial e horaInicial
-          if (dataInicial) {
-            setData(dataInicial);
-          }
-          if (horaInicial) {
-            setHora(horaInicial);
-          }
+        // Se houver dataInicial e horaInicial, pré-preencher
+        if (dataInicial) {
+          setData(dataInicial);
+        }
+        if (horaInicial) {
+          setHora(horaInicial);
         }
         
         // Se houver quadraIdInicial, pré-selecionar após carregar dados
@@ -222,12 +141,9 @@ export default function EditarAgendamentoModal({
     } else {
       // Limpar quando fechar
       setAgendamentoCompleto(null);
-      // Resetar a flag apenas se não houver dados preservados para reabertura
-      if (!dadosPreservadosProp) {
-        setManterNaTela(false);
-      }
+      setManterNaTela(false);
     }
-  }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial, dadosPreservadosProp]);
+  }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial]);
 
   // Preencher formulário quando o agendamento completo for carregado
   useEffect(() => {
@@ -253,16 +169,13 @@ export default function EditarAgendamentoModal({
     const calcularValores = async () => {
       // Só calcular se tiver quadra, data e hora selecionados
       if (!quadraId || !data || !hora || !duracao) {
-        // Só limpar valores se não estiver restaurando dados preservados
-        if (!restaurandoDados && !dadosPreservadosProp) {
-          setValorHora(null);
-          setValorCalculado(null);
-        }
+        setValorHora(null);
+        setValorCalculado(null);
         return;
       }
 
-      // Não calcular se estiver restaurando dados preservados ou se já houver valores preservados
-      if (restaurandoDados || dadosPreservadosProp) return;
+      // Não calcular se estiver restaurando dados preservados
+      if (restaurandoDados) return;
 
       try {
         // Buscar tabela de preços da quadra
@@ -310,16 +223,6 @@ export default function EditarAgendamentoModal({
     calcularValores();
   }, [quadraId, data, hora, duracao, restaurandoDados]);
 
-  // Aplicar atletaId quando os atletas forem carregados durante restauração de dados
-  useEffect(() => {
-    if (restaurandoDados && modo === 'atleta' && dadosPreservadosProp?.atletaId && atletas.length > 0 && !atletaId) {
-      setAtletaId(dadosPreservadosProp.atletaId);
-      // Aguardar um pouco antes de marcar que terminamos de restaurar
-      setTimeout(() => {
-        setRestaurandoDados(false);
-      }, 100);
-    }
-  }, [atletas, modo, restaurandoDados, dadosPreservadosProp, atletaId]);
 
   useEffect(() => {
     // Não limpar campos se estivermos restaurando dados preservados
@@ -897,32 +800,23 @@ export default function EditarAgendamentoModal({
           : ''
       );
 
-      // Se a flag "manterNaTela" estiver marcada (apenas para gestores), preservar dados e reabrir
-      if (manterNaTela && canGerenciarAgendamento && !agendamento && onReopenWithData) {
-        // Preservar TODOS os dados antes de fechar (incluindo valores calculados)
-        const dadosPreservados = {
-          data,
-          hora,
-          duracao,
-          observacoes: observacoes || undefined,
-          valorNegociado: valorNegociado || undefined,
-          valorHora: valorHora || undefined, // Preservar valorHora também
-          valorCalculado: valorCalculado || undefined, // Preservar valorCalculado também
-          modo,
-          atletaId: modo === 'atleta' ? atletaId : undefined,
-          nomeAvulso: modo === 'avulso' ? nomeAvulso : undefined,
-          telefoneAvulso: modo === 'avulso' ? telefoneAvulso : undefined,
-          manterNaTela: true, // Manter a flag marcada
-        };
-        
-        // Fechar o modal primeiro
-        onSuccess();
-        onClose();
-        
-        // Reabrir com dados preservados após um pequeno delay
-        setTimeout(() => {
-          onReopenWithData(dadosPreservados);
-        }, 100);
+      // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
+      if (manterNaTela && canGerenciarAgendamento && !agendamento) {
+        // Limpar apenas seleção de quadras e participantes
+        setQuadraId('');
+        setAtletasParticipantesIds([]);
+        setParticipantesCompletos([]);
+        setMostrarSelecaoAtletas(false);
+        setBuscaAtletasParticipantes('');
+        // Limpar valores calculados (serão recalculados quando selecionar nova quadra)
+        setValorHora(null);
+        setValorCalculado(null);
+        // Limpar erro se houver
+        setErro('');
+        // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, atletaId, etc)
+        // Não fechar o modal - mantém aberto
+        onSuccess(); // Atualiza a lista de agendamentos
+        // NÃO chamar onClose() - mantém o modal aberto
       } else {
         // Comportamento normal: fechar o modal
         onSuccess();
