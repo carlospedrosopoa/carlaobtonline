@@ -30,25 +30,29 @@ export default function InputMonetario({
 }: InputMonetarioProps) {
   const [displayValue, setDisplayValue] = useState('');
 
-  // Converter valor numérico para string formatada
+  // Converter valor numérico para string formatada apenas quando não está editando
+  const [isEditing, setIsEditing] = useState(false);
+
   useEffect(() => {
-    if (value === null || value === undefined) {
-      setDisplayValue('');
-    } else {
-      // Formatar como moeda brasileira
-      const formatted = new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-      setDisplayValue(formatted);
+    if (!isEditing) {
+      if (value === null || value === undefined) {
+        setDisplayValue('');
+      } else {
+        // Formatar como moeda brasileira apenas quando não está editando
+        const formatted = new Intl.NumberFormat('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(value);
+        setDisplayValue(formatted);
+      }
     }
-  }, [value]);
+  }, [value, isEditing]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let inputValue = e.target.value;
 
     // Remover tudo exceto números, vírgula e ponto
-    inputValue = inputValue.replace(/[^\d,.-]/g, '');
+    inputValue = inputValue.replace(/[^\d,.]/g, '');
 
     // Substituir ponto por vírgula (padrão brasileiro)
     inputValue = inputValue.replace(/\./g, ',');
@@ -59,19 +63,29 @@ export default function InputMonetario({
       inputValue = parts[0] + ',' + parts.slice(1).join('');
     }
 
-    // Limitar a 2 casas decimais
+    // Limitar a 2 casas decimais após a vírgula
     if (parts.length === 2 && parts[1].length > 2) {
       inputValue = parts[0] + ',' + parts[1].substring(0, 2);
     }
 
+    // Se o usuário está digitando apenas números sem vírgula, permitir digitação livre
+    // A formatação será aplicada no blur
     setDisplayValue(inputValue);
 
     // Converter para número
     if (inputValue === '' || inputValue === ',') {
       onChange(null);
     } else {
-      // Substituir vírgula por ponto para parseFloat
-      const numericValue = parseFloat(inputValue.replace(',', '.'));
+      // Se não tem vírgula, tratar como número inteiro (será formatado no blur)
+      let numericValue: number;
+      if (inputValue.includes(',')) {
+        numericValue = parseFloat(inputValue.replace(',', '.'));
+      } else {
+        // Se está digitando apenas números, tratar como valor inteiro
+        // Exemplo: "500" = 500.00, "50" = 50.00
+        numericValue = parseFloat(inputValue);
+      }
+      
       if (!isNaN(numericValue)) {
         // Aplicar validações de min/max
         let finalValue = numericValue;
@@ -89,22 +103,40 @@ export default function InputMonetario({
   };
 
   const handleBlur = () => {
-    // Ao sair do campo, formatar o valor exibido
+    setIsEditing(false);
+    // Ao sair do campo, formatar o valor exibido sempre com 2 casas decimais
     if (value !== null && value !== undefined) {
       const formatted = new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(value);
       setDisplayValue(formatted);
+    } else {
+      setDisplayValue('');
     }
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Ao focar, mostrar apenas números para facilitar edição
+    setIsEditing(true);
+    // Ao focar, mostrar valor numérico simples para facilitar edição
     if (value !== null && value !== undefined) {
-      setDisplayValue(value.toString().replace('.', ','));
+      // Mostrar valor com vírgula mas sem formatação de milhares
+      const formatted = value.toFixed(2).replace('.', ',');
+      setDisplayValue(formatted);
+    } else {
+      setDisplayValue('');
     }
-    e.target.select();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Permitir navegação e edição normal
+    if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'].includes(e.key)) {
+      return;
+    }
+    // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+    if (e.ctrlKey || e.metaKey) {
+      return;
+    }
   };
 
   return (
@@ -122,14 +154,16 @@ export default function InputMonetario({
         <input
           id={id}
           type="text"
+          inputMode="decimal"
           value={displayValue}
           onChange={handleChange}
           onBlur={handleBlur}
           onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
-          className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${className} ${
+          className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-right font-medium ${className} ${
             disabled ? 'bg-gray-100 cursor-not-allowed' : ''
           }`}
         />
