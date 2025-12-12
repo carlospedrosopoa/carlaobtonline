@@ -41,6 +41,8 @@ export default function ArenaAgendaSemanalPage() {
     duracao?: number;
     observacoes?: string;
     valorNegociado?: string;
+    valorHora?: number;
+    valorCalculado?: number;
     modo?: 'normal' | 'atleta' | 'avulso';
     atletaId?: string;
     nomeAvulso?: string;
