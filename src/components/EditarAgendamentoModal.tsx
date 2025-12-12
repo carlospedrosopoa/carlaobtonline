@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useAuth } from '@/context/AuthContext';
-import { pointService, quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
+import { pointService, quadraService, agendamentoService, bloqueioAgendaService, tabelaPrecoService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
 import type { Agendamento, ModoAgendamento } from '@/types/agendamento';
 import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat, CreditCard } from 'lucide-react';
@@ -238,6 +238,65 @@ export default function EditarAgendamentoModal({
       verificarDisponibilidade();
     }
   }, [quadraId, data]);
+
+  // Calcular valores quando quadra, data, hora ou duração mudarem
+  useEffect(() => {
+    const calcularValores = async () => {
+      // Só calcular se tiver quadra, data e hora selecionados
+      if (!quadraId || !data || !hora || !duracao) {
+        setValorHora(null);
+        setValorCalculado(null);
+        return;
+      }
+
+      // Não calcular se estiver restaurando dados preservados
+      if (restaurandoDados) return;
+
+      try {
+        // Buscar tabela de preços da quadra
+        const tabelasPreco = await tabelaPrecoService.listar(quadraId);
+        const tabelasAtivas = tabelasPreco.filter((tp) => tp.ativo);
+
+        if (tabelasAtivas.length > 0) {
+          // Converter hora para minutos do dia (0-1439)
+          const [horaStr, minutoStr] = hora.split(':');
+          const horaNum = parseInt(horaStr, 10);
+          const minutoNum = parseInt(minutoStr, 10);
+          const minutosDoDia = horaNum * 60 + minutoNum;
+
+          // Encontrar tabela de preço aplicável ao horário
+          // Ordenar por inicioMinutoDia para garantir que pegamos a primeira que se aplica
+          const tabelasOrdenadas = [...tabelasAtivas].sort((a, b) => a.inicioMinutoDia - b.inicioMinutoDia);
+          const precoAplicavel = tabelasOrdenadas.find((tp) => {
+            const inicioMinuto = tp.inicioMinutoDia || 0;
+            const fimMinuto = tp.fimMinutoDia !== undefined && tp.fimMinutoDia !== null ? tp.fimMinutoDia : 1439; // 23:59 se não definido
+            return minutosDoDia >= inicioMinuto && minutosDoDia < fimMinuto;
+          });
+
+          if (precoAplicavel) {
+            const valorHoraCalculado = parseFloat(precoAplicavel.valorHora.toString());
+            const valorCalculadoCalculado = (valorHoraCalculado * duracao) / 60;
+            setValorHora(valorHoraCalculado);
+            setValorCalculado(valorCalculadoCalculado);
+          } else {
+            // Se não encontrou tabela aplicável, limpar valores
+            setValorHora(null);
+            setValorCalculado(null);
+          }
+        } else {
+          // Se não há tabelas de preço, limpar valores
+          setValorHora(null);
+          setValorCalculado(null);
+        }
+      } catch (error) {
+        console.error('Erro ao calcular valores:', error);
+        setValorHora(null);
+        setValorCalculado(null);
+      }
+    };
+
+    calcularValores();
+  }, [quadraId, data, hora, duracao, restaurandoDados]);
 
   // Aplicar atletaId quando os atletas forem carregados durante restauração de dados
   useEffect(() => {
