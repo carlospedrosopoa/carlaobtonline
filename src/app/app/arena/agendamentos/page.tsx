@@ -673,10 +673,6 @@ export default function ArenaAgendamentosPage() {
         onClose={() => {
           setModalEditarAberto(false);
           setAgendamentoEditando(null);
-          // Limpar dados preservados ao fechar manualmente
-          setTimeout(() => {
-            setDadosPreservadosReabertura(null);
-          }, 200);
         }}
         onSuccess={() => {
           carregarAgendamentos();
