@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, produtoService } from '@/services/gestaoArenaService';
 import type { CardCliente, Produto, ItemCard, CriarItemCardPayload } from '@/types/gestaoArena';
 import { X, Plus, Trash2, ShoppingCart, Search } from 'lucide-react';
+import InputMonetario from './InputMonetario';
 
 interface ModalGerenciarItensCardProps {
   isOpen: boolean;
@@ -344,15 +345,12 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Preço Unitário (opcional)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={precoUnitarioItem || ''}
-                  onChange={(e) => setPrecoUnitarioItem(e.target.value ? parseFloat(e.target.value) : null)}
+                <InputMonetario
+                  label="Preço Unitário (opcional)"
+                  value={precoUnitarioItem}
+                  onChange={setPrecoUnitarioItem}
                   placeholder="Usar preço do produto"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  min={0}
                 />
               </div>
               <div className="flex gap-3 pt-4">

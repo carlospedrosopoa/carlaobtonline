@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, pagamentoCardService, itemCardService, formaPagamentoService } from '@/services/gestaoArenaService';
 import type { CardCliente, FormaPagamento, PagamentoCard, ItemCard, CriarPagamentoCardPayload } from '@/types/gestaoArena';
 import { X, Plus, Trash2, CreditCard, DollarSign } from 'lucide-react';
+import InputMonetario from './InputMonetario';
 
 interface ModalGerenciarPagamentosCardProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
   // Estados para adicionar pagamento
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
   const [formaPagamentoSelecionada, setFormaPagamentoSelecionada] = useState('');
-  const [valorPagamento, setValorPagamento] = useState('');
+  const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [observacoesPagamento, setObservacoesPagamento] = useState('');
   const [itensSelecionadosPagamento, setItensSelecionadosPagamento] = useState<string[]>([]);
 
@@ -64,7 +65,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
 
   const abrirModalPagamento = () => {
     setFormaPagamentoSelecionada('');
-    setValorPagamento('');
+    setValorPagamento(null);
     setObservacoesPagamento('');
     setItensSelecionadosPagamento([]);
     setModalPagamentoAberto(true);
@@ -93,12 +94,12 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
   };
 
   const adicionarPagamento = async () => {
-    if (!cardCompleto || !formaPagamentoSelecionada || !valorPagamento) {
+    if (!cardCompleto || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0) {
       setErro('Preencha todos os campos obrigatórios');
       return;
     }
 
-    const valor = parseFloat(valorPagamento);
+    const valor = valorPagamento;
     if (isNaN(valor) || valor <= 0) {
       setErro('Valor inválido');
       return;
@@ -388,22 +389,18 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Valor {itensSelecionadosPagamento.length > 0 && '(será ajustado automaticamente se necessário)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                <InputMonetario
+                  label={itensSelecionadosPagamento.length > 0 ? 'Valor (será ajustado automaticamente se necessário)' : 'Valor'}
                   value={valorPagamento}
-                  onChange={(e) => setValorPagamento(e.target.value)}
-                  placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0.00"}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  onChange={setValorPagamento}
+                  placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0,00"}
+                  min={0}
+                  required
                 />
                 {itensSelecionadosPagamento.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setValorPagamento(calcularValorItensSelecionados().toFixed(2))}
+                    onClick={() => setValorPagamento(calcularValorItensSelecionados())}
                     className="mt-2 text-sm text-blue-600 hover:text-blue-800"
                   >
                     Usar valor dos itens selecionados
@@ -431,7 +428,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                 </button>
                 <button
                   onClick={adicionarPagamento}
-                  disabled={salvando || !formaPagamentoSelecionada || !valorPagamento}
+                  disabled={salvando || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0}
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {salvando ? 'Adicionando...' : 'Adicionar'}

@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import type { Agendamento, ModoAgendamento } from '@/types/agendamento';
 import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat, CreditCard } from 'lucide-react';
 import type { RecorrenciaConfig, TipoRecorrencia } from '@/types/agendamento';
+import InputMonetario from './InputMonetario';
 
 interface Atleta {
   id: string;
@@ -87,7 +88,7 @@ export default function EditarAgendamentoModal({
   const [observacoes, setObservacoes] = useState('');
   const [valorHora, setValorHora] = useState<number | null>(null);
   const [valorCalculado, setValorCalculado] = useState<number | null>(null);
-  const [valorNegociado, setValorNegociado] = useState<string>('');
+  const [valorNegociado, setValorNegociado] = useState<number | null>(null);
 
   // Campos específicos por modo
   const [atletaId, setAtletaId] = useState('');
@@ -298,7 +299,7 @@ export default function EditarAgendamentoModal({
     setObservacoes('');
     setValorHora(null);
     setValorCalculado(null);
-    setValorNegociado('');
+    setValorNegociado(null);
     setAtletaId('');
     setNomeAvulso('');
     setTelefoneAvulso('');
@@ -362,11 +363,7 @@ export default function EditarAgendamentoModal({
     setObservacoes(agendamentoParaUsar.observacoes || '');
     setValorHora(agendamentoParaUsar.valorHora ?? null);
     setValorCalculado(agendamentoParaUsar.valorCalculado ?? null);
-    setValorNegociado(
-      agendamentoParaUsar.valorNegociado != null
-        ? agendamentoParaUsar.valorNegociado.toString().replace('.', ',')
-        : ''
-    );
+    setValorNegociado(agendamentoParaUsar.valorNegociado ?? null);
 
     // Preenche quadra e point
     setQuadraId(agendamentoParaUsar.quadraId);
@@ -736,11 +733,8 @@ export default function EditarAgendamentoModal({
       }
 
       // Valor negociado (ADMIN e ORGANIZER podem informar)
-      if (canGerenciarAgendamento && valorNegociado.trim()) {
-        const valor = parseFloat(valorNegociado.replace(',', '.'));
-        if (!isNaN(valor) && valor > 0) {
-          payload.valorNegociado = valor;
-        }
+      if (canGerenciarAgendamento && valorNegociado !== null && valorNegociado > 0) {
+        payload.valorNegociado = valorNegociado;
       }
 
       // Configuração de recorrência (criação e edição)
@@ -794,11 +788,7 @@ export default function EditarAgendamentoModal({
       // Atualiza os valores exibidos com o retorno do backend (recalculado)
       setValorHora(resultado.valorHora ?? null);
       setValorCalculado(resultado.valorCalculado ?? null);
-      setValorNegociado(
-        resultado.valorNegociado != null
-          ? resultado.valorNegociado.toString().replace('.', ',')
-          : ''
-      );
+      setValorNegociado(resultado.valorNegociado ?? null);
 
       // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
       if (manterNaTela && canGerenciarAgendamento && !agendamento) {
@@ -1335,23 +1325,16 @@ export default function EditarAgendamentoModal({
                     )}
                   </label>
                   {canGerenciarAgendamento ? (
-                    <input
-                      type="text"
+                    <InputMonetario
                       value={valorNegociado}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/[^\d,.-]/g, '');
-                        setValorNegociado(raw);
-                      }}
+                      onChange={setValorNegociado}
                       placeholder="Ex: 90,00"
-                      className="w-full px-3 py-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-sm bg-white"
+                      min={0}
+                      className="text-sm"
                     />
                   ) : (
                     <p className="text-sm font-semibold text-emerald-800">
-                      {formatCurrency(
-                        valorNegociado.trim()
-                          ? parseFloat(valorNegociado.replace(',', '.'))
-                          : valorCalculado
-                      )}
+                      {formatCurrency(valorNegociado ?? valorCalculado)}
                     </p>
                   )}
                 </div>

@@ -7,6 +7,7 @@ import { cardClienteService, itemCardService, pagamentoCardService, produtoServi
 import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload } from '@/types/gestaoArena';
 import { api } from '@/lib/api';
 import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search, FileText } from 'lucide-react';
+import InputMonetario from './InputMonetario';
 
 interface GerenciarCardModalProps {
   isOpen: boolean;
@@ -61,7 +62,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   // Estados para adicionar pagamento
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
   const [formaPagamentoSelecionada, setFormaPagamentoSelecionada] = useState('');
-  const [valorPagamento, setValorPagamento] = useState('');
+  const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [observacoesPagamento, setObservacoesPagamento] = useState('');
   const [itensSelecionadosPagamento, setItensSelecionadosPagamento] = useState<string[]>([]);
 
@@ -219,7 +220,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
   const abrirModalPagamento = () => {
     setFormaPagamentoSelecionada('');
-    setValorPagamento('');
+    setValorPagamento(null);
     setObservacoesPagamento('');
     setItensSelecionadosPagamento([]);
     setModalPagamentoAberto(true);
@@ -248,16 +249,12 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const adicionarPagamento = () => {
-    if (!cardCompleto || !formaPagamentoSelecionada || !valorPagamento) {
+    if (!cardCompleto || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0) {
       setErro('Preencha todos os campos obrigatórios');
       return;
     }
 
-    const valor = parseFloat(valorPagamento);
-    if (isNaN(valor) || valor <= 0) {
-      setErro('Valor inválido');
-      return;
-    }
+    const valor = valorPagamento;
 
     // Se há itens selecionados, validar valor
     if (itensSelecionadosPagamento.length > 0) {
@@ -872,15 +869,12 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Preço Unitário (opcional)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={precoUnitarioItem || ''}
-                    onChange={(e) => setPrecoUnitarioItem(e.target.value ? parseFloat(e.target.value) : null)}
+                  <InputMonetario
+                    label="Preço Unitário (opcional)"
+                    value={precoUnitarioItem}
+                    onChange={setPrecoUnitarioItem}
                     placeholder="Usar preço do produto"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    min={0}
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -1005,22 +999,18 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor {itensSelecionadosPagamento.length > 0 && '(será ajustado automaticamente se necessário)'}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <InputMonetario
+                    label={itensSelecionadosPagamento.length > 0 ? 'Valor (será ajustado automaticamente se necessário)' : 'Valor'}
                     value={valorPagamento}
-                    onChange={(e) => setValorPagamento(e.target.value)}
-                    placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0.00"}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    onChange={setValorPagamento}
+                    placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0,00"}
+                    min={0}
+                    required
                   />
                   {itensSelecionadosPagamento.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setValorPagamento(calcularValorItensSelecionados().toFixed(2))}
+                      onClick={() => setValorPagamento(calcularValorItensSelecionados())}
                       className="mt-1 text-sm text-emerald-600 hover:text-emerald-700 underline"
                     >
                       Usar valor dos itens selecionados
@@ -1045,7 +1035,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   </button>
                   <button
                     onClick={adicionarPagamento}
-                    disabled={salvando || !formaPagamentoSelecionada || !valorPagamento}
+                    disabled={salvando || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0}
                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {salvando ? 'Adicionando...' : 'Adicionar'}
