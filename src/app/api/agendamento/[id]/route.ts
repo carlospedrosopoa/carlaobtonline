@@ -324,7 +324,10 @@ export async function PUT(
       tentandoAlterarDataHora = true;
     }
     
-    if (tentandoAlterarDataHora && !podeAlterarDataHora && usuario.role !== 'ADMIN') {
+    // ADMIN e ORGANIZER podem alterar mesmo com menos de 12 horas
+    const podeBypass12Horas = usuario.role === 'ADMIN' || usuario.role === 'ORGANIZER';
+    
+    if (tentandoAlterarDataHora && !podeAlterarDataHora && !podeBypass12Horas) {
       const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível alterar data, hora ou duração. Faltam menos de 12 horas para o início do agendamento.' },
         { status: 400 }

@@ -529,8 +529,8 @@ export default function EditarAgendamentoModal({
       }
     }
 
-    // Não permitir agendamento no passado
-    if (dataHoraSelecionada < agora) {
+    // Não permitir agendamento no passado (exceto para ADMIN e ORGANIZER)
+    if (dataHoraSelecionada < agora && !canGerenciarAgendamento) {
       return 'Não é possível agendar no passado';
     }
 

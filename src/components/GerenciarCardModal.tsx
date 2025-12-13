@@ -18,7 +18,8 @@ interface GerenciarCardModalProps {
 }
 
 export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, onEditar }: GerenciarCardModalProps) {
-  const { usuario } = useAuth();
+  const { usuario, isAdmin, isOrganizer } = useAuth();
+  const canGerenciarCard = isAdmin || isOrganizer;
   const [cardCompleto, setCardCompleto] = useState<CardCliente | null>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
@@ -398,6 +399,20 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     }
   };
 
+  const reabrirCard = async () => {
+    if (!cardCompleto) return;
+
+    if (!confirm('Tem certeza que deseja reabrir este card?')) return;
+
+    try {
+      await cardClienteService.atualizar(cardCompleto.id, { status: 'ABERTO' });
+      await carregarDados();
+      onSuccess();
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao reabrir card');
+    }
+  };
+
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -749,27 +764,51 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                       </div>
                     </div>
                   )}
-                  <div className="flex gap-3 mb-3">
-                    <button
-                      onClick={fecharCard}
-                      disabled={!saldoIgualZero}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={!saldoIgualZero ? 'O saldo deve ser zero para fechar o card' : ''}
-                    >
-                      Fechar Card
-                    </button>
-                  </div>
-                  <div className="border-t border-gray-200 pt-3">
-                    <button
-                      onClick={cancelarCard}
-                      className="w-full px-4 py-2 bg-gray-100 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                    >
-                      ⚠️ Cancelar Card (Irreversível)
-                    </button>
-                    <p className="text-xs text-gray-500 mt-1 text-center">
-                      Esta ação não pode ser desfeita
-                    </p>
-                  </div>
+                  {cardCompleto?.status === 'ABERTO' ? (
+                    <>
+                      <div className="flex gap-3 mb-3">
+                        <button
+                          onClick={fecharCard}
+                          disabled={!saldoIgualZero}
+                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={!saldoIgualZero ? 'O saldo deve ser zero para fechar o card' : ''}
+                        >
+                          Fechar Card
+                        </button>
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <button
+                          onClick={cancelarCard}
+                          className="w-full px-4 py-2 bg-gray-100 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                        >
+                          ⚠️ Cancelar Card (Irreversível)
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1 text-center">
+                          Esta ação não pode ser desfeita
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {canGerenciarCard && (
+                        <div className="mb-3">
+                          <button
+                            onClick={reabrirCard}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                          >
+                            {cardCompleto?.status === 'FECHADO' ? 'Reabrir Card' : 'Reabrir Card (Cancelado)'}
+                          </button>
+                        </div>
+                      )}
+                      <div className="border-t border-gray-200 pt-3">
+                        <p className="text-xs text-gray-500 text-center">
+                          {cardCompleto?.status === 'FECHADO' 
+                            ? 'Este card está fechado' 
+                            : 'Este card está cancelado'}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })()}
