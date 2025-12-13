@@ -505,7 +505,10 @@ export default function EditarAgendamentoModal({
     if (!data || !hora || !duracao || !quadraId) return null;
 
     const agora = new Date();
-    const dataHoraSelecionada = new Date(`${data}T${hora}:00`);
+    // Criar data/hora selecionada no timezone local para comparação correta
+    const [ano, mes, dia] = data.split('-').map(Number);
+    const [horaNum, minutoNum] = hora.split(':').map(Number);
+    const dataHoraSelecionada = new Date(ano, mes - 1, dia, horaNum, minutoNum, 0);
 
     // Se estamos editando um agendamento, verificar se o horário selecionado é o mesmo do agendamento atual
     // (mesmo que a quadra tenha mudado, não há conflito se mantivermos o mesmo horário)
@@ -530,8 +533,12 @@ export default function EditarAgendamentoModal({
     }
 
     // Não permitir agendamento no passado (exceto para ADMIN e ORGANIZER)
-    if (dataHoraSelecionada < agora && !canGerenciarAgendamento) {
-      return 'Não é possível agendar no passado';
+    // ADMIN e ORGANIZER podem fazer agendamentos retroativos
+    if (dataHoraSelecionada < agora) {
+      if (!canGerenciarAgendamento) {
+        return 'Não é possível agendar no passado';
+      }
+      // Se é ADMIN ou ORGANIZER, não retornar erro - permitir agendamento retroativo
     }
 
     // Verificar conflitos com bloqueios
