@@ -978,8 +978,9 @@ export default function EditarAgendamentoModal({
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Tipo de Agendamento
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Botão "Para Mim" oculto por enquanto */}
+                {/* <button
                   type="button"
                   onClick={() => setModo('normal')}
                   className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
@@ -990,7 +991,7 @@ export default function EditarAgendamentoModal({
                 >
                   <User className="w-5 h-5" />
                   <span className="font-medium">Para mim</span>
-                </button>
+                </button> */}
                 <button
                   type="button"
                   onClick={() => setModo('atleta')}
@@ -1001,7 +1002,7 @@ export default function EditarAgendamentoModal({
                   }`}
                 >
                   <Users className="w-5 h-5" />
-                  <span className="font-medium">Para atleta</span>
+                  <span className="font-medium">Cliente Cadastrado</span>
                 </button>
                 <button
                   type="button"
