@@ -1713,6 +1713,7 @@ export default function EditarAgendamentoModal({
                             
                             alert(mensagemDetalhada);
                             onSuccess();
+                            onClose(); // Fechar o modal após gerar cards com sucesso
                           } else {
                             throw new Error('Resposta inválida da API');
                           }
