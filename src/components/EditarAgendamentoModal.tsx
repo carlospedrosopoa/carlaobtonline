@@ -636,20 +636,36 @@ export default function EditarAgendamentoModal({
         }
       }
 
-      const agInicio = new Date(ag.dataHora).getTime();
-      const agFim = agInicio + ag.duracao * 60000;
-
+      // Extrair hora/minuto diretamente da string ISO sem conversão de timezone
+      // Isso evita problemas de fuso horário
+      const agDataHoraStr = ag.dataHora;
+      const agDataPart = agDataHoraStr.split('T')[0];
+      const agHoraMatch = agDataHoraStr.match(/T(\d{2}):(\d{2})/);
+      
+      // Verificar se é o mesmo dia
+      if (agDataPart !== data) {
+        continue; // Diferentes dias, não há conflito
+      }
+      
+      if (!agHoraMatch) {
+        continue; // Não foi possível extrair hora
+      }
+      
+      // Extrair hora e minuto do agendamento existente diretamente da string
+      const agHoraNum = parseInt(agHoraMatch[1], 10);
+      const agMinutoNum = parseInt(agHoraMatch[2], 10);
+      const agMinutosInicio = agHoraNum * 60 + agMinutoNum;
+      const agMinutosFim = agMinutosInicio + ag.duracao;
+      
+      // Comparar com os minutos do horário selecionado
       if (
-        horaInicio < agFim && horaFim > agInicio
+        minutosInicio < agMinutosFim && minutosFim > agMinutosInicio
       ) {
-        const inicio = new Date(agInicio).toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        const fim = new Date(agFim).toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        // Formatar horários para exibição
+        const inicio = `${agHoraNum.toString().padStart(2, '0')}:${agMinutoNum.toString().padStart(2, '0')}`;
+        const agHoraFim = Math.floor(agMinutosFim / 60) % 24;
+        const agMinutoFim = agMinutosFim % 60;
+        const fim = `${agHoraFim.toString().padStart(2, '0')}:${agMinutoFim.toString().padStart(2, '0')}`;
         return `Conflito com agendamento existente das ${inicio} às ${fim}`;
       }
     }
