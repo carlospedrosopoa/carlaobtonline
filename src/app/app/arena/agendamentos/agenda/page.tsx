@@ -23,6 +23,8 @@ export default function ArenaAgendaSemanalPage() {
   const [filtroNome, setFiltroNome] = useState('');
   const [modalEditarAberto, setModalEditarAberto] = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState<Agendamento | null>(null);
+  const [dataInicialModal, setDataInicialModal] = useState<string | undefined>(undefined);
+  const [horaInicialModal, setHoraInicialModal] = useState<string | undefined>(undefined);
   const [modalCancelarAberto, setModalCancelarAberto] = useState(false);
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
@@ -762,6 +764,8 @@ export default function ArenaAgendaSemanalPage() {
           <button
             onClick={() => {
               setAgendamentoEditando(null);
+              setDataInicialModal(undefined);
+              setHoraInicialModal(undefined);
               setModalEditarAberto(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
@@ -944,11 +948,20 @@ export default function ArenaAgendaSemanalPage() {
                           ? `calc(${100 / totalItens}% - 4px)`
                           : '100%';
 
+                        // Verificar se a célula está vazia (sem agendamentos nem bloqueios)
+                        const celulaVazia = agendamentosIniciando.length === 0 && bloqueiosNoSlot.length === 0;
+
                         return (
                           <td
                             key={diaIdx}
-                            className="px-1 py-0.5 align-top relative"
+                            onClick={() => {
+                              if (celulaVazia) {
+                                handleClicarCelulaVazia(dia, slot);
+                              }
+                            }}
+                            className={`px-1 py-0.5 align-top relative ${celulaVazia ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
                             style={{ height: '30px' }}
+                            title={celulaVazia ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}` : ''}
                           >
                             <div className="absolute inset-1 flex gap-1">
                               {/* Renderizar bloqueios primeiro */}
@@ -1260,6 +1273,8 @@ export default function ArenaAgendaSemanalPage() {
         onClose={() => {
           setModalEditarAberto(false);
           setAgendamentoEditando(null);
+          setDataInicialModal(undefined);
+          setHoraInicialModal(undefined);
         }}
         onSuccess={() => {
           carregarAgendamentos();
@@ -1267,6 +1282,8 @@ export default function ArenaAgendaSemanalPage() {
           // Então só fechamos se não houver flag marcada (comportamento normal)
           // O componente gerencia isso internamente, não precisamos fazer nada aqui
         }}
+        dataInicial={dataInicialModal}
+        horaInicial={horaInicialModal}
       />
 
       {/* Modal de Confirmação de Cancelamento */}
