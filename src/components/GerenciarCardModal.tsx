@@ -436,17 +436,18 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     if (!cardCompleto) return;
 
     // Se há alterações não salvas, perguntar se quer salvar antes de fechar
-    let fechouAoSalvar = false;
     if (temAlteracoesNaoSalvas) {
       const salvarAntes = confirm('Há alterações não salvas. Deseja salvá-las antes de fechar o card?');
       if (salvarAntes) {
-        await salvarAlteracoes();
-        fechouAoSalvar = true; // salvarAlteracoes já fecha o modal
+        await salvarAlteracoes(true); // Salvar e fechar
+        return; // salvarAlteracoes já fecha o modal
+      } else {
+        // Se não quer salvar, pergunta se quer descartar as alterações e fechar mesmo assim
+        if (!confirm('As alterações não salvas serão descartadas. Deseja continuar fechando o card?')) {
+          return;
+        }
       }
     }
-
-    // Se já fechou ao salvar, não precisa continuar
-    if (fechouAoSalvar) return;
 
     if (!confirm('Tem certeza que deseja fechar este card?')) return;
 
