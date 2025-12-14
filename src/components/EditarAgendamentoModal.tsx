@@ -504,7 +504,6 @@ export default function EditarAgendamentoModal({
   const verificarConflito = (): string | null => {
     if (!data || !hora || !duracao || !quadraId) return null;
 
-    const agora = new Date();
     // Criar data/hora selecionada no timezone local para comparação correta
     const [ano, mes, dia] = data.split('-').map(Number);
     const [horaNum, minutoNum] = hora.split(':').map(Number);
@@ -530,17 +529,6 @@ export default function EditarAgendamentoModal({
         // Mesmo horário e duração - não há conflito (mesmo que a quadra tenha mudado)
         // O agendamento atual será ignorado no loop abaixo
       }
-    }
-
-    // Não permitir agendamento no passado (exceto para ADMIN e ORGANIZER)
-    // ADMIN e ORGANIZER podem fazer agendamentos retroativos e editar agendamentos no passado
-    if (dataHoraSelecionada < agora) {
-      // Se não é ADMIN ou ORGANIZER, bloquear agendamento no passado
-      if (!canGerenciarAgendamento) {
-        return 'Não é possível agendar no passado';
-      }
-      // Se é ADMIN ou ORGANIZER, não retornar erro - permitir agendamento retroativo
-      // Continuar com as outras validações (conflitos, bloqueios, etc.)
     }
 
     // Verificar conflitos com bloqueios
@@ -1281,7 +1269,6 @@ export default function EditarAgendamentoModal({
                   type="date"
                   value={data}
                   onChange={(e) => setData(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />

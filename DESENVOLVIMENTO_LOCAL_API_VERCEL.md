@@ -156,3 +156,4 @@ Se funcionar sem erros de CORS, está tudo configurado corretamente! 🎉
 - [Vercel - Environment Variables](https://vercel.com/docs/concepts/projects/environment-variables)
 - [MDN - CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
 
+
