@@ -304,13 +304,17 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setSalvando(true);
       setErro('');
 
+      // Mapear IDs temporários para IDs reais dos itens
+      const mapeamentoIds: Record<string, string> = {};
+
       // Remover itens marcados para remoção
       for (const itemId of itensRemovidos) {
         await itemCardService.deletar(cardCompleto.id, itemId);
       }
 
-      // Adicionar novos itens
-      for (const item of itensLocais.filter((i) => i.isNovo)) {
+      // Adicionar novos itens e armazenar mapeamento de IDs temporários para reais
+      const itensNovos = itensLocais.filter((i) => i.isNovo);
+      for (const item of itensNovos) {
         const payload: CriarItemCardPayload = {
           cardId: cardCompleto.id,
           produtoId: item.produtoId,
@@ -318,7 +322,24 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
           precoUnitario: item.precoUnitario,
           observacoes: item.observacoes,
         };
-        await itemCardService.criar(cardCompleto.id, payload);
+        const itemSalvo = await itemCardService.criar(cardCompleto.id, payload);
+        // Mapear ID temporário para ID real retornado pela API
+        if (item.id.startsWith('temp-')) {
+          mapeamentoIds[item.id] = itemSalvo.id;
+        }
+        // Atualizar estado local: marcar item como salvo e atualizar ID
+        setItensLocais((prev) =>
+          prev.map((i) =>
+            i.id === item.id
+              ? {
+                  ...i,
+                  id: itemSalvo.id,
+                  isNovo: false,
+                  itemIdBackend: itemSalvo.id,
+                }
+              : i
+          )
+        );
       }
 
       // Remover pagamentos marcados para remoção
@@ -326,16 +347,42 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         await pagamentoCardService.deletar(cardCompleto.id, pagamentoId);
       }
 
-      // Adicionar novos pagamentos
-      for (const pagamento of pagamentosLocais.filter((p) => p.isNovo)) {
+      // Adicionar novos pagamentos, substituindo IDs temporários pelos reais
+      const pagamentosNovos = pagamentosLocais.filter((p) => p.isNovo);
+      for (const pagamento of pagamentosNovos) {
+        // Substituir IDs temporários pelos IDs reais
+        const itemIdsReais = pagamento.itemIds?.map((itemId) => {
+          // Se é um ID temporário e existe no mapeamento, usar o ID real
+          if (itemId.startsWith('temp-') && mapeamentoIds[itemId]) {
+            return mapeamentoIds[itemId];
+          }
+          // Se não é temporário, usar o ID original
+          return itemId;
+        });
+
         const payload: CriarPagamentoCardPayload = {
           cardId: cardCompleto.id,
           formaPagamentoId: pagamento.formaPagamentoId,
           valor: pagamento.valor,
           observacoes: pagamento.observacoes,
-          itemIds: pagamento.itemIds,
+          itemIds: itemIdsReais,
         };
-        await pagamentoCardService.criar(cardCompleto.id, payload);
+        const pagamentoSalvo = await pagamentoCardService.criar(cardCompleto.id, payload);
+        // Atualizar estado local: marcar pagamento como salvo e atualizar ID
+        setPagamentosLocais((prev) =>
+          prev.map((p) =>
+            p.id === pagamento.id
+              ? {
+                  ...p,
+                  id: pagamentoSalvo.id,
+                  isNovo: false,
+                  pagamentoIdBackend: pagamentoSalvo.id,
+                  // Atualizar itemIds com IDs reais
+                  itemIds: itemIdsReais,
+                }
+              : p
+          )
+        );
       }
 
       // Recarregar dados e resetar estados locais
@@ -347,6 +394,8 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       onClose(); // Fechar o modal após salvar
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao salvar alterações');
+      // Em caso de erro, recarregar dados para sincronizar estado
+      await carregarDados();
     } finally {
       setSalvando(false);
     }
