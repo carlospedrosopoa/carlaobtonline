@@ -112,6 +112,7 @@ export default function EditarAgendamentoModal({
   const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente
   const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
   const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
+  const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
 
   useEffect(() => {
     if (isOpen) {
@@ -356,14 +357,32 @@ export default function EditarAgendamentoModal({
     // Extrair data/hora diretamente da string UTC sem conversão de timezone
     // Isso garante que 20h gravado = 20h exibido no formulário
     const dataHoraStr = agendamentoParaUsar.dataHora;
-    setData(dataHoraStr.split('T')[0]);
+    const dataPreenchida = dataHoraStr.split('T')[0];
     const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
-    setHora(match ? `${match[1]}:${match[2]}` : '00:00');
+    const horaPreenchida = match ? `${match[1]}:${match[2]}` : '00:00';
+    
+    setData(dataPreenchida);
+    setHora(horaPreenchida);
     setDuracao(agendamentoParaUsar.duracao);
     setObservacoes(agendamentoParaUsar.observacoes || '');
     setValorHora(agendamentoParaUsar.valorHora ?? null);
     setValorCalculado(agendamentoParaUsar.valorCalculado ?? null);
     setValorNegociado(agendamentoParaUsar.valorNegociado ?? null);
+
+    // Armazenar valores originais para comparação
+    setValoresOriginais({
+      quadraId: agendamentoParaUsar.quadraId,
+      dataHora: `${dataPreenchida}T${horaPreenchida}:00`,
+      duracao: agendamentoParaUsar.duracao,
+      observacoes: agendamentoParaUsar.observacoes || '',
+      valorHora: agendamentoParaUsar.valorHora ?? null,
+      valorCalculado: agendamentoParaUsar.valorCalculado ?? null,
+      valorNegociado: agendamentoParaUsar.valorNegociado ?? null,
+      atletaId: agendamentoParaUsar.atletaId || null,
+      nomeAvulso: agendamentoParaUsar.nomeAvulso || '',
+      telefoneAvulso: agendamentoParaUsar.telefoneAvulso || '',
+      atletasParticipantesIds: agendamentoParaUsar.atletasParticipantes?.map((ap) => ap.atletaId).filter((id) => id) || [],
+    });
 
     // Preenche quadra e point
     setQuadraId(agendamentoParaUsar.quadraId);
@@ -638,6 +657,62 @@ export default function EditarAgendamentoModal({
     return null;
   };
 
+  // Função para verificar se houve alterações
+  const temAlteracoes = useMemo(() => {
+    // Se não é edição (criação), não há alterações a verificar - sempre pode salvar
+    if (!agendamento) {
+      return false;
+    }
+
+    // Se é edição mas ainda não carregou valores originais, permitir salvar
+    if (!valoresOriginais) {
+      return false;
+    }
+
+    // Comparar valores atuais com originais
+    const dataHoraAtual = `${data}T${hora}:00`;
+    const dataHoraOriginal = valoresOriginais.dataHora?.substring(0, 16) || '';
+    const dataHoraAtualNormalizada = dataHoraAtual.substring(0, 16);
+
+    // Comparar campos principais
+    const mudouDataHora = dataHoraAtualNormalizada !== dataHoraOriginal;
+    const mudouQuadra = quadraId !== valoresOriginais.quadraId;
+    const mudouDuracao = duracao !== valoresOriginais.duracao;
+    const mudouObservacoes = (observacoes || '') !== (valoresOriginais.observacoes || '');
+    const mudouValorNegociado = valorNegociado !== valoresOriginais.valorNegociado;
+
+    // Comparar modo e campos específicos
+    let mudouModo = false;
+    if (modo === 'atleta') {
+      mudouModo = atletaId !== valoresOriginais.atletaId;
+    } else if (modo === 'avulso') {
+      mudouModo = (nomeAvulso || '') !== (valoresOriginais.nomeAvulso || '') ||
+                  (telefoneAvulso || '') !== (valoresOriginais.telefoneAvulso || '');
+    }
+
+    // Comparar participantes (ordem importa)
+    const participantesAtuais = [...atletasParticipantesIds].sort();
+    const participantesOriginais = [...(valoresOriginais.atletasParticipantesIds || [])].sort();
+    const mudouParticipantes = JSON.stringify(participantesAtuais) !== JSON.stringify(participantesOriginais);
+
+    return mudouDataHora || mudouQuadra || mudouDuracao || mudouObservacoes || 
+           mudouValorNegociado || mudouModo || mudouParticipantes;
+  }, [
+    agendamento,
+    valoresOriginais,
+    data,
+    hora,
+    quadraId,
+    duracao,
+    observacoes,
+    valorNegociado,
+    modo,
+    atletaId,
+    nomeAvulso,
+    telefoneAvulso,
+    atletasParticipantesIds,
+  ]);
+
   const validarFormulario = (): string | null => {
     if (!quadraId || !data || !hora) {
       return 'Preencha todos os campos obrigatórios';
@@ -811,6 +886,28 @@ export default function EditarAgendamentoModal({
       setValorHora(resultado.valorHora ?? null);
       setValorCalculado(resultado.valorCalculado ?? null);
       setValorNegociado(resultado.valorNegociado ?? null);
+
+      // Se for edição, atualizar valores originais após salvar para resetar detecção de alterações
+      if (agendamento && resultado) {
+        const dataHoraStr = resultado.dataHora;
+        const dataResult = dataHoraStr.split('T')[0];
+        const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+        const horaResult = match ? `${match[1]}:${match[2]}` : '00:00';
+        
+        setValoresOriginais({
+          quadraId: resultado.quadraId,
+          dataHora: `${dataResult}T${horaResult}:00`,
+          duracao: resultado.duracao,
+          observacoes: resultado.observacoes || '',
+          valorHora: resultado.valorHora ?? null,
+          valorCalculado: resultado.valorCalculado ?? null,
+          valorNegociado: resultado.valorNegociado ?? null,
+          atletaId: resultado.atletaId || null,
+          nomeAvulso: resultado.nomeAvulso || '',
+          telefoneAvulso: resultado.telefoneAvulso || '',
+          atletasParticipantesIds: resultado.atletasParticipantes?.map((ap: any) => ap.atletaId).filter((id: string) => id) || [],
+        });
+      }
 
       // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
       if (manterNaTela && canGerenciarAgendamento && !agendamento) {
@@ -1631,8 +1728,9 @@ export default function EditarAgendamentoModal({
                           setGerandoCards(false);
                         }
                       }}
-                      disabled={gerandoCards || salvando}
+                      disabled={gerandoCards || salvando || temAlteracoes}
                       className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={temAlteracoes ? 'Salve as alterações antes de gerar cards' : ''}
                     >
                       {gerandoCards ? (
                         <>
@@ -1685,8 +1783,9 @@ export default function EditarAgendamentoModal({
               </button>
               <button
                 type="submit"
-                disabled={salvando || !!conflito}
+                disabled={salvando || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
                 className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={agendamento && !temAlteracoes ? 'Não há alterações para salvar' : ''}
               >
                 {salvando ? (
                   <span className="flex items-center justify-center">
