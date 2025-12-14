@@ -1,7 +1,7 @@
 // components/GerenciarCardModal.tsx - Modal para gerenciar card (adicionar itens e pagamentos)
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, pagamentoCardService, produtoService, formaPagamentoService } from '@/services/gestaoArenaService';
 import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload } from '@/types/gestaoArena';
@@ -59,6 +59,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   const [buscaProduto, setBuscaProduto] = useState('');
   const [quantidadeItem, setQuantidadeItem] = useState(1);
   const [precoUnitarioItem, setPrecoUnitarioItem] = useState<number | null>(null);
+  const inputBuscaItemRef = useRef<HTMLInputElement>(null);
 
   // Estados para adicionar pagamento
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
@@ -166,6 +167,16 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     setPrecoUnitarioItem(null);
     setModalItemAberto(true);
   };
+
+  // Focar no campo de busca quando a modal de item abrir
+  useEffect(() => {
+    if (modalItemAberto && inputBuscaItemRef.current) {
+      // Pequeno delay para garantir que o DOM está pronto
+      setTimeout(() => {
+        inputBuscaItemRef.current?.focus();
+      }, 100);
+    }
+  }, [modalItemAberto]);
 
   const fecharModalItem = () => {
     setModalItemAberto(false);
@@ -894,6 +905,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
+                      ref={inputBuscaItemRef}
                       type="text"
                       value={buscaProduto}
                       onChange={(e) => {
@@ -981,17 +993,20 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
-                    onClick={fecharModalItem}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
+                    type="button"
                     onClick={adicionarItem}
                     disabled={!produtoSelecionado}
                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                   >
                     Adicionar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fecharModalItem}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    tabIndex={0}
+                  >
+                    Cancelar
                   </button>
                 </div>
               </div>

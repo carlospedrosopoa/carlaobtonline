@@ -1,7 +1,7 @@
 // components/ModalGerenciarItensCard.tsx - Modal específico para gerenciar itens do card
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, produtoService } from '@/services/gestaoArenaService';
 import type { CardCliente, Produto, ItemCard, CriarItemCardPayload } from '@/types/gestaoArena';
@@ -30,6 +30,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
   const [buscaProduto, setBuscaProduto] = useState('');
   const [quantidadeItem, setQuantidadeItem] = useState(1);
   const [precoUnitarioItem, setPrecoUnitarioItem] = useState<number | null>(null);
+  const inputBuscaItemRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen && card) {
@@ -67,6 +68,16 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
     setPrecoUnitarioItem(null);
     setModalItemAberto(true);
   };
+
+  // Focar no campo de busca quando a modal de item abrir
+  useEffect(() => {
+    if (modalItemAberto && inputBuscaItemRef.current) {
+      // Pequeno delay para garantir que o DOM está pronto
+      setTimeout(() => {
+        inputBuscaItemRef.current?.focus();
+      }, 100);
+    }
+  }, [modalItemAberto]);
 
   const fecharModalItem = () => {
     setModalItemAberto(false);
@@ -268,6 +279,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
+                    ref={inputBuscaItemRef}
                     type="text"
                     value={buscaProduto}
                     onChange={(e) => {
@@ -355,17 +367,20 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
               </div>
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={fecharModalItem}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
+                  type="button"
                   onClick={adicionarItem}
                   disabled={!produtoSelecionado || salvando}
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {salvando ? 'Adicionando...' : 'Adicionar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={fecharModalItem}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  tabIndex={0}
+                >
+                  Cancelar
                 </button>
               </div>
             </div>
