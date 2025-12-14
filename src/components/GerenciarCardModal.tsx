@@ -314,7 +314,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     setTemAlteracoesNaoSalvas(true);
   };
 
-  const salvarAlteracoes = async () => {
+  const salvarAlteracoes = async (fecharAposSalvar: boolean = false) => {
     if (!cardCompleto) return;
 
     try {
@@ -407,6 +407,12 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setItensRemovidos([]);
       setPagamentosRemovidos([]);
       setTemAlteracoesNaoSalvas(false);
+      
+      // Se deve fechar após salvar, fazer isso antes de fechar o modal
+      if (fecharAposSalvar) {
+        await cardClienteService.atualizar(cardCompleto.id, { status: 'FECHADO' });
+        await carregarDados();
+      }
       
       // Passar o card atualizado para o callback, se disponível
       if (cardCompleto) {
@@ -862,34 +868,45 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
               
               return (
                 <div className="pt-4 border-t border-gray-200">
-                  {temAlteracoesNaoSalvas && (
-                    <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-yellow-800 font-medium">⚠️ Alterações não salvas</span>
-                        </div>
-                        <button
-                          onClick={salvarAlteracoes}
-                          disabled={salvando}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {salvando ? 'Salvando...' : 'Salvar Alterações'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                   {cardCompleto?.status === 'ABERTO' ? (
                     <>
-                      <div className="flex gap-3 mb-3">
-                        <button
-                          onClick={fecharCard}
-                          disabled={!saldoIgualZero}
-                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={!saldoIgualZero ? 'O saldo deve ser zero para fechar o card' : ''}
-                        >
-                          Fechar Card
-                        </button>
-                      </div>
+                      {temAlteracoesNaoSalvas && (
+                        <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+                          <div className="text-yellow-800 font-medium mb-3">
+                            ⚠️ Alterações não salvas
+                          </div>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={salvarAlteracoes}
+                              disabled={salvando}
+                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {salvando ? 'Salvando...' : 'Salvar Alterações'}
+                            </button>
+                            {saldoIgualZero && (
+                              <button
+                                onClick={() => salvarAlteracoes(true)}
+                                disabled={salvando}
+                                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {salvando ? 'Salvando...' : 'Salvar e Fechar Card'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {!temAlteracoesNaoSalvas && (
+                        <div className="flex gap-3 mb-3">
+                          <button
+                            onClick={fecharCard}
+                            disabled={!saldoIgualZero}
+                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!saldoIgualZero ? 'O saldo deve ser zero para fechar o card' : ''}
+                          >
+                            Fechar Card
+                          </button>
+                        </div>
+                      )}
                       <div className="border-t border-gray-200 pt-3">
                         <button
                           onClick={cancelarCard}
