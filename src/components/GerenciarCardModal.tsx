@@ -853,7 +853,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
 
             {/* Ações */}
-            {cardCompleto.status === 'ABERTO' && (() => {
+            {cardCompleto && (() => {
               const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
               const valorTotalLocal = valorTotalItens;
               const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
