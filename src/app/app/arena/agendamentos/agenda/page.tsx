@@ -492,6 +492,25 @@ export default function ArenaAgendaSemanalPage() {
   const handleEditar = (agendamento: Agendamento) => {
     setMenuAberto(null);
     setAgendamentoEditando(agendamento);
+    setDataInicialModal(undefined);
+    setHoraInicialModal(undefined);
+    setModalEditarAberto(true);
+  };
+
+  const handleClicarCelulaVazia = (dia: Date, slot: { hora: number; minuto: number }) => {
+    // Formatar data (YYYY-MM-DD)
+    const ano = dia.getFullYear();
+    const mes = String(dia.getMonth() + 1).padStart(2, '0');
+    const diaNum = String(dia.getDate()).padStart(2, '0');
+    const dataFormatada = `${ano}-${mes}-${diaNum}`;
+    
+    // Formatar hora (HH:mm)
+    const horaFormatada = `${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`;
+    
+    // Abrir modal de criação com data e hora pré-preenchidas
+    setAgendamentoEditando(null);
+    setDataInicialModal(dataFormatada);
+    setHoraInicialModal(horaFormatada);
     setModalEditarAberto(true);
   };
 
