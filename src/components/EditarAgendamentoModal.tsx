@@ -731,12 +731,12 @@ export default function EditarAgendamentoModal({
       if (!nomeAvulso.trim()) {
         return 'Informe o nome para agendamento avulso';
       }
-      if (!telefoneAvulso.trim()) {
-        return 'Informe o telefone para agendamento avulso';
-      }
-      const telefoneLimpo = telefoneAvulso.replace(/\D/g, '');
-      if (telefoneLimpo.length < 10) {
-        return 'Telefone inválido';
+      // Telefone é opcional, mas se informado, deve ser válido
+      if (telefoneAvulso.trim()) {
+        const telefoneLimpo = telefoneAvulso.replace(/\D/g, '');
+        if (telefoneLimpo.length < 10) {
+          return 'Telefone inválido';
+        }
       }
     }
 
@@ -1288,7 +1288,7 @@ export default function EditarAgendamentoModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Telefone *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
                   <input
                     type="text"
                     value={telefoneAvulso}
@@ -1300,7 +1300,6 @@ export default function EditarAgendamentoModal({
                         .slice(0, 15);
                       setTelefoneAvulso(masked);
                     }}
-                    required
                     placeholder="(99) 99999-9999"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
