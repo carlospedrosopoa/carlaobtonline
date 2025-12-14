@@ -68,6 +68,12 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   const [observacoesPagamento, setObservacoesPagamento] = useState('');
   const [itensSelecionadosPagamento, setItensSelecionadosPagamento] = useState<string[]>([]);
 
+  // Estados para modal de confirmação de senha
+  const [modalConfirmarSenhaAberto, setModalConfirmarSenhaAberto] = useState(false);
+  const [senhaConfirmacao, setSenhaConfirmacao] = useState('');
+  const [validandoSenha, setValidandoSenha] = useState(false);
+  const [erroSenha, setErroSenha] = useState('');
+
 
   useEffect(() => {
     if (isOpen && card) {
@@ -471,19 +477,53 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     }
   };
 
+  const abrirModalConfirmarSenha = () => {
+    setSenhaConfirmacao('');
+    setErroSenha('');
+    setModalConfirmarSenhaAberto(true);
+  };
+
+  const fecharModalConfirmarSenha = () => {
+    setModalConfirmarSenhaAberto(false);
+    setSenhaConfirmacao('');
+    setErroSenha('');
+  };
+
   const reabrirCard = async () => {
     if (!cardCompleto) return;
 
-    if (!confirm('Tem certeza que deseja reabrir este card?')) return;
+    if (!senhaConfirmacao.trim()) {
+      setErroSenha('Digite sua senha');
+      return;
+    }
 
     try {
+      setValidandoSenha(true);
+      setErroSenha('');
+
+      // Validar senha primeiro
+      const response = await api.post('/user/auth/validate-password', {
+        password: senhaConfirmacao,
+      });
+
+      if (!response.data.valido) {
+        setErroSenha('Senha incorreta');
+        return;
+      }
+
+      // Se a senha for válida, fechar modal de senha e reabrir o card
+      fecharModalConfirmarSenha();
+
       await cardClienteService.atualizar(cardCompleto.id, { status: 'ABERTO' });
       await carregarDados();
       // Buscar card atualizado e passar para o callback
       const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
       onSuccess(cardAtualizado);
     } catch (error: any) {
-      alert(error?.response?.data?.mensagem || 'Erro ao reabrir card');
+      const mensagemErro = error?.response?.data?.mensagem || 'Erro ao validar senha ou reabrir card';
+      setErroSenha(mensagemErro);
+    } finally {
+      setValidandoSenha(false);
     }
   };
 
@@ -867,7 +907,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                       {canGerenciarCard && (
                         <div className="mb-3">
                           <button
-                            onClick={reabrirCard}
+                            onClick={abrirModalConfirmarSenha}
                             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                           >
                             {cardCompleto?.status === 'FECHADO' ? 'Reabrir Card' : 'Reabrir Card (Cancelado)'}
@@ -1156,6 +1196,62 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {salvando ? 'Adicionando...' : 'Adicionar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Confirmar Senha para Reabrir Card */}
+        {modalConfirmarSenhaAberto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Confirmar Senha</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Para reabrir este card, é necessário confirmar sua senha.
+              </p>
+              {erroSenha && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {erroSenha}
+                </div>
+              )}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
+                  <input
+                    type="password"
+                    value={senhaConfirmacao}
+                    onChange={(e) => {
+                      setSenhaConfirmacao(e.target.value);
+                      setErroSenha('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !validandoSenha && senhaConfirmacao.trim()) {
+                        reabrirCard();
+                      }
+                    }}
+                    placeholder="Digite sua senha"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={fecharModalConfirmarSenha}
+                    disabled={validandoSenha}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={reabrirCard}
+                    disabled={validandoSenha || !senhaConfirmacao.trim()}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {validandoSenha ? 'Validando...' : 'Confirmar e Reabrir'}
                   </button>
                 </div>
               </div>
