@@ -713,13 +713,38 @@ export default function EditarAgendamentoModal({
       // Enviar o horário escolhido pelo usuário sem conversão de timezone
       // O backend vai salvar exatamente como informado (tratando como UTC direto)
       // Isso garante que 20h escolhido = 20h gravado no banco
-      const dataHora = `${data}T${hora}:00`;
       const payload: any = {
-        quadraId,
-        dataHora,
-        duracao,
         observacoes: observacoes || undefined,
       };
+
+      // Só enviar dataHora, quadraId e duracao se estiver editando E realmente alterou, ou se estiver criando
+      if (agendamento) {
+        // Modo edição - só enviar campos que foram realmente alterados
+        const dataHoraAtual = agendamento.dataHora;
+        const dataHoraNova = `${data}T${hora}:00`;
+        const dataHoraAtualNormalizada = dataHoraAtual ? dataHoraAtual.substring(0, 16) : null;
+        const dataHoraNovaNormalizada = dataHoraNova.substring(0, 16);
+        
+        // Só enviar dataHora se realmente mudou
+        if (dataHoraAtualNormalizada !== dataHoraNovaNormalizada) {
+          payload.dataHora = dataHoraNova;
+        }
+        
+        // Só enviar quadraId se realmente mudou
+        if (quadraId !== agendamento.quadraId) {
+          payload.quadraId = quadraId;
+        }
+        
+        // Só enviar duracao se realmente mudou
+        if (duracao !== agendamento.duracao) {
+          payload.duracao = duracao;
+        }
+      } else {
+        // Modo criação - enviar todos os campos obrigatórios
+        payload.quadraId = quadraId;
+        payload.dataHora = `${data}T${hora}:00`;
+        payload.duracao = duracao;
+      }
 
       // Se for admin/organizador e mudou o modo, atualiza os campos específicos
       if (canGerenciarAgendamento) {
