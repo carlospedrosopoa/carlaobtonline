@@ -533,12 +533,14 @@ export default function EditarAgendamentoModal({
     }
 
     // Não permitir agendamento no passado (exceto para ADMIN e ORGANIZER)
-    // ADMIN e ORGANIZER podem fazer agendamentos retroativos
+    // ADMIN e ORGANIZER podem fazer agendamentos retroativos e editar agendamentos no passado
     if (dataHoraSelecionada < agora) {
+      // Se não é ADMIN ou ORGANIZER, bloquear agendamento no passado
       if (!canGerenciarAgendamento) {
         return 'Não é possível agendar no passado';
       }
       // Se é ADMIN ou ORGANIZER, não retornar erro - permitir agendamento retroativo
+      // Continuar com as outras validações (conflitos, bloqueios, etc.)
     }
 
     // Verificar conflitos com bloqueios
