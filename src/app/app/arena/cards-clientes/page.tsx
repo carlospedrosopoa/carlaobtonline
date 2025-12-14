@@ -523,8 +523,18 @@ export default function CardsClientesPage() {
             setModalDetalhesAberto(false);
             setCardSelecionado(null);
           }}
-          onSuccess={() => {
-            carregarCards();
+          onSuccess={(cardAtualizado) => {
+            if (cardAtualizado) {
+              // Atualizar apenas o card alterado na lista
+              setCards((prevCards) =>
+                prevCards.map((card) =>
+                  card.id === cardAtualizado.id ? cardAtualizado : card
+                )
+              );
+            } else {
+              // Se não recebeu card atualizado, recarregar toda a lista
+              carregarCards();
+            }
           }}
           onEditar={() => {
             abrirModalEditar(cardSelecionado);

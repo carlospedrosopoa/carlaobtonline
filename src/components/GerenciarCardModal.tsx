@@ -13,7 +13,7 @@ interface GerenciarCardModalProps {
   isOpen: boolean;
   card: CardCliente | null;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (cardAtualizado?: CardCliente) => void;
   onEditar?: () => void;
 }
 
@@ -390,7 +390,15 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       setItensRemovidos([]);
       setPagamentosRemovidos([]);
       setTemAlteracoesNaoSalvas(false);
-      onSuccess();
+      
+      // Passar o card atualizado para o callback, se disponível
+      if (cardCompleto) {
+        // Buscar card atualizado com todos os dados
+        const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
+        onSuccess(cardAtualizado);
+      } else {
+        onSuccess();
+      }
       onClose(); // Fechar o modal após salvar
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao salvar alterações');
@@ -422,7 +430,9 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     try {
       await cardClienteService.atualizar(cardCompleto.id, { status: 'FECHADO' });
       await carregarDados();
-      onSuccess();
+      // Buscar card atualizado e passar para o callback
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
+      onSuccess(cardAtualizado);
       onClose(); // Fechar o modal após fechar o card
     } catch (error: any) {
       alert(error?.response?.data?.mensagem || 'Erro ao fechar card');
@@ -441,8 +451,10 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
     try {
       await cardClienteService.atualizar(cardCompleto.id, { status: 'CANCELADO' });
+      // Buscar card atualizado e passar para o callback
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
       onClose();
-      onSuccess();
+      onSuccess(cardAtualizado);
     } catch (error: any) {
       alert(error?.response?.data?.mensagem || 'Erro ao cancelar card');
     }
@@ -456,7 +468,9 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     try {
       await cardClienteService.atualizar(cardCompleto.id, { status: 'ABERTO' });
       await carregarDados();
-      onSuccess();
+      // Buscar card atualizado e passar para o callback
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
+      onSuccess(cardAtualizado);
     } catch (error: any) {
       alert(error?.response?.data?.mensagem || 'Erro ao reabrir card');
     }
