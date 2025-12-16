@@ -31,6 +31,8 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
   const [valorPagamento, setValorPagamento] = useState<number | null>(null);
   const [observacoesPagamento, setObservacoesPagamento] = useState('');
   const [itensSelecionadosPagamento, setItensSelecionadosPagamento] = useState<string[]>([]);
+  const [numeroPessoas, setNumeroPessoas] = useState<number>(1);
+  const [valorPorPessoa, setValorPorPessoa] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen && card) {
@@ -68,6 +70,8 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
     setValorPagamento(null);
     setObservacoesPagamento('');
     setItensSelecionadosPagamento([]);
+    setNumeroPessoas(1);
+    setValorPorPessoa(null);
     setModalPagamentoAberto(true);
   };
 
@@ -94,22 +98,44 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
   };
 
   const adicionarPagamento = async () => {
-    if (!cardCompleto || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0) {
+    if (!cardCompleto || !formaPagamentoSelecionada) {
       setErro('Preencha todos os campos obrigatórios');
       return;
     }
 
-    const valor = valorPagamento;
-    if (isNaN(valor) || valor <= 0) {
+    // Validar número de pessoas
+    if (numeroPessoas < 1 || numeroPessoas > 20) {
+      setErro('Número de pessoas deve ser entre 1 e 20');
+      return;
+    }
+
+    // Se está dividindo por pessoas, usar valorPorPessoa; senão, usar valorPagamento
+    let valorFinal: number;
+    if (numeroPessoas > 1) {
+      if (valorPorPessoa === null || valorPorPessoa <= 0) {
+        setErro('Informe o valor por pessoa');
+        return;
+      }
+      valorFinal = valorPorPessoa;
+    } else {
+      if (valorPagamento === null || valorPagamento <= 0) {
+        setErro('Preencha o valor do pagamento');
+        return;
+      }
+      valorFinal = valorPagamento;
+    }
+
+    if (isNaN(valorFinal) || valorFinal <= 0) {
       setErro('Valor inválido');
       return;
     }
 
-    // Se há itens selecionados, validar valor
+    // Se há itens selecionados, validar valor total
     if (itensSelecionadosPagamento.length > 0) {
       const valorItens = calcularValorItensSelecionados();
-      if (valor > valorItens) {
-        setErro(`O valor do pagamento (R$ ${valor.toFixed(2)}) não pode ser maior que o valor dos itens selecionados (R$ ${valorItens.toFixed(2)})`);
+      const valorTotal = numeroPessoas > 1 ? valorPorPessoa! * numeroPessoas : valorPagamento!;
+      if (valorTotal > valorItens) {
+        setErro(`O valor total do pagamento (R$ ${valorTotal.toFixed(2)}) não pode ser maior que o valor dos itens selecionados (R$ ${valorItens.toFixed(2)})`);
         return;
       }
     }
@@ -118,15 +144,23 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       setSalvando(true);
       setErro('');
 
-      const payload: CriarPagamentoCardPayload = {
-        cardId: cardCompleto.id,
-        formaPagamentoId: formaPagamentoSelecionada,
-        valor: valor,
-        observacoes: observacoesPagamento || undefined,
-        itemIds: itensSelecionadosPagamento.length > 0 ? itensSelecionadosPagamento : undefined,
-      };
+      // Criar um pagamento para cada pessoa
+      for (let i = 0; i < numeroPessoas; i++) {
+        const observacoesComPessoa = numeroPessoas > 1 
+          ? `${observacoesPagamento || ''} (Pessoa ${i + 1} de ${numeroPessoas})`.trim()
+          : observacoesPagamento || undefined;
 
-      await pagamentoCardService.criar(cardCompleto.id, payload);
+        const payload: CriarPagamentoCardPayload = {
+          cardId: cardCompleto.id,
+          formaPagamentoId: formaPagamentoSelecionada,
+          valor: valorFinal,
+          observacoes: observacoesComPessoa,
+          itemIds: itensSelecionadosPagamento.length > 0 ? itensSelecionadosPagamento : undefined,
+        };
+
+        await pagamentoCardService.criar(cardCompleto.id, payload);
+      }
+
       // Buscar card atualizado para refletir na listagem principal
       const cardAtualizado = await cardClienteService.obter(cardCompleto.id, false, true, false);
       await carregarDados();
@@ -394,25 +428,74 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                 </div>
               )}
 
+              {/* Divisão por pessoas */}
               <div>
-                <InputMonetario
-                  label={itensSelecionadosPagamento.length > 0 ? 'Valor (será ajustado automaticamente se necessário)' : 'Valor'}
-                  value={valorPagamento}
-                  onChange={setValorPagamento}
-                  placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0,00"}
-                  min={0}
-                  required
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dividir pagamento por quantas pessoas?
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={numeroPessoas}
+                  onChange={(e) => {
+                    const num = parseInt(e.target.value) || 1;
+                    setNumeroPessoas(num);
+                    // Se mudar número de pessoas e já tiver valor total, recalcular valor por pessoa
+                    if (valorPagamento !== null && valorPagamento > 0 && num > 1) {
+                      setValorPorPessoa(valorPagamento / num);
+                    } else if (num === 1) {
+                      setValorPorPessoa(null);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
-                {itensSelecionadosPagamento.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setValorPagamento(calcularValorItensSelecionados())}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Usar valor dos itens selecionados
-                  </button>
-                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  {numeroPessoas > 1 
+                    ? `Serão criados ${numeroPessoas} pagamentos separados, um para cada pessoa.`
+                    : 'Um único pagamento será criado.'}
+                </p>
               </div>
+
+              {numeroPessoas > 1 ? (
+                <div>
+                  <InputMonetario
+                    label="Valor por pessoa *"
+                    value={valorPorPessoa}
+                    onChange={setValorPorPessoa}
+                    placeholder="0,00"
+                    min={0}
+                    required
+                  />
+                  {valorPorPessoa !== null && valorPorPessoa > 0 && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded-lg">
+                      <div className="text-sm font-medium text-blue-900">
+                        Valor total: {formatarMoeda(valorPorPessoa * numeroPessoas)} ({numeroPessoas} × {formatarMoeda(valorPorPessoa)})
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <InputMonetario
+                    label={itensSelecionadosPagamento.length > 0 ? 'Valor (será ajustado automaticamente se necessário)' : 'Valor *'}
+                    value={valorPagamento}
+                    onChange={setValorPagamento}
+                    placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0,00"}
+                    min={0}
+                    required
+                  />
+                  {itensSelecionadosPagamento.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setValorPagamento(calcularValorItensSelecionados())}
+                      className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      Usar valor dos itens selecionados
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
@@ -434,10 +517,15 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                 </button>
                 <button
                   onClick={adicionarPagamento}
-                  disabled={salvando || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0}
+                  disabled={
+                    salvando || 
+                    !formaPagamentoSelecionada || 
+                    (numeroPessoas === 1 && (valorPagamento === null || valorPagamento <= 0)) ||
+                    (numeroPessoas > 1 && (valorPorPessoa === null || valorPorPessoa <= 0))
+                  }
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {salvando ? 'Adicionando...' : 'Adicionar'}
+                  {salvando ? 'Adicionando...' : numeroPessoas > 1 ? `Adicionar ${numeroPessoas} Pagamentos` : 'Adicionar'}
                 </button>
               </div>
             </div>
