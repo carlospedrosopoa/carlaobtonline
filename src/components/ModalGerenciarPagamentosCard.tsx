@@ -404,7 +404,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento *</div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento *</label>
                 <div className="flex flex-wrap gap-2">
                   {formasPagamento.map((forma) => {
                     const selecionada = formaPagamentoSelecionada === forma.id;
