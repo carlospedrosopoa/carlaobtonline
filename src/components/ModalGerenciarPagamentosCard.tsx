@@ -404,19 +404,29 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento *</label>
-                <select
-                  value={formaPagamentoSelecionada}
-                  onChange={(e) => setFormaPagamentoSelecionada(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                >
-                  <option value="">Selecione uma forma de pagamento</option>
-                  {formasPagamento.map((forma) => (
-                    <option key={forma.id} value={forma.id}>
-                      {forma.nome}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento *</div>
+                <div className="flex flex-wrap gap-2">
+                  {formasPagamento.map((forma) => {
+                    const selecionada = formaPagamentoSelecionada === forma.id;
+                    return (
+                      <button
+                        key={forma.id}
+                        type="button"
+                        onClick={() => setFormaPagamentoSelecionada(forma.id)}
+                        className={`px-3 py-2 text-sm rounded-full border transition-colors ${
+                          selecionada
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                        }`}
+                      >
+                        {forma.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                {formaPagamentoSelecionada === '' && (
+                  <p className="mt-1 text-xs text-red-500">Selecione uma forma de pagamento.</p>
+                )}
               </div>
 
               {/* Seleção de Itens */}
