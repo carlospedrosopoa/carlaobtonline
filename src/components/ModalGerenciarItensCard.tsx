@@ -199,6 +199,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                     {/* Produtos de acesso rápido */}
                     {produtos
                       .filter((p) => p.acessoRapido)
+                      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
                       .slice(0, 5)
                       .map((produto) => (
                         <button
