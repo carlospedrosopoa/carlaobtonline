@@ -1339,41 +1339,22 @@ export default function ArenaAgendaSemanalPage() {
         erro={erroLimpeza}
       />
 
-      {/* Modal de Quadras Disponíveis por Horário */}
+      {/* Modal de Horários Disponíveis por Data */}
       <QuadrasDisponiveisPorHorarioModal
         isOpen={modalQuadrasDisponiveisAberto}
         onClose={() => setModalQuadrasDisponiveisAberto(false)}
-        quadras={quadras}
-        onSelecionarQuadra={(quadraId, data, hora) => {
-          // Abrir modal de novo agendamento com os dados preenchidos
+        dataInicial={dataInicialModal}
+        duracaoInicial={60}
+        onSelecionarHorario={(data, hora, duracao) => {
           setModalQuadrasDisponiveisAberto(false);
-          // Criar um agendamento temporário apenas para passar os dados iniciais
-          // Mas com id vazio para que seja tratado como criação
-          const agendamentoTemp = {
-            id: '', // ID vazio indica que é criação
-            quadraId,
-            usuarioId: usuario?.id || '',
-            atletaId: null,
-            nomeAvulso: null,
-            telefoneAvulso: null,
-            dataHora: `${data}T${hora}:00`,
-            duracao: 60,
-            valorHora: null,
-            valorCalculado: null,
-            valorNegociado: null,
-            status: 'CONFIRMADO' as StatusAgendamento,
-            observacoes: null,
-            recorrenciaId: null,
-            recorrenciaConfig: null,
-            createdAt: '',
-            updatedAt: '',
-            quadra: quadras.find(q => q.id === quadraId) || quadras[0],
-            usuario: null,
-            atleta: null,
-          };
-          setAgendamentoEditando(agendamentoTemp as Agendamento);
+          setDataInicialModal(data);
+          setHoraInicialModal(hora);
+          setAgendamentoEditando(null);
           setModalEditarAberto(true);
         }}
+        pointIdsPermitidos={
+          isAdmin ? undefined : isOrganizer && usuario?.pointIdGestor ? [usuario.pointIdGestor] : []
+        }
       />
 
       {/* Tooltip de Observações */}
