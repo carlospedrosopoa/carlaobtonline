@@ -8,6 +8,7 @@ import { userService } from '@/services/userService';
 import type { Produto, FormaPagamento, CriarVendaRapidaPayload } from '@/types/gestaoArena';
 import type { UsuarioAdmin } from '@/services/userService';
 import { X, Plus, Trash2, ShoppingCart, CreditCard, Search, User, UserPlus } from 'lucide-react';
+import InputMonetario from './InputMonetario';
 
 interface ItemCarrinho {
   produtoId: string;
@@ -640,14 +641,15 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                           </div>
                           <div className="flex items-center gap-2">
                             <label className="text-sm text-gray-700">Preço:</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={typeof item.precoUnitario === 'number' ? item.precoUnitario.toFixed(2) : '0.00'}
-                              onChange={(e) => atualizarPrecoUnitario(item.produtoId, e.target.value)}
-                              className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                            />
+                            <div className="w-28">
+                              <InputMonetario
+                                value={typeof item.precoUnitario === 'number' ? item.precoUnitario : null}
+                                onChange={(valor) => atualizarPrecoUnitario(item.produtoId, (valor ?? 0).toString())}
+                                placeholder="0,00"
+                                className="text-sm"
+                                min={0}
+                              />
+                            </div>
                           </div>
                           <div className="ml-auto font-semibold text-emerald-600">
                             {formatarMoeda(item.precoTotal)}
