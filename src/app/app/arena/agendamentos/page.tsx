@@ -7,6 +7,7 @@ import { quadraService, agendamentoService, bloqueioAgendaService } from '@/serv
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelamentoRecorrenteModal';
 import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoRecorrenteModal';
+import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
 import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search, Lock } from 'lucide-react';
 
@@ -26,6 +27,10 @@ export default function ArenaAgendamentosPage() {
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
   const [agendamentoExcluindo, setAgendamentoExcluindo] = useState<Agendamento | null>(null);
+  const [modalHorariosAberto, setModalHorariosAberto] = useState(false);
+  const [dataInicialModal, setDataInicialModal] = useState<string | undefined>(undefined);
+  const [horaInicialModal, setHoraInicialModal] = useState<string | undefined>(undefined);
+  const [duracaoInicialModal, setDuracaoInicialModal] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     carregarDados();
@@ -136,6 +141,27 @@ export default function ArenaAgendamentosPage() {
       alert(error?.response?.data?.mensagem || 'Erro ao excluir agendamento');
     }
   };
+
+  const handleSelecionarHorario = (data: string, hora: string, duracao: number) => {
+    setDataInicialModal(data);
+    setHoraInicialModal(hora);
+    setDuracaoInicialModal(duracao);
+    setModalHorariosAberto(false);
+    setAgendamentoEditando(null);
+    setModalEditarAberto(true);
+  };
+
+  // Obter pointIds permitidos (para organizador, apenas o pointIdGestor; para admin, todos)
+  const pointIdsPermitidos = useMemo(() => {
+    if (isAdmin) {
+      // Admin pode ver todas as quadras, então não filtra
+      return undefined;
+    }
+    if (isOrganizer && usuario?.pointIdGestor) {
+      return [usuario.pointIdGestor];
+    }
+    return [];
+  }, [isAdmin, isOrganizer, usuario?.pointIdGestor]);
 
   const getStatusBadge = (status: StatusAgendamento) => {
     const styles = {
@@ -272,16 +298,30 @@ export default function ArenaAgendamentosPage() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Agenda</h1>
           <p className="text-gray-600">Gerencie todos os agendamentos da sua arena</p>
         </div>
-        <button
-          onClick={() => {
-            setAgendamentoEditando(null);
-            setModalEditarAberto(true);
-          }}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-        >
-          <Plus className="w-5 h-5" />
-          Novo Agendamento
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={() => {
+              setModalHorariosAberto(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+          >
+            <Clock className="w-4 h-4" />
+            Ver horários disponíveis
+          </button>
+          <button
+            onClick={() => {
+              setAgendamentoEditando(null);
+              setDataInicialModal(undefined);
+              setHoraInicialModal(undefined);
+              setDuracaoInicialModal(undefined);
+              setModalEditarAberto(true);
+            }}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            <Plus className="w-5 h-5" />
+            Novo Agendamento
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -666,16 +706,35 @@ export default function ArenaAgendamentosPage() {
         </div>
       )}
 
+      {/* Modal de Horários Disponíveis */}
+      <QuadrasDisponiveisPorHorarioModal
+        isOpen={modalHorariosAberto}
+        onClose={() => setModalHorariosAberto(false)}
+        dataInicial={dataInicialModal}
+        duracaoInicial={duracaoInicialModal}
+        onSelecionarHorario={handleSelecionarHorario}
+        pointIdsPermitidos={pointIdsPermitidos}
+      />
+
       {/* Modal de Edição */}
       <EditarAgendamentoModal
         isOpen={modalEditarAberto}
         agendamento={agendamentoEditando}
+        dataInicial={dataInicialModal}
+        horaInicial={horaInicialModal}
         onClose={() => {
           setModalEditarAberto(false);
           setAgendamentoEditando(null);
+          setDataInicialModal(undefined);
+          setHoraInicialModal(undefined);
+          setDuracaoInicialModal(undefined);
         }}
         onSuccess={() => {
           carregarAgendamentos();
+          // Limpar dados iniciais após sucesso
+          setDataInicialModal(undefined);
+          setHoraInicialModal(undefined);
+          setDuracaoInicialModal(undefined);
           // O componente agora mantém o modal aberto se a flag estiver marcada
           // Então só fechamos se não houver flag marcada (comportamento normal)
           // O componente gerencia isso internamente, não precisamos fazer nada aqui
