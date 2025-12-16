@@ -12,7 +12,7 @@ interface ModalGerenciarPagamentosCardProps {
   isOpen: boolean;
   card: CardCliente | null;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (cardAtualizado?: CardCliente) => void;
 }
 
 export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, onSuccess }: ModalGerenciarPagamentosCardProps) {
@@ -127,7 +127,10 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       };
 
       await pagamentoCardService.criar(cardCompleto.id, payload);
+      // Buscar card atualizado para refletir na listagem principal
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, false, true, false);
       await carregarDados();
+      onSuccess(cardAtualizado);
       fecharModalPagamento();
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao adicionar pagamento');
@@ -142,7 +145,10 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
     try {
       setSalvando(true);
       await pagamentoCardService.deletar(cardCompleto.id, pagamentoId);
+      // Buscar card atualizado para refletir na listagem principal
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, false, true, false);
       await carregarDados();
+      onSuccess(cardAtualizado);
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao remover pagamento');
     } finally {

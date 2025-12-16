@@ -12,7 +12,7 @@ interface ModalGerenciarItensCardProps {
   isOpen: boolean;
   card: CardCliente | null;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (cardAtualizado?: CardCliente) => void;
 }
 
 export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSuccess }: ModalGerenciarItensCardProps) {
@@ -109,7 +109,10 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
       };
 
       await itemCardService.criar(cardCompleto.id, payload);
+      // Buscar card atualizado para refletir na listagem principal
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
       await carregarDados();
+      onSuccess(cardAtualizado);
       fecharModalItem();
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao adicionar item');
@@ -124,7 +127,10 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
     try {
       setSalvando(true);
       await itemCardService.deletar(cardCompleto.id, itemId);
+      // Buscar card atualizado para refletir na listagem principal
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
       await carregarDados();
+      onSuccess(cardAtualizado);
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao remover item');
     } finally {

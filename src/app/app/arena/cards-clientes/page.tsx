@@ -560,8 +560,14 @@ export default function CardsClientesPage() {
             setModalItensAberto(false);
             setCardGerenciando(null);
           }}
-          onSuccess={() => {
-            carregarCards();
+          onSuccess={(cardAtualizado) => {
+            if (cardAtualizado) {
+              setCards((prevCards) =>
+                prevCards.map((card) => (card.id === cardAtualizado.id ? cardAtualizado : card))
+              );
+            } else {
+              carregarCards();
+            }
           }}
         />
       )}
@@ -575,8 +581,14 @@ export default function CardsClientesPage() {
             setModalPagamentosAberto(false);
             setCardGerenciando(null);
           }}
-          onSuccess={() => {
-            carregarCards();
+          onSuccess={(cardAtualizado) => {
+            if (cardAtualizado) {
+              setCards((prevCards) =>
+                prevCards.map((card) => (card.id === cardAtualizado.id ? cardAtualizado : card))
+              );
+            } else {
+              carregarCards();
+            }
           }}
         />
       )}
