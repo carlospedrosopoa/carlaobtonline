@@ -103,7 +103,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       return;
     }
 
-    // Validar número de pessoas
+    // Validar número de pessoas (apenas para cálculo, não cria múltiplos pagamentos)
     if (numeroPessoas < 1 || numeroPessoas > 20) {
       setErro('Número de pessoas deve ser entre 1 e 20');
       return;
@@ -144,28 +144,36 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       setSalvando(true);
       setErro('');
 
-      // Criar um pagamento para cada pessoa
-      for (let i = 0; i < numeroPessoas; i++) {
-        const observacoesComPessoa = numeroPessoas > 1 
-          ? `${observacoesPagamento || ''} (Pessoa ${i + 1} de ${numeroPessoas})`.trim()
-          : observacoesPagamento || undefined;
+      // Criar apenas UM pagamento por vez (cada pessoa pode ter forma de pagamento diferente)
+      const observacoesComPessoa = numeroPessoas > 1 
+        ? `${observacoesPagamento || ''} (${numeroPessoas} pessoas dividindo)`.trim()
+        : observacoesPagamento || undefined;
 
-        const payload: CriarPagamentoCardPayload = {
-          cardId: cardCompleto.id,
-          formaPagamentoId: formaPagamentoSelecionada,
-          valor: valorFinal,
-          observacoes: observacoesComPessoa,
-          itemIds: itensSelecionadosPagamento.length > 0 ? itensSelecionadosPagamento : undefined,
-        };
+      const payload: CriarPagamentoCardPayload = {
+        cardId: cardCompleto.id,
+        formaPagamentoId: formaPagamentoSelecionada,
+        valor: valorFinal,
+        observacoes: observacoesComPessoa,
+        itemIds: itensSelecionadosPagamento.length > 0 ? itensSelecionadosPagamento : undefined,
+      };
 
-        await pagamentoCardService.criar(cardCompleto.id, payload);
-      }
-
+      await pagamentoCardService.criar(cardCompleto.id, payload);
+      
       // Buscar card atualizado para refletir na listagem principal
       const cardAtualizado = await cardClienteService.obter(cardCompleto.id, false, true, false);
       await carregarDados();
       onSuccess(cardAtualizado);
-      fecharModalPagamento();
+      
+      // Se está dividindo por pessoas, manter os valores preenchidos mas limpar a forma de pagamento
+      // para que o atendente possa adicionar o próximo pagamento com outra forma
+      if (numeroPessoas > 1 && valorPorPessoa !== null) {
+        setFormaPagamentoSelecionada(''); // Limpar forma de pagamento para próximo pagamento
+        setObservacoesPagamento(''); // Limpar observações
+        setItensSelecionadosPagamento([]); // Limpar itens selecionados
+        // Manter numeroPessoas e valorPorPessoa preenchidos
+      } else {
+        fecharModalPagamento();
+      }
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao adicionar pagamento');
     } finally {
@@ -477,7 +485,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {numeroPessoas > 1 
-                    ? `Serão criados ${numeroPessoas} pagamentos separados, um para cada pessoa.`
+                    ? `O valor será preenchido automaticamente. Adicione um pagamento por vez para poder escolher formas de pagamento diferentes.`
                     : 'Um único pagamento será criado.'}
                 </p>
               </div>
@@ -550,7 +558,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                   }
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {salvando ? 'Adicionando...' : numeroPessoas > 1 ? `Adicionar ${numeroPessoas} Pagamentos` : 'Adicionar'}
+                  {salvando ? 'Adicionando...' : numeroPessoas > 1 ? `Adicionar Pagamento (${numeroPessoas} pessoas)` : 'Adicionar'}
                 </button>
               </div>
             </div>
