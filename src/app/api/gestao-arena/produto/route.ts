@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const categoria = searchParams.get('categoria');
 
     let sql = `SELECT 
-      id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "createdAt", "updatedAt"
+      id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "createdAt", "updatedAt", "acessoRapido"
     FROM "Produto"
     WHERE 1=1`;
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CriarProdutoPayload = await request.json();
-    const { pointId, nome, descricao, precoVenda, precoCusto, categoria, ativo = true } = body;
+    const { pointId, nome, descricao, precoVenda, precoCusto, categoria, ativo = true, acessoRapido = false } = body;
 
     if (!pointId || !nome || precoVenda === undefined) {
       return NextResponse.json(
@@ -123,11 +123,11 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO "Produto" (
-        id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "createdAt", "updatedAt"
+        id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "acessoRapido", "createdAt", "updatedAt"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
       ) RETURNING *`,
-      [pointId, nome, descricao || null, precoVenda, precoCusto || null, categoria || null, ativo]
+      [pointId, nome, descricao || null, precoVenda, precoCusto || null, categoria || null, ativo, acessoRapido]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });

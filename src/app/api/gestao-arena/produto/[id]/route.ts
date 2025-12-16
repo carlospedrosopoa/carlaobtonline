@@ -154,6 +154,11 @@ export async function PUT(
       values.push(body.ativo);
       paramCount++;
     }
+    if (body.acessoRapido !== undefined) {
+      updates.push(`"acessoRapido" = $${paramCount}`);
+      values.push(body.acessoRapido);
+      paramCount++;
+    }
 
     if (updates.length === 0) {
       return NextResponse.json(
