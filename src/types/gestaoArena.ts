@@ -101,6 +101,7 @@ export interface Produto {
   precoCusto?: number | null;
   categoria?: string | null;
   ativo: boolean;
+  acessoRapido?: boolean; // flag opcional para produtos de acesso rápido
   createdAt: string;
   updatedAt: string;
 }
@@ -113,6 +114,7 @@ export interface CriarProdutoPayload {
   precoCusto?: number;
   categoria?: string;
   ativo?: boolean;
+  acessoRapido?: boolean;
 }
 
 export interface AtualizarProdutoPayload {
@@ -122,6 +124,7 @@ export interface AtualizarProdutoPayload {
   precoCusto?: number;
   categoria?: string;
   ativo?: boolean;
+  acessoRapido?: boolean;
 }
 
 // ============================================

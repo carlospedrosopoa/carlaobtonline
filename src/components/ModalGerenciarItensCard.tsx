@@ -185,16 +185,68 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                 </div>
               )}
 
-              {/* Botão Adicionar Item */}
+              {/* Botão Adicionar Item + Acesso Rápido */}
               {cardCompleto?.status === 'ABERTO' && (
-                <div className="mb-4">
-                  <button
-                    onClick={abrirModalItem}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Adicionar Item
-                  </button>
+                <div className="mb-4 flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={abrirModalItem}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Adicionar Item
+                    </button>
+                    {/* Produtos de acesso rápido */}
+                    {produtos
+                      .filter((p) => p.acessoRapido)
+                      .slice(0, 5)
+                      .map((produto) => (
+                        <button
+                          key={produto.id}
+                          type="button"
+                          onClick={async () => {
+                            if (!cardCompleto) return;
+                            try {
+                              setSalvando(true);
+                              setErro('');
+                              const precoUnitario = parseFloat(produto.precoVenda.toString());
+                              const payload: CriarItemCardPayload = {
+                                cardId: cardCompleto.id,
+                                produtoId: produto.id,
+                                quantidade: 1,
+                                precoUnitario,
+                              };
+                              await itemCardService.criar(cardCompleto.id, payload);
+                              const cardAtualizado = await cardClienteService.obter(
+                                cardCompleto.id,
+                                true,
+                                true,
+                                false,
+                              );
+                              await carregarDados();
+                              onSuccess(cardAtualizado);
+                            } catch (error: any) {
+                              setErro(
+                                error?.response?.data?.mensagem ||
+                                  `Erro ao adicionar rapidamente o produto "${produto.nome}"`,
+                              );
+                            } finally {
+                              setSalvando(false);
+                            }
+                          }}
+                          className="px-3 py-2 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-medium hover:bg-emerald-100 transition-colors"
+                          title={`Adicionar 1x ${produto.nome}`}
+                        >
+                          {produto.nome}
+                        </button>
+                      ))}
+                  </div>
+                  {produtos.filter((p) => p.acessoRapido).length > 0 && (
+                    <p className="text-[11px] text-gray-500">
+                      Toque em um produto de acesso rápido para adicioná-lo diretamente ao card com quantidade 1 e
+                      preço padrão.
+                    </p>
+                  )}
                 </div>
               )}
 

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { produtoService } from '@/services/gestaoArenaService';
 import type { Produto, CriarProdutoPayload, AtualizarProdutoPayload } from '@/types/gestaoArena';
-import { Plus, Search, Package, Edit, Trash2, CheckCircle, XCircle, DollarSign } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, CheckCircle, XCircle, DollarSign, Zap } from 'lucide-react';
 
 export default function ProdutosPage() {
   const { usuario } = useAuth();
@@ -26,6 +26,7 @@ export default function ProdutosPage() {
     precoCusto: undefined,
     categoria: '',
     ativo: true,
+    acessoRapido: false,
   });
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function ProdutosPage() {
         precoCusto: produto.precoCusto || undefined,
         categoria: produto.categoria || '',
         ativo: produto.ativo,
+        acessoRapido: produto.acessoRapido ?? false,
       });
     } else {
       setProdutoEditando(null);
@@ -71,6 +73,7 @@ export default function ProdutosPage() {
         precoCusto: undefined,
         categoria: '',
         ativo: true,
+        acessoRapido: false,
       });
     }
     setErro('');
@@ -101,6 +104,7 @@ export default function ProdutosPage() {
           precoCusto: form.precoCusto || undefined,
           categoria: form.categoria || undefined,
           ativo: form.ativo,
+          acessoRapido: form.acessoRapido,
         };
         await produtoService.atualizar(produtoEditando.id, payload);
       } else {
@@ -134,6 +138,7 @@ export default function ProdutosPage() {
   });
 
   const categorias = Array.from(new Set(produtos.map((p) => p.categoria).filter((cat): cat is string => Boolean(cat))));
+  const produtosAcessoRapido = produtos.filter((p) => p.acessoRapido);
 
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -253,7 +258,7 @@ export default function ProdutosPage() {
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Preço de Venda:</span>
                 <span className="font-semibold text-gray-900 flex items-center gap-1">
@@ -267,6 +272,38 @@ export default function ProdutosPage() {
                   <span className="font-semibold text-gray-700">{formatarMoeda(produto.precoCusto)}</span>
                 </div>
               )}
+
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
+                <span className="text-xs text-gray-600 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-500" />
+                  Acesso rápido
+                </span>
+                <label className="inline-flex items-center gap-1 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={produto.acessoRapido ?? false}
+                    onChange={async (e) => {
+                      const novoValor = e.target.checked;
+                      if (novoValor) {
+                        // Limitar a no máximo 5 produtos com acesso rápido
+                        const totalAtual = produtosAcessoRapido.length;
+                        if (totalAtual >= 5) {
+                          alert('Você pode marcar no máximo 5 produtos como acesso rápido.');
+                          return;
+                        }
+                      }
+                      try {
+                        await produtoService.atualizar(produto.id, { acessoRapido: novoValor });
+                        await carregarProdutos();
+                      } catch (error: any) {
+                        alert(error?.response?.data?.mensagem || 'Erro ao atualizar acesso rápido do produto');
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <span>{(produto.acessoRapido ?? false) ? 'Ativado' : 'Desativado'}</span>
+                </label>
+              </div>
             </div>
           </div>
         ))}
