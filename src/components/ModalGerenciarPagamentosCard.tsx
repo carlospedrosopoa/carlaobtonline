@@ -97,6 +97,46 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
     });
   };
 
+  // Calcular saldo atual
+  const calcularSaldo = () => {
+    if (!cardCompleto) return 0;
+    const valorTotalItens = itens.reduce((sum, item) => sum + item.precoTotal, 0);
+    const totalPago = pagamentos.reduce((sum, pag) => sum + pag.valor, 0);
+    return valorTotalItens - totalPago;
+  };
+
+  // Preencher valor automaticamente quando itens são selecionados ou quando modal abre
+  useEffect(() => {
+    if (!modalPagamentoAberto || !cardCompleto) return;
+    
+    if (itensSelecionadosPagamento.length > 0) {
+      const valorItens = calcularValorItensSelecionados();
+      if (valorItens > 0 && valorPagamento !== valorItens) {
+        setValorPagamento(valorItens);
+      }
+    } else if (valorPagamento === null || valorPagamento === 0) {
+      // Se não há itens selecionados e valor ainda não foi preenchido, usar saldo
+      const saldo = calcularSaldo();
+      if (saldo > 0) {
+        setValorPagamento(saldo);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itensSelecionadosPagamento.length, modalPagamentoAberto]);
+
+  // Recalcular valor por pessoa quando valor ou numeroPessoas mudar
+  useEffect(() => {
+    if (numeroPessoas > 1 && valorPagamento !== null && valorPagamento > 0) {
+      const novoValorPorPessoa = valorPagamento / numeroPessoas;
+      if (valorPorPessoa !== novoValorPorPessoa) {
+        setValorPorPessoa(novoValorPorPessoa);
+      }
+    } else if (numeroPessoas === 1) {
+      setValorPorPessoa(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valorPagamento, numeroPessoas]);
+
   const adicionarPagamento = async () => {
     if (!cardCompleto || !formaPagamentoSelecionada) {
       setErro('Preencha todos os campos obrigatórios');
@@ -403,33 +443,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
             )}
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento *</label>
-                <div className="flex flex-wrap gap-2">
-                  {formasPagamento.map((forma) => {
-                    const selecionada = formaPagamentoSelecionada === forma.id;
-                    return (
-                      <button
-                        key={forma.id}
-                        type="button"
-                        onClick={() => setFormaPagamentoSelecionada(forma.id)}
-                        className={`px-3 py-2 text-sm rounded-full border transition-colors ${
-                          selecionada
-                            ? 'bg-emerald-600 text-white border-emerald-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                        }`}
-                      >
-                        {forma.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                {formaPagamentoSelecionada === '' && (
-                  <p className="mt-1 text-xs text-red-500">Selecione uma forma de pagamento.</p>
-                )}
-              </div>
-
-              {/* Seleção de Itens */}
+              {/* 1. Seleção de Itens */}
               {itens.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -471,75 +485,107 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                 </div>
               )}
 
-              {/* Divisão por pessoas */}
+              {/* 2. Valor a pagar */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dividir pagamento por quantas pessoas?
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={numeroPessoas}
-                  onChange={(e) => {
-                    const num = parseInt(e.target.value) || 1;
-                    setNumeroPessoas(num);
-                    // Se mudar número de pessoas e já tiver valor total, recalcular valor por pessoa
-                    if (valorPagamento !== null && valorPagamento > 0 && num > 1) {
-                      setValorPorPessoa(valorPagamento / num);
-                    } else if (num === 1) {
-                      setValorPorPessoa(null);
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                <InputMonetario
+                  label={itensSelecionadosPagamento.length > 0 ? 'Valor a Pagar *' : 'Valor a Pagar *'}
+                  value={valorPagamento}
+                  onChange={setValorPagamento}
+                  placeholder={itensSelecionadosPagamento.length > 0 
+                    ? calcularValorItensSelecionados().toFixed(2) 
+                    : calcularSaldo() > 0 
+                      ? calcularSaldo().toFixed(2) 
+                      : "0,00"}
+                  min={0}
+                  required
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  {numeroPessoas > 1 
-                    ? `O valor será preenchido automaticamente. Adicione um pagamento por vez para poder escolher formas de pagamento diferentes.`
-                    : 'Um único pagamento será criado.'}
-                </p>
+                {itensSelecionadosPagamento.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setValorPagamento(calcularValorItensSelecionados())}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Usar valor dos itens selecionados
+                  </button>
+                )}
+                {itensSelecionadosPagamento.length === 0 && calcularSaldo() > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setValorPagamento(calcularSaldo())}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Usar valor em aberto
+                  </button>
+                )}
               </div>
 
-              {numeroPessoas > 1 ? (
+              {/* 3. Dividir pagamento e Valor por pessoa (ao lado) */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <InputMonetario
-                    label="Valor por pessoa *"
-                    value={valorPorPessoa}
-                    onChange={setValorPorPessoa}
-                    placeholder="0,00"
-                    min={0}
-                    required
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dividir pagamento por quantas pessoas?
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={numeroPessoas}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value) || 1;
+                      setNumeroPessoas(num);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
-                  {valorPorPessoa !== null && valorPorPessoa > 0 && (
-                    <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                      <div className="text-sm font-medium text-blue-900">
-                        Valor total: {formatarMoeda(valorPorPessoa * numeroPessoas)} ({numeroPessoas} × {formatarMoeda(valorPorPessoa)})
-                      </div>
+                </div>
+                {numeroPessoas > 1 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valor por pessoa (calculado)
+                    </label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      {valorPorPessoa !== null && valorPorPessoa > 0 
+                        ? formatarMoeda(valorPorPessoa)
+                        : '0,00'}
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <InputMonetario
-                    label={itensSelecionadosPagamento.length > 0 ? 'Valor (será ajustado automaticamente se necessário)' : 'Valor *'}
-                    value={valorPagamento}
-                    onChange={setValorPagamento}
-                    placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0,00"}
-                    min={0}
-                    required
-                  />
-                  {itensSelecionadosPagamento.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setValorPagamento(calcularValorItensSelecionados())}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      Usar valor dos itens selecionados
-                    </button>
-                  )}
-                </div>
-              )}
+                    {valorPorPessoa !== null && valorPorPessoa > 0 && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded-lg">
+                        <div className="text-xs font-medium text-blue-900">
+                          Total: {formatarMoeda(valorPorPessoa * numeroPessoas)} ({numeroPessoas} × {formatarMoeda(valorPorPessoa)})
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
+              {/* 4. Botões de Forma de Pagamento */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento *</label>
+                <div className="flex flex-wrap gap-2">
+                  {formasPagamento.map((forma) => {
+                    const selecionada = formaPagamentoSelecionada === forma.id;
+                    return (
+                      <button
+                        key={forma.id}
+                        type="button"
+                        onClick={() => setFormaPagamentoSelecionada(forma.id)}
+                        className={`px-3 py-2 text-sm rounded-full border transition-colors ${
+                          selecionada
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                        }`}
+                      >
+                        {forma.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                {formaPagamentoSelecionada === '' && (
+                  <p className="mt-1 text-xs text-red-500">Selecione uma forma de pagamento.</p>
+                )}
+              </div>
+
+              {/* 5. Observação do pagamento */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
                 <textarea
