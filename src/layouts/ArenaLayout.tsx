@@ -87,6 +87,12 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         { to: '/app/arena/tipo-despesa', label: 'Tipo de Despesa' },
       ],
     },
+    {
+      label: 'Atletas',
+      items: [
+        { to: '/app/arena/atletas', label: 'Lista de Atletas' },
+      ],
+    },
   ];
 
   const isItemActive = (item: NavItem) => {
