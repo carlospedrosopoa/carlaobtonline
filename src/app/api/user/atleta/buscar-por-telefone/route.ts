@@ -1,22 +1,14 @@
 // app/api/user/atleta/buscar-por-telefone/route.ts
-// Endpoint para buscar ou criar atleta por telefone (para adicionar participantes)
+// Endpoint para buscar atleta por telefone (público para criação de conta)
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { getUsuarioFromRequest } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 
 // POST /api/user/atleta/buscar-por-telefone
-// Busca um atleta pelo telefone. Se não existir, cria um atleta "avulso" temporário
+// Busca um atleta pelo telefone (rota pública para criação de conta)
 export async function POST(request: NextRequest) {
   try {
-    const usuario = await getUsuarioFromRequest(request);
-    if (!usuario) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Não autenticado' },
-        { status: 401 }
-      );
-      return withCors(errorResponse, request);
-    }
+    // Rota pública - não requer autenticação para criação de conta
 
     const body = await request.json();
     const { telefone } = body as { telefone: string };
@@ -50,46 +42,30 @@ export async function POST(request: NextRequest) {
       apenasNumeros: telefoneApenasNumeros
     });
 
-    // Buscar usando REGEXP_REPLACE para normalizar o telefone do banco também
-    // Isso permite encontrar telefones mesmo se estiverem com formatação diferente
+    // Buscar atleta por telefone (com ou sem usuário vinculado)
     const atletaExistente = await query(
-      `SELECT id, nome, fone FROM "Atleta" 
-       WHERE REGEXP_REPLACE(fone, '[^0-9]', '', 'g') = $1 
-         AND "usuarioId" IS NOT NULL 
-       LIMIT 1`,
+      `SELECT 
+        a.id,
+        a.nome,
+        a.fone as telefone,
+        a."usuarioId",
+        u.email
+      FROM "Atleta" a
+      LEFT JOIN "User" u ON u.id = a."usuarioId"
+      WHERE REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') = $1
+      LIMIT 1`,
       [telefoneApenasNumeros]
     );
-    
-    console.log('[buscar-por-telefone] Atleta com usuarioId encontrado:', atletaExistente.rows.length > 0);
-    
-    // Se não encontrou, tentar busca mais ampla para debug
-    if (atletaExistente.rows.length === 0) {
-      const buscaAmpla = await query(
-        `SELECT id, nome, fone, "usuarioId" FROM "Atleta" 
-         WHERE REGEXP_REPLACE(fone, '[^0-9]', '', 'g') = $1 
-         LIMIT 5`,
-        [telefoneApenasNumeros]
-      );
-      
-      console.log('[buscar-por-telefone] Busca ampla encontrou:', buscaAmpla.rows.length, 'registros');
-      if (buscaAmpla.rows.length > 0) {
-        console.log('[buscar-por-telefone] Exemplos encontrados:', buscaAmpla.rows.map((r: any) => ({
-          id: r.id,
-          nome: r.nome,
-          fone: r.fone,
-          foneNormalizado: r.fone?.replace(/\D/g, ''),
-          usuarioId: r.usuarioId
-        })));
-      }
-    }
 
     if (atletaExistente.rows.length > 0) {
-      // Atleta encontrado - retornar apenas ID e nome (sem expor outros dados)
+      // Atleta encontrado - retornar dados para criação de conta
       const atleta = atletaExistente.rows[0];
       const response = NextResponse.json({
         id: atleta.id,
         nome: atleta.nome,
-        telefone: atleta.fone,
+        telefone: atleta.telefone,
+        email: atleta.email || null,
+        usuarioId: atleta.usuarioId || null,
         existe: true,
       });
       return withCors(response, request);

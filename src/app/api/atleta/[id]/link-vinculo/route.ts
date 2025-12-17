@@ -58,7 +58,7 @@ export async function GET(
 
     // Gerar link de vínculo
     // O link aponta para a página de vínculo no appatleta com o telefone como parâmetro
-    const baseUrl = process.env.NEXT_PUBLIC_APPATLETA_URL || 'https://atleta.playnaquadra.com.br';
+    const baseUrl = process.env.NEXT_PUBLIC_APPATLETA_URL || 'https://appatleta.playnaquadra.com.br';
     const linkVinculo = `${baseUrl}/vincular-conta?telefone=${telefoneNormalizado}`;
 
     const response = NextResponse.json({
