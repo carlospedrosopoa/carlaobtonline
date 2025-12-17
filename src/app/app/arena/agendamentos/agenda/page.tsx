@@ -10,7 +10,7 @@ import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoReco
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 
 export default function ArenaAgendaSemanalPage() {
@@ -785,6 +785,17 @@ export default function ArenaAgendaSemanalPage() {
           >
             <Plus className="w-4 h-4" />
             Novo Agendamento
+          </button>
+          <button
+            onClick={() => {
+              carregarAgendamentos();
+              carregarDados();
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-semibold"
+            title="Atualizar agenda"
+          >
+            <RotateCw className="w-4 h-4" />
+            Atualizar
           </button>
         </div>
       </div>

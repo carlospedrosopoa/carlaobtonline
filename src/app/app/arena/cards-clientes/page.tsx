@@ -10,7 +10,7 @@ import CriarEditarCardModal from '@/components/CriarEditarCardModal';
 import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, Trash2 } from 'lucide-react';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, Trash2, RotateCw } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
 
@@ -292,6 +292,17 @@ export default function CardsClientesPage() {
           <p className="text-gray-600 mt-1">Gerencie os cards de atendimento</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => {
+              carregarCards();
+              carregarNomeArena();
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            title="Atualizar lista de cards"
+          >
+            <RotateCw className="w-5 h-5" />
+            Atualizar
+          </button>
           <button
             onClick={() => setModalVendaRapidaAberto(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
