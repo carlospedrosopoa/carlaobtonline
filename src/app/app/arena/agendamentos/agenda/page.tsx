@@ -233,7 +233,7 @@ export default function ArenaAgendaSemanalPage() {
 
   const getAgendamentosPorHorario = (dia: Date, hora: number, minuto: number = 0) => {
     // Retorna agendamentos que começam neste horário específico
-    // Comparar usando strings de data e converter horário local para UTC
+    // Comparar usando strings de data e hora diretamente da string ISO (timezone-agnostic)
     const formatarDataParaComparacao = (date: Date) => {
       const ano = date.getUTCFullYear();
       const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -242,16 +242,6 @@ export default function ArenaAgendaSemanalPage() {
     };
     
     const diaComparacaoStr = formatarDataParaComparacao(dia);
-    
-    // Criar uma data de referência no horário local especificado
-    const ano = dia.getFullYear();
-    const mes = dia.getMonth();
-    const diaNum = dia.getDate();
-    const dataReferenciaLocal = new Date(ano, mes, diaNum, hora, minuto, 0);
-    
-    // Converter para UTC para comparação
-    const horaUTC = dataReferenciaLocal.getUTCHours();
-    const minutoUTC = dataReferenciaLocal.getUTCMinutes();
     
     let agendamentosFiltrados = agendamentos.filter((ag) => {
       const dataAgendamento = new Date(ag.dataHora);
@@ -262,12 +252,16 @@ export default function ArenaAgendaSemanalPage() {
         return false;
       }
       
-      // Comparar horário em UTC (agendamento já está em UTC)
-      const horaAgendamento = dataAgendamento.getUTCHours();
-      const minutoAgendamento = dataAgendamento.getUTCMinutes();
+      // Extrair hora/minuto diretamente da string ISO sem conversão de timezone
+      // Isso evita problemas de timezone ao comparar horários
+      const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+      if (!match) return false;
+      
+      const horaAgendamento = parseInt(match[1], 10);
+      const minutoAgendamento = parseInt(match[2], 10);
       
       // Mostrar apenas na linha do horário de início exato
-      return horaAgendamento === horaUTC && minutoAgendamento === minutoUTC;
+      return horaAgendamento === hora && minutoAgendamento === minuto;
     });
 
     // Aplicar filtro por nome ou telefone
