@@ -65,18 +65,29 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
       []
     );
     
-    atletas = result.rows.map((row: any) => ({
-      ...row,
-      usuarioId: row.usuarioId || null,
-      usuarioEmail: row.usuarioEmail || null,
-      usuario: row.usuarioName ? { 
-        id: row.usuarioId,
-        name: row.usuarioName, 
-        email: row.usuarioEmail || null,
-        role: row.usuarioRole 
-      } : null,
-      idade: calcularIdade(row.dataNascimento),
-    }));
+    atletas = result.rows.map((row: any) => {
+      const atleta = {
+        ...row,
+        usuarioId: row.usuarioId || null,
+        usuarioEmail: row.usuarioEmail || null,
+        usuario: row.usuarioName ? { 
+          id: row.usuarioId,
+          name: row.usuarioName, 
+          email: row.usuarioEmail || null,
+          role: row.usuarioRole 
+        } : null,
+        idade: calcularIdade(row.dataNascimento),
+      };
+      // Debug: verificar se usuarioEmail está sendo mapeado
+      if (row.usuarioId && !row.usuarioEmail) {
+        console.log(`[DEBUG] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail no row:`, {
+          usuarioId: row.usuarioId,
+          usuarioEmail: row.usuarioEmail,
+          rowKeys: Object.keys(row)
+        });
+      }
+      return atleta;
+    });
   } 
   // ORGANIZER vê apenas atletas vinculados à sua arena (arena principal ou nas arenas que frequenta)
   else if (usuario.role === "ORGANIZER" && usuario.pointIdGestor) {
@@ -90,18 +101,29 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
       [usuario.pointIdGestor]
     );
     
-    atletas = result.rows.map((row: any) => ({
-      ...row,
-      usuarioId: row.usuarioId || null,
-      usuarioEmail: row.usuarioEmail || null,
-      usuario: row.usuarioName ? { 
-        id: row.usuarioId,
-        name: row.usuarioName, 
-        email: row.usuarioEmail || null,
-        role: row.usuarioRole 
-      } : null,
-      idade: calcularIdade(row.dataNascimento),
-    }));
+    atletas = result.rows.map((row: any) => {
+      const atleta = {
+        ...row,
+        usuarioId: row.usuarioId || null,
+        usuarioEmail: row.usuarioEmail || null,
+        usuario: row.usuarioName ? { 
+          id: row.usuarioId,
+          name: row.usuarioName, 
+          email: row.usuarioEmail || null,
+          role: row.usuarioRole 
+        } : null,
+        idade: calcularIdade(row.dataNascimento),
+      };
+      // Debug: verificar se usuarioEmail está sendo mapeado
+      if (row.usuarioId && !row.usuarioEmail) {
+        console.log(`[DEBUG] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail no row:`, {
+          usuarioId: row.usuarioId,
+          usuarioEmail: row.usuarioEmail,
+          rowKeys: Object.keys(row)
+        });
+      }
+      return atleta;
+    });
   } else {
     // USER comum vê apenas seus próprios atletas
     const result = await query(
