@@ -1,7 +1,7 @@
 // app/app/arena/atletas/page.tsx - Lista de Atletas para Organizer
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api } from '@/lib/api';
 import { pointService } from '@/services/agendamentoService';
 import type { Point } from '@/types/agendamento';
@@ -36,6 +36,7 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
   const [buscando, setBuscando] = useState(false);
   const [atletaEncontrado, setAtletaEncontrado] = useState<{ id: string; nome: string; telefone: string } | null>(null);
   const [modo, setModo] = useState<'buscar' | 'criar' | 'vincular'>('buscar');
+  const telefoneInputRef = useRef<HTMLInputElement>(null);
 
   const formatarTelefone = (valor: string) => {
     const apenasNumeros = valor.replace(/\D/g, '');
@@ -185,6 +186,16 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
     onClose();
   };
 
+  // Focar no campo de telefone quando a modal abrir no modo buscar
+  useEffect(() => {
+    if (isOpen && modo === 'buscar' && telefoneInputRef.current) {
+      // Pequeno delay para garantir que a modal está renderizada
+      setTimeout(() => {
+        telefoneInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen, modo]);
+
   if (!isOpen) return null;
 
   return (
@@ -216,6 +227,7 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
+                  ref={telefoneInputRef}
                   type="tel"
                   value={formatarTelefone(telefone)}
                   onChange={(e) => {
