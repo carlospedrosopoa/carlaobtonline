@@ -572,12 +572,20 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
         setErro(data.mensagem || 'Erro ao vincular atleta');
       }
     } catch (err: any) {
-      setErro(
-        err?.response?.data?.mensagem ||
-          err?.response?.data?.error ||
-          'Erro ao vincular atleta. Tente novamente.'
-      );
-      console.error('Erro ao vincular atleta:', err);
+      // Tratar caso especial: atleta já vinculado
+      if (err?.response?.data?.codigo === 'ATLETA_JA_VINCULADO' || err?.response?.data?.jaVinculado) {
+        // Mostrar mensagem informativa (não é erro crítico)
+        alert(err?.response?.data?.mensagem || `O atleta "${atletaEncontrado.nome}" já está vinculado à sua arena.`);
+        resetarModal();
+        onClose();
+      } else {
+        setErro(
+          err?.response?.data?.mensagem ||
+            err?.response?.data?.error ||
+            'Erro ao vincular atleta. Tente novamente.'
+        );
+        console.error('Erro ao vincular atleta:', err);
+      }
     } finally {
       setSalvando(false);
     }

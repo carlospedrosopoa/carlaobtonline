@@ -62,8 +62,16 @@ export async function POST(
                          atletaCompleto.rows[0]?.pointIdFrequente === pointId;
 
     if (jaVinculado) {
+      // Buscar nome da arena para mensagem mais informativa
+      const arenaInfo = await query('SELECT nome FROM "Point" WHERE id = $1', [pointId]);
+      const nomeArena = arenaInfo.rows[0]?.nome || 'sua arena';
+      
       const errorResponse = NextResponse.json(
-        { mensagem: 'Atleta já está vinculado a esta arena' },
+        { 
+          mensagem: `O atleta "${atleta.nome}" já está vinculado à arena "${nomeArena}".`,
+          codigo: 'ATLETA_JA_VINCULADO',
+          jaVinculado: true
+        },
         { status: 400 }
       );
       return withCors(errorResponse, request);
