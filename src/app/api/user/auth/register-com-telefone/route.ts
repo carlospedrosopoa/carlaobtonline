@@ -87,11 +87,15 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Criar novo atleta se não existe
+      // Usar data de nascimento padrão (18 anos atrás) se não fornecida
+      const dataNascimentoPadrao = new Date();
+      dataNascimentoPadrao.setFullYear(dataNascimentoPadrao.getFullYear() - 18);
+      
       const atletaIdNovo = uuidv4();
       await query(
-        `INSERT INTO "Atleta" (id, nome, fone, "usuarioId", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-        [atletaIdNovo, name, telefoneNormalizado, userId]
+        `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+        [atletaIdNovo, name, telefoneNormalizado, dataNascimentoPadrao.toISOString().split('T')[0], userId]
       );
     }
 
