@@ -117,11 +117,17 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     atletas = result.rows.map((row: any) => {
       // PostgreSQL pode retornar campos com case sensitivity, verificar ambos
       // Também verificar se o campo está vindo com outro nome
-      const usuarioEmail = row.usuarioEmail || row.usuarioemail || row['usuarioEmail'] || row['usuarioemail'] || null;
+      // IMPORTANTE: O DISTINCT pode estar causando problemas, então vamos verificar todos os formatos possíveis
+      const usuarioEmail = row.usuarioEmail || 
+                          row.usuarioemail || 
+                          row['usuarioEmail'] || 
+                          row['usuarioemail'] ||
+                          (row.u && row.u.email) ||
+                          null;
       
-      // Debug para Chico especificamente
-      if (row.nome === 'Chico') {
-        console.log('[DEBUG BACKEND ORGANIZER] Chico row completo:', {
+      // Debug para todos os atletas com usuarioId mas sem email
+      if (row.usuarioId && !usuarioEmail) {
+        console.log(`[DEBUG BACKEND ORGANIZER] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail:`, {
           rowKeys: Object.keys(row),
           usuarioId: row.usuarioId,
           usuarioEmail: row.usuarioEmail,
@@ -130,7 +136,10 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
           'row["usuarioemail"]': row['usuarioemail'],
           usuarioName: row.usuarioName,
           usuarioRole: row.usuarioRole,
-          row: JSON.stringify(row, null, 2)
+          // Verificar se o email está em algum lugar do row
+          allRowValues: Object.entries(row).filter(([key, val]) => 
+            typeof val === 'string' && val.includes('@pendente.local')
+          )
         });
       }
       
@@ -155,16 +164,6 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
         } : null,
         idade: calcularIdade(row.dataNascimento),
       };
-      // Debug: verificar se usuarioEmail está sendo mapeado
-      if (row.usuarioId && !usuarioEmail) {
-        console.log(`[DEBUG ORGANIZER] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail:`, {
-          usuarioId: row.usuarioId,
-          usuarioEmail: row.usuarioEmail,
-          usuarioemail: row.usuarioemail,
-          rowKeys: Object.keys(row),
-          row: row
-        });
-      }
       return atleta;
     });
   } else {
