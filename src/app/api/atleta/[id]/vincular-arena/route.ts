@@ -6,7 +6,7 @@ import { withCors } from '@/lib/cors';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -27,7 +27,7 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    const atletaId = params.id;
+    const { id: atletaId } = await params;
     const pointId = usuario.pointIdGestor;
 
     if (!pointId) {
