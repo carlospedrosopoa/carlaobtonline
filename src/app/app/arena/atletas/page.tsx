@@ -417,8 +417,21 @@ export default function ArenaAtletasPage() {
         nome: a.nome,
         usuarioId: a.usuarioId,
         usuarioEmail: a.usuarioEmail,
+        usuario: a.usuario,
         isPendente: isAtletaPendente(a)
       })));
+      // Debug específico para Chico
+      const chico = atletasArray.find((a: Atleta) => a.nome === 'Chico');
+      if (chico) {
+        console.log('CHICO DEBUG COMPLETO:', {
+          ...chico,
+          temUsuarioId: !!chico.usuarioId,
+          temUsuarioEmail: !!chico.usuarioEmail,
+          temUsuario: !!chico.usuario,
+          usuarioEmailDoUsuario: chico.usuario?.email,
+          isPendente: isAtletaPendente(chico)
+        });
+      }
       setAtletas(atletasArray);
     } catch (err: any) {
       console.error('Erro ao buscar atletas:', err);
@@ -576,6 +589,15 @@ export default function ArenaAtletasPage() {
               )}
 
               {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
+              {/* Debug: mostrar informações do atleta */}
+              {atleta.nome === 'Chico' && console.log('Chico debug:', {
+                nome: atleta.nome,
+                usuarioId: atleta.usuarioId,
+                usuarioEmail: atleta.usuarioEmail,
+                usuario: atleta.usuario,
+                fone: atleta.fone,
+                isPendente: isAtletaPendente(atleta)
+              })}
               {atleta.fone && isAtletaPendente(atleta) && (
                 <div className="mt-4 w-full space-y-2">
                   <button
