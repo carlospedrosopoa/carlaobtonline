@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { api } from '@/lib/api';
 import { pointService } from '@/services/agendamentoService';
 import type { Point } from '@/types/agendamento';
-import { Crown, UserPlus, Phone } from 'lucide-react';
+import { Crown, UserPlus, Phone, MessageCircle, Copy, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface Atleta {
@@ -378,6 +378,9 @@ export default function ArenaAtletasPage() {
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
+  const [linkVinculo, setLinkVinculo] = useState<{ atletaId: string; link: string; nome: string } | null>(null);
+  const [linkCopiado, setLinkCopiado] = useState(false);
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAtletas();
@@ -387,11 +390,79 @@ export default function ArenaAtletasPage() {
     try {
       setCarregando(true);
       const { data } = await api.get('/atleta/listarAtletas');
-      setAtletas(Array.isArray(data) ? data : data.atletas || []);
+      const atletasArray = Array.isArray(data) ? data : data.atletas || [];
+      // Ordenar alfabeticamente por nome
+      atletasArray.sort((a: Atleta, b: Atleta) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      setAtletas(atletasArray);
     } catch (err: any) {
       console.error('Erro ao buscar atletas:', err);
     } finally {
       setCarregando(false);
+    }
+  };
+
+  const gerarLinkVinculo = async (atletaId: string) => {
+    try {
+      const { data } = await api.get(`/atleta/${atletaId}/link-vinculo`);
+      setLinkVinculo({
+        atletaId,
+        link: data.link,
+        nome: data.nome,
+      });
+    } catch (err: any) {
+      console.error('Erro ao gerar link:', err);
+      alert(err?.response?.data?.mensagem || 'Erro ao gerar link de vínculo');
+    }
+  };
+
+  const copiarLink = async () => {
+    if (!linkVinculo) return;
+    
+    try {
+      await navigator.clipboard.writeText(linkVinculo.link);
+      setLinkCopiado(true);
+      setTimeout(() => setLinkCopiado(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar link:', err);
+      alert('Erro ao copiar link. Tente novamente.');
+    }
+  };
+
+  const enviarWhatsApp = async (atletaId: string, telefone: string, nome: string) => {
+    if (!usuario?.pointIdGestor) {
+      alert('Você precisa estar associado a uma arena para enviar WhatsApp.');
+      return;
+    }
+
+    setEnviandoWhatsApp(atletaId);
+    
+    try {
+      // Gerar link primeiro
+      const { data } = await api.get(`/atleta/${atletaId}/link-vinculo`);
+      const link = data.link;
+
+      // Formatar mensagem
+      const mensagem = `Olá ${nome}!\n\nVocê foi cadastrado na nossa plataforma. Para completar seu cadastro e acessar o app, clique no link abaixo:\n\n${link}\n\nOu acesse o app e informe seu telefone: ${telefone}`;
+
+      // Enviar via Gzappy
+      const { gzappyService } = await import('@/services/gzappyService');
+      const resultado = await gzappyService.enviar({
+        destinatario: telefone,
+        mensagem,
+        tipo: 'texto',
+        pointId: usuario.pointIdGestor,
+      });
+
+      if (resultado.sucesso) {
+        alert(`Link enviado com sucesso para ${nome}!`);
+      } else {
+        alert(`Erro ao enviar WhatsApp: ${resultado.mensagem}`);
+      }
+    } catch (err: any) {
+      console.error('Erro ao enviar WhatsApp:', err);
+      alert(err?.response?.data?.mensagem || 'Erro ao enviar WhatsApp. Tente novamente.');
+    } finally {
+      setEnviandoWhatsApp(null);
     }
   };
 
@@ -475,6 +546,58 @@ export default function ArenaAtletasPage() {
                     <Crown className="w-4 h-4 text-purple-600" />
                     <span className="text-xs font-medium text-purple-700">Assinante</span>
                   </div>
+                </div>
+              )}
+
+              {/* Botões de ação para atletas pendentes (sem usuário vinculado) */}
+              {!atleta.usuarioId && atleta.fone && (
+                <div className="mt-4 w-full space-y-2">
+                  <button
+                    onClick={() => gerarLinkVinculo(atleta.id)}
+                    className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Gerar Link de Vínculo
+                  </button>
+                  {linkVinculo?.atletaId === atleta.id && (
+                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-2">Link de vínculo:</p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={linkVinculo.link}
+                          readOnly
+                          className="flex-1 px-2 py-1 text-xs border rounded bg-white"
+                          onClick={(e) => (e.target as HTMLInputElement).select()}
+                        />
+                        <button
+                          onClick={copiarLink}
+                          className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs flex items-center gap-1"
+                          title="Copiar link"
+                        >
+                          {linkCopiado ? (
+                            <>
+                              <Check className="w-3 h-3 text-green-600" />
+                              <span className="text-green-600">Copiado!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              Copiar
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => enviarWhatsApp(atleta.id, atleta.fone!, atleta.nome)}
+                    disabled={enviandoWhatsApp === atleta.id}
+                    className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    {enviandoWhatsApp === atleta.id ? 'Enviando...' : 'Enviar Link por WhatsApp'}
+                  </button>
                 </div>
               )}
             </div>
