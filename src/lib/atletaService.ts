@@ -66,24 +66,37 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     );
     
     atletas = result.rows.map((row: any) => {
+      // PostgreSQL pode retornar campos com case sensitivity, verificar ambos
+      const usuarioEmail = row.usuarioEmail || row.usuarioemail || null;
       const atleta = {
-        ...row,
+        id: row.id,
+        nome: row.nome,
+        dataNascimento: row.dataNascimento,
+        genero: row.genero,
+        categoria: row.categoria,
+        fotoUrl: row.fotoUrl,
+        fone: row.fone,
+        pointIdPrincipal: row.pointIdPrincipal,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
         usuarioId: row.usuarioId || null,
-        usuarioEmail: row.usuarioEmail || null,
+        usuarioEmail: usuarioEmail,
         usuario: row.usuarioName ? { 
           id: row.usuarioId,
           name: row.usuarioName, 
-          email: row.usuarioEmail || null,
+          email: usuarioEmail,
           role: row.usuarioRole 
         } : null,
         idade: calcularIdade(row.dataNascimento),
       };
       // Debug: verificar se usuarioEmail está sendo mapeado
-      if (row.usuarioId && !row.usuarioEmail) {
-        console.log(`[DEBUG] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail no row:`, {
+      if (row.usuarioId && !usuarioEmail) {
+        console.log(`[DEBUG ADMIN] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail:`, {
           usuarioId: row.usuarioId,
           usuarioEmail: row.usuarioEmail,
-          rowKeys: Object.keys(row)
+          usuarioemail: row.usuarioemail,
+          rowKeys: Object.keys(row),
+          row: row
         });
       }
       return atleta;
