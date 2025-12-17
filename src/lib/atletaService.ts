@@ -179,11 +179,20 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
   }
 
   // Carregar arenas para cada atleta
+  // IMPORTANTE: Preservar usuarioEmail e usuario do atleta original ao mesclar com buscarAtletaComArenas
   const atletasComArenas = await Promise.all(
     atletas.map(async (atleta) => {
       try {
         const atletaComArenas = await buscarAtletaComArenas(atleta.id);
-        return atletaComArenas || atleta;
+        if (atletaComArenas) {
+          // Preservar usuarioEmail e usuario do atleta original (que já vem correto da query principal)
+          return {
+            ...atletaComArenas,
+            usuarioEmail: atleta.usuarioEmail, // Preservar do atleta original
+            usuario: atleta.usuario, // Preservar do atleta original
+          };
+        }
+        return atleta;
       } catch (error: any) {
         console.warn(`Erro ao buscar arenas do atleta ${atleta.id}:`, error?.message);
         // Retorna o atleta sem arenas em caso de erro
@@ -245,8 +254,13 @@ export async function verificarAtletaUsuario(usuarioId: string) {
 }
 
 export async function buscarAtletaComArenas(atletaId: string) {
+  // Usar o mesmo padrão de cards de clientes: underscore nos aliases
   const result = await query(
-    `SELECT a.*, u.name as "usuarioName", u.role as "usuarioRole" 
+    `SELECT a.*, 
+            u.id as "usuario_id", 
+            u.name as "usuario_name", 
+            u.email as "usuario_email", 
+            u.role as "usuario_role" 
      FROM "Atleta" a 
      LEFT JOIN "User" u ON a."usuarioId" = u.id 
      WHERE a.id = $1`,
@@ -257,7 +271,20 @@ export async function buscarAtletaComArenas(atletaId: string) {
     return null;
   }
   
-  const atleta = result.rows[0];
+  const row = result.rows[0];
+  const usuarioEmail = row.usuario_email || null;
+  
+  const atleta = {
+    ...row,
+    usuarioId: row.usuario_id || null,
+    usuarioEmail: usuarioEmail,
+    usuario: row.usuario_id ? {
+      id: row.usuario_id,
+      name: row.usuario_name,
+      email: usuarioEmail,
+      role: row.usuario_role
+    } : null
+  };
   
   // Buscar arenas frequentes (com tratamento de erro caso a tabela não exista)
   let arenasFrequentes: any[] = [];
@@ -296,7 +323,7 @@ export async function buscarAtletaComArenas(atletaId: string) {
   
   return {
     ...atleta,
-    usuario: atleta.usuarioName ? { name: atleta.usuarioName, role: atleta.usuarioRole } : null,
+    // Preservar usuarioEmail e usuario que já foram mapeados corretamente acima
     idade: calcularIdade(atleta.dataNascimento),
     arenasFrequentes,
     arenaPrincipal,
