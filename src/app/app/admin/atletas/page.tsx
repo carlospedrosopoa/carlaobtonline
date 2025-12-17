@@ -850,6 +850,15 @@ export default function AdminAtletasPage() {
     fetchAtletas();
   }, []);
 
+  const isAtletaPendente = (atleta: Atleta): boolean => {
+    // Atleta pendente se não tem usuarioId OU tem email temporário
+    if (!atleta.usuarioId) return true;
+    if (atleta.usuarioEmail) {
+      return atleta.usuarioEmail.startsWith('temp_') && atleta.usuarioEmail.endsWith('@pendente.local');
+    }
+    return false;
+  };
+
   const fetchAtletas = async () => {
     try {
       setCarregando(true);
@@ -858,6 +867,13 @@ export default function AdminAtletasPage() {
       const atletasArray = Array.isArray(data) ? data : data.atletas || [];
       // Ordenar alfabeticamente por nome
       atletasArray.sort((a: Atleta, b: Atleta) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      // Debug: verificar se usuarioEmail está sendo retornado
+      console.log('Atletas carregados:', atletasArray.map((a: Atleta) => ({
+        nome: a.nome,
+        usuarioId: a.usuarioId,
+        usuarioEmail: a.usuarioEmail,
+        isPendente: isAtletaPendente(a)
+      })));
       setAtletas(atletasArray);
     } catch (err: any) {
       console.error('Erro ao buscar atletas:', err);
@@ -1068,7 +1084,7 @@ export default function AdminAtletasPage() {
                 </button>
 
                 {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
-                {atleta.fone && (!atleta.usuarioId || (atleta.usuarioEmail && atleta.usuarioEmail.startsWith('temp_') && atleta.usuarioEmail.endsWith('@pendente.local'))) && (
+                {atleta.fone && isAtletaPendente(atleta) && (
                   <>
                     <button
                       onClick={() => gerarLinkVinculo(atleta.id)}
