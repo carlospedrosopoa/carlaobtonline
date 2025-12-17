@@ -20,6 +20,12 @@ interface Atleta {
   usuarioId: string;
   assinante?: boolean;
   usuarioEmail?: string;
+  usuario?: {
+    id: string;
+    name: string;
+    email?: string;
+    role: string;
+  };
 }
 
 interface ModalCriarUsuarioIncompletoProps {
@@ -390,8 +396,11 @@ export default function ArenaAtletasPage() {
   const isAtletaPendente = (atleta: Atleta): boolean => {
     // Atleta pendente se não tem usuarioId OU tem email temporário
     if (!atleta.usuarioId) return true;
-    if (atleta.usuarioEmail) {
-      return atleta.usuarioEmail.startsWith('temp_') && atleta.usuarioEmail.endsWith('@pendente.local');
+    
+    // Verificar email diretamente no atleta ou dentro do objeto usuario
+    const email = atleta.usuarioEmail || atleta.usuario?.email;
+    if (email) {
+      return email.startsWith('temp_') && email.endsWith('@pendente.local');
     }
     return false;
   };
