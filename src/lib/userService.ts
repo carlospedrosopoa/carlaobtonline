@@ -124,16 +124,23 @@ export const createUserIncompleto = async (
     throw new Error("Já existe um atleta cadastrado com este telefone");
   }
 
-  // Criar usuário sem email e senha (NULL)
+  // Criar usuário sem email e senha válidos
   const id = uuidv4();
   
   // Verificar se a coluna email permite NULL (pode não permitir, então vamos usar um email temporário único)
   // Usar um email temporário baseado no ID para evitar constraint NOT NULL
   const emailTemporario = `temp_${id}@pendente.local`;
 
+  // Usar uma senha temporária que nunca será usada (hash de string aleatória)
+  // Isso evita o erro de NOT NULL constraint na coluna password
+  // Quando o usuário completar o cadastro, a senha será atualizada
+  // Gerar uma senha aleatória única baseada no ID e timestamp
+  const senhaTemporariaAleatoria = `temp_${id}_${Date.now()}_${Math.random().toString(36)}`;
+  const senhaTemporaria = await bcrypt.hash(senhaTemporariaAleatoria, 12);
+
   await query(
     'INSERT INTO "User" (id, name, email, password, role, "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
-    [id, name, emailTemporario, null, role]
+    [id, name, emailTemporario, senhaTemporaria, role]
   );
 
   // Criar atleta vinculado ao usuário
