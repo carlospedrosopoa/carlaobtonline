@@ -144,10 +144,14 @@ export const createUserIncompleto = async (
   );
 
   // Criar atleta vinculado ao usuário
+  // Usar uma data de nascimento padrão (01/01/2000) para evitar constraint NOT NULL
+  // Quando o usuário completar o cadastro, a data será atualizada
   const atletaId = uuidv4();
+  const dataNascimentoPadrao = new Date('2000-01-01'); // Data padrão para usuários incompletos
+  
   await query(
-    'INSERT INTO "Atleta" (id, nome, fone, "usuarioId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW())',
-    [atletaId, name, telefoneNormalizado, id]
+    'INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
+    [atletaId, name, telefoneNormalizado, dataNascimentoPadrao, id]
   );
 
   const result = await query(
