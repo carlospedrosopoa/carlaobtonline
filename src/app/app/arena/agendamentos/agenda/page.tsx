@@ -927,13 +927,28 @@ export default function ArenaAgendaSemanalPage() {
                       {diasSemana.map((dia, diaIdx) => {
                         const agendamentosDoDia = getAgendamentosPorDia(dia);
                         
-                        // Encontrar agendamentos que começam neste slot
+                        // Encontrar agendamentos que aparecem neste slot
+                        // Mostra agendamentos que começam exatamente no slot OU no slot mais próximo (arredondando para baixo)
                         const agendamentosIniciando = agendamentosDoDia.filter((ag) => {
                           // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                           const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
                           const horaInicio = match ? parseInt(match[1], 10) : 0;
                           const minutoInicio = match ? parseInt(match[2], 10) : 0;
-                          return horaInicio === slot.hora && minutoInicio === slot.minuto;
+                          const minutosInicio = horaInicio * 60 + minutoInicio;
+                          
+                          // Se começa exatamente no slot, mostrar
+                          if (horaInicio === slot.hora && minutoInicio === slot.minuto) {
+                            return true;
+                          }
+                          
+                          // Para horários intermediários (ex: 6h15), mostrar no slot mais próximo (arredondando para baixo)
+                          // Exemplo: 6h15 aparece no slot de 6h00, 6h45 aparece no slot de 6h30
+                          const minutosSlot = slot.hora * 60 + slot.minuto;
+                          const proximoSlot = minutosSlot + 30;
+                          
+                          // Mostrar se o agendamento começa entre este slot e o próximo (exclusivo do próximo)
+                          // Isso garante que 6h15 aparece em 6h00, não em 6h30
+                          return minutosInicio >= minutosSlot && minutosInicio < proximoSlot;
                         });
 
                         // Verificar bloqueios para cada quadra neste slot
