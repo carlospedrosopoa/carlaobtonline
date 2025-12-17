@@ -35,8 +35,9 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    // Criar usuário incompleto
-    const novoUsuario = await userService.createUserIncompleto(name, telefone, 'USER');
+    // Criar usuário incompleto e vincular à arena do organizador (se houver)
+    const pointIdGestor = usuario.pointIdGestor || null;
+    const novoUsuario = await userService.createUserIncompleto(name, telefone, 'USER', pointIdGestor);
 
     const response = NextResponse.json(
       {

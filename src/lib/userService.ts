@@ -92,7 +92,8 @@ export const getUsuarioByEmail = async (email: string) => {
 export const createUserIncompleto = async (
   name: string,
   telefone: string,
-  role: string = 'USER'
+  role: string = 'USER',
+  pointIdGestor?: string | null
 ) => {
   if (!name || !telefone) {
     throw new Error("name e telefone são obrigatórios");
@@ -165,10 +166,28 @@ export const createUserIncompleto = async (
     atletaId = uuidv4();
     const dataNascimentoPadrao = new Date('2000-01-01'); // Data padrão para usuários incompletos
     
+    // Se o organizador tem uma arena (pointIdGestor), vincular automaticamente
+    const pointIdPrincipal = pointIdGestor || null;
+    
     await query(
-      'INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
-      [atletaId, name, telefoneNormalizado, dataNascimentoPadrao, id]
+      'INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())',
+      [atletaId, name, telefoneNormalizado, dataNascimentoPadrao, id, pointIdPrincipal]
     );
+    
+    // Adicionar nas arenas que frequenta (se houver arena)
+    if (pointIdGestor) {
+      try {
+        await query(
+          'INSERT INTO "AtletaPoint" ("atletaId", "pointId", "createdAt") VALUES ($1, $2, NOW()) ON CONFLICT ("atletaId", "pointId") DO NOTHING',
+          [atletaId, pointIdGestor]
+        );
+      } catch (error: any) {
+        // Se a tabela não existir, apenas logar (não é crítico)
+        if (!error.message?.includes('does not exist')) {
+          console.warn('Erro ao vincular atleta às arenas frequentes:', error?.message);
+        }
+      }
+    }
   }
 
   const result = await query(
