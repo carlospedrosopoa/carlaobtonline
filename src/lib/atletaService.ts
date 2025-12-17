@@ -116,7 +116,24 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     
     atletas = result.rows.map((row: any) => {
       // PostgreSQL pode retornar campos com case sensitivity, verificar ambos
-      const usuarioEmail = row.usuarioEmail || row.usuarioemail || null;
+      // Também verificar se o campo está vindo com outro nome
+      const usuarioEmail = row.usuarioEmail || row.usuarioemail || row['usuarioEmail'] || row['usuarioemail'] || null;
+      
+      // Debug para Chico especificamente
+      if (row.nome === 'Chico') {
+        console.log('[DEBUG BACKEND ORGANIZER] Chico row completo:', {
+          rowKeys: Object.keys(row),
+          usuarioId: row.usuarioId,
+          usuarioEmail: row.usuarioEmail,
+          usuarioemail: row.usuarioemail,
+          'row["usuarioEmail"]': row['usuarioEmail'],
+          'row["usuarioemail"]': row['usuarioemail'],
+          usuarioName: row.usuarioName,
+          usuarioRole: row.usuarioRole,
+          row: JSON.stringify(row, null, 2)
+        });
+      }
+      
       const atleta = {
         id: row.id,
         nome: row.nome,
@@ -140,7 +157,7 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
       };
       // Debug: verificar se usuarioEmail está sendo mapeado
       if (row.usuarioId && !usuarioEmail) {
-        console.log(`[DEBUG] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail:`, {
+        console.log(`[DEBUG ORGANIZER] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail:`, {
           usuarioId: row.usuarioId,
           usuarioEmail: row.usuarioEmail,
           usuarioemail: row.usuarioemail,
