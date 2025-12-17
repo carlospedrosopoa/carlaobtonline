@@ -1043,6 +1043,17 @@ export default function AdminAtletasPage() {
                 <p>Idade: {atleta.idade ?? '—'}</p>
                 <p>Categoria: {atleta.categoria ?? '—'}</p>
                 <p>Gênero: {atleta.genero ?? '—'}</p>
+                {atleta.fone && (
+                  <p className="flex items-center gap-1">
+                    <Phone className="w-3 h-3" />
+                    {atleta.fone}
+                  </p>
+                )}
+                {atleta.usuarioEmail && (
+                  <p className="text-xs text-gray-500 truncate" title={atleta.usuarioEmail}>
+                    📧 {atleta.usuarioEmail}
+                  </p>
+                )}
               </div>
 
               {/* Toggle Assinante */}

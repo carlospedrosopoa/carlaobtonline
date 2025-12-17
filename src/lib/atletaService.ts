@@ -57,8 +57,14 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
   
   // ADMIN vê todos os atletas
   if (usuario.role === "ADMIN") {
+    // Usar o mesmo padrão de cards de clientes: underscore nos aliases
+    // Remover DISTINCT para evitar problemas com campos do JOIN
     const result = await query(
-      `SELECT DISTINCT a.*, u.id as "usuarioId", u.name as "usuarioName", u.email as "usuarioEmail", u.role as "usuarioRole" 
+      `SELECT a.*, 
+              u.id as "usuario_id", 
+              u.name as "usuario_name", 
+              u.email as "usuario_email", 
+              u.role as "usuario_role" 
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        ORDER BY a.nome ASC`,
@@ -66,8 +72,8 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     );
     
     atletas = result.rows.map((row: any) => {
-      // PostgreSQL pode retornar campos com case sensitivity, verificar ambos
-      const usuarioEmail = row.usuarioEmail || row.usuarioemail || null;
+      // Usar o mesmo padrão de cards de clientes
+      const usuarioEmail = row.usuario_email || null;
       const atleta = {
         id: row.id,
         nome: row.nome,
@@ -79,33 +85,29 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
         pointIdPrincipal: row.pointIdPrincipal,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        usuarioId: row.usuarioId || null,
+        usuarioId: row.usuario_id || null,
         usuarioEmail: usuarioEmail,
-        usuario: row.usuarioName ? { 
-          id: row.usuarioId,
-          name: row.usuarioName, 
+        usuario: row.usuario_id ? { 
+          id: row.usuario_id,
+          name: row.usuario_name, 
           email: usuarioEmail,
-          role: row.usuarioRole 
+          role: row.usuario_role 
         } : null,
         idade: calcularIdade(row.dataNascimento),
       };
-      // Debug: verificar se usuarioEmail está sendo mapeado
-      if (row.usuarioId && !usuarioEmail) {
-        console.log(`[DEBUG ADMIN] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail:`, {
-          usuarioId: row.usuarioId,
-          usuarioEmail: row.usuarioEmail,
-          usuarioemail: row.usuarioemail,
-          rowKeys: Object.keys(row),
-          row: row
-        });
-      }
       return atleta;
     });
   } 
   // ORGANIZER vê apenas atletas vinculados à sua arena (arena principal ou nas arenas que frequenta)
   else if (usuario.role === "ORGANIZER" && usuario.pointIdGestor) {
+    // Usar o mesmo padrão de cards de clientes: underscore nos aliases
+    // Remover DISTINCT para evitar problemas com campos do JOIN
     const result = await query(
-      `SELECT DISTINCT a.*, u.id as "usuarioId", u.name as "usuarioName", u.email as "usuarioEmail", u.role as "usuarioRole" 
+      `SELECT a.*, 
+              u.id as "usuario_id", 
+              u.name as "usuario_name", 
+              u.email as "usuario_email", 
+              u.role as "usuario_role" 
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        LEFT JOIN "AtletaPoint" ap ON a.id = ap."atletaId"
@@ -115,33 +117,8 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     );
     
     atletas = result.rows.map((row: any) => {
-      // PostgreSQL pode retornar campos com case sensitivity, verificar ambos
-      // Também verificar se o campo está vindo com outro nome
-      // IMPORTANTE: O DISTINCT pode estar causando problemas, então vamos verificar todos os formatos possíveis
-      const usuarioEmail = row.usuarioEmail || 
-                          row.usuarioemail || 
-                          row['usuarioEmail'] || 
-                          row['usuarioemail'] ||
-                          (row.u && row.u.email) ||
-                          null;
-      
-      // Debug para todos os atletas com usuarioId mas sem email
-      if (row.usuarioId && !usuarioEmail) {
-        console.log(`[DEBUG BACKEND ORGANIZER] Atleta ${row.nome} tem usuarioId mas não tem usuarioEmail:`, {
-          rowKeys: Object.keys(row),
-          usuarioId: row.usuarioId,
-          usuarioEmail: row.usuarioEmail,
-          usuarioemail: row.usuarioemail,
-          'row["usuarioEmail"]': row['usuarioEmail'],
-          'row["usuarioemail"]': row['usuarioemail'],
-          usuarioName: row.usuarioName,
-          usuarioRole: row.usuarioRole,
-          // Verificar se o email está em algum lugar do row
-          allRowValues: Object.entries(row).filter(([key, val]) => 
-            typeof val === 'string' && val.includes('@pendente.local')
-          )
-        });
-      }
+      // Usar o mesmo padrão de cards de clientes
+      const usuarioEmail = row.usuario_email || null;
       
       const atleta = {
         id: row.id,
@@ -154,13 +131,13 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
         pointIdPrincipal: row.pointIdPrincipal,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        usuarioId: row.usuarioId || null,
+        usuarioId: row.usuario_id || null,
         usuarioEmail: usuarioEmail,
-        usuario: row.usuarioName ? { 
-          id: row.usuarioId,
-          name: row.usuarioName, 
+        usuario: row.usuario_id ? { 
+          id: row.usuario_id,
+          name: row.usuario_name, 
           email: usuarioEmail,
-          role: row.usuarioRole 
+          role: row.usuario_role 
         } : null,
         idade: calcularIdade(row.dataNascimento),
       };
@@ -168,8 +145,13 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     });
   } else {
     // USER comum vê apenas seus próprios atletas
+    // Usar o mesmo padrão de cards de clientes: underscore nos aliases
     const result = await query(
-      `SELECT a.*, u.id as "usuarioId", u.name as "usuarioName", u.email as "usuarioEmail", u.role as "usuarioRole" 
+      `SELECT a.*, 
+              u.id as "usuario_id", 
+              u.name as "usuario_name", 
+              u.email as "usuario_email", 
+              u.role as "usuario_role" 
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        WHERE a."usuarioId" = $1
@@ -177,18 +159,23 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
       [usuario.id]
     );
     
-    atletas = result.rows.map((row: any) => ({
-      ...row,
-      usuarioId: row.usuarioId || null,
-      usuarioEmail: row.usuarioEmail || null,
-      usuario: row.usuarioName ? { 
-        id: row.usuarioId,
-        name: row.usuarioName, 
-        email: row.usuarioEmail || null,
-        role: row.usuarioRole 
-      } : null,
-      idade: calcularIdade(row.dataNascimento),
-    }));
+    atletas = result.rows.map((row: any) => {
+      // Usar o mesmo padrão de cards de clientes
+      const usuarioEmail = row.usuario_email || null;
+      
+      return {
+        ...row,
+        usuarioId: row.usuario_id || null,
+        usuarioEmail: usuarioEmail,
+        usuario: row.usuario_id ? { 
+          id: row.usuario_id,
+          name: row.usuario_name, 
+          email: usuarioEmail,
+          role: row.usuario_role 
+        } : null,
+        idade: calcularIdade(row.dataNascimento),
+      };
+    });
   }
 
   // Carregar arenas para cada atleta
