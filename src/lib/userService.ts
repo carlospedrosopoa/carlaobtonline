@@ -109,19 +109,25 @@ export const createUserIncompleto = async (
 
   // Verificar se já existe atleta com este telefone
   const atletaExistente = await query(
-    `SELECT id, "usuarioId" FROM "Atleta" 
-     WHERE REGEXP_REPLACE(fone, '[^0-9]', '', 'g') = $1 
+    `SELECT a.id, a."usuarioId", u.id as "userId", u.email, u.name
+     FROM "Atleta" a
+     LEFT JOIN "User" u ON a."usuarioId" = u.id
+     WHERE REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') = $1 
      LIMIT 1`,
     [telefoneNormalizado]
   );
 
   if (atletaExistente.rows.length > 0) {
     const atleta = atletaExistente.rows[0];
+    
+    // Se já tem usuário vinculado, retornar erro
     if (atleta.usuarioId) {
       throw new Error("Já existe um usuário cadastrado com este telefone");
     }
-    // Se existe atleta sem usuário, pode reutilizar (mas não vamos fazer isso por enquanto)
-    throw new Error("Já existe um atleta cadastrado com este telefone");
+    
+    // Se existe atleta sem usuário, vincular ao usuário que está sendo criado
+    // Mas isso não faz sentido aqui porque estamos criando um novo usuário
+    // Então vamos criar o usuário e depois vincular o atleta existente
   }
 
   // Criar usuário sem email e senha válidos
@@ -143,16 +149,27 @@ export const createUserIncompleto = async (
     [id, name, emailTemporario, senhaTemporaria, role]
   );
 
-  // Criar atleta vinculado ao usuário
-  // Usar uma data de nascimento padrão (01/01/2000) para evitar constraint NOT NULL
-  // Quando o usuário completar o cadastro, a data será atualizada
-  const atletaId = uuidv4();
-  const dataNascimentoPadrao = new Date('2000-01-01'); // Data padrão para usuários incompletos
-  
-  await query(
-    'INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
-    [atletaId, name, telefoneNormalizado, dataNascimentoPadrao, id]
-  );
+  // Verificar se já existe atleta sem usuário para vincular
+  let atletaId: string;
+  if (atletaExistente.rows.length > 0 && !atletaExistente.rows[0].usuarioId) {
+    // Vincular atleta existente ao novo usuário
+    atletaId = atletaExistente.rows[0].id;
+    await query(
+      'UPDATE "Atleta" SET "usuarioId" = $1, nome = $2, "updatedAt" = NOW() WHERE id = $3',
+      [id, name, atletaId]
+    );
+  } else {
+    // Criar novo atleta vinculado ao usuário
+    // Usar uma data de nascimento padrão (01/01/2000) para evitar constraint NOT NULL
+    // Quando o usuário completar o cadastro, a data será atualizada
+    atletaId = uuidv4();
+    const dataNascimentoPadrao = new Date('2000-01-01'); // Data padrão para usuários incompletos
+    
+    await query(
+      'INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
+      [atletaId, name, telefoneNormalizado, dataNascimentoPadrao, id]
+    );
+  }
 
   const result = await query(
     `SELECT u.id, u.name, u.email, u.role, a.id as "atletaId", a.fone as telefone
