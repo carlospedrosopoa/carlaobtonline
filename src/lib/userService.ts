@@ -88,6 +88,195 @@ export const getUsuarioByEmail = async (email: string) => {
   return result.rows[0] || null;
 };
 
+// Criar usuário incompleto (sem email/senha) - para vínculo posterior por telefone
+export const createUserIncompleto = async (
+  name: string,
+  telefone: string,
+  role: string = 'USER'
+) => {
+  if (!name || !telefone) {
+    throw new Error("name e telefone são obrigatórios");
+  }
+
+  // Validar role
+  const rolesValidos = ['ADMIN', 'ORGANIZER', 'USER'];
+  if (!rolesValidos.includes(role)) {
+    throw new Error(`Role inválido. Deve ser um dos: ${rolesValidos.join(', ')}`);
+  }
+
+  // Normalizar telefone (remover caracteres não numéricos)
+  const telefoneNormalizado = telefone.replace(/\D/g, '');
+
+  // Verificar se já existe atleta com este telefone
+  const atletaExistente = await query(
+    `SELECT id, "usuarioId" FROM "Atleta" 
+     WHERE REGEXP_REPLACE(fone, '[^0-9]', '', 'g') = $1 
+     LIMIT 1`,
+    [telefoneNormalizado]
+  );
+
+  if (atletaExistente.rows.length > 0) {
+    const atleta = atletaExistente.rows[0];
+    if (atleta.usuarioId) {
+      throw new Error("Já existe um usuário cadastrado com este telefone");
+    }
+    // Se existe atleta sem usuário, pode reutilizar (mas não vamos fazer isso por enquanto)
+    throw new Error("Já existe um atleta cadastrado com este telefone");
+  }
+
+  // Criar usuário sem email e senha (NULL)
+  const id = uuidv4();
+  
+  // Verificar se a coluna email permite NULL (pode não permitir, então vamos usar um email temporário único)
+  // Usar um email temporário baseado no ID para evitar constraint NOT NULL
+  const emailTemporario = `temp_${id}@pendente.local`;
+
+  await query(
+    'INSERT INTO "User" (id, name, email, password, role, "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
+    [id, name, emailTemporario, null, role]
+  );
+
+  // Criar atleta vinculado ao usuário
+  const atletaId = uuidv4();
+  await query(
+    'INSERT INTO "Atleta" (id, nome, fone, "usuarioId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW())',
+    [atletaId, name, telefoneNormalizado, id]
+  );
+
+  const result = await query(
+    `SELECT u.id, u.name, u.email, u.role, a.id as "atletaId", a.fone as telefone
+     FROM "User" u
+     LEFT JOIN "Atleta" a ON a."usuarioId" = u.id
+     WHERE u.id = $1`,
+    [id]
+  );
+  
+  return result.rows[0];
+};
+
+// Completar cadastro de usuário incompleto
+export const completarCadastroUsuario = async (
+  telefone: string,
+  email: string,
+  password: string,
+  dadosAtleta?: {
+    nome?: string;
+    dataNascimento?: string;
+    categoria?: string | null;
+    genero?: string | null;
+    fotoUrl?: string | null;
+    pointIdPrincipal?: string | null;
+    pointIdsFrequentes?: string[];
+  }
+) => {
+  if (!telefone || !email || !password) {
+    throw new Error("telefone, email e senha são obrigatórios");
+  }
+
+  // Normalizar telefone
+  const telefoneNormalizado = telefone.replace(/\D/g, '');
+
+  // Buscar atleta com este telefone que tenha usuário com email temporário
+  const atletaResult = await query(
+    `SELECT a.id as "atletaId", a."usuarioId", a.nome, u.email, u.name
+     FROM "Atleta" a
+     INNER JOIN "User" u ON a."usuarioId" = u.id
+     WHERE REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') = $1
+       AND u.email LIKE 'temp_%@pendente.local'
+     LIMIT 1`,
+    [telefoneNormalizado]
+  );
+
+  if (atletaResult.rows.length === 0) {
+    throw new Error("Telefone não encontrado. Verifique o número ou crie uma nova conta.");
+  }
+
+  const { atletaId, usuarioId, nome: nomeAtual } = atletaResult.rows[0];
+
+  // Verificar se email já está em uso
+  const emailExistente = await query(
+    'SELECT id FROM "User" WHERE email = $1 AND id != $2',
+    [email.toLowerCase().trim(), usuarioId]
+  );
+  
+  if (emailExistente.rows.length > 0) {
+    throw new Error("Este e-mail já está cadastrado");
+  }
+
+  // Atualizar usuário com email e senha
+  const hash = await bcrypt.hash(password, 12);
+  await query(
+    'UPDATE "User" SET email = $1, password = $2 WHERE id = $3',
+    [email.toLowerCase().trim(), hash, usuarioId]
+  );
+
+  // Atualizar dados do atleta se fornecidos
+  if (dadosAtleta) {
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (dadosAtleta.nome) {
+      updates.push(`nome = $${paramIndex++}`);
+      values.push(dadosAtleta.nome);
+    }
+    if (dadosAtleta.dataNascimento) {
+      updates.push(`"dataNascimento" = $${paramIndex++}`);
+      values.push(new Date(dadosAtleta.dataNascimento));
+    }
+    if (dadosAtleta.categoria !== undefined) {
+      updates.push(`categoria = $${paramIndex++}`);
+      values.push(dadosAtleta.categoria);
+    }
+    if (dadosAtleta.genero !== undefined) {
+      updates.push(`genero = $${paramIndex++}`);
+      values.push(dadosAtleta.genero);
+    }
+    if (dadosAtleta.fotoUrl !== undefined) {
+      updates.push(`"fotoUrl" = $${paramIndex++}`);
+      values.push(dadosAtleta.fotoUrl);
+    }
+    if (dadosAtleta.pointIdPrincipal !== undefined) {
+      updates.push(`"pointIdPrincipal" = $${paramIndex++}`);
+      values.push(dadosAtleta.pointIdPrincipal);
+    }
+
+    if (updates.length > 0) {
+      updates.push(`"updatedAt" = NOW()`);
+      values.push(atletaId);
+      await query(
+        `UPDATE "Atleta" SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+        values
+      );
+    }
+
+    // Inserir arenas frequentes se fornecidas
+    if (dadosAtleta.pointIdsFrequentes && dadosAtleta.pointIdsFrequentes.length > 0) {
+      // Limpar arenas frequentes existentes
+      await query('DELETE FROM "AtletaPoint" WHERE "atletaId" = $1', [atletaId]);
+      
+      // Inserir novas arenas frequentes
+      for (const pointId of dadosAtleta.pointIdsFrequentes) {
+        await query(
+          'INSERT INTO "AtletaPoint" ("atletaId", "pointId", "createdAt") VALUES ($1, $2, NOW()) ON CONFLICT ("atletaId", "pointId") DO NOTHING',
+          [atletaId, pointId]
+        );
+      }
+    }
+  }
+
+  // Retornar usuário completo
+  const result = await query(
+    `SELECT u.id, u.name, u.email, u.role, a.id as "atletaId", a.nome, a.fone as telefone
+     FROM "User" u
+     LEFT JOIN "Atleta" a ON a."usuarioId" = u.id
+     WHERE u.id = $1`,
+    [usuarioId]
+  );
+
+  return result.rows[0];
+};
+
 export const atualizarUsuarioAdmin = async (
   id: string,
   dados: {
