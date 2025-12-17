@@ -55,15 +55,38 @@ export async function criarAtleta(usuarioId: string, dados: {
 export async function listarAtletas(usuario: { id: string; role: string; pointIdGestor?: string | null }) {
   let atletas: any[] = [];
   
-  // ADMIN e ORGANIZER podem ver todos os atletas
-  // ORGANIZER pode ver todos os atletas para poder agendar para qualquer um na sua arena
-  if (usuario.role === "ADMIN" || usuario.role === "ORGANIZER") {
+  // ADMIN vê todos os atletas
+  if (usuario.role === "ADMIN") {
     const result = await query(
       `SELECT DISTINCT a.*, u.id as "usuarioId", u.name as "usuarioName", u.email as "usuarioEmail", u.role as "usuarioRole" 
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        ORDER BY a.nome ASC`,
       []
+    );
+    
+    atletas = result.rows.map((row: any) => ({
+      ...row,
+      usuarioId: row.usuarioId || null,
+      usuario: row.usuarioName ? { 
+        id: row.usuarioId,
+        name: row.usuarioName, 
+        email: row.usuarioEmail || null,
+        role: row.usuarioRole 
+      } : null,
+      idade: calcularIdade(row.dataNascimento),
+    }));
+  } 
+  // ORGANIZER vê apenas atletas vinculados à sua arena (arena principal ou nas arenas que frequenta)
+  else if (usuario.role === "ORGANIZER" && usuario.pointIdGestor) {
+    const result = await query(
+      `SELECT DISTINCT a.*, u.id as "usuarioId", u.name as "usuarioName", u.email as "usuarioEmail", u.role as "usuarioRole" 
+       FROM "Atleta" a 
+       LEFT JOIN "User" u ON a."usuarioId" = u.id 
+       LEFT JOIN "AtletaPoint" ap ON a.id = ap."atletaId"
+       WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" = $1)
+       ORDER BY a.nome ASC`,
+      [usuario.pointIdGestor]
     );
     
     atletas = result.rows.map((row: any) => ({
