@@ -857,14 +857,20 @@ export default function AdminAtletasPage() {
   }, []);
 
   const isAtletaPendente = (atleta: Atleta): boolean => {
-    // Atleta pendente se não tem usuarioId OU tem email temporário
+    // Atleta pendente se não tem usuarioId
     if (!atleta.usuarioId) return true;
     
     // Verificar email diretamente no atleta ou dentro do objeto usuario
     const email = atleta.usuarioEmail || atleta.usuario?.email;
-    if (email) {
-      return email.startsWith('temp_') && email.endsWith('@pendente.local');
+    
+    // Se tem usuarioId mas não tem email, é pendente (usuários completos sempre têm email)
+    if (!email) return true;
+    
+    // Se tem email temporário, é pendente
+    if (email.startsWith('temp_') && email.endsWith('@pendente.local')) {
+      return true;
     }
+    
     return false;
   };
 
