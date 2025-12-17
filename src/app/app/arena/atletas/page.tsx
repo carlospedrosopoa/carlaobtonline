@@ -589,15 +589,6 @@ export default function ArenaAtletasPage() {
               )}
 
               {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
-              {/* Debug: mostrar informações do atleta */}
-              {atleta.nome === 'Chico' && console.log('Chico debug:', {
-                nome: atleta.nome,
-                usuarioId: atleta.usuarioId,
-                usuarioEmail: atleta.usuarioEmail,
-                usuario: atleta.usuario,
-                fone: atleta.fone,
-                isPendente: isAtletaPendente(atleta)
-              })}
               {atleta.fone && isAtletaPendente(atleta) && (
                 <div className="mt-4 w-full space-y-2">
                   <button
