@@ -1108,7 +1108,7 @@ export default function AdminAtletasPage() {
                       </div>
                     )}
                     <button
-                      onClick={() => enviarWhatsApp(atleta.id, atleta.fone!, atleta.nome, atleta.pointIdPrincipal || undefined)}
+                      onClick={() => enviarWhatsApp(atleta.id, atleta.fone!, atleta.nome)}
                       disabled={enviandoWhatsApp === atleta.id}
                       className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
