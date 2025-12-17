@@ -483,10 +483,14 @@ interface ModalCriarUsuarioIncompletoProps {
 }
 
 function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarUsuarioIncompletoProps) {
+  const { usuario } = useAuth();
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const [atletaEncontrado, setAtletaEncontrado] = useState<{ id: string; nome: string; telefone: string } | null>(null);
+  const [modo, setModo] = useState<'buscar' | 'criar' | 'vincular'>('buscar');
 
   const formatarTelefone = (valor: string) => {
     const apenasNumeros = valor.replace(/\D/g, '');
@@ -498,7 +502,88 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
     return valor;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleBuscarTelefone = async () => {
+    if (!telefone.trim()) {
+      setErro('Informe o telefone');
+      return;
+    }
+
+    const telefoneNormalizado = telefone.replace(/\D/g, '');
+    if (telefoneNormalizado.length < 10) {
+      setErro('Telefone inválido. Informe pelo menos 10 dígitos.');
+      return;
+    }
+
+    setBuscando(true);
+    setErro('');
+    setAtletaEncontrado(null);
+
+    try {
+      // Buscar atleta por telefone
+      const { data, status } = await api.post('/user/atleta/buscar-por-telefone', {
+        telefone: telefoneNormalizado,
+      });
+
+      if (status === 200 && data.existe) {
+        // Atleta encontrado - mostrar opção de vincular (apenas se organizer)
+        if (usuario?.role === 'ORGANIZER' && usuario?.pointIdGestor) {
+          setAtletaEncontrado({
+            id: data.id,
+            nome: data.nome,
+            telefone: data.telefone,
+          });
+          setModo('vincular');
+        } else {
+          // Admin não vincula, apenas informa que já existe
+          setErro(`Atleta "${data.nome}" já está cadastrado na plataforma.`);
+          setModo('buscar');
+        }
+      } else {
+        // Atleta não encontrado - modo criar
+        setModo('criar');
+      }
+    } catch (err: any) {
+      if (err?.response?.data?.codigo === 'ATLETA_NAO_ENCONTRADO' || err?.response?.status === 404) {
+        // Atleta não encontrado - modo criar
+        setModo('criar');
+      } else {
+        setErro(err?.response?.data?.mensagem || 'Erro ao buscar telefone. Tente novamente.');
+      }
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  const handleVincularAtleta = async () => {
+    if (!atletaEncontrado || !usuario?.pointIdGestor) return;
+
+    setSalvando(true);
+    setErro('');
+
+    try {
+      const { data, status } = await api.post(`/atleta/${atletaEncontrado.id}/vincular-arena`);
+
+      if (status === 200) {
+        alert(`Atleta "${atletaEncontrado.nome}" vinculado à arena com sucesso!`);
+        resetarModal();
+        onSuccess();
+        onClose();
+      } else {
+        setErro(data.mensagem || 'Erro ao vincular atleta');
+      }
+    } catch (err: any) {
+      setErro(
+        err?.response?.data?.mensagem ||
+          err?.response?.data?.error ||
+          'Erro ao vincular atleta. Tente novamente.'
+      );
+      console.error('Erro ao vincular atleta:', err);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleCriarUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
     
@@ -522,8 +607,7 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
 
       if (status === 201) {
         alert('Usuário criado com sucesso! Ele poderá completar o cadastro usando o telefone no appatleta.');
-        setNome('');
-        setTelefone('');
+        resetarModal();
         onSuccess();
         onClose();
       } else {
@@ -541,6 +625,19 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
     }
   };
 
+  const resetarModal = () => {
+    setNome('');
+    setTelefone('');
+    setErro('');
+    setAtletaEncontrado(null);
+    setModo('buscar');
+  };
+
+  const handleClose = () => {
+    resetarModal();
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -548,15 +645,12 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
       <div className="bg-white rounded-lg p-6 relative max-w-md w-full">
         <button
           className="absolute top-2 right-2 text-gray-600 hover:text-black text-lg"
-          onClick={onClose}
-          disabled={salvando}
+          onClick={handleClose}
+          disabled={salvando || buscando}
         >
           ✕
         </button>
-        <h3 className="text-lg font-semibold mb-4">Criar Usuário Pendente</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Crie um usuário que poderá se vincular posteriormente usando o telefone no appatleta.
-        </p>
+        <h3 className="text-lg font-semibold mb-4">Criar / Vincular Atleta</h3>
 
         {erro && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
@@ -564,62 +658,157 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block font-semibold mb-1">Nome completo *</label>
-            <input
-              type="text"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="w-full p-2 border rounded"
-              placeholder="Nome do usuário"
-              required
-              disabled={salvando}
-            />
-          </div>
+        {modo === 'buscar' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 mb-4">
+              Informe o telefone do atleta. Se ele já estiver cadastrado, você poderá vinculá-lo à sua arena.
+            </p>
 
-          <div>
-            <label className="block font-semibold mb-1">Telefone *</label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="tel"
-                value={formatarTelefone(telefone)}
-                onChange={(e) => {
-                  const apenasNumeros = e.target.value.replace(/\D/g, '');
-                  if (apenasNumeros.length <= 11) {
-                    setTelefone(apenasNumeros);
-                  }
+            <div>
+              <label className="block font-semibold mb-1">Telefone *</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="tel"
+                  value={formatarTelefone(telefone)}
+                  onChange={(e) => {
+                    const apenasNumeros = e.target.value.replace(/\D/g, '');
+                    if (apenasNumeros.length <= 11) {
+                      setTelefone(apenasNumeros);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border rounded"
+                  placeholder="(00) 00000-0000"
+                  required
+                  disabled={buscando}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={buscando}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleBuscarTelefone}
+                disabled={buscando || telefone.replace(/\D/g, '').length < 10}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {buscando ? 'Buscando...' : 'Buscar'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {modo === 'vincular' && atletaEncontrado && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-gray-700 mb-2">
+                <strong>Atleta encontrado:</strong>
+              </p>
+              <p className="text-lg font-semibold text-gray-900">{atletaEncontrado.nome}</p>
+              <p className="text-sm text-gray-600 mt-1">Telefone: {formatarTelefone(atletaEncontrado.telefone)}</p>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              Deseja vincular este atleta à sua arena? Ele aparecerá na sua lista de atletas.
+            </p>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setModo('buscar');
+                  setAtletaEncontrado(null);
                 }}
-                className="w-full pl-10 pr-4 py-2 border rounded"
-                placeholder="(00) 00000-0000"
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleVincularAtleta}
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {salvando ? 'Vinculando...' : 'Vincular à Arena'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {modo === 'criar' && (
+          <form onSubmit={handleCriarUsuario} className="space-y-4">
+            <p className="text-sm text-gray-600 mb-4">
+              Telefone não encontrado. Crie um novo usuário pendente que poderá se vincular posteriormente usando o telefone no appatleta.
+            </p>
+
+            <div>
+              <label className="block font-semibold mb-1">Nome completo *</label>
+              <input
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Nome do usuário"
                 required
                 disabled={salvando}
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              O usuário usará este telefone para vincular a conta no appatleta
-            </p>
-          </div>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={salvando}
-              className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={salvando}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {salvando ? 'Criando...' : 'Criar Usuário'}
-            </button>
-          </div>
-        </form>
+            <div>
+              <label className="block font-semibold mb-1">Telefone *</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="tel"
+                  value={formatarTelefone(telefone)}
+                  onChange={(e) => {
+                    const apenasNumeros = e.target.value.replace(/\D/g, '');
+                    if (apenasNumeros.length <= 11) {
+                      setTelefone(apenasNumeros);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border rounded"
+                  placeholder="(00) 00000-0000"
+                  required
+                  disabled={salvando}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                O usuário usará este telefone para vincular a conta no appatleta
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setModo('buscar');
+                  setNome('');
+                }}
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {salvando ? 'Criando...' : 'Criar Usuário'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -675,7 +864,7 @@ export default function AdminAtletasPage() {
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
           >
             <UserPlus className="w-5 h-5" />
-            Criar Usuário Pendente
+            Criar / Vincular Atleta
           </button>
         )}
       </div>
