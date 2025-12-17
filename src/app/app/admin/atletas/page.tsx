@@ -19,6 +19,7 @@ interface Atleta {
   fone?: string;
   usuarioId: string;
   assinante?: boolean;
+  usuarioEmail?: string;
 }
 
 interface ModalEditarFotoProps {
@@ -1066,8 +1067,8 @@ export default function AdminAtletasPage() {
                   Alterar Foto
                 </button>
 
-                {/* Botões de ação para atletas pendentes (sem usuário vinculado) */}
-                {!atleta.usuarioId && atleta.fone && (
+                {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
+                {atleta.fone && (!atleta.usuarioId || (atleta.usuarioEmail && atleta.usuarioEmail.startsWith('temp_') && atleta.usuarioEmail.endsWith('@pendente.local'))) && (
                   <>
                     <button
                       onClick={() => gerarLinkVinculo(atleta.id)}

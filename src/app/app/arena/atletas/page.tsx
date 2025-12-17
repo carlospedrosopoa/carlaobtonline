@@ -19,6 +19,7 @@ interface Atleta {
   fone?: string;
   usuarioId: string;
   assinante?: boolean;
+  usuarioEmail?: string;
 }
 
 interface ModalCriarUsuarioIncompletoProps {
@@ -549,8 +550,8 @@ export default function ArenaAtletasPage() {
                 </div>
               )}
 
-              {/* Botões de ação para atletas pendentes (sem usuário vinculado) */}
-              {!atleta.usuarioId && atleta.fone && (
+              {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
+              {atleta.fone && (!atleta.usuarioId || (atleta.usuarioEmail && atleta.usuarioEmail.startsWith('temp_') && atleta.usuarioEmail.endsWith('@pendente.local'))) && (
                 <div className="mt-4 w-full space-y-2">
                   <button
                     onClick={() => gerarLinkVinculo(atleta.id)}

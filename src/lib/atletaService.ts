@@ -68,6 +68,7 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     atletas = result.rows.map((row: any) => ({
       ...row,
       usuarioId: row.usuarioId || null,
+      usuarioEmail: row.usuarioEmail || null,
       usuario: row.usuarioName ? { 
         id: row.usuarioId,
         name: row.usuarioName, 
@@ -92,6 +93,7 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     atletas = result.rows.map((row: any) => ({
       ...row,
       usuarioId: row.usuarioId || null,
+      usuarioEmail: row.usuarioEmail || null,
       usuario: row.usuarioName ? { 
         id: row.usuarioId,
         name: row.usuarioName, 
@@ -114,6 +116,7 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     atletas = result.rows.map((row: any) => ({
       ...row,
       usuarioId: row.usuarioId || null,
+      usuarioEmail: row.usuarioEmail || null,
       usuario: row.usuarioName ? { 
         id: row.usuarioId,
         name: row.usuarioName, 
