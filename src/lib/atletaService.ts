@@ -18,15 +18,20 @@ export async function criarAtleta(usuarioId: string, dados: {
   genero?: string | null;
   fone?: string | null;
   fotoUrl?: string | null;
+  esportePreferido?: string | null;
+  esportesPratica?: string[];
   pointIdPrincipal?: string | null;
   pointIdsFrequentes?: string[];
 }) {
   const id = uuidv4();
   const dataNasc = new Date(dados.dataNascimento);
+  const esportesPraticaJson = dados.esportesPratica && Array.isArray(dados.esportesPratica) && dados.esportesPratica.length > 0
+    ? JSON.stringify(dados.esportesPratica)
+    : null;
   
   await query(
-    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())',
-    [id, dados.nome, dataNasc, dados.categoria || null, dados.genero || null, dados.fone || null, dados.fotoUrl || null, usuarioId, dados.pointIdPrincipal || null]
+    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "esportePreferido", "esportesPratica", "pointIdPrincipal", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())',
+    [id, dados.nome, dataNasc, dados.categoria || null, dados.genero || null, dados.fone || null, dados.fotoUrl || null, usuarioId, dados.esportePreferido || null, esportesPraticaJson, dados.pointIdPrincipal || null]
   );
   
   // Inserir arenas frequentes
@@ -321,10 +326,16 @@ export async function buscarAtletaComArenas(atletaId: string) {
     }
   }
   
+  // Parse esportesPratica se for JSON string
+  const esportesPratica = atleta.esportesPratica 
+    ? (Array.isArray(atleta.esportesPratica) ? atleta.esportesPratica : JSON.parse(atleta.esportesPratica))
+    : null;
+
   return {
     ...atleta,
     // Preservar usuarioEmail e usuario que já foram mapeados corretamente acima
     idade: calcularIdade(atleta.dataNascimento),
+    esportesPratica: esportesPratica,
     arenasFrequentes,
     arenaPrincipal,
   };
@@ -341,6 +352,8 @@ export async function atualizarAtleta(atletaId: string, dados: {
   genero?: string | null;
   fone?: string | null;
   fotoUrl?: string | null;
+  esportePreferido?: string | null;
+  esportesPratica?: string[];
   pointIdPrincipal?: string | null;
   pointIdsFrequentes?: string[];
 }) {
@@ -371,6 +384,17 @@ export async function atualizarAtleta(atletaId: string, dados: {
   if (dados.fotoUrl !== undefined) {
     campos.push(`"fotoUrl" = $${paramIndex++}`);
     valores.push(dados.fotoUrl || null);
+  }
+  if (dados.esportePreferido !== undefined) {
+    campos.push(`"esportePreferido" = $${paramIndex++}`);
+    valores.push(dados.esportePreferido || null);
+  }
+  if (dados.esportesPratica !== undefined) {
+    const esportesPraticaJson = dados.esportesPratica && Array.isArray(dados.esportesPratica) && dados.esportesPratica.length > 0
+      ? JSON.stringify(dados.esportesPratica)
+      : null;
+    campos.push(`"esportesPratica" = $${paramIndex++}`);
+    valores.push(esportesPraticaJson);
   }
   if (dados.pointIdPrincipal !== undefined) {
     campos.push(`"pointIdPrincipal" = $${paramIndex++}`);

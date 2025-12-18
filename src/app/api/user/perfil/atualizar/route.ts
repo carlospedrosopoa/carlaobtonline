@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest) {
     const { user } = authResult;
     const body = await request.json();
     
-    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, pointIdPrincipal, pointIdsFrequentes } = body;
+    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, esportePreferido, esportesPratica, pointIdPrincipal, pointIdsFrequentes } = body;
 
     // Buscar o atleta do usuário autenticado
     const atletaExistente = await verificarAtletaUsuario(user.id);
@@ -137,6 +137,8 @@ export async function PUT(request: NextRequest) {
       genero?: string | null;
       fone?: string | null;
       fotoUrl?: string | null;
+      esportePreferido?: string | null;
+      esportesPratica?: string[];
       pointIdPrincipal?: string | null;
       pointIdsFrequentes?: string[];
     } = {};
@@ -147,6 +149,8 @@ export async function PUT(request: NextRequest) {
     if (genero !== undefined) dadosAtualizacao.genero = genero || null;
     if (fone !== undefined) dadosAtualizacao.fone = fone || null;
     if (fotoUrl !== undefined) dadosAtualizacao.fotoUrl = fotoUrlProcessada;
+    if (esportePreferido !== undefined) dadosAtualizacao.esportePreferido = esportePreferido || null;
+    if (esportesPratica !== undefined) dadosAtualizacao.esportesPratica = Array.isArray(esportesPratica) ? esportesPratica : [];
     if (pointIdPrincipal !== undefined) dadosAtualizacao.pointIdPrincipal = pointIdPrincipal || null;
     if (pointIdsFrequentes !== undefined) dadosAtualizacao.pointIdsFrequentes = Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [];
 

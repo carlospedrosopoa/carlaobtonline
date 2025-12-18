@@ -26,6 +26,8 @@ export interface Atleta {
   fotoUrl?: string;
   fone?: string;
   usuarioId: string;
+  esportePreferido?: string | null; // Esporte preferido (padrão nas seleções)
+  esportesPratica?: string[]; // Array de esportes que o atleta pratica
   pointIdPrincipal?: string | null;
   arenasFrequentes?: Array<{
     id: string;
@@ -47,6 +49,8 @@ export interface CriarAtletaPayload {
   genero?: string;
   fone?: string;
   fotoUrl?: string | null;
+  esportePreferido?: string | null;
+  esportesPratica?: string[];
   pointIdPrincipal?: string | null;
   pointIdsFrequentes?: string[];
 }
@@ -58,6 +62,8 @@ export interface AtualizarAtletaPayload {
   genero?: string;
   fone?: string;
   fotoUrl?: string | null;
+  esportePreferido?: string | null;
+  esportesPratica?: string[];
   pointIdPrincipal?: string | null;
   pointIdsFrequentes?: string[];
 }
