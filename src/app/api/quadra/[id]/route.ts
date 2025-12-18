@@ -14,7 +14,7 @@ export async function GET(
     const result = await query(
       `SELECT 
         q.id, q.nome, q."pointId", q.tipo, q.capacidade, q.ativo, 
-        q."createdAt", q."updatedAt",
+        q."tiposEsporte", q."createdAt", q."updatedAt",
         p.id as "point_id", p.nome as "point_nome"
       FROM "Quadra" q
       LEFT JOIN "Point" p ON q."pointId" = p.id
@@ -38,6 +38,7 @@ export async function GET(
       tipo: row.tipo,
       capacidade: row.capacidade,
       ativo: row.ativo,
+      tiposEsporte: row.tiposEsporte ? (Array.isArray(row.tiposEsporte) ? row.tiposEsporte : JSON.parse(row.tiposEsporte)) : null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       point: row.point_id ? {
@@ -96,7 +97,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { nome, pointId, tipo, capacidade, ativo } = body;
+    const { nome, pointId, tipo, capacidade, ativo, tiposEsporte } = body;
 
     if (!nome) {
       const errorResponse = NextResponse.json(
@@ -130,12 +131,17 @@ export async function PUT(
       }
     }
 
+    const tiposEsporteJson = tiposEsporte !== undefined 
+      ? (tiposEsporte && Array.isArray(tiposEsporte) && tiposEsporte.length > 0 ? JSON.stringify(tiposEsporte) : null)
+      : null;
+
     const result = await query(
       `UPDATE "Quadra"
-       SET nome = $1, "pointId" = COALESCE($2, "pointId"), tipo = $3, capacidade = $4, ativo = $5, "updatedAt" = NOW()
-       WHERE id = $6
-       RETURNING id, nome, "pointId", tipo, capacidade, ativo, "createdAt", "updatedAt"`,
-      [nome, pointId || null, tipo || null, capacidade || null, ativo ?? true, id]
+       SET nome = $1, "pointId" = COALESCE($2, "pointId"), tipo = $3, capacidade = $4, ativo = $5, 
+           "tiposEsporte" = COALESCE($6, "tiposEsporte"), "updatedAt" = NOW()
+       WHERE id = $7
+       RETURNING id, nome, "pointId", tipo, capacidade, ativo, "tiposEsporte", "createdAt", "updatedAt"`,
+      [nome, pointId || null, tipo || null, capacidade || null, ativo ?? true, tiposEsporteJson, id]
     );
 
     if (result.rows.length === 0) {
@@ -150,6 +156,7 @@ export async function PUT(
     const pointResult = await query('SELECT id, nome FROM "Point" WHERE id = $1', [result.rows[0].pointId]);
     const quadra = {
       ...result.rows[0],
+      tiposEsporte: result.rows[0].tiposEsporte ? (Array.isArray(result.rows[0].tiposEsporte) ? result.rows[0].tiposEsporte : JSON.parse(result.rows[0].tiposEsporte)) : null,
       point: pointResult.rows[0] || null,
     };
 

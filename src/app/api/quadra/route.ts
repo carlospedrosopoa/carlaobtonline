@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     let sql = `SELECT 
       q.id, q.nome, q."pointId", q.tipo, q.capacidade, q.ativo, 
-      q."createdAt", q."updatedAt",
+      q."tiposEsporte", q."createdAt", q."updatedAt",
       p.id as "point_id", p.nome as "point_nome"
     FROM "Quadra" q
     LEFT JOIN "Point" p ON q."pointId" = p.id`;
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       tipo: row.tipo,
       capacidade: row.capacidade,
       ativo: row.ativo,
+      tiposEsporte: row.tiposEsporte ? (Array.isArray(row.tiposEsporte) ? row.tiposEsporte : JSON.parse(row.tiposEsporte)) : null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       point: row.point_id ? {
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { nome, pointId, tipo, capacidade, ativo = true } = body;
+    const { nome, pointId, tipo, capacidade, ativo = true, tiposEsporte } = body;
 
     if (!nome || !pointId) {
       const errorResponse = NextResponse.json(
@@ -126,17 +127,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const tiposEsporteJson = tiposEsporte && Array.isArray(tiposEsporte) && tiposEsporte.length > 0 
+      ? JSON.stringify(tiposEsporte) 
+      : null;
+
     const result = await query(
-      `INSERT INTO "Quadra" (id, nome, "pointId", tipo, capacidade, ativo, "createdAt", "updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), NOW())
-       RETURNING id, nome, "pointId", tipo, capacidade, ativo, "createdAt", "updatedAt"`,
-      [nome, pointId, tipo || null, capacidade || null, ativo]
+      `INSERT INTO "Quadra" (id, nome, "pointId", tipo, capacidade, ativo, "tiposEsporte", "createdAt", "updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW())
+       RETURNING id, nome, "pointId", tipo, capacidade, ativo, "tiposEsporte", "createdAt", "updatedAt"`,
+      [nome, pointId, tipo || null, capacidade || null, ativo, tiposEsporteJson]
     );
 
     // Buscar point para incluir no retorno
     const pointResult = await query('SELECT id, nome FROM "Point" WHERE id = $1', [pointId]);
     const quadra = {
       ...result.rows[0],
+      tiposEsporte: result.rows[0].tiposEsporte ? (Array.isArray(result.rows[0].tiposEsporte) ? result.rows[0].tiposEsporte : JSON.parse(result.rows[0].tiposEsporte)) : null,
       point: pointResult.rows[0] || null,
     };
 

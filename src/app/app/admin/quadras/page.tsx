@@ -19,6 +19,7 @@ export default function AdminQuadrasPage() {
     tipo: '',
     capacidade: undefined,
     ativo: true,
+    tiposEsporte: [],
   });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -65,6 +66,7 @@ export default function AdminQuadrasPage() {
         tipo: quadra.tipo || '',
         capacidade: quadra.capacidade,
         ativo: quadra.ativo,
+        tiposEsporte: quadra.tiposEsporte || [],
       });
     } else {
       setQuadraEditando(null);
@@ -74,6 +76,7 @@ export default function AdminQuadrasPage() {
         tipo: '',
         capacidade: undefined,
         ativo: true,
+        tiposEsporte: [],
       });
     }
     setErro('');
@@ -290,7 +293,7 @@ export default function AdminQuadrasPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Piso</label>
                   <input
                     type="text"
                     value={form.tipo}
@@ -316,6 +319,35 @@ export default function AdminQuadrasPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipos de Esporte</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {['Tênis', 'Futebol', 'Vôlei', 'Basquete', 'Futsal', 'Beach Tennis', 'Padel', 'Squash', 'Badminton', 'Handebol'].map((esporte) => (
+                    <label key={esporte} className="flex items-center gap-2 p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.tiposEsporte?.includes(esporte) || false}
+                        onChange={(e) => {
+                          const tiposAtuais = form.tiposEsporte || [];
+                          if (e.target.checked) {
+                            setForm({ ...form, tiposEsporte: [...tiposAtuais, esporte] });
+                          } else {
+                            setForm({ ...form, tiposEsporte: tiposAtuais.filter((t) => t !== esporte) });
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{esporte}</span>
+                    </label>
+                  ))}
+                </div>
+                {form.tiposEsporte && form.tiposEsporte.length > 0 && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Selecionados: {form.tiposEsporte.join(', ')}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
