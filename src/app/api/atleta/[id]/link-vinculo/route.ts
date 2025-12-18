@@ -57,8 +57,9 @@ export async function GET(
     const telefoneNormalizado = atleta.fone.replace(/\D/g, '');
 
     // Gerar link de vínculo
-    // O link aponta para a página de vínculo no appatleta com o telefone como parâmetro
-    const baseUrl = process.env.NEXT_PUBLIC_APPATLETA_URL || 'https://appatleta.playnaquadra.com.br';
+    // O link aponta para a página de vínculo no app de atleta com o telefone como parâmetro
+    // Domínio correto: atleta.playnaquadra.com.br
+    const baseUrl = process.env.NEXT_PUBLIC_APPATLETA_URL || 'https://atleta.playnaquadra.com.br';
     const linkVinculo = `${baseUrl}/vincular-conta?telefone=${telefoneNormalizado}`;
 
     const response = NextResponse.json({
