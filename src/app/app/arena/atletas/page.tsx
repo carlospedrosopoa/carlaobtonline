@@ -383,6 +383,8 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
 export default function ArenaAtletasPage() {
   const { usuario } = useAuth();
   const [atletas, setAtletas] = useState<Atleta[]>([]);
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
   const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
   const [linkVinculo, setLinkVinculo] = useState<{ atletaId: string; link: string; nome: string } | null>(null);
@@ -520,31 +522,85 @@ export default function ArenaAtletasPage() {
     );
   }
 
+  const termo = filtroTexto.trim().toLowerCase();
+  const cat = filtroCategoria.trim().toUpperCase();
+
+  const atletasFiltrados = atletas.filter((a) => {
+    const nomeMatch = !termo || a.nome.toLowerCase().includes(termo);
+    const tel = (a.fone || '').replace(/\D/g, '');
+    const telMatch =
+      !termo ||
+      tel.includes(termo.replace(/\D/g, '')) ||
+      (a.fone || '').toLowerCase().includes(termo);
+    const catMatch = !cat || (a.categoria || '').toUpperCase() === cat;
+    return (nomeMatch || telMatch) && catMatch;
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">Atletas</h1>
-          <p className="text-sm text-gray-600">Gerencie os perfis de atletas cadastrados</p>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">Atletas</h1>
+            <p className="text-sm text-gray-600">Gerencie os perfis de atletas cadastrados</p>
+          </div>
+          {(usuario?.role === 'ADMIN' || usuario?.role === 'ORGANIZER') && (
+            <button
+              onClick={() => setModalCriarUsuarioIncompleto(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              <UserPlus className="w-5 h-5" />
+              Criar / Vincular Atleta
+            </button>
+          )}
         </div>
-        {(usuario?.role === 'ADMIN' || usuario?.role === 'ORGANIZER') && (
-          <button
-            onClick={() => setModalCriarUsuarioIncompleto(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            <UserPlus className="w-5 h-5" />
-            Criar / Vincular Atleta
-          </button>
-        )}
+
+        {/* Filtros por nome/telefone e categoria */}
+        <div className="bg-white rounded-xl shadow-md p-4 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-gray-600 mb-1">
+              Buscar por nome ou telefone
+            </label>
+            <input
+              type="text"
+              value={filtroTexto}
+              onChange={(e) => setFiltroTexto(e.target.value)}
+              placeholder="Digite parte do nome ou telefone"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+          <div className="w-full sm:w-52">
+            <label className="block text-xs font-semibold text-gray-600 mb-1">
+              Categoria
+            </label>
+            <select
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+            >
+              <option value="">Todas</option>
+              <option value="INICIANTE">INICIANTE</option>
+              <option value="D">D</option>
+              <option value="C">C</option>
+              <option value="B">B</option>
+              <option value="A">A</option>
+              <option value="PRO">PRO</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      {atletas.length === 0 ? (
+      {atletasFiltrados.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-          <p className="text-gray-600">Nenhum atleta cadastrado ainda.</p>
+          <p className="text-gray-600">
+            {atletas.length === 0
+              ? 'Nenhum atleta cadastrado ainda.'
+              : 'Nenhum atleta encontrado com os filtros informados.'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {atletas.map((atleta) => (
+          {atletasFiltrados.map((atleta) => (
             <div
               key={atleta.id}
               className="bg-white shadow-md rounded-2xl p-4 flex flex-col items-center"
