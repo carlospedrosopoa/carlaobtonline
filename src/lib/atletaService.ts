@@ -101,9 +101,9 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
   // ORGANIZER vê apenas atletas vinculados à sua arena (arena principal ou nas arenas que frequenta)
   else if (usuario.role === "ORGANIZER" && usuario.pointIdGestor) {
     // Usar o mesmo padrão de cards de clientes: underscore nos aliases
-    // Remover DISTINCT para evitar problemas com campos do JOIN
+    // Usar DISTINCT ON para evitar duplicação quando atleta tem múltiplas arenas frequentes
     const result = await query(
-      `SELECT a.*, 
+      `SELECT DISTINCT ON (a.id) a.*, 
               u.id as "usuario_id", 
               u.name as "usuario_name", 
               u.email as "usuario_email", 
@@ -112,7 +112,7 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        LEFT JOIN "AtletaPoint" ap ON a.id = ap."atletaId"
        WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" = $1)
-       ORDER BY a.nome ASC`,
+       ORDER BY a.id, a.nome ASC`,
       [usuario.pointIdGestor]
     );
     
