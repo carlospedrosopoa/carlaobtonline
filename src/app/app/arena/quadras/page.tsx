@@ -261,7 +261,7 @@ export default function ArenaQuadrasPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tipos de Esporte</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {['Tênis', 'Futebol', 'Vôlei', 'Basquete', 'Futsal', 'Futvolei', 'Beach Tennis', 'Padel', 'Squash', 'Badminton', 'Handebol'].map((esporte) => (
+                  {['Tênis', 'Futebol', 'Vôlei', 'Basquete', 'Futsal', 'Futvolei', 'Beach Tennis', 'Padel', 'Pickleball', 'Squash', 'Badminton', 'Handebol'].map((esporte) => (
                     <label key={esporte} className="flex items-center gap-2 p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
                       <input
                         type="checkbox"
