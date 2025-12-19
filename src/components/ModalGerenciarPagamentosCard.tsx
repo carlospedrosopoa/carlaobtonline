@@ -238,6 +238,24 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
     }
   };
 
+  const fecharCard = async () => {
+    if (!cardCompleto || !confirm('Tem certeza que deseja fechar este card?')) return;
+
+    try {
+      setSalvando(true);
+      setErro('');
+      await cardClienteService.atualizar(cardCompleto.id, { status: 'FECHADO' });
+      // Buscar card atualizado
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, false, true, false);
+      onSuccess(cardAtualizado);
+      onClose();
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao fechar card');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -398,12 +416,33 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-200">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-          >
-            Fechar
-          </button>
+          {Math.abs(saldo) < 0.01 && cardCompleto?.status === 'ABERTO' ? (
+            // Quando saldo é zero e card está aberto, mostrar dois botões
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                disabled={salvando}
+              >
+                Manter Aberto
+              </button>
+              <button
+                onClick={fecharCard}
+                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={salvando}
+              >
+                {salvando ? 'Fechando...' : 'Fechar Card'}
+              </button>
+            </div>
+          ) : (
+            // Quando saldo não é zero ou card já está fechado, mostrar apenas botão Fechar
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            >
+              Fechar
+            </button>
+          )}
         </div>
       </div>
 
