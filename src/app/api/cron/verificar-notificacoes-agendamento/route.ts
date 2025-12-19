@@ -73,7 +73,42 @@ export async function GET(request: NextRequest) {
       const emAntecedenciaMenos1h = new Date(agora.getTime() + (antecedenciaHoras - 1) * 60 * 60 * 1000);
       const emAntecedencia = new Date(agora.getTime() + antecedenciaHoras * 60 * 60 * 1000);
 
+      console.log(`[NOTIFICAÇÃO] Arena ${arena.nome}:`);
+      console.log(`  - Antecedência: ${antecedenciaHoras} horas`);
+      console.log(`  - Agora: ${agora.toISOString()}`);
+      console.log(`  - Janela de busca: ${emAntecedenciaMenos1h.toISOString()} até ${emAntecedencia.toISOString()}`);
+      console.log(`  - Buscando agendamentos que acontecerão entre ${emAntecedenciaMenos1h.toLocaleString('pt-BR')} e ${emAntecedencia.toLocaleString('pt-BR')}`);
+
       try {
+        // Primeiro, vamos verificar TODOS os agendamentos confirmados para debug
+        const agoraMais24h = new Date(agora.getTime() + 24 * 60 * 60 * 1000);
+        const sqlDebug = `
+          SELECT 
+            a.id, a."dataHora", a.duracao, a.status,
+            at.nome as "atleta_nome", 
+            at.fone as "atleta_fone",
+            at."aceitaLembretesAgendamento",
+            q.nome as "quadra_nome",
+            p.nome as "point_nome"
+          FROM "Agendamento" a
+          INNER JOIN "Quadra" q ON a."quadraId" = q.id
+          INNER JOIN "Point" p ON q."pointId" = p.id
+          INNER JOIN "Atleta" at ON a."atletaId" = at.id
+          WHERE a.status = 'CONFIRMADO'
+            AND p.id = $1
+            AND a."dataHora" >= $2
+            AND a."dataHora" <= $3
+          ORDER BY a."dataHora" ASC
+        `;
+        const debugResult = await query(sqlDebug, [arena.id, agora.toISOString(), agoraMais24h.toISOString()]);
+        console.log(`  - Total de agendamentos confirmados nas próximas 24h: ${debugResult.rows.length}`);
+        debugResult.rows.forEach((ag: any) => {
+          const dataHora = new Date(ag.dataHora);
+          const horasRestantes = Math.round((dataHora.getTime() - agora.getTime()) / (1000 * 60 * 60 * 100)) / 10;
+          console.log(`    * Agendamento ${ag.id}: ${dataHora.toLocaleString('pt-BR')} (${horasRestantes}h restantes)`);
+          console.log(`      - Atleta: ${ag.atleta_nome}, Telefone: ${ag.atleta_fone ? 'SIM' : 'NÃO'}, Aceita lembretes: ${ag.aceitaLembretesAgendamento}`);
+        });
+
         // Buscar agendamentos confirmados que estão na janela de tempo
         // e que ainda não receberam notificação deste tipo
         const sql = `
@@ -110,7 +145,7 @@ export async function GET(request: NextRequest) {
           emAntecedencia.toISOString()
         ]);
 
-        console.log(`[NOTIFICAÇÃO] Arena ${arena.nome}: ${result.rows.length} agendamentos para notificar`);
+        console.log(`  - Agendamentos na janela de ${antecedenciaHoras}h: ${result.rows.length}`);
 
         for (const agendamento of result.rows) {
           try {
