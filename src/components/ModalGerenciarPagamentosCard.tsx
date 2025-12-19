@@ -204,9 +204,16 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       await carregarDados();
       onSuccess(cardAtualizado);
       
-      // Se está dividindo por pessoas, manter os valores preenchidos mas limpar a forma de pagamento
-      // para que o atendente possa adicionar o próximo pagamento com outra forma
-      if (numeroPessoas > 1 && valorPorPessoa !== null) {
+      // Recalcular saldo após adicionar pagamento
+      const novoSaldo = calcularSaldo();
+      const saldoZerado = Math.abs(novoSaldo) < 0.01;
+      
+      // Se o saldo zerou, fechar a modal independente de ter divisão ou não
+      if (saldoZerado) {
+        fecharModalPagamento();
+      } else if (numeroPessoas > 1 && valorPorPessoa !== null) {
+        // Se ainda há saldo e está dividindo por pessoas, manter os valores preenchidos mas limpar a forma de pagamento
+        // para que o atendente possa adicionar o próximo pagamento com outra forma
         setFormaPagamentoSelecionada(''); // Limpar forma de pagamento para próximo pagamento
         setObservacoesPagamento(''); // Limpar observações
         setItensSelecionadosPagamento([]); // Limpar itens selecionados
