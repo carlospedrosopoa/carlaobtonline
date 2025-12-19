@@ -201,12 +201,15 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       
       // Buscar card atualizado para refletir na listagem principal
       const cardAtualizado = await cardClienteService.obter(cardCompleto.id, false, true, false);
+      
+      // Recalcular saldo ANTES de recarregar dados (usando o valor que acabamos de adicionar)
+      const valorTotalItensAtual = itens.reduce((sum, item) => sum + item.precoTotal, 0);
+      const totalPagoAtual = pagamentos.reduce((sum, pag) => sum + pag.valor, 0);
+      const novoSaldo = valorTotalItensAtual - (totalPagoAtual + valorFinal);
+      const saldoZerado = Math.abs(novoSaldo) < 0.01;
+      
       await carregarDados();
       onSuccess(cardAtualizado);
-      
-      // Recalcular saldo após adicionar pagamento
-      const novoSaldo = calcularSaldo();
-      const saldoZerado = Math.abs(novoSaldo) < 0.01;
       
       // Se o saldo zerou, fechar a modal independente de ter divisão ou não
       if (saldoZerado) {
