@@ -427,17 +427,17 @@ export async function notificarNovoAgendamento(
     return false;
   }
 
-  // Extrair data e hora diretamente da string ISO sem conversão de timezone
-  // A data já vem do banco no formato correto (horário local)
+  // A data vem do banco em UTC, precisamos converter para horário de Brasília (UTC-3)
+  // Adicionar 3 horas para ajustar para o timezone local
   const dataHora = new Date(agendamento.dataHora);
+  const dataHoraLocal = new Date(dataHora.getTime() + (3 * 60 * 60 * 1000)); // Adiciona 3 horas
   
-  // Usar métodos get* que retornam valores no timezone local do servidor
-  // e formatar manualmente para evitar problemas de conversão
-  const ano = dataHora.getFullYear();
-  const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
-  const dia = String(dataHora.getDate()).padStart(2, '0');
-  const hora = String(dataHora.getHours()).padStart(2, '0');
-  const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+  // Extrair valores após ajuste de timezone
+  const ano = dataHoraLocal.getUTCFullYear();
+  const mes = String(dataHoraLocal.getUTCMonth() + 1).padStart(2, '0');
+  const dia = String(dataHoraLocal.getUTCDate()).padStart(2, '0');
+  const hora = String(dataHoraLocal.getUTCHours()).padStart(2, '0');
+  const minuto = String(dataHoraLocal.getUTCMinutes()).padStart(2, '0');
   
   const dataFormatada = `${dia}/${mes}/${ano}`;
   const horaFormatada = `${hora}:${minuto}`;
@@ -482,17 +482,17 @@ export async function notificarCancelamentoAgendamento(
     return false;
   }
 
-  // Extrair data e hora diretamente da string ISO sem conversão de timezone
-  // A data já vem do banco no formato correto (horário local)
+  // A data vem do banco em UTC, precisamos converter para horário de Brasília (UTC-3)
+  // Adicionar 3 horas para ajustar para o timezone local
   const dataHora = new Date(agendamento.dataHora);
+  const dataHoraLocal = new Date(dataHora.getTime() + (3 * 60 * 60 * 1000)); // Adiciona 3 horas
   
-  // Usar métodos get* que retornam valores no timezone local do servidor
-  // e formatar manualmente para evitar problemas de conversão
-  const ano = dataHora.getFullYear();
-  const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
-  const dia = String(dataHora.getDate()).padStart(2, '0');
-  const hora = String(dataHora.getHours()).padStart(2, '0');
-  const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+  // Extrair valores após ajuste de timezone
+  const ano = dataHoraLocal.getUTCFullYear();
+  const mes = String(dataHoraLocal.getUTCMonth() + 1).padStart(2, '0');
+  const dia = String(dataHoraLocal.getUTCDate()).padStart(2, '0');
+  const hora = String(dataHoraLocal.getUTCHours()).padStart(2, '0');
+  const minuto = String(dataHoraLocal.getUTCMinutes()).padStart(2, '0');
   
   const dataFormatada = `${dia}/${mes}/${ano}`;
   const horaFormatada = `${hora}:${minuto}`;
