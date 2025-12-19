@@ -411,7 +411,11 @@ export async function atualizarAtleta(atletaId: string, dados: {
     valores.push(atletaId);
 
     const queryStr = `UPDATE "Atleta" SET ${campos.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
-    await query(queryStr, valores);
+    const result = await query(queryStr, valores);
+    console.log('[ATUALIZAR ATLETA] UPDATE executado, resultado:', {
+      rows: result.rows.length,
+      aceitaLembretesAgendamento: result.rows[0]?.aceitaLembretesAgendamento
+    });
   }
 
   // Atualizar arenas frequentes se fornecido
@@ -440,6 +444,11 @@ export async function atualizarAtleta(atletaId: string, dados: {
   if (!atleta) {
     return null;
   }
+
+  console.log('[ATUALIZAR ATLETA] Atleta retornado após buscar:', {
+    id: atleta.id,
+    aceitaLembretesAgendamento: atleta.aceitaLembretesAgendamento
+  });
 
   return {
     ...atleta,

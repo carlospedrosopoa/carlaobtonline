@@ -139,6 +139,7 @@ export async function PUT(request: NextRequest) {
       fotoUrl?: string | null;
       esportePreferido?: string | null;
       esportesPratica?: string[];
+      aceitaLembretesAgendamento?: boolean;
       pointIdPrincipal?: string | null;
       pointIdsFrequentes?: string[];
     } = {};
@@ -151,9 +152,11 @@ export async function PUT(request: NextRequest) {
     if (fotoUrl !== undefined) dadosAtualizacao.fotoUrl = fotoUrlProcessada;
     if (esportePreferido !== undefined) dadosAtualizacao.esportePreferido = esportePreferido || null;
     if (esportesPratica !== undefined) dadosAtualizacao.esportesPratica = Array.isArray(esportesPratica) ? esportesPratica : [];
+    if (aceitaLembretesAgendamento !== undefined) dadosAtualizacao.aceitaLembretesAgendamento = aceitaLembretesAgendamento;
     if (pointIdPrincipal !== undefined) dadosAtualizacao.pointIdPrincipal = pointIdPrincipal || null;
     if (pointIdsFrequentes !== undefined) dadosAtualizacao.pointIdsFrequentes = Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [];
 
+    console.log('[ATUALIZAR PERFIL] Dados de atualização:', dadosAtualizacao);
     const atletaAtualizado = await atualizarAtleta(atletaExistente.id, dadosAtualizacao);
 
     if (!atletaAtualizado) {
@@ -163,6 +166,11 @@ export async function PUT(request: NextRequest) {
       );
       return withCors(errorResponse, request);
     }
+
+    console.log('[ATUALIZAR PERFIL] Atleta atualizado retornado:', {
+      id: atletaAtualizado.id,
+      aceitaLembretesAgendamento: atletaAtualizado.aceitaLembretesAgendamento
+    });
 
     const response = NextResponse.json(atletaAtualizado);
     return withCors(response, request);
