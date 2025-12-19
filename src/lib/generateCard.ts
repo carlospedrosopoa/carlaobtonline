@@ -370,6 +370,46 @@ export async function generateMatchCard(
           ctx.drawImage(background, 0, 0, largura, altura);
           templateCarregado = true;
           console.log('[generateCard] ✅ Template carregado da URL com sucesso');
+          
+          // Carregar e desenhar logo do PlaynaQuadra por cima do template (substituindo logo antigo)
+          const logoPlaynaQuadraUrl = process.env.CARD_PLAYNAQUADRA_LOGO_URL;
+          if (logoPlaynaQuadraUrl) {
+            try {
+              console.log('[generateCard] Carregando logo do PlaynaQuadra...');
+              const logoPlaynaQuadra = await carregarImagemRemota(logoPlaynaQuadraUrl);
+              if (logoPlaynaQuadra) {
+                // Posição do logo (canto superior esquerdo, similar ao logo antigo)
+                // Ajustar tamanho conforme necessário
+                const logoWidth = 200;
+                const logoHeight = 80;
+                const logoX = 50;
+                const logoY = 50;
+                
+                // Manter proporção da imagem
+                const logoAspect = logoPlaynaQuadra.width / logoPlaynaQuadra.height;
+                let drawLogoWidth = logoWidth;
+                let drawLogoHeight = logoHeight;
+                
+                if (logoAspect > (logoWidth / logoHeight)) {
+                  // Logo é mais largo
+                  drawLogoHeight = logoWidth / logoAspect;
+                } else {
+                  // Logo é mais alto
+                  drawLogoWidth = logoHeight * logoAspect;
+                }
+                
+                ctx.drawImage(logoPlaynaQuadra, logoX, logoY, drawLogoWidth, drawLogoHeight);
+                console.log('[generateCard] ✅ Logo do PlaynaQuadra desenhado com sucesso');
+              } else {
+                console.warn('[generateCard] ⚠️ Não foi possível carregar logo do PlaynaQuadra');
+              }
+            } catch (error: any) {
+              console.warn('[generateCard] Erro ao carregar logo do PlaynaQuadra:', error.message);
+              // Continuar mesmo se não conseguir carregar o logo
+            }
+          } else {
+            console.log('[generateCard] CARD_PLAYNAQUADRA_LOGO_URL não configurada, usando logo do template');
+          }
         } else {
           console.warn('[generateCard] ⚠️ Template não foi carregado (background é null)');
           console.warn('[generateCard] 💡 Dica: Torne o arquivo público no GCS ou verifique as permissões');
@@ -643,7 +683,7 @@ export async function generateMatchCard(
     
     // Placar (se existir) - alinhado com os nomes dos atletas de baixo
     if (partida.gamesTime1 !== null && partida.gamesTime2 !== null) {
-      const fontePlacar = obterFonteCompativel(200, 'bold');
+      const fontePlacar = obterFonteCompativel(120, 'bold'); // Reduzido de 200 para 120
       ctx.font = fontePlacar;
       console.log('[generateCard] Fonte usada para placar:', fontePlacar);
       ctx.textAlign = 'center'; // Centralizado horizontalmente
