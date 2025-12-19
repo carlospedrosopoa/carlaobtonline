@@ -479,6 +479,7 @@ export async function generateMatchCard(
     const fonteNomes = obterFonteCompativel(32, 'bold');
     ctx.font = fonteNomes;
     console.log('[generateCard] Fonte usada para nomes:', fonteNomes);
+    console.log('[generateCard] fillStyle antes de desenhar nomes:', ctx.fillStyle);
     ctx.textAlign = 'center'; // Centralizado abaixo da foto
     ctx.textBaseline = 'top';
     
@@ -492,7 +493,7 @@ export async function generateMatchCard(
       const nome = partida.atleta1.nome || 'A Definir';
       const x = posicoesFotos[0][0] + tamanho / 2; // Centro da foto
       const y = posicoesFotos[0][1] + tamanho + 25; // Abaixo da foto (aumentado espaçamento de 15 para 25)
-      console.log('[generateCard] Desenhando nome atleta1:', nome, 'em', x, y);
+      console.log('[generateCard] Desenhando nome atleta1:', nome, 'em', x, y, 'fillStyle:', ctx.fillStyle, 'font:', ctx.font);
       ctx.fillText(nome, x, y);
     }
     if (partida.atleta2) {
@@ -524,15 +525,18 @@ export async function generateMatchCard(
     ctx.shadowOffsetY = 0;
     
     // Info principal - Título (mais à direita para não sobrepor logo)
+    ctx.fillStyle = '#ffffff'; // Garantir cor branca
     const fonteTitulo = obterFonteCompativel(36, 'bold');
     ctx.font = fonteTitulo;
     console.log('[generateCard] Fonte usada para título:', fonteTitulo);
     ctx.textAlign = 'right'; // Alinhado à direita
+    ctx.textBaseline = 'top';
     const tituloTexto = 'Jogo Amistoso';
-    console.log('[generateCard] Desenhando título:', tituloTexto);
+    console.log('[generateCard] Desenhando título:', tituloTexto, 'cor:', ctx.fillStyle);
     ctx.fillText(tituloTexto, largura - 50, 100); // 50px da borda direita
     
     // Data e hora
+    ctx.fillStyle = '#ffffff'; // Garantir cor branca
     const dataJogo = new Date(partida.data);
     const dia = dataJogo.toLocaleDateString('pt-BR', {
       day: '2-digit',
@@ -548,15 +552,16 @@ export async function generateMatchCard(
     ctx.font = fonteData;
     console.log('[generateCard] Fonte usada para data:', fonteData);
     const dataTexto = `${dia} - ${hora}`;
-    console.log('[generateCard] Desenhando data:', dataTexto);
+    console.log('[generateCard] Desenhando data:', dataTexto, 'cor:', ctx.fillStyle);
     ctx.fillText(dataTexto, largura - 50, 150); // 50px da borda direita
     
     // Local
+    ctx.fillStyle = '#ffffff'; // Garantir cor branca
     const fonteLocal = obterFonteCompativel(36, 'bold');
     ctx.font = fonteLocal;
     console.log('[generateCard] Fonte usada para local:', fonteLocal);
     const localTexto = partida.local || 'Local não informado';
-    console.log('[generateCard] Desenhando local:', localTexto);
+    console.log('[generateCard] Desenhando local:', localTexto, 'cor:', ctx.fillStyle);
     ctx.fillText(localTexto, largura - 50, 200); // 50px da borda direita
     
     // Placar (se existir) - alinhado com os nomes dos atletas de baixo
