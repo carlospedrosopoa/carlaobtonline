@@ -148,15 +148,24 @@ async function registrarFonteCustomizada(): Promise<void> {
     // Registrar as fontes no canvas
     console.log('[generateCard] Registrando fontes no canvas...');
     try {
+      // Verificar se os arquivos existem antes de registrar
+      if (!existsSync(fontPathRegular)) {
+        throw new Error(`Arquivo de fonte não encontrado: ${fontPathRegular}`);
+      }
+      if (!existsSync(fontPathBold)) {
+        throw new Error(`Arquivo de fonte não encontrado: ${fontPathBold}`);
+      }
+      
       registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'normal' });
       registerFont(fontPathBold, { family: FONTE_NOME, weight: 'bold' });
       fonteRegistrada = true;
+      usandoFonteSistema = false;
       console.log('[generateCard] ✅ Fontes Roboto registradas com sucesso no canvas');
     } catch (error: any) {
       console.error('[generateCard] Erro ao registrar fontes:', error.message);
       console.warn('[generateCard] Usando fonte do sistema como fallback');
       usandoFonteSistema = true;
-      fonteRegistrada = true;
+      fonteRegistrada = true; // Marcar como registrada para usar fallback
     }
   } catch (error: any) {
     console.error('[generateCard] ❌ Erro ao registrar fonte customizada:', error.message);
@@ -170,18 +179,19 @@ async function registrarFonteCustomizada(): Promise<void> {
 function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string {
   const pesoTexto = peso === 'bold' ? 'bold' : 'normal';
   
-  // Se está usando fonte do sistema, usar DejaVu Sans (disponível no Linux)
-  if (usandoFonteSistema) {
-    return `${pesoTexto} ${tamanho}px "${FONTE_SISTEMA}", sans-serif`;
+  // Prioridade: usar fonte registrada se disponível
+  if (fonteRegistrada && !usandoFonteSistema) {
+    const fonte = `${pesoTexto} ${tamanho}px "${FONTE_NOME}"`;
+    console.log('[generateCard] Usando fonte customizada:', fonte);
+    return fonte;
   }
   
-  // Tentar usar fonte customizada se registrada
-  if (fonteRegistrada) {
-    return `${pesoTexto} ${tamanho}px "${FONTE_NOME}", sans-serif`;
-  }
-  
-  // Fallback para fonte genérica
-  return `${pesoTexto} ${tamanho}px sans-serif`;
+  // Se não conseguiu registrar fonte customizada, usar fonte do sistema
+  // No Linux/Vercel, usar Arial ou Helvetica que geralmente estão disponíveis
+  // Se não, usar sans-serif genérico
+  const fonteSistema = `${pesoTexto} ${tamanho}px "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans", sans-serif`;
+  console.log('[generateCard] Usando fonte do sistema:', fonteSistema);
+  return fonteSistema;
 }
 
 /**
