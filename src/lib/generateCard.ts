@@ -179,18 +179,19 @@ async function registrarFonteCustomizada(): Promise<void> {
 function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string {
   const pesoTexto = peso === 'bold' ? 'bold' : 'normal';
   
-  // Prioridade: usar fonte registrada se disponível
+  // Prioridade: usar fonte registrada se disponível E não estiver usando fonte do sistema
   if (fonteRegistrada && !usandoFonteSistema) {
     const fonte = `${pesoTexto} ${tamanho}px "${FONTE_NOME}"`;
-    console.log('[generateCard] Usando fonte customizada:', fonte);
+    console.log('[generateCard] Usando fonte customizada Roboto:', fonte);
     return fonte;
   }
   
   // Se não conseguiu registrar fonte customizada, usar fonte do sistema
-  // No Linux/Vercel, usar Arial ou Helvetica que geralmente estão disponíveis
-  // Se não, usar sans-serif genérico
-  const fonteSistema = `${pesoTexto} ${tamanho}px "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans", sans-serif`;
-  console.log('[generateCard] Usando fonte do sistema:', fonteSistema);
+  // No Linux/Vercel, DejaVu Sans é geralmente disponível e suporta UTF-8
+  // Usar múltiplos fallbacks para garantir compatibilidade
+  const fonteSistema = `${pesoTexto} ${tamanho}px "DejaVu Sans", "Liberation Sans", "Arial", "Helvetica", sans-serif`;
+  console.log('[generateCard] Usando fonte do sistema (fallback):', fonteSistema);
+  console.log('[generateCard] usandoFonteSistema:', usandoFonteSistema, 'fonteRegistrada:', fonteRegistrada);
   return fonteSistema;
 }
 
