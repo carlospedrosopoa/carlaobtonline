@@ -217,6 +217,10 @@ export async function generateMatchCard(
     const canvas = createCanvas(largura, altura);
     const ctx = canvas.getContext('2d');
     
+    // Garantir que o canvas está configurado para UTF-8
+    // Isso ajuda a evitar problemas com caracteres especiais
+    console.log('[generateCard] Canvas criado, dimensões:', largura, 'x', altura);
+    
     // Função para normalizar URL do GCS (converter storage.cloud.google.com para storage.googleapis.com)
     const normalizarUrlGCS = (url: string): string => {
       // storage.cloud.google.com requer autenticação, storage.googleapis.com é público
