@@ -141,8 +141,9 @@ async function registrarFonteCustomizada(): Promise<void> {
       }
       
       if (!baixado) {
-        console.warn('[generateCard] ⚠️ Não foi possível baixar Roboto Bold de nenhuma URL. Usando fonte do sistema.');
-        usandoFonteSistema = true;
+        console.warn('[generateCard] ⚠️ Não foi possível baixar Roboto Bold de nenhuma URL.');
+        console.warn('[generateCard] Continuando com Regular apenas - Bold usará Regular como fallback');
+        // NÃO marcar usandoFonteSistema = true aqui, pois temos a Regular baixada e vamos registrá-la
       }
     } else if (usandoFonteSistema) {
       console.log('[generateCard] Pulando download de Bold (usando fonte do sistema)');
@@ -150,11 +151,19 @@ async function registrarFonteCustomizada(): Promise<void> {
       console.log('[generateCard] Fonte Roboto Bold já existe, reutilizando');
     }
 
-    // Se não conseguiu baixar as fontes, usar fonte do sistema
-    if (usandoFonteSistema) {
-      console.log('[generateCard] Usando fonte do sistema:', FONTE_SISTEMA);
+    // Se não conseguiu baixar NENHUMA fonte (nem Regular nem Bold), usar fonte do sistema
+    if (usandoFonteSistema && !existsSync(fontPathRegular)) {
+      console.log('[generateCard] Nenhuma fonte baixada. Usando fonte do sistema:', FONTE_SISTEMA);
       fonteRegistrada = true; // Marcar como registrada para usar fonte do sistema
       return; // Não precisa registrar, vai usar fonte do sistema diretamente
+    }
+    
+    // Se temos pelo menos a Regular, continuar para registrar
+    if (!existsSync(fontPathRegular)) {
+      console.warn('[generateCard] ⚠️ Fonte Regular não encontrada após tentativas. Usando fonte do sistema.');
+      usandoFonteSistema = true;
+      fonteRegistrada = true;
+      return;
     }
 
     // Verificar se pelo menos a fonte Regular existe
