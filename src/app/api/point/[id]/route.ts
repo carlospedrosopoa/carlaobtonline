@@ -20,6 +20,7 @@ export async function GET(
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
+          "enviarLembretesAgendamento", "antecedenciaLembrete",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         WHERE id = $1`,
@@ -37,7 +38,7 @@ export async function GET(
           WHERE id = $1`,
           [id]
         );
-        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
+        // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
@@ -49,6 +50,8 @@ export async function GET(
             gzappyApiKey: null,
             gzappyInstanceId: null,
             gzappyAtivo: false,
+            enviarLembretesAgendamento: false,
+            antecedenciaLembrete: 8,
             assinante: result.rows[0].assinante ?? false,
           };
         }
@@ -88,7 +91,8 @@ export async function PUT(
     const { 
       nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
-      gzappyApiKey, gzappyInstanceId, gzappyAtivo
+      gzappyApiKey, gzappyInstanceId, gzappyAtivo,
+      enviarLembretesAgendamento, antecedenciaLembrete
     } = body;
 
     if (!nome) {
@@ -172,11 +176,13 @@ export async function PUT(
          SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, latitude = $7, longitude = $8, ativo = $9,
              "whatsappAccessToken" = $10, "whatsappPhoneNumberId" = $11, "whatsappBusinessAccountId" = $12, 
              "whatsappApiVersion" = $13, "whatsappAtivo" = $14,
-             "gzappyApiKey" = $15, "gzappyInstanceId" = $16, "gzappyAtivo" = $17, "updatedAt" = NOW()
-         WHERE id = $18
+             "gzappyApiKey" = $15, "gzappyInstanceId" = $16, "gzappyAtivo" = $17,
+             "enviarLembretesAgendamento" = $18, "antecedenciaLembrete" = $19, "updatedAt" = NOW()
+         WHERE id = $20
          RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
                    "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
                    "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
+                   "enviarLembretesAgendamento", "antecedenciaLembrete",
                    "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
@@ -184,6 +190,7 @@ export async function PUT(
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
           gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
+          enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
           id
         ]
       );
@@ -203,7 +210,7 @@ export async function PUT(
             id
           ]
         );
-        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
+        // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
@@ -215,6 +222,8 @@ export async function PUT(
             gzappyApiKey: null,
             gzappyInstanceId: null,
             gzappyAtivo: false,
+            enviarLembretesAgendamento: false,
+            antecedenciaLembrete: 8,
           };
         }
       } else {

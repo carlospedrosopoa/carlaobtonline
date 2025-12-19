@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
+          "enviarLembretesAgendamento", "antecedenciaLembrete",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         ${whereClause}
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
           ${whereClause}
           ORDER BY nome ASC`
         );
-        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
+        // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
         result.rows = result.rows.map((row: any) => ({
           ...row,
           whatsappAccessToken: null,
@@ -57,6 +58,8 @@ export async function GET(request: NextRequest) {
           gzappyApiKey: null,
           gzappyInstanceId: null,
           gzappyAtivo: false,
+          enviarLembretesAgendamento: false,
+          antecedenciaLembrete: 8,
           assinante: row.assinante ?? false,
         }));
       } else {
@@ -88,7 +91,8 @@ export async function POST(request: NextRequest) {
     const { 
       nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo = true,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
-      gzappyApiKey, gzappyInstanceId, gzappyAtivo
+      gzappyApiKey, gzappyInstanceId, gzappyAtivo,
+      enviarLembretesAgendamento, antecedenciaLembrete
     } = body;
 
     if (!nome) {
@@ -134,25 +138,29 @@ export async function POST(request: NextRequest) {
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
+          "enviarLembretesAgendamento", "antecedenciaLembrete",
           "createdAt", "updatedAt"
         )
          VALUES (
           gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9,
           $10, $11, $12, $13, $14,
           $15, $16, $17,
+          $18, $19,
           NOW(), NOW()
          )
          RETURNING 
           id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
+          "enviarLembretesAgendamento", "antecedenciaLembrete",
           "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
           latitude || null, longitude || null, ativo,
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
-          gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false
+          gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
+          enviarLembretesAgendamento ?? false, antecedenciaLembrete || null
         ]
       );
     } catch (error: any) {
@@ -176,7 +184,7 @@ export async function POST(request: NextRequest) {
             latitude || null, longitude || null, ativo
           ]
         );
-        // Adicionar campos WhatsApp e Gzappy como null para compatibilidade
+        // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
@@ -188,6 +196,8 @@ export async function POST(request: NextRequest) {
             gzappyApiKey: null,
             gzappyInstanceId: null,
             gzappyAtivo: false,
+            enviarLembretesAgendamento: false,
+            antecedenciaLembrete: 8,
           };
         }
       } else {

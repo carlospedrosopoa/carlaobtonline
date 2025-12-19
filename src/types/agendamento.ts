@@ -21,6 +21,9 @@ export interface Point {
   gzappyApiKey?: string | null;
   gzappyInstanceId?: string | null;
   gzappyAtivo?: boolean;
+  // Configurações de Lembretes de Agendamento
+  enviarLembretesAgendamento?: boolean;
+  antecedenciaLembrete?: number | null;
   assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
   createdAt: string;
   updatedAt: string;
@@ -128,6 +131,9 @@ export interface CriarPointPayload {
   gzappyApiKey?: string | null;
   gzappyInstanceId?: string | null;
   gzappyAtivo?: boolean;
+  // Configurações de Lembretes de Agendamento (opcionais)
+  enviarLembretesAgendamento?: boolean;
+  antecedenciaLembrete?: number | null;
 }
 
 export interface CriarQuadraPayload {

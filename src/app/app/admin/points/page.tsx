@@ -29,6 +29,8 @@ export default function AdminPointsPage() {
     gzappyApiKey: null,
     gzappyInstanceId: null,
     gzappyAtivo: false,
+    enviarLembretesAgendamento: false,
+    antecedenciaLembrete: 8,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [buscandoGeolocalizacao, setBuscandoGeolocalizacao] = useState(false);
@@ -74,6 +76,8 @@ export default function AdminPointsPage() {
         gzappyApiKey: point.gzappyApiKey || null,
         gzappyInstanceId: point.gzappyInstanceId || null,
         gzappyAtivo: point.gzappyAtivo ?? false,
+        enviarLembretesAgendamento: point.enviarLembretesAgendamento ?? false,
+        antecedenciaLembrete: point.antecedenciaLembrete ?? 8,
       });
       setLogoPreview(point.logoUrl || null);
     } else {
@@ -96,6 +100,8 @@ export default function AdminPointsPage() {
         gzappyApiKey: null,
         gzappyInstanceId: null,
         gzappyAtivo: false,
+        enviarLembretesAgendamento: false,
+        antecedenciaLembrete: 8,
       });
       setLogoPreview(null);
     }
@@ -691,6 +697,65 @@ export default function AdminPointsPage() {
                         <p className="text-sm text-purple-800">
                           <strong>💡 Dica:</strong> Consulte a documentação do Gzappy para obter instruções detalhadas sobre como obter essas credenciais.
                         </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Seção Lembretes de Agendamento */}
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <MessageCircle className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Lembretes de Agendamento</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Configure o envio automático de lembretes de agendamento via WhatsApp para os atletas.
+                </p>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="enviarLembretesAgendamento"
+                      checked={form.enviarLembretesAgendamento ?? false}
+                      onChange={(e) => setForm({ ...form, enviarLembretesAgendamento: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="enviarLembretesAgendamento" className="text-sm font-medium text-gray-700">
+                      Enviar lembretes de agendamento para os atletas
+                    </label>
+                  </div>
+
+                  {form.enviarLembretesAgendamento && (
+                    <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Antecedência (horas) *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="168"
+                          value={form.antecedenciaLembrete || 8}
+                          onChange={(e) => setForm({ ...form, antecedenciaLembrete: parseInt(e.target.value) || 8 })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          placeholder="8"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Quantas horas antes do agendamento o lembrete deve ser enviado (ex: 8 = 8 horas antes, 24 = 24 horas antes)
+                        </p>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-sm text-blue-800">
+                          <strong>⚠️ Importante:</strong> Para que os lembretes sejam enviados, é necessário:
+                        </p>
+                        <ul className="text-sm text-blue-800 mt-2 list-disc list-inside space-y-1">
+                          <li>Gzappy configurado e ativo para esta arena</li>
+                          <li>Atletas com flag "Aceitar lembretes" ativada em seus perfis</li>
+                          <li>Agendamentos confirmados</li>
+                        </ul>
                       </div>
                     </div>
                   )}
