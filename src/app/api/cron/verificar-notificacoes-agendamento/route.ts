@@ -79,21 +79,16 @@ export async function GET(request: NextRequest) {
         const sql = `
           SELECT 
             a.id, a."dataHora", a.duracao,
-            a."atletaId", a."usuarioId",
+            a."atletaId",
             at.nome as "atleta_nome", 
             at.fone as "atleta_fone",
-            at."aceitaLembretesAgendamento" as "atleta_aceita_lembretes",
-            u.name as "usuario_name", 
-            u.email as "usuario_email", 
-            u."aceitaLembretesAgendamento" as "usuario_aceita_lembretes",
             q.nome as "quadra_nome",
             p.nome as "point_nome", 
             p.id as "point_id"
           FROM "Agendamento" a
           INNER JOIN "Quadra" q ON a."quadraId" = q.id
           INNER JOIN "Point" p ON q."pointId" = p.id
-          LEFT JOIN "Atleta" at ON a."atletaId" = at.id
-          LEFT JOIN "User" u ON a."usuarioId" = u.id
+          INNER JOIN "Atleta" at ON a."atletaId" = at.id
           LEFT JOIN "NotificacaoAgendamento" n ON n."agendamentoId" = a.id 
             AND n.tipo = $1
             AND n.enviada = true
@@ -102,9 +97,9 @@ export async function GET(request: NextRequest) {
             AND a."dataHora" >= $3
             AND a."dataHora" <= $4
             AND n.id IS NULL
-            AND at.id IS NOT NULL 
             AND at."aceitaLembretesAgendamento" = true
             AND at.fone IS NOT NULL
+            AND at.fone != ''
         `;
 
         const tipoNotificacao = `LEMBRETE_${antecedenciaHoras}H`;
