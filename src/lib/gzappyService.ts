@@ -368,17 +368,23 @@ export async function notificarNovoAgendamento(
     return false;
   }
 
-  // A data vem do banco em UTC, precisamos converter para horário de Brasília (UTC-3)
-  // Adicionar 3 horas para ajustar para o timezone local
-  const dataHora = new Date(agendamento.dataHora);
-  const dataHoraLocal = new Date(dataHora.getTime() + (3 * 60 * 60 * 1000)); // Adiciona 3 horas
+  // A data vem do banco em UTC (salva como toISOString())
+  // Precisamos converter para horário de Brasília (UTC-3)
+  // Interpretar como UTC e subtrair 3 horas
+  const dataHoraStr = agendamento.dataHora.endsWith('Z') || agendamento.dataHora.includes('+') || agendamento.dataHora.includes('-') && agendamento.dataHora.length > 19
+    ? agendamento.dataHora
+    : agendamento.dataHora + 'Z';
+  const dataHora = new Date(dataHoraStr);
   
-  // Extrair valores após ajuste de timezone
-  const ano = dataHoraLocal.getUTCFullYear();
-  const mes = String(dataHoraLocal.getUTCMonth() + 1).padStart(2, '0');
-  const dia = String(dataHoraLocal.getUTCDate()).padStart(2, '0');
-  const hora = String(dataHoraLocal.getUTCHours()).padStart(2, '0');
-  const minuto = String(dataHoraLocal.getUTCMinutes()).padStart(2, '0');
+  // Converter de UTC para UTC-3 (Brasília): subtrair 3 horas
+  const dataHoraBrasilia = new Date(dataHora.getTime() - (3 * 60 * 60 * 1000));
+  
+  // Extrair valores no horário de Brasília
+  const ano = dataHoraBrasilia.getUTCFullYear();
+  const mes = String(dataHoraBrasilia.getUTCMonth() + 1).padStart(2, '0');
+  const dia = String(dataHoraBrasilia.getUTCDate()).padStart(2, '0');
+  const hora = String(dataHoraBrasilia.getUTCHours()).padStart(2, '0');
+  const minuto = String(dataHoraBrasilia.getUTCMinutes()).padStart(2, '0');
   
   const dataFormatada = `${dia}/${mes}/${ano}`;
   const horaFormatada = `${hora}:${minuto}`;
@@ -423,17 +429,23 @@ export async function notificarCancelamentoAgendamento(
     return false;
   }
 
-  // A data vem do banco em UTC, precisamos converter para horário de Brasília (UTC-3)
-  // Adicionar 3 horas para ajustar para o timezone local
-  const dataHora = new Date(agendamento.dataHora);
-  const dataHoraLocal = new Date(dataHora.getTime() + (3 * 60 * 60 * 1000)); // Adiciona 3 horas
+  // A data vem do banco em UTC (salva como toISOString())
+  // Precisamos converter para horário de Brasília (UTC-3)
+  // Interpretar como UTC e subtrair 3 horas
+  const dataHoraStr = agendamento.dataHora.endsWith('Z') || agendamento.dataHora.includes('+') || agendamento.dataHora.includes('-') && agendamento.dataHora.length > 19
+    ? agendamento.dataHora
+    : agendamento.dataHora + 'Z';
+  const dataHora = new Date(dataHoraStr);
   
-  // Extrair valores após ajuste de timezone
-  const ano = dataHoraLocal.getUTCFullYear();
-  const mes = String(dataHoraLocal.getUTCMonth() + 1).padStart(2, '0');
-  const dia = String(dataHoraLocal.getUTCDate()).padStart(2, '0');
-  const hora = String(dataHoraLocal.getUTCHours()).padStart(2, '0');
-  const minuto = String(dataHoraLocal.getUTCMinutes()).padStart(2, '0');
+  // Converter de UTC para UTC-3 (Brasília): subtrair 3 horas
+  const dataHoraBrasilia = new Date(dataHora.getTime() - (3 * 60 * 60 * 1000));
+  
+  // Extrair valores no horário de Brasília
+  const ano = dataHoraBrasilia.getUTCFullYear();
+  const mes = String(dataHoraBrasilia.getUTCMonth() + 1).padStart(2, '0');
+  const dia = String(dataHoraBrasilia.getUTCDate()).padStart(2, '0');
+  const hora = String(dataHoraBrasilia.getUTCHours()).padStart(2, '0');
+  const minuto = String(dataHoraBrasilia.getUTCMinutes()).padStart(2, '0');
   
   const dataFormatada = `${dia}/${mes}/${ano}`;
   const horaFormatada = `${hora}:${minuto}`;
