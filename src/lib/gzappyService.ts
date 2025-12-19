@@ -368,26 +368,29 @@ export async function notificarNovoAgendamento(
     return false;
   }
 
-  // A data vem do banco em UTC (salva como toISOString())
-  // Precisamos converter para horário de Brasília (UTC-3)
-  // Interpretar como UTC e subtrair 3 horas
-  const dataHoraStr = agendamento.dataHora.endsWith('Z') || agendamento.dataHora.includes('+') || agendamento.dataHora.includes('-') && agendamento.dataHora.length > 19
-    ? agendamento.dataHora
-    : agendamento.dataHora + 'Z';
-  const dataHora = new Date(dataHoraStr);
+  // Extrair data e hora diretamente da string ISO, igual a agenda faz
+  // A data é salva como UTC mas representa o horário local escolhido pelo usuário
+  // Usar regex para extrair diretamente sem conversão de timezone
+  let dataFormatada: string;
+  let horaFormatada: string;
   
-  // Converter de UTC para UTC-3 (Brasília): subtrair 3 horas
-  const dataHoraBrasilia = new Date(dataHora.getTime() - (3 * 60 * 60 * 1000));
-  
-  // Extrair valores no horário de Brasília
-  const ano = dataHoraBrasilia.getUTCFullYear();
-  const mes = String(dataHoraBrasilia.getUTCMonth() + 1).padStart(2, '0');
-  const dia = String(dataHoraBrasilia.getUTCDate()).padStart(2, '0');
-  const hora = String(dataHoraBrasilia.getUTCHours()).padStart(2, '0');
-  const minuto = String(dataHoraBrasilia.getUTCMinutes()).padStart(2, '0');
-  
-  const dataFormatada = `${dia}/${mes}/${ano}`;
-  const horaFormatada = `${hora}:${minuto}`;
+  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    // Fallback se o formato não for o esperado
+    const dataHora = new Date(agendamento.dataHora);
+    const ano = dataHora.getFullYear();
+    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataHora.getDate()).padStart(2, '0');
+    const hora = String(dataHora.getHours()).padStart(2, '0');
+    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  } else {
+    // Extrair diretamente da string ISO (mesmo método usado na agenda)
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  }
 
   const horas = Math.floor(agendamento.duracao / 60);
   const minutos = agendamento.duracao % 60;
@@ -429,26 +432,29 @@ export async function notificarCancelamentoAgendamento(
     return false;
   }
 
-  // A data vem do banco em UTC (salva como toISOString())
-  // Precisamos converter para horário de Brasília (UTC-3)
-  // Interpretar como UTC e subtrair 3 horas
-  const dataHoraStr = agendamento.dataHora.endsWith('Z') || agendamento.dataHora.includes('+') || agendamento.dataHora.includes('-') && agendamento.dataHora.length > 19
-    ? agendamento.dataHora
-    : agendamento.dataHora + 'Z';
-  const dataHora = new Date(dataHoraStr);
+  // Extrair data e hora diretamente da string ISO, igual a agenda faz
+  // A data é salva como UTC mas representa o horário local escolhido pelo usuário
+  // Usar regex para extrair diretamente sem conversão de timezone
+  let dataFormatada: string;
+  let horaFormatada: string;
   
-  // Converter de UTC para UTC-3 (Brasília): subtrair 3 horas
-  const dataHoraBrasilia = new Date(dataHora.getTime() - (3 * 60 * 60 * 1000));
-  
-  // Extrair valores no horário de Brasília
-  const ano = dataHoraBrasilia.getUTCFullYear();
-  const mes = String(dataHoraBrasilia.getUTCMonth() + 1).padStart(2, '0');
-  const dia = String(dataHoraBrasilia.getUTCDate()).padStart(2, '0');
-  const hora = String(dataHoraBrasilia.getUTCHours()).padStart(2, '0');
-  const minuto = String(dataHoraBrasilia.getUTCMinutes()).padStart(2, '0');
-  
-  const dataFormatada = `${dia}/${mes}/${ano}`;
-  const horaFormatada = `${hora}:${minuto}`;
+  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    // Fallback se o formato não for o esperado
+    const dataHora = new Date(agendamento.dataHora);
+    const ano = dataHora.getFullYear();
+    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataHora.getDate()).padStart(2, '0');
+    const hora = String(dataHora.getHours()).padStart(2, '0');
+    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  } else {
+    // Extrair diretamente da string ISO (mesmo método usado na agenda)
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  }
 
   const mensagem = `❌ *Agendamento Cancelado*
 
