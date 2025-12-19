@@ -157,9 +157,9 @@ async function registrarFonteCustomizada(): Promise<void> {
       return; // Não precisa registrar, vai usar fonte do sistema diretamente
     }
 
-    // Verificar se os arquivos existem antes de registrar
-    if (!existsSync(fontPathRegular) || !existsSync(fontPathBold)) {
-      console.warn('[generateCard] ⚠️ Arquivos de fonte não encontrados. Usando fonte do sistema.');
+    // Verificar se pelo menos a fonte Regular existe
+    if (!existsSync(fontPathRegular)) {
+      console.warn('[generateCard] ⚠️ Fonte Regular não encontrada. Usando fonte do sistema.');
       usandoFonteSistema = true;
       fonteRegistrada = true;
       return;
@@ -168,24 +168,31 @@ async function registrarFonteCustomizada(): Promise<void> {
     // Registrar as fontes no canvas
     console.log('[generateCard] Registrando fontes no canvas...');
     try {
-      // Verificar se os arquivos existem antes de registrar
-      if (!existsSync(fontPathRegular)) {
-        throw new Error(`Arquivo de fonte não encontrado: ${fontPathRegular}`);
-      }
-      if (!existsSync(fontPathBold)) {
-        throw new Error(`Arquivo de fonte não encontrado: ${fontPathBold}`);
+      // Sempre registrar a fonte Regular (se existir)
+      registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'normal' });
+      console.log('[generateCard] ✅ Fonte Roboto Regular registrada');
+      
+      // Tentar registrar Bold se existir, senão usar Regular para bold também
+      if (existsSync(fontPathBold)) {
+        registerFont(fontPathBold, { family: FONTE_NOME, weight: 'bold' });
+        console.log('[generateCard] ✅ Fonte Roboto Bold registrada');
+      } else {
+        // Se Bold não existe, registrar Regular também como bold (não ideal, mas funciona)
+        console.warn('[generateCard] ⚠️ Fonte Bold não encontrada, usando Regular para bold também');
+        registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'bold' });
       }
       
-      registerFont(fontPathRegular, { family: FONTE_NOME, weight: 'normal' });
-      registerFont(fontPathBold, { family: FONTE_NOME, weight: 'bold' });
       fonteRegistrada = true;
       usandoFonteSistema = false;
-      console.log('[generateCard] ✅ Fontes Roboto registradas com sucesso no canvas');
+      console.log('[generateCard] ✅ Fontes registradas com sucesso no canvas');
     } catch (error: any) {
       console.error('[generateCard] Erro ao registrar fontes:', error.message);
-      console.warn('[generateCard] Usando fonte do sistema como fallback');
-      usandoFonteSistema = true;
-      fonteRegistrada = true; // Marcar como registrada para usar fallback
+      console.error('[generateCard] Stack:', error.stack);
+      console.warn('[generateCard] ⚠️ Fontconfig pode não estar configurado. Tentando continuar...');
+      // Mesmo com erro, marcar como registrada para tentar usar
+      // O node-canvas pode funcionar mesmo com erro de fontconfig
+      fonteRegistrada = true;
+      usandoFonteSistema = false; // Tentar usar fonte registrada mesmo com erro
     }
   } catch (error: any) {
     console.error('[generateCard] ❌ Erro ao registrar fonte customizada:', error.message);
@@ -202,7 +209,15 @@ function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string 
   // Prioridade: usar fonte registrada se disponível E não estiver usando fonte do sistema
   if (fonteRegistrada && !usandoFonteSistema) {
     const fonte = `${pesoTexto} ${tamanho}px "${FONTE_NOME}"`;
-    console.log('[generateCard] Usando fonte customizada Roboto:', fonte);
+    console.log('[generateCard] ✅ Usando fonte customizada Roboto:', fonte);
+    return fonte;
+  }
+  
+  // Se fonte foi registrada mas está marcada como sistema, ainda tentar usar Roboto
+  // (pode ter sido registrada mesmo com erro de fontconfig)
+  if (fonteRegistrada) {
+    const fonte = `${pesoTexto} ${tamanho}px "${FONTE_NOME}"`;
+    console.log('[generateCard] ⚠️ Tentando usar Roboto mesmo com flag de sistema:', fonte);
     return fonte;
   }
   
