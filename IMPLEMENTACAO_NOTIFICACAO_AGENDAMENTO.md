@@ -37,16 +37,35 @@ Execute as migrations no banco de dados na ordem:
 \i migrations/add_notificacao_agendamento.sql
 ```
 
-### 2. Configurar Variável de Ambiente
+### 2. Configurar Variável de Ambiente (Opcional)
 
-Adicione no `.env` ou nas variáveis de ambiente da Vercel:
+Para produção, adicione no `.env` ou nas variáveis de ambiente da Vercel:
 ```
 CRON_SECRET=sua_chave_secreta_aqui
 ```
 
-### 3. Configurar Vercel Cron
+**Nota**: Se não configurar `CRON_SECRET`, a rota funcionará sem autenticação (apenas para testes).
 
-O `vercel.json` já está configurado para rodar a cada hora:
+### 3. Chamar Manualmente (Para Testes)
+
+Como o Vercel Cron é pago, você pode chamar a rota manualmente:
+
+**Com autenticação (se CRON_SECRET configurado):**
+```bash
+curl -X GET \
+  -H "Authorization: Bearer sua_chave_secreta" \
+  https://carlaobtonline.vercel.app/api/cron/verificar-notificacoes-agendamento
+```
+
+**Sem autenticação (se CRON_SECRET não configurado):**
+```bash
+curl -X GET \
+  https://carlaobtonline.vercel.app/api/cron/verificar-notificacoes-agendamento
+```
+
+### 4. Configurar Vercel Cron (Opcional - Requer Plano Pago)
+
+Para rodar automaticamente, adicione no `vercel.json`:
 ```json
 {
   "crons": [

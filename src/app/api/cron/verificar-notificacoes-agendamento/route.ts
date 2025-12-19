@@ -1,18 +1,31 @@
 // app/api/cron/verificar-notificacoes-agendamento/route.ts
 // Rota para verificar e enviar lembretes de agendamento
-// Deve ser chamada periodicamente via Vercel Cron (configurado no vercel.json)
+// Pode ser chamada manualmente via GET ou configurada para rodar automaticamente
+// Para chamar manualmente: GET /api/cron/verificar-notificacoes-agendamento
+// Com header: Authorization: Bearer {CRON_SECRET} (se configurado)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { enviarMensagemGzappy, formatarNumeroGzappy } from '@/lib/gzappyService';
 
 export async function GET(request: NextRequest) {
-  // Verificar se é uma chamada do Vercel Cron ou autorizada
+  // Verificar se é uma chamada autorizada
+  // Para testes, pode ser chamada manualmente com o header Authorization
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Se CRON_SECRET estiver configurado, exigir autenticação
+  // Se não estiver configurado, permitir acesso (apenas para desenvolvimento/testes)
+  if (cronSecret) {
+    if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ 
+        error: 'Unauthorized',
+        mensagem: 'Forneça o header Authorization: Bearer {CRON_SECRET}'
+      }, { status: 401 });
+    }
+  } else {
+    // Em desenvolvimento, sem CRON_SECRET configurado, permitir acesso mas avisar
+    console.warn('[CRON] ⚠️ CRON_SECRET não configurado - permitindo acesso sem autenticação (apenas para testes)');
   }
 
   try {
