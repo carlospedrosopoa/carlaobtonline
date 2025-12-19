@@ -11,21 +11,31 @@ import { enviarMensagemGzappy, formatarNumeroGzappy } from '@/lib/gzappyService'
 export async function GET(request: NextRequest) {
   // Verificar se é uma chamada autorizada
   // Para testes, pode ser chamada manualmente com o header Authorization
+  // Ou com parâmetro ?test=true na URL (apenas para desenvolvimento/testes)
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
+  const { searchParams } = new URL(request.url);
+  const isTestMode = searchParams.get('test') === 'true';
+  const isDevelopment = process.env.NODE_ENV === 'development';
   
-  // Se CRON_SECRET estiver configurado, exigir autenticação
-  // Se não estiver configurado, permitir acesso (apenas para desenvolvimento/testes)
-  if (cronSecret) {
+  // Permitir acesso sem autenticação em modo de teste ou desenvolvimento
+  // Se CRON_SECRET estiver configurado e não for modo de teste, exigir autenticação
+  if (cronSecret && !isTestMode && !isDevelopment) {
     if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ 
         error: 'Unauthorized',
-        mensagem: 'Forneça o header Authorization: Bearer {CRON_SECRET}'
+        mensagem: 'Forneça o header Authorization: Bearer {CRON_SECRET} ou adicione ?test=true na URL para testes'
       }, { status: 401 });
     }
   } else {
-    // Em desenvolvimento, sem CRON_SECRET configurado, permitir acesso mas avisar
-    console.warn('[CRON] ⚠️ CRON_SECRET não configurado - permitindo acesso sem autenticação (apenas para testes)');
+    // Em modo de teste ou desenvolvimento, permitir acesso mas avisar
+    if (isTestMode) {
+      console.warn('[CRON] ⚠️ Modo de teste ativado (?test=true) - permitindo acesso sem autenticação');
+    } else if (isDevelopment) {
+      console.warn('[CRON] ⚠️ Ambiente de desenvolvimento - permitindo acesso sem autenticação');
+    } else {
+      console.warn('[CRON] ⚠️ CRON_SECRET não configurado - permitindo acesso sem autenticação (apenas para testes)');
+    }
   }
 
   try {
