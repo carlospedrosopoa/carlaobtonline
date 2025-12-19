@@ -49,6 +49,8 @@ async function registrarFonteCustomizada(): Promise<void> {
       'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf',
       'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/Roboto-Regular.ttf',
       'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf',
+      'https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf',
+      'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/static/Roboto-Regular.ttf',
     ];
 
     if (!existsSync(fontPathRegular)) {
@@ -91,6 +93,8 @@ async function registrarFonteCustomizada(): Promise<void> {
       'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf',
       'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/Roboto-Bold.ttf',
       'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf',
+      'https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Bold.ttf',
+      'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/static/Roboto-Bold.ttf',
     ];
 
     if (!existsSync(fontPathBold) && !usandoFonteSistema) {
@@ -187,11 +191,13 @@ function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string 
   }
   
   // Se não conseguiu registrar fonte customizada, usar fonte do sistema
-  // No Linux/Vercel, DejaVu Sans é geralmente disponível e suporta UTF-8
-  // Usar múltiplos fallbacks para garantir compatibilidade
-  const fonteSistema = `${pesoTexto} ${tamanho}px "DejaVu Sans", "Liberation Sans", "Arial", "Helvetica", sans-serif`;
-  console.log('[generateCard] Usando fonte do sistema (fallback):', fonteSistema);
+  // No node-canvas no Vercel, pode não ter acesso às fontes do sistema
+  // Usar sans-serif genérico que sempre funciona, mesmo que não seja a fonte ideal
+  // O importante é que os caracteres apareçam, não que seja a fonte perfeita
+  const fonteSistema = `${pesoTexto} ${tamanho}px sans-serif`;
+  console.log('[generateCard] ⚠️ Usando fonte genérica sans-serif (fallback):', fonteSistema);
   console.log('[generateCard] usandoFonteSistema:', usandoFonteSistema, 'fonteRegistrada:', fonteRegistrada);
+  console.log('[generateCard] ⚠️ Nota: Fonte genérica pode não ser ideal, mas garante que texto apareça');
   return fonteSistema;
 }
 
