@@ -219,31 +219,20 @@ async function registrarFonteCustomizada(): Promise<void> {
 function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string {
   const pesoTexto = peso === 'bold' ? 'bold' : 'normal';
   
-  // Prioridade: usar fonte registrada se disponível E não estiver usando fonte do sistema
-  if (fonteRegistrada && !usandoFonteSistema) {
-    const fonte = `${pesoTexto} ${tamanho}px "${FONTE_NOME}"`;
-    console.log('[generateCard] ✅ Usando fonte customizada Roboto:', fonte);
-    return fonte;
-  }
-  
-  // Se fonte foi registrada mas está marcada como sistema, ainda tentar usar Roboto
-  // (pode ter sido registrada mesmo com erro de fontconfig)
+  // SEMPRE tentar usar fonte registrada primeiro (mesmo com erro de fontconfig)
+  // O erro de fontconfig pode ser apenas um aviso, mas a fonte pode funcionar
   if (fonteRegistrada) {
     const fonte = `${pesoTexto} ${tamanho}px "${FONTE_NOME}"`;
-    console.log('[generateCard] ⚠️ Tentando usar Roboto mesmo com flag de sistema:', fonte);
+    console.log('[generateCard] ✅ Usando fonte registrada Roboto:', fonte);
+    console.log('[generateCard] usandoFonteSistema:', usandoFonteSistema, 'fonteRegistrada:', fonteRegistrada);
     return fonte;
   }
   
-  // Se não conseguiu registrar fonte customizada, tentar baixar uma fonte básica que funciona
-  // Ou usar uma fonte que sabemos que existe no sistema
-  // No node-canvas, precisamos de uma fonte registrada ou uma fonte do sistema disponível
-  
-  // Tentar usar uma fonte que definitivamente funciona no Linux
-  // Liberation Sans geralmente está disponível em sistemas Linux
-  const fonteSistema = `${pesoTexto} ${tamanho}px "Liberation Sans", "Arial", "Helvetica", "DejaVu Sans", sans-serif`;
-  console.log('[generateCard] ⚠️ Usando fonte do sistema (fallback):', fonteSistema);
+  // Se não conseguiu registrar fonte, usar sans-serif genérico
+  // Isso sempre funciona no node-canvas, mesmo sem fontconfig
+  const fonteSistema = `${pesoTexto} ${tamanho}px sans-serif`;
+  console.log('[generateCard] ⚠️ Usando fonte genérica sans-serif (fallback):', fonteSistema);
   console.log('[generateCard] usandoFonteSistema:', usandoFonteSistema, 'fonteRegistrada:', fonteRegistrada);
-  console.log('[generateCard] ⚠️ Se ainda aparecerem quadrados, pode ser necessário instalar fontes no sistema');
   return fonteSistema;
 }
 
