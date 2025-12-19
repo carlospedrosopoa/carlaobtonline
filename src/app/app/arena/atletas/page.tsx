@@ -526,13 +526,18 @@ export default function ArenaAtletasPage() {
   const cat = filtroCategoria.trim().toUpperCase();
 
   const atletasFiltrados = atletas.filter((a) => {
+    // Filtro por nome
     const nomeMatch = !termo || a.nome.toLowerCase().includes(termo);
+    
+    // Filtro por telefone (apenas se o termo contém números)
+    const termoNumerico = termo.replace(/\D/g, '');
     const tel = (a.fone || '').replace(/\D/g, '');
-    const telMatch =
-      !termo ||
-      tel.includes(termo.replace(/\D/g, '')) ||
-      (a.fone || '').toLowerCase().includes(termo);
+    const telMatch = !termo || (termoNumerico.length > 0 && tel.includes(termoNumerico));
+    
+    // Filtro por categoria
     const catMatch = !cat || (a.categoria || '').toUpperCase() === cat;
+    
+    // Retornar se (nome OU telefone corresponder) E categoria corresponder
     return (nomeMatch || telMatch) && catMatch;
   });
 
