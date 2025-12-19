@@ -368,20 +368,20 @@ export async function notificarNovoAgendamento(
     return false;
   }
 
-  // A data já vem do banco no timezone correto, apenas formatar usando timezone de Brasília
+  // Extrair data e hora diretamente da string ISO sem conversão de timezone
+  // A data já vem do banco no formato correto (horário local)
   const dataHora = new Date(agendamento.dataHora);
   
-  const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'America/Sao_Paulo',
-  });
-  const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'America/Sao_Paulo',
-  });
+  // Usar métodos get* que retornam valores no timezone local do servidor
+  // e formatar manualmente para evitar problemas de conversão
+  const ano = dataHora.getFullYear();
+  const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+  const dia = String(dataHora.getDate()).padStart(2, '0');
+  const hora = String(dataHora.getHours()).padStart(2, '0');
+  const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+  
+  const dataFormatada = `${dia}/${mes}/${ano}`;
+  const horaFormatada = `${hora}:${minuto}`;
 
   const horas = Math.floor(agendamento.duracao / 60);
   const minutos = agendamento.duracao % 60;
@@ -423,20 +423,20 @@ export async function notificarCancelamentoAgendamento(
     return false;
   }
 
-  // A data já vem do banco no timezone correto, apenas formatar usando timezone de Brasília
+  // Extrair data e hora diretamente da string ISO sem conversão de timezone
+  // A data já vem do banco no formato correto (horário local)
   const dataHora = new Date(agendamento.dataHora);
   
-  const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'America/Sao_Paulo',
-  });
-  const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'America/Sao_Paulo',
-  });
+  // Usar métodos get* que retornam valores no timezone local do servidor
+  // e formatar manualmente para evitar problemas de conversão
+  const ano = dataHora.getFullYear();
+  const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+  const dia = String(dataHora.getDate()).padStart(2, '0');
+  const hora = String(dataHora.getHours()).padStart(2, '0');
+  const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+  
+  const dataFormatada = `${dia}/${mes}/${ano}`;
+  const horaFormatada = `${hora}:${minuto}`;
 
   const mensagem = `❌ *Agendamento Cancelado*
 
