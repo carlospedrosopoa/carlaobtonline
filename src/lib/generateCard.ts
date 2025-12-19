@@ -81,8 +81,24 @@ async function registrarFonteCustomizada(): Promise<void> {
       }
       
       if (!baixado) {
-        console.warn('[generateCard] ⚠️ Não foi possível baixar Roboto Regular de nenhuma URL. Usando fonte do sistema.');
-        usandoFonteSistema = true;
+        console.warn('[generateCard] ⚠️ Não foi possível baixar Roboto Regular de nenhuma URL.');
+        // Tentar baixar uma fonte alternativa que sabemos que funciona
+        console.log('[generateCard] Tentando baixar fonte alternativa (Open Sans)...');
+        const openSansUrl = 'https://github.com/google/fonts/raw/main/apache/opensans/OpenSans-Regular.ttf';
+        try {
+          const responseAlt = await axios.get(openSansUrl, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+          });
+          if (responseAlt.status === 200 && responseAlt.data.byteLength > 0) {
+            writeFileSync(fontPathRegular, Buffer.from(responseAlt.data));
+            console.log('[generateCard] ✅ Fonte alternativa (Open Sans) baixada como fallback');
+            baixado = true;
+          }
+        } catch (error: any) {
+          console.warn('[generateCard] Também não foi possível baixar fonte alternativa:', error.message);
+          usandoFonteSistema = true;
+        }
       }
     } else {
       console.log('[generateCard] Fonte Roboto Regular já existe, reutilizando');
