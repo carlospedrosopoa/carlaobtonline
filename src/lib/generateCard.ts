@@ -190,14 +190,16 @@ function obterFonteCompativel(tamanho: number, peso: string = 'normal'): string 
     return fonte;
   }
   
-  // Se não conseguiu registrar fonte customizada, usar fonte do sistema
-  // No node-canvas no Vercel, pode não ter acesso às fontes do sistema
-  // Usar sans-serif genérico que sempre funciona, mesmo que não seja a fonte ideal
-  // O importante é que os caracteres apareçam, não que seja a fonte perfeita
-  const fonteSistema = `${pesoTexto} ${tamanho}px sans-serif`;
-  console.log('[generateCard] ⚠️ Usando fonte genérica sans-serif (fallback):', fonteSistema);
+  // Se não conseguiu registrar fonte customizada, tentar baixar uma fonte básica que funciona
+  // Ou usar uma fonte que sabemos que existe no sistema
+  // No node-canvas, precisamos de uma fonte registrada ou uma fonte do sistema disponível
+  
+  // Tentar usar uma fonte que definitivamente funciona no Linux
+  // Liberation Sans geralmente está disponível em sistemas Linux
+  const fonteSistema = `${pesoTexto} ${tamanho}px "Liberation Sans", "Arial", "Helvetica", "DejaVu Sans", sans-serif`;
+  console.log('[generateCard] ⚠️ Usando fonte do sistema (fallback):', fonteSistema);
   console.log('[generateCard] usandoFonteSistema:', usandoFonteSistema, 'fonteRegistrada:', fonteRegistrada);
-  console.log('[generateCard] ⚠️ Nota: Fonte genérica pode não ser ideal, mas garante que texto apareça');
+  console.log('[generateCard] ⚠️ Se ainda aparecerem quadrados, pode ser necessário instalar fontes no sistema');
   return fonteSistema;
 }
 
@@ -515,6 +517,18 @@ export async function generateMatchCard(
       const x = posicoesFotos[0][0] + tamanho / 2; // Centro da foto
       const y = posicoesFotos[0][1] + tamanho + 25; // Abaixo da foto (aumentado espaçamento de 15 para 25)
       console.log('[generateCard] Desenhando nome atleta1:', nome, 'em', x, y, 'fillStyle:', ctx.fillStyle, 'font:', ctx.font);
+      
+      // Verificar se a fonte está aplicada corretamente
+      const metrics = ctx.measureText(nome);
+      console.log('[generateCard] Métricas do texto atleta1 - largura:', metrics.width, 'altura:', metrics.actualBoundingBoxAscent);
+      
+      if (metrics.width === 0) {
+        console.error('[generateCard] ⚠️ ATENÇÃO: Texto tem largura 0 - fonte não está funcionando!');
+        // Tentar forçar uma fonte diferente
+        ctx.font = `${32}px sans-serif`;
+        console.log('[generateCard] Tentando com fonte forçada:', ctx.font);
+      }
+      
       ctx.fillText(nome, x, y);
     }
     if (partida.atleta2) {
