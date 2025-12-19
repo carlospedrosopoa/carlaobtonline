@@ -85,7 +85,6 @@ export async function GET(request: NextRequest) {
             at."aceitaLembretesAgendamento" as "atleta_aceita_lembretes",
             u.name as "usuario_name", 
             u.email as "usuario_email", 
-            u.whatsapp as "usuario_whatsapp",
             u."aceitaLembretesAgendamento" as "usuario_aceita_lembretes",
             q.nome as "quadra_nome",
             p.nome as "point_nome", 
@@ -103,10 +102,9 @@ export async function GET(request: NextRequest) {
             AND a."dataHora" >= $3
             AND a."dataHora" <= $4
             AND n.id IS NULL
-            AND (
-              (at.id IS NOT NULL AND at."aceitaLembretesAgendamento" = true)
-              OR (at.id IS NULL AND u.id IS NOT NULL AND u."aceitaLembretesAgendamento" = true AND u.whatsapp IS NOT NULL)
-            )
+            AND at.id IS NOT NULL 
+            AND at."aceitaLembretesAgendamento" = true
+            AND at.fone IS NOT NULL
         `;
 
         const tipoNotificacao = `LEMBRETE_${antecedenciaHoras}H`;
@@ -121,22 +119,12 @@ export async function GET(request: NextRequest) {
 
         for (const agendamento of result.rows) {
           try {
-            // Determinar destinatário e nome
-            let telefone: string | null = null;
-            let nome: string | null = null;
+            // Usar telefone e nome do atleta (já filtrado na query)
+            const telefone = agendamento.atleta_fone;
+            const nome = agendamento.atleta_nome;
 
-            if (agendamento.atleta_id && agendamento.atleta_aceita_lembretes) {
-              // Priorizar atleta se aceitar lembretes
-              telefone = agendamento.atleta_fone;
-              nome = agendamento.atleta_nome;
-            } else if (agendamento.usuario_id && agendamento.usuario_aceita_lembretes && agendamento.usuario_whatsapp) {
-              // Fallback para usuário se aceitar lembretes e tiver WhatsApp
-              telefone = agendamento.usuario_whatsapp;
-              nome = agendamento.usuario_name;
-            }
-
-            if (!telefone) {
-              console.log(`[NOTIFICAÇÃO] Agendamento ${agendamento.id} sem telefone válido para notificação`);
+            if (!telefone || !nome) {
+              console.log(`[NOTIFICAÇÃO] Agendamento ${agendamento.id} sem telefone ou nome válido para notificação`);
               continue;
             }
 
