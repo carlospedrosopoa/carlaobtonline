@@ -354,6 +354,7 @@ export async function atualizarAtleta(atletaId: string, dados: {
   fotoUrl?: string | null;
   esportePreferido?: string | null;
   esportesPratica?: string[];
+  aceitaLembretesAgendamento?: boolean;
   pointIdPrincipal?: string | null;
   pointIdsFrequentes?: string[];
 }) {
@@ -395,6 +396,10 @@ export async function atualizarAtleta(atletaId: string, dados: {
       : null;
     campos.push(`"esportesPratica" = $${paramIndex++}`);
     valores.push(esportesPraticaJson);
+  }
+  if (dados.aceitaLembretesAgendamento !== undefined) {
+    campos.push(`"aceitaLembretesAgendamento" = $${paramIndex++}`);
+    valores.push(dados.aceitaLembretesAgendamento);
   }
   if (dados.pointIdPrincipal !== undefined) {
     campos.push(`"pointIdPrincipal" = $${paramIndex++}`);

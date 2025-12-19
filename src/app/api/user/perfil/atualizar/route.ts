@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest) {
     const { user } = authResult;
     const body = await request.json();
     
-    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, esportePreferido, esportesPratica, pointIdPrincipal, pointIdsFrequentes } = body;
+    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, esportePreferido, esportesPratica, aceitaLembretesAgendamento, pointIdPrincipal, pointIdsFrequentes } = body;
 
     // Buscar o atleta do usuário autenticado
     const atletaExistente = await verificarAtletaUsuario(user.id);

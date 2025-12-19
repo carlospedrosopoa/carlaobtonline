@@ -333,6 +333,7 @@ export const atualizarUsuarioAdmin = async (
     role?: string;
     pointIdGestor?: string | null;
     whatsapp?: string | null;
+    aceitaLembretesAgendamento?: boolean;
   }
 ) => {
   const updates: string[] = [];
@@ -368,6 +369,10 @@ export const atualizarUsuarioAdmin = async (
   if (dados.pointIdGestor !== undefined) {
     updates.push(`"pointIdGestor" = $${paramIndex++}`);
     values.push(dados.pointIdGestor);
+  }
+  if (dados.aceitaLembretesAgendamento !== undefined) {
+    updates.push(`"aceitaLembretesAgendamento" = $${paramIndex++}`);
+    values.push(dados.aceitaLembretesAgendamento);
   }
   // WhatsApp: coluna não existe ainda na tabela User
   // if (dados.whatsapp !== undefined) {
