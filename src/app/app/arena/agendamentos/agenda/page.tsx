@@ -617,18 +617,16 @@ export default function ArenaAgendaSemanalPage() {
     const nomeCliente = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
     const nomeQuadra = agendamento.quadra?.nome || 'Quadra';
     
-    // Corrigir timezone: a data vem do banco em UTC, mas precisa ser exibida no horário local (UTC-3)
+    // A data já vem do banco no timezone correto, apenas formatar usando timezone de Brasília
     const dataHora = new Date(agendamento.dataHora);
-    // Ajustar para timezone de Brasília (UTC-3)
-    const dataHoraLocal = new Date(dataHora.getTime() - (3 * 60 * 60 * 1000));
     
-    const dataFormatada = dataHoraLocal.toLocaleDateString('pt-BR', {
+    const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       timeZone: 'America/Sao_Paulo',
     });
-    const horaFormatada = dataHoraLocal.toLocaleTimeString('pt-BR', {
+    const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: 'America/Sao_Paulo',
