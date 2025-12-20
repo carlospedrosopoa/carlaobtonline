@@ -34,11 +34,14 @@ CREATE TABLE "RankingPanelinha" (
   id TEXT PRIMARY KEY,
   "panelinhaId" TEXT NOT NULL REFERENCES "Panelinha"(id) ON DELETE CASCADE,
   "atletaId" TEXT NOT NULL REFERENCES "Atleta"(id) ON DELETE CASCADE,
-  "pontuacao" DECIMAL(10,2) DEFAULT 0,
+  "pontuacao" INTEGER DEFAULT 0, -- Total de pontos (vitórias + derrotas no tie break)
   "vitorias" INTEGER DEFAULT 0,
   "derrotas" INTEGER DEFAULT 0,
-  "empates" INTEGER DEFAULT 0,
+  "derrotasTieBreak" INTEGER DEFAULT 0, -- Derrotas que foram no tie break (ganham 1 ponto)
   "partidasJogadas" INTEGER DEFAULT 0,
+  "saldoGames" INTEGER DEFAULT 0, -- Saldo de games (games feitos - games sofridos) para desempate
+  "gamesFeitos" INTEGER DEFAULT 0, -- Total de games feitos
+  "gamesSofridos" INTEGER DEFAULT 0, -- Total de games sofridos
   "posicao" INTEGER, -- Posição no ranking (calculada)
   "ultimaAtualizacao" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE("panelinhaId", "atletaId")
@@ -46,10 +49,15 @@ CREATE TABLE "RankingPanelinha" (
 ```
 
 **Campos de Ranking:**
-- `pontuacao`: Pontos totais (pode usar sistema de pontos como ELO, ou simples contagem)
-- `vitorias/derrotas/empates`: Estatísticas básicas
+- `pontuacao`: Total de pontos (vitórias = 3, derrotas no tie break = 1, derrotas normais = 0)
+- `vitorias`: Número de vitórias
+- `derrotas`: Número de derrotas (inclui tie break)
+- `derrotasTieBreak`: Derrotas que foram no tie break (para estatísticas)
 - `partidasJogadas`: Total de partidas
-- `posicao`: Posição atual no ranking (calculada dinamicamente ou atualizada)
+- `saldoGames`: Games feitos - games sofridos (para critério de desempate)
+- `gamesFeitos`: Total de games marcados
+- `gamesSofridos`: Total de games recebidos
+- `posicao`: Posição atual no ranking (calculada dinamicamente)
 
 #### 1.3. Modificação na Tabela `Partida` (Opcional)
 Adicionar campo opcional para indicar se é um jogo de panelinha:
@@ -88,11 +96,20 @@ ADD COLUMN IF NOT EXISTS "panelinhaId" TEXT REFERENCES "Panelinha"(id);
 #### 2.3. Atualização de Ranking
 Após registrar resultado de uma partida:
 1. Sistema calcula pontos baseado em:
-   - Resultado (vitória/derrota/empate)
-   - Diferença de placar
-   - Ranking dos oponentes (sistema ELO ou similar)
-2. Atualiza `RankingPanelinha` para todos os atletas envolvidos
-3. Recalcula posições no ranking
+   - **Vitória**: +3 pontos
+   - **Derrota no tie break**: +1 ponto (quando `tiebreakTime1` ou `tiebreakTime2` não é null)
+   - **Derrota normal**: +0 pontos
+2. Sistema calcula saldo de games:
+   - `gamesFeitos`: Soma dos games do time do atleta
+   - `gamesSofridos`: Soma dos games do time adversário
+   - `saldoGames`: `gamesFeitos - gamesSofridos`
+3. Atualiza `RankingPanelinha` para todos os atletas envolvidos:
+   - Incrementa `partidasJogadas`
+   - Atualiza `pontuacao`, `vitorias`, `derrotas`, `derrotasTieBreak`
+   - Atualiza `gamesFeitos`, `gamesSofridos`, `saldoGames`
+4. Recalcula posições no ranking:
+   - Ordena por: `pontuacao DESC, saldoGames DESC`
+   - Atualiza campo `posicao` para cada atleta
 
 #### 2.4. Exibição em "Meus Jogos"
 - Filtrar partidas que têm `PartidaPanelinha` vinculada
@@ -148,24 +165,41 @@ Após registrar resultado de uma partida:
 - Sugestão automática de combinações balanceadas
 - Validação: mínimo de jogadores, formato correto
 
-### 4. Sistema de Pontuação
+### 4. Sistema de Pontuação (DEFINIDO)
 
-#### Opção 1: Sistema Simples
-- Vitória: +3 pontos
-- Derrota: +0 pontos
-- Empate: +1 ponto
+#### Regras de Pontuação:
+- **Vitória**: +3 pontos
+- **Derrota no tie break**: +1 ponto (quando a partida teve tie break)
+- **Derrota normal**: +0 pontos
 
-#### Opção 2: Sistema ELO
-- Pontos baseados em:
-  - Ranking do oponente
-  - Resultado esperado vs. resultado real
-  - Permite subidas/descidas mais dinâmicas
+#### Critério de Desempate:
+Quando dois ou mais atletas têm a mesma pontuação, o desempate é feito por:
+1. **Saldo de Games** (maior saldo = melhor posição)
+   - `saldoGames = gamesFeitos - gamesSofridos`
+   - Exemplo: Atleta A fez 50 games e sofreu 40 = saldo +10
+   - Exemplo: Atleta B fez 45 games e sofreu 35 = saldo +10 (empate no saldo)
+2. Se ainda houver empate no saldo, pode usar:
+   - Total de games feitos (maior = melhor)
+   - Ou ordem alfabética (último critério)
 
-#### Opção 3: Sistema Híbrido
-- Pontos base + bônus por:
-  - Vencer oponente melhor ranqueado
-  - Diferença de placar
-  - Sequência de vitórias
+#### Exemplo de Cálculo:
+```
+Partida 1: Atleta A vence 7x5
+- Atleta A: +3 pontos, +7 games feitos, +5 games sofridos, saldo +2
+- Atleta B: +0 pontos, +5 games feitos, +7 games sofridos, saldo -2
+
+Partida 2: Atleta A perde 6x7 (7x6 no tie break)
+- Atleta A: +1 ponto (derrota no tie break), +6 games feitos, +7 games sofridos, saldo -1
+- Atleta B: +3 pontos, +7 games feitos, +6 games sofridos, saldo +1
+
+Total Atleta A: 4 pontos, 13 games feitos, 12 games sofridos, saldo +1
+Total Atleta B: 3 pontos, 12 games feitos, 13 games sofridos, saldo -1
+```
+
+#### Detecção de Tie Break:
+Uma partida teve tie break quando:
+- `tiebreakTime1 IS NOT NULL` OU `tiebreakTime2 IS NOT NULL`
+- Isso indica que pelo menos um set foi decidido no tie break
 
 ### 5. Integração com Sistema Existente
 
@@ -230,9 +264,10 @@ Após registrar resultado de uma partida:
 
 ## Perguntas para Refinamento
 
-1. **Sistema de pontuação**: Qual prefere? (Simples, ELO, Híbrido)
+1. ~~**Sistema de pontuação**: Qual prefere? (Simples, ELO, Híbrido)~~ ✅ **DEFINIDO**
 2. **Formato de jogos**: Apenas duplas ou também simples?
 3. **Histórico**: Manter histórico de posições no ranking?
 4. **Notificações**: Notificar membros quando novo jogo é criado?
 5. **Torneios**: Implementar sistema de torneios dentro da panelinha?
+6. **Desempate adicional**: Se houver empate no saldo de games, qual o próximo critério? (Total de games feitos, ordem alfabética, confronto direto?)
 
