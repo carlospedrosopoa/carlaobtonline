@@ -45,13 +45,13 @@ export async function GET(request: NextRequest) {
         -- Verificar se o atleta é o criador
         (p."atletaIdCriador" = $1) as "ehCriador",
         -- Contar membros
-        (
+        COALESCE((
           SELECT COUNT(*) 
           FROM "PanelinhaAtleta" pa 
           WHERE pa."panelinhaId" = p.id
-        ) as "totalMembros",
-        -- Buscar membros com fotos
-        (
+        ), 0) as "totalMembros",
+        -- Buscar membros com fotos (usar COALESCE para retornar array vazio se null)
+        COALESCE((
           SELECT json_agg(
             json_build_object(
               'id', a.id,
@@ -63,12 +63,12 @@ export async function GET(request: NextRequest) {
           INNER JOIN "Atleta" a ON pa2."atletaId" = a.id
           WHERE pa2."panelinhaId" = p.id
           LIMIT 4
-        ) as "membros"
+        ), '[]'::json) as "membros"
       FROM "Panelinha" p
       LEFT JOIN "PanelinhaAtleta" pa ON p.id = pa."panelinhaId"
       WHERE p."atletaIdCriador" = $1
          OR pa."atletaId" = $1
-      ORDER BY p."updatedAt" DESC
+      ORDER BY p."updatedAt" DESC NULLS LAST
     `;
 
     const result = await query(sql, [atleta.id]);
