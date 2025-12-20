@@ -70,3 +70,4 @@ Após executar a migration:
 2. O erro 500 deve desaparecer
 3. Você poderá criar sua primeira panelinha
 
+

@@ -35,3 +35,4 @@ CREATE INDEX IF NOT EXISTS idx_partida_panelinha_partida
 CREATE INDEX IF NOT EXISTS idx_partida_panelinha_panelinha 
   ON "PartidaPanelinha"("panelinhaId");
 
+

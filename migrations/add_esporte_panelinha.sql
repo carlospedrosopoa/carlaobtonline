@@ -14,3 +14,4 @@ CREATE INDEX IF NOT EXISTS idx_panelinha_esporte
 ON "Panelinha"("esporte") 
 WHERE "esporte" IS NOT NULL;
 
+

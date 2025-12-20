@@ -58,3 +58,4 @@ CREATE INDEX IF NOT EXISTS idx_panelinha_atleta_panelinha
 CREATE INDEX IF NOT EXISTS idx_panelinha_atleta_atleta 
   ON "PanelinhaAtleta"("atletaId");
 
+
