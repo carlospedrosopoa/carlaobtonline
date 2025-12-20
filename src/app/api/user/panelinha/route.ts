@@ -84,6 +84,20 @@ export async function GET(request: NextRequest) {
     return withCors(response, request);
   } catch (error: any) {
     console.error('[PANELINHA] Erro ao listar:', error);
+    
+    // Verificar se é erro de tabela não encontrada
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('Panelinha')) {
+      const errorResponse = NextResponse.json(
+        { 
+          mensagem: 'Tabelas de panelinhas não encontradas. Execute a migration create_panelinha.sql no banco de dados.',
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 500 }
+      );
+      return withCors(errorResponse, request);
+    }
+    
     const errorResponse = NextResponse.json(
       { 
         mensagem: 'Erro ao listar panelinhas',
