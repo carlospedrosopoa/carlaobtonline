@@ -96,17 +96,19 @@ ADD COLUMN IF NOT EXISTS "panelinhaId" TEXT REFERENCES "Panelinha"(id);
 #### 2.3. Atualização de Ranking
 Após registrar resultado de uma partida:
 1. Sistema calcula pontos baseado em:
-   - **Vitória**: +3 pontos
+   - **Vitória**: +3 pontos (mesmo que tenha sido no tie break)
    - **Derrota no tie break**: +1 ponto (quando `tiebreakTime1` ou `tiebreakTime2` não é null)
    - **Derrota normal**: +0 pontos
 2. Sistema calcula saldo de games:
-   - `gamesFeitos`: Soma dos games do time do atleta
-   - `gamesSofridos`: Soma dos games do time adversário
+   - **IMPORTANTE**: O tie break NÃO conta como game para o saldo
+   - `gamesFeitos`: Soma dos games do time do atleta (apenas `gamesTime1` e `gamesTime2`, ignorando tie break)
+   - `gamesSofridos`: Soma dos games do time adversário (apenas `gamesTime1` e `gamesTime2`, ignorando tie break)
    - `saldoGames`: `gamesFeitos - gamesSofridos`
+   - Exemplo: Partida 6x6 com tie break 7x6 → ambos têm 6 games feitos e 6 games sofridos (saldo 0)
 3. Atualiza `RankingPanelinha` para todos os atletas envolvidos:
    - Incrementa `partidasJogadas`
    - Atualiza `pontuacao`, `vitorias`, `derrotas`, `derrotasTieBreak`
-   - Atualiza `gamesFeitos`, `gamesSofridos`, `saldoGames`
+   - Atualiza `gamesFeitos`, `gamesSofridos`, `saldoGames` (sem contar tie break)
 4. Recalcula posições no ranking:
    - Ordena por: `pontuacao DESC, saldoGames DESC`
    - Atualiza campo `posicao` para cada atleta
@@ -188,18 +190,36 @@ Partida 1: Atleta A vence 7x5
 - Atleta A: +3 pontos, +7 games feitos, +5 games sofridos, saldo +2
 - Atleta B: +0 pontos, +5 games feitos, +7 games sofridos, saldo -2
 
-Partida 2: Atleta A perde 6x7 (7x6 no tie break)
-- Atleta A: +1 ponto (derrota no tie break), +6 games feitos, +7 games sofridos, saldo -1
-- Atleta B: +3 pontos, +7 games feitos, +6 games sofridos, saldo +1
+Partida 2: Atleta A perde 6x6 com tie break 7x6 (perdedor no tie break)
+- Atleta A: +1 ponto (derrota no tie break), +6 games feitos, +6 games sofridos, saldo 0
+  (Tie break NÃO conta para games: 6x6 = 6 games feitos e 6 sofridos)
+- Atleta B: +3 pontos (vitória no tie break), +6 games feitos, +6 games sofridos, saldo 0
+  (Tie break NÃO conta para games: 6x6 = 6 games feitos e 6 sofridos)
 
-Total Atleta A: 4 pontos, 13 games feitos, 12 games sofridos, saldo +1
-Total Atleta B: 3 pontos, 12 games feitos, 13 games sofridos, saldo -1
+Total Atleta A: 4 pontos, 13 games feitos, 11 games sofridos, saldo +2
+Total Atleta B: 3 pontos, 11 games feitos, 13 games sofridos, saldo -2
 ```
+
+**Observação importante:**
+- O tie break é usado apenas para determinar o vencedor e a pontuação
+- Para cálculo de saldo de games, usa-se apenas `gamesTime1` e `gamesTime2`
+- Se a partida foi 6x6 e depois tie break, ambos têm 6 games feitos e 6 sofridos (saldo 0)
 
 #### Detecção de Tie Break:
 Uma partida teve tie break quando:
 - `tiebreakTime1 IS NOT NULL` OU `tiebreakTime2 IS NOT NULL`
 - Isso indica que pelo menos um set foi decidido no tie break
+- O perdedor ganha 1 ponto (derrota no tie break)
+- O vencedor ganha 3 pontos (vitória normal)
+- **O tie break NÃO conta para o saldo de games** - apenas `gamesTime1` e `gamesTime2` são considerados
+
+#### Cálculo de Games para Saldo:
+```sql
+-- Exemplo de cálculo correto
+gamesFeitos = gamesTime1 + gamesTime2  -- Ignora tie break
+gamesSofridos = gamesTime1_adversario + gamesTime2_adversario  -- Ignora tie break
+saldoGames = gamesFeitos - gamesSofridos
+```
 
 ### 5. Integração com Sistema Existente
 
