@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { listarPartidas } from '@/lib/partidaService';
+import { query } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,8 +15,33 @@ export async function GET(request: NextRequest) {
 
     const partidas = await listarPartidas();
 
+    // Buscar panelinhas vinculadas a cada partida
+    const partidasComPanelinhas = await Promise.all(
+      partidas.map(async (partida: any) => {
+        const panelinhasResult = await query(
+          `SELECT 
+            pp."panelinhaId",
+            p.nome as "panelinhaNome",
+            p."esporte" as "panelinhaEsporte"
+          FROM "PartidaPanelinha" pp
+          INNER JOIN "Panelinha" p ON pp."panelinhaId" = p.id
+          WHERE pp."partidaId" = $1`,
+          [partida.id]
+        );
+
+        return {
+          ...partida,
+          panelinhas: panelinhasResult.rows.map((row: any) => ({
+            id: row.panelinhaId,
+            nome: row.panelinhaNome,
+            esporte: row.panelinhaEsporte,
+          })),
+        };
+      })
+    );
+
     const response = NextResponse.json(
-      partidas,
+      partidasComPanelinhas,
       {
         headers: {
           'Cache-Control': 'no-store',
