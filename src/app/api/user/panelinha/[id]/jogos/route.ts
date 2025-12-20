@@ -287,6 +287,9 @@ export async function POST(
   }
 }
 
+// DELETE /api/user/panelinha/[id]/jogos/[jogoId] - Deletar jogo da panelinha
+// Esta rota será criada em um arquivo separado: [id]/jogos/[jogoId]/route.ts
+
 // Suportar requisições OPTIONS (preflight)
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);
