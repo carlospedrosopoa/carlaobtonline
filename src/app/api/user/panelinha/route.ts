@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
         p.id,
         p.nome,
         p.descricao,
+        p."esporte",
         p."atletaIdCriador",
         p."createdAt",
         p."updatedAt",
@@ -85,6 +86,7 @@ export async function GET(request: NextRequest) {
       id: row.id,
       nome: row.nome,
       descricao: row.descricao,
+      esporte: row.esporte,
       atletaIdCriador: row.atletaIdCriador,
       ehCriador: row.ehCriador,
       totalMembros: parseInt(row.totalMembros) || 0,
@@ -144,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     const { user } = authResult;
     const body = await request.json();
-    const { nome, descricao } = body;
+    const { nome, descricao, esporte } = body;
 
     if (!nome || !nome.trim()) {
       const errorResponse = NextResponse.json(
@@ -166,14 +168,15 @@ export async function POST(request: NextRequest) {
 
     // Criar panelinha
     const sql = `
-      INSERT INTO "Panelinha" (id, nome, descricao, "atletaIdCriador", "createdAt", "updatedAt")
-      VALUES (gen_random_uuid()::text, $1, $2, $3, NOW(), NOW())
-      RETURNING id, nome, descricao, "atletaIdCriador", "createdAt", "updatedAt"
+      INSERT INTO "Panelinha" (id, nome, descricao, "esporte", "atletaIdCriador", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid()::text, $1, $2, $3, $4, NOW(), NOW())
+      RETURNING id, nome, descricao, "esporte", "atletaIdCriador", "createdAt", "updatedAt"
     `;
 
     const result = await query(sql, [
       nome.trim(),
       descricao?.trim() || null,
+      esporte?.trim() || null,
       atleta.id
     ]);
 

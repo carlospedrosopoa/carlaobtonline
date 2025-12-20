@@ -39,6 +39,7 @@ export async function GET(
         p.id,
         p.nome,
         p.descricao,
+        p."esporte",
         p."atletaIdCriador",
         p."createdAt",
         p."updatedAt",
@@ -81,6 +82,7 @@ export async function GET(
       id: row.id,
       nome: row.nome,
       descricao: row.descricao,
+      esporte: row.esporte,
       atletaIdCriador: row.atletaIdCriador,
       ehCriador: row.ehCriador,
       totalMembros: row.membros ? row.membros.length : 0,
@@ -119,7 +121,7 @@ export async function PUT(
     const { user } = authResult;
     const { id } = await params;
     const body = await request.json();
-    const { nome, descricao } = body;
+    const { nome, descricao, esporte } = body;
 
     // Buscar atleta do usuário
     const atleta = await verificarAtletaUsuario(user.id);
@@ -175,6 +177,11 @@ export async function PUT(
       values.push(descricao?.trim() || null);
     }
 
+    if (esporte !== undefined) {
+      updates.push(`"esporte" = $${paramIndex++}`);
+      values.push(esporte?.trim() || null);
+    }
+
     if (updates.length === 0) {
       const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
@@ -190,7 +197,7 @@ export async function PUT(
       UPDATE "Panelinha"
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, nome, descricao, "atletaIdCriador", "createdAt", "updatedAt"
+      RETURNING id, nome, descricao, "esporte", "atletaIdCriador", "createdAt", "updatedAt"
     `;
 
     const result = await query(sql, values);
