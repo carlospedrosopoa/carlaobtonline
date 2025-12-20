@@ -34,8 +34,9 @@ export async function GET(request: NextRequest) {
 
     // Buscar panelinhas criadas pelo atleta e panelinhas onde ele é membro
     console.log('[PANELINHA] Executando query SQL com atletaId:', atleta.id);
+    // Usar DISTINCT ON para evitar duplicatas sem comparar JSON
     const sql = `
-      SELECT DISTINCT
+      SELECT DISTINCT ON (p.id)
         p.id,
         p.nome,
         p.descricao,
@@ -65,10 +66,14 @@ export async function GET(request: NextRequest) {
           LIMIT 4
         )::text, '[]')::json as "membros"
       FROM "Panelinha" p
-      LEFT JOIN "PanelinhaAtleta" pa ON p.id = pa."panelinhaId"
       WHERE p."atletaIdCriador" = $1
-         OR pa."atletaId" = $1
-      ORDER BY p."updatedAt" DESC NULLS LAST
+         OR EXISTS (
+           SELECT 1 
+           FROM "PanelinhaAtleta" pa 
+           WHERE pa."panelinhaId" = p.id 
+           AND pa."atletaId" = $1
+         )
+      ORDER BY p.id, p."updatedAt" DESC NULLS LAST
     `;
 
     const result = await query(sql, [atleta.id]);
