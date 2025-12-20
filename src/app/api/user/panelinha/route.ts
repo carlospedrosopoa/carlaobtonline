@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
           INNER JOIN "Atleta" a ON pa2."atletaId" = a.id
           WHERE pa2."panelinhaId" = p.id
           LIMIT 4
-        ), '[]'::json) as "membros"
+        )::text, '[]')::json as "membros"
       FROM "Panelinha" p
       LEFT JOIN "PanelinhaAtleta" pa ON p.id = pa."panelinhaId"
       WHERE p."atletaIdCriador" = $1
