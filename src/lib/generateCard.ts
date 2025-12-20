@@ -681,9 +681,9 @@ export async function generateMatchCard(
     console.log('[generateCard] Desenhando local:', localTexto, 'cor:', ctx.fillStyle);
     ctx.fillText(localTexto, largura - 50, 200); // 50px da borda direita
     
-    // Placar (se existir) - alinhado com os nomes dos atletas de baixo
+    // Placar (se existir) - posicionado abaixo dos nomes dos atletas de baixo
     if (partida.gamesTime1 !== null && partida.gamesTime2 !== null) {
-      const fontePlacar = obterFonteCompativel(120, 'bold'); // Reduzido de 200 para 120
+      const fontePlacar = obterFonteCompativel(80, 'bold'); // Reduzido de 120 para 80
       ctx.font = fontePlacar;
       console.log('[generateCard] Fonte usada para placar:', fontePlacar);
       ctx.textAlign = 'center'; // Centralizado horizontalmente
@@ -700,9 +700,11 @@ export async function generateMatchCard(
         placarTexto += ` (${partida.tiebreakTime1} x ${partida.tiebreakTime2})`;
       }
       console.log('[generateCard] Desenhando placar:', placarTexto);
-      // Alinhado com os nomes dos atletas de baixo
+      // Posicionar abaixo dos nomes dos atletas de baixo
       // Nomes de baixo: y = posicoesFotos[1][1] + tamanho + 25 = 860 + 440 + 25 = 1325
-      ctx.fillText(placarTexto, largura / 2, 1325);
+      // Adicionar mais espaço (60px) para não sobrepor os nomes
+      const yPlacar = 1325 + 60; // 60px abaixo dos nomes
+      ctx.fillText(placarTexto, largura / 2, yPlacar);
       
       // Remover sombra
       ctx.shadowColor = 'transparent';
