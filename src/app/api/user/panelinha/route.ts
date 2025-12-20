@@ -18,8 +18,12 @@ export async function GET(request: NextRequest) {
 
     const { user } = authResult;
     
+    console.log('[PANELINHA] User ID:', user.id);
+    
     // Buscar atleta do usuário
     const atleta = await verificarAtletaUsuario(user.id);
+    console.log('[PANELINHA] Atleta encontrado:', atleta ? { id: atleta.id, nome: atleta.nome } : 'null');
+    
     if (!atleta) {
       const errorResponse = NextResponse.json(
         { mensagem: 'Você ainda não possui um perfil de atleta' },
@@ -29,6 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar panelinhas criadas pelo atleta e panelinhas onde ele é membro
+    console.log('[PANELINHA] Executando query SQL com atletaId:', atleta.id);
     const sql = `
       SELECT DISTINCT
         p.id,
@@ -67,8 +72,11 @@ export async function GET(request: NextRequest) {
     `;
 
     const result = await query(sql, [atleta.id]);
+    console.log('[PANELINHA] Query executada com sucesso. Resultados:', result.rows.length);
 
-    const panelinhas = result.rows.map((row: any) => ({
+    const panelinhas = result.rows.map((row: any) => {
+      console.log('[PANELINHA] Processando panelinha:', row.id, row.nome);
+      return {
       id: row.id,
       nome: row.nome,
       descricao: row.descricao,
@@ -78,12 +86,20 @@ export async function GET(request: NextRequest) {
       membros: row.membros || [],
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-    }));
+      };
+    });
 
     const response = NextResponse.json({ panelinhas });
     return withCors(response, request);
   } catch (error: any) {
     console.error('[PANELINHA] Erro ao listar:', error);
+    console.error('[PANELINHA] Erro completo:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+    });
     
     // Verificar se é erro de tabela não encontrada
     const errorMessage = error.message || '';
@@ -91,7 +107,8 @@ export async function GET(request: NextRequest) {
       const errorResponse = NextResponse.json(
         { 
           mensagem: 'Tabelas de panelinhas não encontradas. Execute a migration create_panelinha.sql no banco de dados.',
-          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+          detail: process.env.NODE_ENV === 'development' ? error.detail : undefined,
         },
         { status: 500 }
       );
@@ -101,7 +118,9 @@ export async function GET(request: NextRequest) {
     const errorResponse = NextResponse.json(
       { 
         mensagem: 'Erro ao listar panelinhas',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        detail: process.env.NODE_ENV === 'development' ? error.detail : undefined,
+        code: process.env.NODE_ENV === 'development' ? error.code : undefined,
       },
       { status: 500 }
     );
