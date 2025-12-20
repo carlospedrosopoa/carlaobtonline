@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { atualizarPlacar, buscarPartidaPorId } from '@/lib/partidaService';
+import { recalcularRankingCompleto } from '@/lib/rankingPanelinhaService';
+import { query } from '@/lib/db';
 
 // PUT /api/partida/[id] - Atualizar placar da partida
 export async function PUT(
@@ -105,6 +107,14 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
+    // Verificar se a partida tinha placar anterior
+    const tinhaPlacarAnterior = partida.gamesTime1 !== null && partida.gamesTime2 !== null;
+    const teraPlacarNovo = gamesTime1 !== null && gamesTime2 !== null && 
+                          gamesTime1 !== undefined && gamesTime2 !== undefined;
+    const placarMudou = tinhaPlacarAnterior && teraPlacarNovo && 
+                       (partida.gamesTime1 !== gamesTime1 || partida.gamesTime2 !== gamesTime2 ||
+                        partida.tiebreakTime1 !== tiebreakTime1 || partida.tiebreakTime2 !== tiebreakTime2);
+
     // Atualizar placar
     const partidaAtualizada = await atualizarPlacar(id, {
       gamesTime1: gamesTime1 !== undefined ? gamesTime1 : null,
@@ -112,6 +122,30 @@ export async function PUT(
       tiebreakTime1: tiebreakTime1 !== undefined ? tiebreakTime1 : null,
       tiebreakTime2: tiebreakTime2 !== undefined ? tiebreakTime2 : null,
     });
+
+    // Se a partida tem placar e está vinculada a panelinhas, atualizar rankings
+    if (teraPlacarNovo || placarMudou) {
+      try {
+        // Buscar todas as panelinhas vinculadas a esta partida
+        const panelinhasResult = await query(
+          'SELECT "panelinhaId" FROM "PartidaPanelinha" WHERE "partidaId" = $1',
+          [id]
+        );
+
+        // Recalcular ranking completo de cada panelinha (mais seguro quando placar muda)
+        for (const row of panelinhasResult.rows) {
+          try {
+            await recalcularRankingCompleto(row.panelinhaId);
+          } catch (error: any) {
+            console.error(`[PARTIDA] Erro ao recalcular ranking da panelinha ${row.panelinhaId}:`, error);
+            // Não falha a atualização do placar se o ranking falhar
+          }
+        }
+      } catch (error: any) {
+        console.error('[PARTIDA] Erro ao buscar panelinhas da partida:', error);
+        // Não falha a atualização do placar se não conseguir atualizar rankings
+      }
+    }
 
     const response = NextResponse.json(partidaAtualizada);
     return withCors(response, request);
