@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { query } from '@/lib/db';
 import { verificarAtletaUsuario } from '@/lib/atletaService';
-import { buscarRankingPanelinha, recalcularPosicoesRanking } from '@/lib/rankingPanelinhaService';
+import { buscarRankingPanelinha, recalcularRankingCompleto } from '@/lib/rankingPanelinhaService';
 
 // GET /api/user/panelinha/[id]/ranking - Obter ranking da panelinha
 export async function GET(
