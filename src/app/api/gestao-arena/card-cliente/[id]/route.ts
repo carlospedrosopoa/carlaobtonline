@@ -24,43 +24,21 @@ export async function GET(
     const incluirPagamentos = searchParams.get('incluirPagamentos') !== 'false'; // Por padrão inclui
     const incluirAgendamentos = searchParams.get('incluirAgendamentos') !== 'false'; // Por padrão inclui
 
-    // Tentar query com whatsapp, se falhar usar sem
-    let result;
-    try {
-      result = await query(
-        `SELECT 
-          c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
-          c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
-          c."createdBy", c."fechadoAt", c."fechadoBy",
-          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
-          u.whatsapp as "usuario_whatsapp",
-          at.fone as "atleta_fone"
-        FROM "CardCliente" c
-        LEFT JOIN "User" u ON c."usuarioId" = u.id
-        LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
-        WHERE c.id = $1`,
-        [id]
-      );
-    } catch (error: any) {
-      // Se falhar por coluna não encontrada, tentar sem whatsapp
-      if (error.code === '42703' || error.message?.includes('whatsapp') || error.message?.includes('column')) {
-        result = await query(
-          `SELECT 
-            c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
-            c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
-            c."createdBy", c."fechadoAt", c."fechadoBy",
-            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", NULL as "usuario_whatsapp",
-            at.fone as "atleta_fone"
-          FROM "CardCliente" c
-          LEFT JOIN "User" u ON c."usuarioId" = u.id
-          LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
-          WHERE c.id = $1`,
-          [id]
-        );
-      } else {
-        throw error;
-      }
-    }
+    // Query - usar apenas at.fone (whatsapp não existe na tabela User)
+    const result = await query(
+      `SELECT 
+        c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
+        c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
+        c."createdBy", c."fechadoAt", c."fechadoBy",
+        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
+        NULL as "usuario_whatsapp",
+        at.fone as "atleta_fone"
+      FROM "CardCliente" c
+      LEFT JOIN "User" u ON c."usuarioId" = u.id
+      LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+      WHERE c.id = $1`,
+      [id]
+    );
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -92,7 +70,7 @@ export async function GET(
         id: row.usuario_id,
         name: row.usuario_name,
         email: row.usuario_email,
-        whatsapp: row.usuario_whatsapp || null,
+        whatsapp: row.atleta_fone || null, // WhatsApp vem do telefone do atleta
         telefone: row.atleta_fone || null, // Telefone vem do atleta vinculado
       };
     }
