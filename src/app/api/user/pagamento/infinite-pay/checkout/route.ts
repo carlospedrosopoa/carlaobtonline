@@ -179,15 +179,13 @@ export async function POST(request: NextRequest) {
       if (atletaData.rows.length > 0) {
         const atleta = atletaData.rows[0];
         const userData = await query(
-          'SELECT email, name FROM "User" WHERE id = $1 LIMIT 1',
+          'SELECT email FROM "User" WHERE id = $1 LIMIT 1',
           [user.id]
         );
 
-        // Buscar nome do usuário se necessário
-        const userName = userData.rows[0]?.name || '';
-        
+        // Usar nome do atleta ou nome do user (que está em user.nome)
         payload.customer = {
-          name: atleta.nome || userName || '',
+          name: atleta.nome || user.nome || '',
           email: userData.rows[0]?.email || '',
           phone_number: atleta.fone ? `+55${atleta.fone.replace(/\D/g, '')}` : '',
         };
