@@ -169,6 +169,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Adicionar dados do cliente se disponível
+    // O CPF pode ser enviado no customer conforme documentação
     if (docNumber) {
       // Buscar dados do atleta para preencher informações do cliente
       const atletaData = await query(
@@ -188,6 +189,19 @@ export async function POST(request: NextRequest) {
           name: atleta.nome || user.nome || '',
           email: userData.rows[0]?.email || '',
           phone_number: atleta.fone ? `+55${atleta.fone.replace(/\D/g, '')}` : '',
+          cpf: docNumber, // Adicionar CPF no customer
+        };
+      } else {
+        // Se não tiver atleta, criar customer apenas com CPF
+        const userData = await query(
+          'SELECT email FROM "User" WHERE id = $1 LIMIT 1',
+          [user.id]
+        );
+        
+        payload.customer = {
+          name: user.nome || '',
+          email: userData.rows[0]?.email || '',
+          cpf: docNumber,
         };
       }
     }
