@@ -149,29 +149,34 @@ export async function POST(request: NextRequest) {
       [cardId, orderId, valor, parcelas || 1, user.id]
     );
 
-    // Gerar DeepLink do Infinite Pay
+    // Gerar URL de checkout do Infinite Pay (versão web)
     const resultUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/app/atleta/consumo?payment_callback=${orderId}`;
     
-    const deeplinkParams = new URLSearchParams();
-    deeplinkParams.append('handle', infinitePayHandle);
-    deeplinkParams.append('doc_number', docNumber);
-    deeplinkParams.append('amount', (valor * 100).toString()); // Converter para centavos
-    deeplinkParams.append('order_id', orderId);
-    deeplinkParams.append('description', descricao || `Pagamento Card #${card.numeroCard || ''}`);
-    deeplinkParams.append('result_url', resultUrl);
+    // URL base do Infinite Pay (ajustar conforme documentação oficial)
+    // Por padrão, usamos a URL web do Infinite Pay
+    const infinitePayBaseUrl = process.env.INFINITE_PAY_WEB_URL || 'https://checkout.infinitepay.io';
+    
+    const checkoutParams = new URLSearchParams();
+    checkoutParams.append('handle', infinitePayHandle);
+    checkoutParams.append('doc_number', docNumber);
+    checkoutParams.append('amount', (valor * 100).toString()); // Converter para centavos
+    checkoutParams.append('order_id', orderId);
+    checkoutParams.append('description', descricao || `Pagamento Card #${card.numeroCard || ''}`);
+    checkoutParams.append('result_url', resultUrl);
     
     if (parcelas && parcelas > 1) {
-      deeplinkParams.append('installments', parcelas.toString());
-      deeplinkParams.append('payment_method', 'credit');
+      checkoutParams.append('installments', parcelas.toString());
+      checkoutParams.append('payment_method', 'credit');
     } else {
-      deeplinkParams.append('payment_method', 'pix'); // PIX para pagamento à vista
+      checkoutParams.append('payment_method', 'pix'); // PIX para pagamento à vista
     }
 
-    const deeplink = `infinitepay://checkout?${deeplinkParams.toString()}`;
+    // URL web do checkout (funciona em qualquer navegador, sem precisar do app)
+    const checkoutUrl = `${infinitePayBaseUrl}?${checkoutParams.toString()}`;
 
     const response = NextResponse.json({
       success: true,
-      deeplink,
+      checkoutUrl, // Renomeado de deeplink para checkoutUrl
       orderId,
     });
 
