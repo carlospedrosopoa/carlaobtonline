@@ -194,6 +194,8 @@ export async function POST(request: NextRequest) {
 
     // Fazer requisição para a API do Infinite Pay
     try {
+      console.log('[INFINITE PAY] Payload enviado:', JSON.stringify(payload, null, 2));
+      
       const infinitePayResponse = await fetch('https://api.infinitepay.io/invoices/public/checkout/links', {
         method: 'POST',
         headers: {
@@ -202,13 +204,27 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(payload),
       });
 
+      console.log('[INFINITE PAY] Status da resposta:', infinitePayResponse.status);
+      console.log('[INFINITE PAY] Headers da resposta:', Object.fromEntries(infinitePayResponse.headers.entries()));
+
       if (!infinitePayResponse.ok) {
-        const errorData = await infinitePayResponse.json().catch(() => ({}));
-        console.error('[INFINITE PAY] Erro na API:', errorData);
+        const errorText = await infinitePayResponse.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        console.error('[INFINITE PAY] Erro na API:', {
+          status: infinitePayResponse.status,
+          statusText: infinitePayResponse.statusText,
+          error: errorData
+        });
         const errorResponse = NextResponse.json(
           { 
             mensagem: 'Erro ao gerar link de pagamento no Infinite Pay',
-            error: process.env.NODE_ENV === 'development' ? errorData : undefined
+            error: process.env.NODE_ENV === 'development' ? errorData : undefined,
+            status: infinitePayResponse.status
           },
           { status: 500 }
         );
@@ -216,19 +232,25 @@ export async function POST(request: NextRequest) {
       }
 
       const infinitePayData = await infinitePayResponse.json();
+      console.log('[INFINITE PAY] Resposta completa:', JSON.stringify(infinitePayData, null, 2));
 
       // A resposta da API do Infinite Pay deve conter o link de checkout
       // Verificar a estrutura da resposta conforme documentação
-      const checkoutUrl = infinitePayData.checkout_url || infinitePayData.url || infinitePayData.link;
+      const checkoutUrl = infinitePayData.checkout_url || infinitePayData.url || infinitePayData.link || infinitePayData.checkoutUrl;
 
       if (!checkoutUrl) {
-        console.error('[INFINITE PAY] Resposta sem checkout_url:', infinitePayData);
+        console.error('[INFINITE PAY] Resposta sem checkout_url. Estrutura completa:', infinitePayData);
         const errorResponse = NextResponse.json(
-          { mensagem: 'Resposta inválida do Infinite Pay' },
+          { 
+            mensagem: 'Resposta inválida do Infinite Pay - link de checkout não encontrado',
+            error: process.env.NODE_ENV === 'development' ? infinitePayData : undefined
+          },
           { status: 500 }
         );
         return withCors(errorResponse, request);
       }
+      
+      console.log('[INFINITE PAY] Checkout URL gerado:', checkoutUrl);
 
       const response = NextResponse.json({
         success: true,
