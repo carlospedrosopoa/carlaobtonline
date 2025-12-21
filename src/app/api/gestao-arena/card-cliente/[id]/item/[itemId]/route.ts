@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { AtualizarItemCardPayload } from '@/types/gestaoArena';
 
 // PUT /api/gestao-arena/card-cliente/[id]/item/[itemId] - Atualizar item do card

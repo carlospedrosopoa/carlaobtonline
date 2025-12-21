@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 
 // GET /api/gestao-arena/card-cliente/[id]/agendamento - Listar agendamentos vinculados ao card
 export async function GET(

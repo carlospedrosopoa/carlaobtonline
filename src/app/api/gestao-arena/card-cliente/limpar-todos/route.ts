@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 
 // POST /api/gestao-arena/card-cliente/limpar-todos - Limpar todos os cards de uma arena
 export async function POST(request: NextRequest) {

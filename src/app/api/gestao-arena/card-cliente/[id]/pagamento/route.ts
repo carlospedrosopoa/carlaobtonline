@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarPagamentoCardPayload } from '@/types/gestaoArena';
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/card-cliente/[id]/pagamento - Listar pagamentos do card
 export async function GET(
@@ -108,13 +115,15 @@ export async function GET(
       })
     );
 
-    return NextResponse.json(pagamentos);
+    const response = NextResponse.json(pagamentos);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar pagamentos do card:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar pagamentos do card', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -309,13 +318,15 @@ export async function POST(
     // Não fechar automaticamente - o card será fechado manualmente quando necessário
     // O sistema mantém o saldo (valorTotal - totalPago) para controle
 
-    return NextResponse.json(pagamentoResult.rows[0], { status: 201 });
+    const response = NextResponse.json(pagamentoResult.rows[0], { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao adicionar pagamento ao card:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao adicionar pagamento ao card', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

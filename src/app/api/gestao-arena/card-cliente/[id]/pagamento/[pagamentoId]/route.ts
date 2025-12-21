@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 
 // DELETE /api/gestao-arena/card-cliente/[id]/pagamento/[pagamentoId] - Remover pagamento do card
 export async function DELETE(
