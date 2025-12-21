@@ -151,7 +151,10 @@ export async function POST(request: NextRequest) {
 
     // Gerar link de checkout usando a API oficial do Infinite Pay
     // redirectUrl: URL do frontend para redirecionar o usuário após pagamento
-    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/app/atleta/consumo?payment_callback=${orderId}`;
+    // IMPORTANTE: Usar URL de produção fixa para garantir que sempre funcione
+    // O domínio correto é atleta.playnaquadra.com.br (sem "app" no início)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://atleta.playnaquadra.com.br';
+    const redirectUrl = `${appUrl}/app/atleta/consumo?payment_callback=${orderId}`;
     
     // webhookUrl: URL do backend (carlaobtonline) para receber notificação do Infinite Pay
     // IMPORTANTE: Deve ser a URL do backend, não do frontend
