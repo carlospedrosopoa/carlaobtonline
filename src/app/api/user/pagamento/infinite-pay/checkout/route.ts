@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/api/user/pagamento/infinite-pay/callback`;
 
     // Montar payload conforme documentação oficial do Infinite Pay
-    const payload = {
+    const payload: any = {
       handle: infinitePayHandle,
       order_nsu: orderId,
       itens: [
