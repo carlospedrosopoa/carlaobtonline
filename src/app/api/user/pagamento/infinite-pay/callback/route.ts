@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // Buscar pagamento pelo order_nsu (orderId)
     const pagamentoResult = await query(
-      `SELECT p.*, c."usuarioId", c."valorTotal",
+      `SELECT p.*, c."usuarioId", c."valorTotal", c."pointId",
               COALESCE(SUM(p2.valor), 0) as "totalPago"
        FROM "PagamentoInfinitePay" p
        INNER JOIN "CardCliente" c ON p."cardId" = c.id
@@ -86,19 +86,35 @@ export async function POST(request: NextRequest) {
       );
 
       if (pagamentoExistente.rows.length === 0) {
-        // Buscar forma de pagamento Infinite Pay ou criar uma padrão
+        // Buscar pointId do card para criar/buscar forma de pagamento
+        const cardPointResult = await query(
+          'SELECT "pointId" FROM "CardCliente" WHERE id = $1',
+          [pagamento.cardId]
+        );
+        const pointId = cardPointResult.rows[0]?.pointId;
+
+        if (!pointId) {
+          console.error('[INFINITE PAY WEBHOOK] PointId não encontrado para o card:', pagamento.cardId);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Arena não encontrada para este card' },
+            { status: 400 }
+          );
+          return withCors(errorResponse, request);
+        }
+
+        // Buscar forma de pagamento Infinite Pay para esta arena ou criar uma padrão
         let formaPagamentoId = await query(
-          'SELECT id FROM "FormaPagamento" WHERE nome ILIKE $1 LIMIT 1',
-          ['%infinite pay%']
+          'SELECT id FROM "FormaPagamento" WHERE "pointId" = $1 AND nome ILIKE $2 LIMIT 1',
+          [pointId, '%infinite pay%']
         );
 
         if (formaPagamentoId.rows.length === 0) {
-          // Criar forma de pagamento se não existir
+          // Criar forma de pagamento se não existir para esta arena
           const novaForma = await query(
-            `INSERT INTO "FormaPagamento" (id, nome, tipo, "createdAt")
-             VALUES (gen_random_uuid()::text, 'Infinite Pay', 'CARTAO', NOW())
+            `INSERT INTO "FormaPagamento" (id, "pointId", nome, tipo, ativo, "createdAt", "updatedAt")
+             VALUES (gen_random_uuid()::text, $1, 'Infinite Pay', 'CARTAO', true, NOW(), NOW())
              RETURNING id`,
-            []
+            [pointId]
           );
           formaPagamentoId = novaForma;
         }
