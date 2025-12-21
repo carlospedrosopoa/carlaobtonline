@@ -150,8 +150,15 @@ export async function POST(request: NextRequest) {
     );
 
     // Gerar link de checkout usando a API oficial do Infinite Pay
+    // redirectUrl: URL do frontend para redirecionar o usuário após pagamento
     const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/app/atleta/consumo?payment_callback=${orderId}`;
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/api/user/pagamento/infinite-pay/callback`;
+    
+    // webhookUrl: URL do backend (carlaobtonline) para receber notificação do Infinite Pay
+    // IMPORTANTE: Deve ser a URL do backend, não do frontend
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'https://carlaobtonline.vercel.app';
+    const webhookUrl = `${backendUrl}/api/user/pagamento/infinite-pay/callback`;
 
     // Montar payload conforme documentação oficial do Infinite Pay
     // Nota: A API espera "items" (inglês), não "itens" (português)

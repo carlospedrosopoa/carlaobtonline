@@ -5,10 +5,14 @@ import { query } from '@/lib/db';
 
 // POST /api/user/pagamento/infinite-pay/callback - Webhook do Infinite Pay
 // Esta rota será chamada pelo Infinite Pay quando o pagamento for aprovado
+// IMPORTANTE: Esta rota deve ser pública (sem autenticação) para o Infinite Pay poder chamar
 // Conforme documentação: responder com 200 OK para sucesso, 400 para erro
 export async function POST(request: NextRequest) {
   try {
     console.log('[INFINITE PAY WEBHOOK] Recebendo webhook...');
+    console.log('[INFINITE PAY WEBHOOK] URL:', request.url);
+    console.log('[INFINITE PAY WEBHOOK] Headers:', Object.fromEntries(request.headers.entries()));
+    
     const body = await request.json();
     console.log('[INFINITE PAY WEBHOOK] Dados recebidos:', JSON.stringify(body, null, 2));
     // Estrutura do webhook conforme documentação:
