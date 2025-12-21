@@ -105,6 +105,26 @@ export async function POST(request: NextRequest) {
         // paid_amount está em centavos, converter para reais
         const valorPago = (paid_amount || amount) / 100;
         
+        // Montar observações detalhadas para identificar a operação
+        const observacoes = [
+          `Pagamento via Infinite Pay`,
+          `Método: ${capture_method || 'N/A'}`,
+          `Order NSU: ${order_nsu}`,
+          transaction_nsu ? `Transaction NSU: ${transaction_nsu}` : '',
+          invoice_slug ? `Invoice Slug: ${invoice_slug}` : '',
+          installments && installments > 1 ? `Parcelado em ${installments}x` : 'À vista',
+          receipt_url ? `Comprovante: ${receipt_url}` : '',
+          `Valor pago: R$ ${valorPago.toFixed(2)}`,
+          `Processado em: ${new Date().toLocaleString('pt-BR')}`,
+        ].filter(Boolean).join(' | ');
+        
+        console.log('[INFINITE PAY WEBHOOK] Criando pagamento no card:', {
+          cardId: pagamento.cardId,
+          valor: valorPago,
+          order_nsu,
+          transaction_nsu,
+        });
+        
         const pagamentoCard = await query(
           `INSERT INTO "PagamentoCard" (
             id, "cardId", "formaPagamentoId", valor, observacoes, 
@@ -118,12 +138,14 @@ export async function POST(request: NextRequest) {
             pagamento.cardId,
             formaPagamentoId.rows[0].id,
             valorPago,
-            `Pagamento via Infinite Pay - ${capture_method || 'N/A'} - Order: ${order_nsu}${receipt_url ? ` - Comprovante: ${receipt_url}` : ''}`,
+            observacoes,
             order_nsu,
             transaction_nsu || null,
             pagamento.usuarioId,
           ]
         );
+        
+        console.log('[INFINITE PAY WEBHOOK] Pagamento criado no card com sucesso:', pagamentoCard.rows[0].id);
 
         // Verificar se o card deve ser fechado
         const totalPago = parseFloat(pagamento.totalPago) + valorPago;
