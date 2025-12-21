@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const { user } = authResult;
     const body = await request.json();
-    const { cardId, valor, orderId, descricao, parcelas } = body;
+    const { cardId, valor, orderId, descricao, parcelas, cpf } = body;
 
     // Validações
     if (!cardId || !valor || !orderId) {
@@ -99,24 +99,29 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    // Buscar CPF do usuário para o Infinite Pay
-    // O CPF pode estar em um campo específico ou precisar ser coletado do perfil
-    // Por enquanto, vamos usar o email como fallback ou solicitar que seja informado
-    // TODO: Adicionar campo CPF na tabela User ou Atleta se necessário
+    // Buscar CPF do atleta para o Infinite Pay
+    // Se o CPF foi fornecido no body, usar ele. Caso contrário, tentar buscar do perfil do atleta
+    let docNumber = '';
     
-    // Buscar dados do usuário
-    const userData = await query(
-      'SELECT email, name FROM "User" WHERE id = $1',
-      [user.id]
-    );
+    if (cpf && cpf.replace(/\D/g, '').length === 11) {
+      // CPF fornecido pelo frontend
+      docNumber = cpf.replace(/\D/g, '');
+    } else {
+      // Tentar buscar CPF do perfil do atleta (quando o campo for adicionado)
+      // Por enquanto, usar variável de ambiente como fallback
+      docNumber = process.env.INFINITE_PAY_DEFAULT_DOC || '';
+      
+      // TODO: Quando o campo CPF for adicionado ao perfil do atleta, buscar aqui
+      // const atletaData = await query(
+      //   'SELECT cpf FROM "Atleta" WHERE "usuarioId" = $1',
+      //   [user.id]
+      // );
+      // docNumber = atletaData.rows[0]?.cpf?.replace(/\D/g, '') || '';
+    }
 
-    // Por enquanto, vamos usar um placeholder ou solicitar CPF
-    // Em produção, o CPF deve estar cadastrado no perfil do usuário/atleta
-    const docNumber = process.env.INFINITE_PAY_DEFAULT_DOC || ''; // CPF padrão para testes
-
-    if (!docNumber || docNumber.length < 11) {
+    if (!docNumber || docNumber.length !== 11) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'CPF não configurado. Entre em contato com o suporte.' },
+        { mensagem: 'CPF é obrigatório para processar o pagamento. Por favor, informe seu CPF.' },
         { status: 400 }
       );
       return withCors(errorResponse, request);
