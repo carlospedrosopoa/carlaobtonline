@@ -151,8 +151,16 @@ export async function POST(request: NextRequest) {
         const totalPago = parseFloat(pagamento.totalPago) + valorPago;
         const valorTotal = parseFloat(pagamento.valorTotal);
 
+        console.log('[INFINITE PAY WEBHOOK] Verificando fechamento do card:', {
+          cardId: pagamento.cardId,
+          totalPago,
+          valorTotal,
+          saldoPendente: valorTotal - totalPago,
+          deveFechar: totalPago >= valorTotal,
+        });
+
         if (totalPago >= valorTotal) {
-          // Fechar o card
+          // Fechar o card automaticamente
           await query(
             `UPDATE "CardCliente"
              SET status = 'FECHADO',
@@ -162,6 +170,10 @@ export async function POST(request: NextRequest) {
              WHERE id = $2`,
             [pagamento.usuarioId, pagamento.cardId]
           );
+          console.log('[INFINITE PAY WEBHOOK] ✅ Card fechado automaticamente - saldo quitado');
+        } else {
+          const saldoPendente = valorTotal - totalPago;
+          console.log('[INFINITE PAY WEBHOOK] ⚠️ Card mantido aberto - saldo pendente: R$', saldoPendente.toFixed(2));
         }
       }
     }
