@@ -101,16 +101,18 @@ export async function POST(request: NextRequest) {
       [pointId]
     );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       mensagem: `${totalCards} card(s) deletado(s) com sucesso`,
       totalCards,
     });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao limpar cards:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao limpar cards', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
