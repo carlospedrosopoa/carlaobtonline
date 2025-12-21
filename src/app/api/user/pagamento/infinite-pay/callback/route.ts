@@ -110,9 +110,10 @@ export async function POST(request: NextRequest) {
 
         if (formaPagamentoId.rows.length === 0) {
           // Criar forma de pagamento se não existir para esta arena
+          // Usar 'OUTRO' pois Infinite Pay pode processar PIX, cartão de crédito ou débito
           const novaForma = await query(
             `INSERT INTO "FormaPagamento" (id, "pointId", nome, tipo, ativo, "createdAt", "updatedAt")
-             VALUES (gen_random_uuid()::text, $1, 'Infinite Pay', 'CARTAO', true, NOW(), NOW())
+             VALUES (gen_random_uuid()::text, $1, 'Infinite Pay', 'OUTRO', true, NOW(), NOW())
              RETURNING id`,
             [pointId]
           );
