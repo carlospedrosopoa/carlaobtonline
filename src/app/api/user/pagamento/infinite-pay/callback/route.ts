@@ -9,8 +9,10 @@ import { query } from '@/lib/db';
 // Conforme documentação: responder com 200 OK para sucesso, 400 para erro
 export async function POST(request: NextRequest) {
   try {
+    const origin = request.headers.get('origin');
     console.log('[INFINITE PAY WEBHOOK] Recebendo webhook...');
     console.log('[INFINITE PAY WEBHOOK] URL:', request.url);
+    console.log('[INFINITE PAY WEBHOOK] Origin:', origin);
     console.log('[INFINITE PAY WEBHOOK] Headers:', Object.fromEntries(request.headers.entries()));
     
     const body = await request.json();
@@ -186,7 +188,18 @@ export async function POST(request: NextRequest) {
       message: 'Status atualizado com sucesso',
     });
 
-    return withCors(response, request);
+    // Para webhook, permitir qualquer origem (o Infinite Pay pode chamar de qualquer lugar)
+    // Mas usar withCors para manter consistência
+    const corsResponse = withCors(response, request);
+    
+    // Se não tiver origem ou for do Infinite Pay, adicionar headers CORS permissivos
+    if (!origin || origin.includes('infinitepay') || origin.includes('cloudwalk')) {
+      corsResponse.headers.set('Access-Control-Allow-Origin', origin || '*');
+      corsResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      corsResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    }
+    
+    return corsResponse;
   } catch (error: any) {
     console.error('[INFINITE PAY CALLBACK] Erro:', error);
     const errorResponse = NextResponse.json(
@@ -201,7 +214,22 @@ export async function POST(request: NextRequest) {
 }
 
 // Suportar requisições OPTIONS (preflight)
+// IMPORTANTE: Webhook precisa aceitar preflight de qualquer origem do Infinite Pay
 export async function OPTIONS(request: NextRequest) {
-  return withCors(new NextResponse(null, { status: 204 }), request);
+  const origin = request.headers.get('origin');
+  const response = new NextResponse(null, { status: 204 });
+  
+  // Para webhook, permitir qualquer origem do Infinite Pay
+  if (!origin || origin.includes('infinitepay') || origin.includes('cloudwalk') || origin.includes('playnaquadra')) {
+    response.headers.set('Access-Control-Allow-Origin', origin || '*');
+    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Max-Age', '86400');
+  } else {
+    // Usar withCors para outras origens
+    return withCors(response, request);
+  }
+  
+  return response;
 }
 
