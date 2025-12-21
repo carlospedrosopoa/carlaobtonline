@@ -155,10 +155,27 @@ export async function POST(request: NextRequest) {
     
     // webhookUrl: URL do backend (carlaobtonline) para receber notificação do Infinite Pay
     // IMPORTANTE: Deve ser a URL do backend, não do frontend
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'https://carlaobtonline.vercel.app';
+    // Prioridade: NEXT_PUBLIC_API_URL > VERCEL_URL > URL fixa de produção
+    let backendUrl: string;
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      // Se NEXT_PUBLIC_API_URL está configurada, usa ela (remove /api se tiver)
+      backendUrl = process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '');
+    } else if (process.env.VERCEL_URL) {
+      // Se está no Vercel, usa a URL do deployment
+      backendUrl = `https://${process.env.VERCEL_URL}`;
+    } else {
+      // Fallback para URL de produção
+      backendUrl = 'https://carlaobtonline.vercel.app';
+    }
     const webhookUrl = `${backendUrl}/api/user/pagamento/infinite-pay/callback`;
+    
+    console.log('[INFINITE PAY CHECKOUT] URLs configuradas:', {
+      redirectUrl,
+      webhookUrl,
+      backendUrl,
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+      VERCEL_URL: process.env.VERCEL_URL,
+    });
 
     // Montar payload conforme documentação oficial do Infinite Pay
     // Nota: A API espera "items" (inglês), não "itens" (português)
