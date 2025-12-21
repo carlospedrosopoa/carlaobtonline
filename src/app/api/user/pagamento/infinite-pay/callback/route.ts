@@ -5,9 +5,12 @@ import { query } from '@/lib/db';
 
 // POST /api/user/pagamento/infinite-pay/callback - Webhook do Infinite Pay
 // Esta rota será chamada pelo Infinite Pay quando o pagamento for aprovado
+// Conforme documentação: responder com 200 OK para sucesso, 400 para erro
 export async function POST(request: NextRequest) {
   try {
+    console.log('[INFINITE PAY WEBHOOK] Recebendo webhook...');
     const body = await request.json();
+    console.log('[INFINITE PAY WEBHOOK] Dados recebidos:', JSON.stringify(body, null, 2));
     // Estrutura do webhook conforme documentação:
     // invoice_slug, amount, paid_amount, installments, capture_method, 
     // transaction_nsu, order_nsu, receipt_url, items
@@ -23,6 +26,8 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!order_nsu) {
+      console.error('[INFINITE PAY WEBHOOK] order_nsu não fornecido');
+      // Responder com 400 conforme documentação (para que o Infinite Pay tente novamente)
       const errorResponse = NextResponse.json(
         { mensagem: 'order_nsu é obrigatório' },
         { status: 400 }
@@ -44,9 +49,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (pagamentoResult.rows.length === 0) {
+      console.error('[INFINITE PAY WEBHOOK] Pagamento não encontrado para order_nsu:', order_nsu);
+      // Responder com 400 para que o Infinite Pay tente novamente
       const errorResponse = NextResponse.json(
         { mensagem: 'Pagamento não encontrado' },
-        { status: 404 }
+        { status: 400 }
       );
       return withCors(errorResponse, request);
     }
@@ -133,6 +140,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Responder com 200 OK conforme documentação do Infinite Pay
+    // Importante: responder rapidamente (menos de 1 segundo)
+    console.log('[INFINITE PAY WEBHOOK] Pagamento processado com sucesso para order_nsu:', order_nsu);
     const response = NextResponse.json({
       success: true,
       message: 'Status atualizado com sucesso',
