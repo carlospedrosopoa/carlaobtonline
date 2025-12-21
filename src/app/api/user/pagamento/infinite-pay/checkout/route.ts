@@ -149,36 +149,104 @@ export async function POST(request: NextRequest) {
       [cardId, orderId, valor, parcelas || 1, user.id]
     );
 
-    // Gerar URL de checkout do Infinite Pay (versão web)
-    const resultUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/app/atleta/consumo?payment_callback=${orderId}`;
-    
-    // URL base do Infinite Pay (ajustar conforme documentação oficial)
-    // Por padrão, usamos a URL web do Infinite Pay
-    const infinitePayBaseUrl = process.env.INFINITE_PAY_WEB_URL || 'https://checkout.infinitepay.io';
-    
-    const checkoutParams = new URLSearchParams();
-    checkoutParams.append('handle', infinitePayHandle);
-    checkoutParams.append('doc_number', docNumber);
-    checkoutParams.append('amount', (valor * 100).toString()); // Converter para centavos
-    checkoutParams.append('order_id', orderId);
-    checkoutParams.append('description', descricao || `Pagamento Card #${card.numeroCard || ''}`);
-    checkoutParams.append('result_url', resultUrl);
-    
-    if (parcelas && parcelas > 1) {
-      checkoutParams.append('installments', parcelas.toString());
-      checkoutParams.append('payment_method', 'credit');
-    } else {
-      checkoutParams.append('payment_method', 'pix'); // PIX para pagamento à vista
+    // Gerar link de checkout usando a API oficial do Infinite Pay
+    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/app/atleta/consumo?payment_callback=${orderId}`;
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/api/user/pagamento/infinite-pay/callback`;
+
+    // Montar payload conforme documentação oficial do Infinite Pay
+    const payload = {
+      handle: infinitePayHandle,
+      order_nsu: orderId,
+      itens: [
+        {
+          quantity: 1,
+          price: Math.round(valor * 100), // Valor em centavos
+          description: descricao || `Pagamento Card #${card.numeroCard || ''}`,
+        },
+      ],
+      redirect_url: redirectUrl,
+      webhook_url: webhookUrl,
+    };
+
+    // Adicionar dados do cliente se disponível
+    if (docNumber) {
+      // Buscar dados do atleta para preencher informações do cliente
+      const atletaData = await query(
+        'SELECT nome, fone FROM "Atleta" WHERE "usuarioId" = $1 LIMIT 1',
+        [user.id]
+      );
+
+      if (atletaData.rows.length > 0) {
+        const atleta = atletaData.rows[0];
+        const userData = await query(
+          'SELECT email FROM "User" WHERE id = $1 LIMIT 1',
+          [user.id]
+        );
+
+        payload.customer = {
+          name: atleta.nome || user.name || '',
+          email: userData.rows[0]?.email || '',
+          phone_number: atleta.fone ? `+55${atleta.fone.replace(/\D/g, '')}` : '',
+        };
+      }
     }
 
-    // URL web do checkout (funciona em qualquer navegador, sem precisar do app)
-    const checkoutUrl = `${infinitePayBaseUrl}?${checkoutParams.toString()}`;
+    // Fazer requisição para a API do Infinite Pay
+    try {
+      const infinitePayResponse = await fetch('https://api.infinitepay.io/invoices/public/checkout/links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-    const response = NextResponse.json({
-      success: true,
-      checkoutUrl, // Renomeado de deeplink para checkoutUrl
-      orderId,
-    });
+      if (!infinitePayResponse.ok) {
+        const errorData = await infinitePayResponse.json().catch(() => ({}));
+        console.error('[INFINITE PAY] Erro na API:', errorData);
+        const errorResponse = NextResponse.json(
+          { 
+            mensagem: 'Erro ao gerar link de pagamento no Infinite Pay',
+            error: process.env.NODE_ENV === 'development' ? errorData : undefined
+          },
+          { status: 500 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      const infinitePayData = await infinitePayResponse.json();
+
+      // A resposta da API do Infinite Pay deve conter o link de checkout
+      // Verificar a estrutura da resposta conforme documentação
+      const checkoutUrl = infinitePayData.checkout_url || infinitePayData.url || infinitePayData.link;
+
+      if (!checkoutUrl) {
+        console.error('[INFINITE PAY] Resposta sem checkout_url:', infinitePayData);
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Resposta inválida do Infinite Pay' },
+          { status: 500 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      const response = NextResponse.json({
+        success: true,
+        checkoutUrl,
+        orderId,
+      });
+
+      return withCors(response, request);
+    } catch (error: any) {
+      console.error('[INFINITE PAY] Erro ao chamar API:', error);
+      const errorResponse = NextResponse.json(
+        { 
+          mensagem: 'Erro ao comunicar com Infinite Pay',
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 500 }
+      );
+      return withCors(errorResponse, request);
+    }
 
     return withCors(response, request);
   } catch (error: any) {

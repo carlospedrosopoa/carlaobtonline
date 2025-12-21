@@ -3,31 +3,44 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withCors } from '@/lib/cors';
 import { query } from '@/lib/db';
 
-// POST /api/user/pagamento/infinite-pay/callback - Callback do Infinite Pay
-// Esta rota será chamada pelo Infinite Pay após o pagamento
+// POST /api/user/pagamento/infinite-pay/callback - Webhook do Infinite Pay
+// Esta rota será chamada pelo Infinite Pay quando o pagamento for aprovado
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { order_id, status, transaction_id, message } = body;
+    // Estrutura do webhook conforme documentação:
+    // invoice_slug, amount, paid_amount, installments, capture_method, 
+    // transaction_nsu, order_nsu, receipt_url, items
+    const { 
+      order_nsu, 
+      transaction_nsu, 
+      invoice_slug,
+      amount,
+      paid_amount,
+      installments,
+      capture_method,
+      receipt_url
+    } = body;
 
-    if (!order_id) {
+    if (!order_nsu) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'order_id é obrigatório' },
+        { mensagem: 'order_nsu é obrigatório' },
         { status: 400 }
       );
       return withCors(errorResponse, request);
     }
 
-    // Buscar pagamento pelo orderId
+    // Buscar pagamento pelo order_nsu (orderId)
     const pagamentoResult = await query(
       `SELECT p.*, c."usuarioId", c."valorTotal",
               COALESCE(SUM(p2.valor), 0) as "totalPago"
        FROM "PagamentoInfinitePay" p
        INNER JOIN "CardCliente" c ON p."cardId" = c.id
-       LEFT JOIN "PagamentoCard" p2 ON p2."cardId" = c.id AND p2.id != p."pagamentoCardId"
+       LEFT JOIN "PagamentoCard" p2 ON p2."cardId" = c.id 
+         AND (p2."infinitePayOrderId" IS NULL OR p2."infinitePayOrderId" != p."orderId")
        WHERE p."orderId" = $1
        GROUP BY p.id, c.id`,
-      [order_id]
+      [order_nsu]
     );
 
     if (pagamentoResult.rows.length === 0) {
@@ -40,23 +53,23 @@ export async function POST(request: NextRequest) {
 
     const pagamento = pagamentoResult.rows[0];
 
-    // Atualizar status do pagamento
+    // Atualizar status do pagamento (webhook só é chamado quando aprovado)
     await query(
       `UPDATE "PagamentoInfinitePay"
-       SET status = $1,
-           "transactionId" = $2,
-           message = $3,
+       SET status = 'APPROVED',
+           "transactionId" = $1,
+           message = $2,
            "updatedAt" = NOW()
-       WHERE "orderId" = $4`,
-      [status.toUpperCase(), transaction_id || null, message || null, order_id]
+       WHERE "orderId" = $3`,
+      [transaction_nsu || null, `Pagamento aprovado via ${capture_method || 'N/A'}`, order_nsu]
     );
 
-    // Se o pagamento foi aprovado, criar o registro de pagamento no card
-    if (status === 'approved' || status === 'APPROVED') {
+    // Webhook só é chamado quando pagamento é aprovado
+    if (true) {
       // Verificar se já existe pagamento criado
       const pagamentoExistente = await query(
         'SELECT id FROM "PagamentoCard" WHERE "infinitePayOrderId" = $1',
-        [order_id]
+        [order_nsu]
       );
 
       if (pagamentoExistente.rows.length === 0) {
@@ -78,6 +91,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Criar pagamento no card
+        // paid_amount está em centavos, converter para reais
+        const valorPago = (paid_amount || amount) / 100;
+        
         const pagamentoCard = await query(
           `INSERT INTO "PagamentoCard" (
             id, "cardId", "formaPagamentoId", valor, observacoes, 
@@ -90,16 +106,16 @@ export async function POST(request: NextRequest) {
           [
             pagamento.cardId,
             formaPagamentoId.rows[0].id,
-            pagamento.valor,
-            `Pagamento via Infinite Pay - Order: ${order_id}`,
-            order_id,
-            transaction_id || null,
+            valorPago,
+            `Pagamento via Infinite Pay - ${capture_method || 'N/A'} - Order: ${order_nsu}${receipt_url ? ` - Comprovante: ${receipt_url}` : ''}`,
+            order_nsu,
+            transaction_nsu || null,
             pagamento.usuarioId,
           ]
         );
 
         // Verificar se o card deve ser fechado
-        const totalPago = parseFloat(pagamento.totalPago) + parseFloat(pagamento.valor);
+        const totalPago = parseFloat(pagamento.totalPago) + valorPago;
         const valorTotal = parseFloat(pagamento.valorTotal);
 
         if (totalPago >= valorTotal) {
