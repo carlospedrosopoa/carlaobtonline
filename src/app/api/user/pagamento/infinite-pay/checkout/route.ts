@@ -248,8 +248,6 @@ export async function POST(request: NextRequest) {
       );
       return withCors(errorResponse, request);
     }
-
-    return withCors(response, request);
   } catch (error: any) {
     console.error('[INFINITE PAY CHECKOUT] Erro:', error);
     const errorResponse = NextResponse.json(
