@@ -155,16 +155,15 @@ export async function POST(request: NextRequest) {
     
     // webhookUrl: URL do backend (carlaobtonline) para receber notificação do Infinite Pay
     // IMPORTANTE: Deve ser a URL do backend, não do frontend
-    // Prioridade: NEXT_PUBLIC_API_URL > VERCEL_URL > URL fixa de produção
+    // CRÍTICO: Sempre usar URL de produção fixa para webhook, nunca URL de preview/deployment temporário
+    // O webhook precisa de uma URL estável que sempre exista, mesmo após deployments
     let backendUrl: string;
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      // Se NEXT_PUBLIC_API_URL está configurada, usa ela (remove /api se tiver)
+    if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('vercel.app')) {
+      // Se NEXT_PUBLIC_API_URL está configurada e não é Vercel, usa ela (remove /api se tiver)
       backendUrl = process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '');
-    } else if (process.env.VERCEL_URL) {
-      // Se está no Vercel, usa a URL do deployment
-      backendUrl = `https://${process.env.VERCEL_URL}`;
     } else {
-      // Fallback para URL de produção
+      // SEMPRE usar URL de produção fixa para webhook (nunca usar VERCEL_URL que é temporário)
+      // Isso garante que o webhook sempre funcione, mesmo após novos deployments
       backendUrl = 'https://carlaobtonline.vercel.app';
     }
     const webhookUrl = `${backendUrl}/api/user/pagamento/infinite-pay/callback`;
