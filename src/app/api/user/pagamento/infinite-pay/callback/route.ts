@@ -189,15 +189,16 @@ export async function POST(request: NextRequest) {
     });
 
     // Para webhook, permitir qualquer origem (o Infinite Pay pode chamar de qualquer lugar)
-    // Mas usar withCors para manter consistência
+    // Webhooks geralmente não têm origem (são chamadas server-to-server)
     const corsResponse = withCors(response, request);
     
-    // Se não tiver origem ou for do Infinite Pay, adicionar headers CORS permissivos
-    if (!origin || origin.includes('infinitepay') || origin.includes('cloudwalk')) {
-      corsResponse.headers.set('Access-Control-Allow-Origin', origin || '*');
-      corsResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-      corsResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-    }
+    // Adicionar headers CORS permissivos para webhook
+    // Se não tiver origem, permitir qualquer origem
+    const webhookOrigin = origin || '*';
+    corsResponse.headers.set('Access-Control-Allow-Origin', webhookOrigin);
+    corsResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    corsResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    corsResponse.headers.set('Access-Control-Allow-Credentials', 'false');
     
     return corsResponse;
   } catch (error: any) {
@@ -214,21 +215,19 @@ export async function POST(request: NextRequest) {
 }
 
 // Suportar requisições OPTIONS (preflight)
-// IMPORTANTE: Webhook precisa aceitar preflight de qualquer origem do Infinite Pay
+// IMPORTANTE: Webhook precisa aceitar preflight de qualquer origem
+// Webhooks são chamadas server-to-server, então podem não ter origem
 export async function OPTIONS(request: NextRequest) {
   const origin = request.headers.get('origin');
   const response = new NextResponse(null, { status: 204 });
   
-  // Para webhook, permitir qualquer origem do Infinite Pay
-  if (!origin || origin.includes('infinitepay') || origin.includes('cloudwalk') || origin.includes('playnaquadra')) {
-    response.headers.set('Access-Control-Allow-Origin', origin || '*');
-    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-    response.headers.set('Access-Control-Max-Age', '86400');
-  } else {
-    // Usar withCors para outras origens
-    return withCors(response, request);
-  }
+  // Para webhook, sempre permitir (pode ser chamado de qualquer lugar)
+  const webhookOrigin = origin || '*';
+  response.headers.set('Access-Control-Allow-Origin', webhookOrigin);
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Credentials', 'false');
+  response.headers.set('Access-Control-Max-Age', '86400');
   
   return response;
 }
