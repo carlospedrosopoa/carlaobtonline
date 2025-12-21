@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { AtualizarCardClientePayload, StatusCard } from '@/types/gestaoArena';
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/card-cliente/[id] - Obter card de cliente
 export async function GET(
@@ -251,13 +258,15 @@ export async function GET(
     card.totalPago = totalPago;
     card.saldo = card.valorTotal - totalPago;
 
-    return NextResponse.json(card);
+    const response = NextResponse.json(card);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter card de cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter card de cliente', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -416,13 +425,15 @@ export async function PUT(
       values
     );
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar card de cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar card de cliente', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -505,13 +516,15 @@ export async function DELETE(
 
     await query('DELETE FROM "CardCliente" WHERE id = $1', [id]);
 
-    return NextResponse.json({ mensagem: 'Card de cliente deletado com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Card de cliente deletado com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar card de cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar card de cliente', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarCardClientePayload, AtualizarCardClientePayload, StatusCard } from '@/types/gestaoArena';
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/card-cliente - Listar cards de clientes
 export async function GET(request: NextRequest) {
@@ -207,13 +214,15 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    return NextResponse.json(cards);
+    const response = NextResponse.json(cards);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar cards de clientes:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar cards de clientes', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -281,13 +290,15 @@ export async function POST(request: NextRequest) {
       [pointId, numeroCard, observacoes || null, usuarioId || null, nomeAvulso || null, telefoneAvulso || null, usuario.id]
     );
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const response = NextResponse.json(result.rows[0], { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar card de cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar card de cliente', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
