@@ -21,6 +21,7 @@ export async function GET(
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "infinitePayHandle",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         WHERE id = $1`,
@@ -52,6 +53,7 @@ export async function GET(
             gzappyAtivo: false,
             enviarLembretesAgendamento: false,
             antecedenciaLembrete: 8,
+            infinitePayHandle: null,
             assinante: result.rows[0].assinante ?? false,
           };
         }
@@ -92,7 +94,8 @@ export async function PUT(
       nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
-      enviarLembretesAgendamento, antecedenciaLembrete
+      enviarLembretesAgendamento, antecedenciaLembrete,
+      infinitePayHandle
     } = body;
 
     if (!nome) {
@@ -177,12 +180,14 @@ export async function PUT(
              "whatsappAccessToken" = $10, "whatsappPhoneNumberId" = $11, "whatsappBusinessAccountId" = $12, 
              "whatsappApiVersion" = $13, "whatsappAtivo" = $14,
              "gzappyApiKey" = $15, "gzappyInstanceId" = $16, "gzappyAtivo" = $17,
-             "enviarLembretesAgendamento" = $18, "antecedenciaLembrete" = $19, "updatedAt" = NOW()
-         WHERE id = $20
+             "enviarLembretesAgendamento" = $18, "antecedenciaLembrete" = $19, 
+             "infinitePayHandle" = $20, "updatedAt" = NOW()
+         WHERE id = $21
          RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
                    "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
                    "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
                    "enviarLembretesAgendamento", "antecedenciaLembrete",
+                   "infinitePayHandle",
                    "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
@@ -191,6 +196,7 @@ export async function PUT(
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
           gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
           enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
+          infinitePayHandle || null,
           id
         ]
       );

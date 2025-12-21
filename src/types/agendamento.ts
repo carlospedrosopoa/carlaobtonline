@@ -24,6 +24,8 @@ export interface Point {
   // Configurações de Lembretes de Agendamento
   enviarLembretesAgendamento?: boolean;
   antecedenciaLembrete?: number | null;
+  // Configurações Infinite Pay
+  infinitePayHandle?: string | null;
   assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
   createdAt: string;
   updatedAt: string;
@@ -134,6 +136,8 @@ export interface CriarPointPayload {
   // Configurações de Lembretes de Agendamento (opcionais)
   enviarLembretesAgendamento?: boolean;
   antecedenciaLembrete?: number | null;
+  // Configurações Infinite Pay (opcionais)
+  infinitePayHandle?: string | null;
 }
 
 export interface CriarQuadraPayload {

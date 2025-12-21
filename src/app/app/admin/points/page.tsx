@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { pointService } from '@/services/agendamentoService';
 import type { Point, CriarPointPayload } from '@/types/agendamento';
-import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff, Crown } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff, Crown, CreditCard } from 'lucide-react';
 
 export default function AdminPointsPage() {
   const [points, setPoints] = useState<Point[]>([]);
@@ -31,6 +31,7 @@ export default function AdminPointsPage() {
     gzappyAtivo: false,
     enviarLembretesAgendamento: false,
     antecedenciaLembrete: 8,
+    infinitePayHandle: null,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [buscandoGeolocalizacao, setBuscandoGeolocalizacao] = useState(false);
@@ -78,6 +79,7 @@ export default function AdminPointsPage() {
         gzappyAtivo: point.gzappyAtivo ?? false,
         enviarLembretesAgendamento: point.enviarLembretesAgendamento ?? false,
         antecedenciaLembrete: point.antecedenciaLembrete ?? 8,
+        infinitePayHandle: point.infinitePayHandle || null,
       });
       setLogoPreview(point.logoUrl || null);
     } else {
@@ -102,6 +104,7 @@ export default function AdminPointsPage() {
         gzappyAtivo: false,
         enviarLembretesAgendamento: false,
         antecedenciaLembrete: 8,
+        infinitePayHandle: null,
       });
       setLogoPreview(null);
     }
@@ -759,6 +762,42 @@ export default function AdminPointsPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Seção Infinite Pay */}
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard className="w-5 h-5 text-green-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Infinite Pay</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Configure o handle da sua conta Infinite Pay para permitir que atletas paguem cards de consumo via Infinite Pay.
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Handle Infinite Pay
+                    </label>
+                    <input
+                      type="text"
+                      value={form.infinitePayHandle || ''}
+                      onChange={(e) => setForm({ ...form, infinitePayHandle: e.target.value || null })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      placeholder="seu-handle-aqui"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      O handle da sua conta Infinite Pay. Este handle será usado para processar pagamentos de cards de consumo.
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-800">
+                      <strong>💡 Informação:</strong> Cada arena pode ter sua própria conta Infinite Pay. 
+                      Quando um atleta tentar pagar um card desta arena, o pagamento será processado usando este handle.
+                    </p>
+                  </div>
                 </div>
               </div>
 

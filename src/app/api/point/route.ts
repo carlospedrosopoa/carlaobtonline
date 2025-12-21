@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "infinitePayHandle",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         ${whereClause}
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
           gzappyAtivo: false,
           enviarLembretesAgendamento: false,
           antecedenciaLembrete: 8,
+          infinitePayHandle: null,
           assinante: row.assinante ?? false,
         }));
       } else {
@@ -92,7 +94,8 @@ export async function POST(request: NextRequest) {
       nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo = true,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
-      enviarLembretesAgendamento, antecedenciaLembrete
+      enviarLembretesAgendamento, antecedenciaLembrete,
+      infinitePayHandle
     } = body;
 
     if (!nome) {
@@ -139,6 +142,7 @@ export async function POST(request: NextRequest) {
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "infinitePayHandle",
           "createdAt", "updatedAt"
         )
          VALUES (
@@ -146,6 +150,7 @@ export async function POST(request: NextRequest) {
           $10, $11, $12, $13, $14,
           $15, $16, $17,
           $18, $19,
+          $20,
           NOW(), NOW()
          )
          RETURNING 
@@ -153,6 +158,7 @@ export async function POST(request: NextRequest) {
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "infinitePayHandle",
           "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
@@ -160,7 +166,8 @@ export async function POST(request: NextRequest) {
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
           gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
-          enviarLembretesAgendamento ?? false, antecedenciaLembrete || null
+          enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
+          infinitePayHandle || null
         ]
       );
     } catch (error: any) {

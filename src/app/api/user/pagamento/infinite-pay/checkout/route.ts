@@ -45,14 +45,16 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    // Verificar se o card existe e pertence ao usuário
+    // Verificar se o card existe e pertence ao usuário, e buscar dados da arena
     const cardCheck = await query(
-      `SELECT c.id, c."usuarioId", c.status, c."valorTotal", c."numeroCard",
-              COALESCE(SUM(p.valor), 0) as "totalPago"
+      `SELECT c.id, c."usuarioId", c.status, c."valorTotal", c."numeroCard", c."pointId",
+              COALESCE(SUM(p.valor), 0) as "totalPago",
+              pt."infinitePayHandle"
        FROM "CardCliente" c
+       INNER JOIN "Point" pt ON pt.id = c."pointId"
        LEFT JOIN "PagamentoCard" p ON p."cardId" = c.id
        WHERE c.id = $1
-       GROUP BY c.id, c."numeroCard"`,
+       GROUP BY c.id, c."numeroCard", c."pointId", pt."infinitePayHandle"`,
       [cardId]
     );
 
@@ -120,14 +122,13 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    // Buscar handle do Infinite Pay (configuração da arena ou sistema)
-    // Por enquanto, usar variável de ambiente ou buscar da configuração
-    const infinitePayHandle = process.env.INFINITE_PAY_HANDLE || '';
+    // Buscar handle do Infinite Pay da arena
+    const infinitePayHandle = card.infinitePayHandle;
 
     if (!infinitePayHandle) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Configuração do Infinite Pay não encontrada' },
-        { status: 500 }
+        { mensagem: 'Esta arena ainda não configurou o Infinite Pay. Entre em contato com a administração da arena.' },
+        { status: 400 }
       );
       return withCors(errorResponse, request);
     }
