@@ -2,6 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // POST /api/agendamento/[id]/gerar-cards - Gerar cards para todos os clientes envolvidos no agendamento
 export async function POST(
@@ -11,18 +18,20 @@ export async function POST(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem gerar cards
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para gerar cards' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id: agendamentoId } = await params;
@@ -48,10 +57,11 @@ export async function POST(
     );
 
     if (agendamentoResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Agendamento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const agendamento = agendamentoResult.rows[0];
@@ -59,28 +69,31 @@ export async function POST(
     // Verificar se o usuário tem acesso à quadra
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAQuadra(usuario, agendamento.quadraId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este agendamento' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
     const pointId = agendamento.quadra_pointId;
     if (!pointId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Arena não encontrada para este agendamento' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Calcular valor total do agendamento
     const valorTotal = agendamento.valorNegociado || agendamento.valorCalculado || 0;
     if (valorTotal <= 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Agendamento não possui valor definido' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Buscar atletas participantes
@@ -183,10 +196,11 @@ export async function POST(
     });
 
     if (clientes.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum cliente encontrado no agendamento' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Calcular valor por cliente (divisão igual)
@@ -387,13 +401,15 @@ export async function POST(
     };
 
     console.log('✅ Cards gerados com sucesso:', resposta);
-    return NextResponse.json(resposta, { status: 200 });
+    const response = NextResponse.json(resposta, { status: 200 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao gerar cards do agendamento:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao gerar cards do agendamento', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
