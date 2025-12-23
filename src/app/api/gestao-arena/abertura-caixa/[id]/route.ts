@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { FecharAberturaCaixaPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/abertura-caixa/[id] - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/abertura-caixa/[id] - Obter abertura de caixa
 export async function GET(
@@ -12,10 +19,11 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -26,10 +34,11 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Abertura de caixa não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const abertura = result.rows[0];
@@ -37,10 +46,11 @@ export async function GET(
     // Verificar acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, abertura.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta abertura de caixa' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -76,12 +86,31 @@ export async function GET(
       totalSaidas,
       saldoAtual,
     });
+    const response = NextResponse.json({
+      id: abertura.id,
+      pointId: abertura.pointId,
+      saldoInicial: parseFloat(abertura.saldoInicial),
+      status: abertura.status,
+      dataAbertura: abertura.dataAbertura,
+      dataFechamento: abertura.dataFechamento,
+      saldoFinal: abertura.saldoFinal ? parseFloat(abertura.saldoFinal) : null,
+      observacoes: abertura.observacoes,
+      createdAt: abertura.createdAt,
+      updatedAt: abertura.updatedAt,
+      createdBy: abertura.createdBy,
+      fechadoBy: abertura.fechadoBy,
+      totalEntradas,
+      totalSaidas,
+      saldoAtual,
+    });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter abertura de caixa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter abertura de caixa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -93,17 +122,19 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para fechar caixa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -117,28 +148,31 @@ export async function PUT(
     );
 
     if (aberturaResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Abertura de caixa não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const abertura = aberturaResult.rows[0];
 
     if (abertura.status !== 'ABERTA') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Esta abertura de caixa já está fechada' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, abertura.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta abertura de caixa' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -186,6 +220,20 @@ export async function PUT(
       totalSaidas,
       saldoAtual,
     });
+    const response = NextResponse.json({
+      id: updateResult.rows[0].id,
+      pointId: updateResult.rows[0].pointId,
+      saldoInicial: parseFloat(updateResult.rows[0].saldoInicial),
+      status: updateResult.rows[0].status,
+      dataAbertura: updateResult.rows[0].dataAbertura,
+      dataFechamento: updateResult.rows[0].dataFechamento,
+      saldoFinal: updateResult.rows[0].saldoFinal ? parseFloat(updateResult.rows[0].saldoFinal) : null,
+      observacoes: updateResult.rows[0].observacoes,
+      totalEntradas,
+      totalSaidas,
+      saldoAtual,
+    });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao fechar abertura de caixa:', error);
     console.error('Detalhes do erro:', {
@@ -195,7 +243,7 @@ export async function PUT(
       hint: error.hint,
       stack: error.stack,
     });
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { 
         mensagem: 'Erro ao fechar abertura de caixa', 
         error: error.message,
@@ -203,6 +251,7 @@ export async function PUT(
       },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

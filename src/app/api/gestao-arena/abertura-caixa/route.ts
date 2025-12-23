@@ -2,17 +2,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarAberturaCaixaPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/abertura-caixa - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/abertura-caixa - Listar aberturas de caixa
 export async function GET(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { searchParams } = new URL(request.url);
@@ -25,10 +33,11 @@ export async function GET(request: NextRequest) {
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
       pointIdFiltro = usuario.pointIdGestor;
     } else if (!pointId && usuario.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para listar aberturas de caixa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     let sql = `SELECT 
@@ -108,13 +117,15 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json(aberturas);
+    const response = NextResponse.json(aberturas);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar aberturas de caixa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar aberturas de caixa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -123,36 +134,40 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para abrir caixa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body: CriarAberturaCaixaPayload = await request.json();
     const { pointId, saldoInicial, observacoes, dataAbertura } = body;
 
     if (!pointId || saldoInicial === undefined || saldoInicial === null) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'PointId e saldoInicial são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta arena' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -163,10 +178,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (aberturaAbertaResult.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Já existe uma abertura de caixa aberta para esta arena. Feche a abertura atual antes de abrir uma nova.' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Usar data informada ou data atual
@@ -183,7 +199,7 @@ export async function POST(request: NextRequest) {
 
     const abertura = result.rows[0];
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       id: abertura.id,
       pointId: abertura.pointId,
       saldoInicial: parseFloat(abertura.saldoInicial),
@@ -197,12 +213,14 @@ export async function POST(request: NextRequest) {
       totalSaidas: 0,
       saldoAtual: parseFloat(abertura.saldoInicial),
     }, { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao abrir caixa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao abrir caixa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
