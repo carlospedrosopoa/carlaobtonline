@@ -5,7 +5,7 @@ import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarFormaPagamentoPayload, AtualizarFormaPagamentoPayload } from '@/types/gestaoArena';
 
-// Suportar requisições OPTIONS (preflight)
+// OPTIONS /api/gestao-arena/forma-pagamento - Preflight CORS
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
   return preflightResponse || new NextResponse(null, { status: 204 });
@@ -16,10 +16,11 @@ export async function GET(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { searchParams } = new URL(request.url);
@@ -45,10 +46,11 @@ export async function GET(request: NextRequest) {
       params.push(pointId);
       paramCount++;
     } else if (usuario.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para listar formas de pagamento' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (apenasAtivos) {
@@ -76,37 +78,41 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem criar formas de pagamento
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para criar formas de pagamento' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body: CriarFormaPagamentoPayload = await request.json();
     const { pointId, nome, descricao, tipo, ativo = true } = body;
 
     if (!pointId || !nome || !tipo) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'PointId, nome e tipo são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta arena' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -117,10 +123,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (existe.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Já existe uma forma de pagamento com este nome nesta arena' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     const result = await query(

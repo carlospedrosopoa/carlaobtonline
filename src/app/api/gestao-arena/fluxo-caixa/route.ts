@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 
 // Helper para normalizar data (DATE do PostgreSQL para string YYYY-MM-DD)
 function normalizarData(data: any): string {
@@ -24,15 +25,22 @@ function normalizarData(data: any): string {
   return String(data);
 }
 
+// OPTIONS /api/gestao-arena/fluxo-caixa - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
+
 // GET /api/gestao-arena/fluxo-caixa - Listar fluxo de caixa unificado (entradas + saídas + pagamentos de cards)
 export async function GET(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { searchParams } = new URL(request.url);
@@ -46,10 +54,11 @@ export async function GET(request: NextRequest) {
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
       pointIdFiltro = usuario.pointIdGestor;
     } else if (usuario.role !== 'ADMIN' && !pointId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para listar fluxo de caixa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const lancamentos: any[] = [];
@@ -275,13 +284,15 @@ export async function GET(request: NextRequest) {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    return NextResponse.json(lancamentos);
+    const response = NextResponse.json(lancamentos);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar fluxo de caixa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar fluxo de caixa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { AtualizarFornecedorPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/fornecedor/[id] - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/fornecedor/[id] - Obter fornecedor
 export async function GET(
@@ -12,10 +19,11 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -26,30 +34,34 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Fornecedor não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const fornecedor = result.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, fornecedor.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este fornecedor' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
-    return NextResponse.json(fornecedor);
+    const response = NextResponse.json(fornecedor);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter fornecedor:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter fornecedor', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -61,17 +73,19 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para atualizar fornecedores' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -83,20 +97,22 @@ export async function PUT(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Fornecedor não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const fornecedorAtual = existe.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, fornecedorAtual.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este fornecedor' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -107,10 +123,11 @@ export async function PUT(
       );
 
       if (nomeExiste.rows.length > 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Já existe um fornecedor com este nome nesta arena' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -165,10 +182,11 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -182,13 +200,15 @@ export async function PUT(
       values
     );
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar fornecedor:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar fornecedor', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -200,17 +220,19 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para deletar fornecedores' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -221,20 +243,22 @@ export async function DELETE(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Fornecedor não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const fornecedor = existe.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, fornecedor.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este fornecedor' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -245,21 +269,24 @@ export async function DELETE(
     );
 
     if (saidas.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível deletar este fornecedor pois ele está sendo utilizado em saídas de caixa' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     await query('DELETE FROM "Fornecedor" WHERE id = $1', [id]);
 
-    return NextResponse.json({ mensagem: 'Fornecedor deletado com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Fornecedor deletado com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar fornecedor:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar fornecedor', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
