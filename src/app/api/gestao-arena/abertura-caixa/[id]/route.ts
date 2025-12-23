@@ -69,23 +69,6 @@ export async function GET(
 
     const saldoAtual = parseFloat(abertura.saldoInicial) + totalEntradas - totalSaidas;
 
-    return NextResponse.json({
-      id: abertura.id,
-      pointId: abertura.pointId,
-      saldoInicial: parseFloat(abertura.saldoInicial),
-      status: abertura.status,
-      dataAbertura: abertura.dataAbertura,
-      dataFechamento: abertura.dataFechamento,
-      saldoFinal: abertura.saldoFinal ? parseFloat(abertura.saldoFinal) : null,
-      observacoes: abertura.observacoes,
-      createdAt: abertura.createdAt,
-      updatedAt: abertura.updatedAt,
-      createdBy: abertura.createdBy,
-      fechadoBy: abertura.fechadoBy,
-      totalEntradas,
-      totalSaidas,
-      saldoAtual,
-    });
     const response = NextResponse.json({
       id: abertura.id,
       pointId: abertura.pointId,
@@ -207,19 +190,6 @@ export async function PUT(
       [saldoFinalValue, observacoes || null, usuario.id, id]
     );
 
-    return NextResponse.json({
-      id: updateResult.rows[0].id,
-      pointId: updateResult.rows[0].pointId,
-      saldoInicial: parseFloat(updateResult.rows[0].saldoInicial),
-      status: updateResult.rows[0].status,
-      dataAbertura: updateResult.rows[0].dataAbertura,
-      dataFechamento: updateResult.rows[0].dataFechamento,
-      saldoFinal: updateResult.rows[0].saldoFinal ? parseFloat(updateResult.rows[0].saldoFinal) : null,
-      observacoes: updateResult.rows[0].observacoes,
-      totalEntradas,
-      totalSaidas,
-      saldoAtual,
-    });
     const response = NextResponse.json({
       id: updateResult.rows[0].id,
       pointId: updateResult.rows[0].pointId,
