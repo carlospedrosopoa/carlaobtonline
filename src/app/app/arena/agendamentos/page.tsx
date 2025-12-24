@@ -202,9 +202,13 @@ export default function ArenaAgendamentosPage() {
           <Users className="w-3 h-3" />
           Atleta
           {criadoPeloAtleta ? (
-            <Smartphone className="w-3 h-3" title="Criado pelo atleta" />
+            <span title="Criado pelo atleta">
+              <Smartphone className="w-3 h-3" />
+            </span>
           ) : (
-            <UserCog className="w-3 h-3" title="Criado pelo organizer" />
+            <span title="Criado pelo organizer">
+              <UserCog className="w-3 h-3" />
+            </span>
           )}
         </span>
       );
