@@ -14,6 +14,7 @@ interface Atleta {
   dataNascimento: string;
   genero?: string;
   categoria?: string;
+  esportePreferido?: string;
   idade?: number;
   fotoUrl?: string;
   fone?: string;
@@ -384,7 +385,7 @@ export default function ArenaAtletasPage() {
   const { usuario } = useAuth();
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [filtroTexto, setFiltroTexto] = useState('');
-  const [filtroCategoria, setFiltroCategoria] = useState<string>('');
+  const [filtroEsporte, setFiltroEsporte] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
   const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
   const [linkVinculo, setLinkVinculo] = useState<{ atletaId: string; link: string; nome: string } | null>(null);
@@ -523,7 +524,7 @@ export default function ArenaAtletasPage() {
   }
 
   const termo = filtroTexto.trim().toLowerCase();
-  const cat = filtroCategoria.trim().toUpperCase();
+  const esporteFiltro = filtroEsporte.trim();
 
   const atletasFiltrados = atletas.filter((a) => {
     // Filtro por nome
@@ -534,11 +535,11 @@ export default function ArenaAtletasPage() {
     const tel = (a.fone || '').replace(/\D/g, '');
     const telMatch = !termo || (termoNumerico.length > 0 && tel.includes(termoNumerico));
     
-    // Filtro por categoria
-    const catMatch = !cat || (a.categoria || '').toUpperCase() === cat;
+    // Filtro por esporte
+    const esporteMatch = !esporteFiltro || (a.esportePreferido || '') === esporteFiltro;
     
-    // Retornar se (nome OU telefone corresponder) E categoria corresponder
-    return (nomeMatch || telMatch) && catMatch;
+    // Retornar se (nome OU telefone corresponder) E esporte corresponder
+    return (nomeMatch || telMatch) && esporteMatch;
   });
 
   return (
@@ -576,20 +577,26 @@ export default function ArenaAtletasPage() {
           </div>
           <div className="w-full sm:w-52">
             <label className="block text-xs font-semibold text-gray-600 mb-1">
-              Categoria
+              Esporte
             </label>
             <select
-              value={filtroCategoria}
-              onChange={(e) => setFiltroCategoria(e.target.value)}
+              value={filtroEsporte}
+              onChange={(e) => setFiltroEsporte(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
             >
-              <option value="">Todas</option>
-              <option value="INICIANTE">INICIANTE</option>
-              <option value="D">D</option>
-              <option value="C">C</option>
-              <option value="B">B</option>
-              <option value="A">A</option>
-              <option value="PRO">PRO</option>
+              <option value="">Todos</option>
+              <option value="Tênis">Tênis</option>
+              <option value="Futebol">Futebol</option>
+              <option value="Vôlei">Vôlei</option>
+              <option value="Basquete">Basquete</option>
+              <option value="Futsal">Futsal</option>
+              <option value="Futvolei">Futvolei</option>
+              <option value="Beach Tennis">Beach Tennis</option>
+              <option value="Padel">Padel</option>
+              <option value="Pickleball">Pickleball</option>
+              <option value="Squash">Squash</option>
+              <option value="Badminton">Badminton</option>
+              <option value="Handebol">Handebol</option>
             </select>
           </div>
         </div>
