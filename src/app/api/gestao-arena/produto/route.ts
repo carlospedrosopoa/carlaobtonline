@@ -2,17 +2,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarProdutoPayload, AtualizarProdutoPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/produto - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+  return new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/produto - Listar produtos
 export async function GET(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { searchParams } = new URL(request.url);
@@ -39,10 +50,11 @@ export async function GET(request: NextRequest) {
       params.push(pointId);
       paramCount++;
     } else if (usuario.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para listar produtos' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (apenasAtivos) {
@@ -59,13 +71,15 @@ export async function GET(request: NextRequest) {
 
     const result = await query(sql, params);
     
-    return NextResponse.json(result.rows);
+    const response = NextResponse.json(result.rows);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar produtos:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar produtos', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -74,37 +88,41 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem criar produtos
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para criar produtos' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body: CriarProdutoPayload = await request.json();
     const { pointId, nome, descricao, precoVenda, precoCusto, categoria, ativo = true, acessoRapido = false } = body;
 
     if (!pointId || !nome || precoVenda === undefined) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'PointId, nome e precoVenda são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta arena' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -115,10 +133,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (existe.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Já existe um produto com este nome nesta arena' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     const result = await query(
@@ -130,13 +149,15 @@ export async function POST(request: NextRequest) {
       [pointId, nome, descricao || null, precoVenda, precoCusto || null, categoria || null, ativo, acessoRapido]
     );
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const response = NextResponse.json(result.rows[0], { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar produto:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar produto', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

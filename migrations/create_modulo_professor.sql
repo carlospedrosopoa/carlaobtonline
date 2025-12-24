@@ -35,7 +35,7 @@ COMMENT ON COLUMN "Agendamento"."recorrenciaConfig" IS 'Configuração de recorr
 
 -- Tipo de Aula
 DO $$ BEGIN
-    CREATE TYPE "TipoAula" AS ENUM ('INDIVIDUAL', 'GRUPO', 'TURMA');
+    CREATE TYPE "TipoAula" AS ENUM ('INDIVIDUAL', 'GRUPO', 'TURMA');po
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
