@@ -10,7 +10,7 @@ import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoReco
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw, Smartphone, UserCog } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 
 export default function ArenaAgendaSemanalPage() {
@@ -728,6 +728,16 @@ export default function ArenaAgendaSemanalPage() {
     };
   };
 
+  // Identifica se o agendamento foi criado pelo próprio atleta ou pelo organizer/admin
+  const foiCriadoPeloAtleta = (agendamento: Agendamento): boolean => {
+    // Se tem atleta vinculado e o usuarioId do agendamento é o mesmo do atleta, foi criado pelo atleta
+    if (agendamento.atletaId && agendamento.atleta?.usuarioId && agendamento.usuarioId) {
+      return agendamento.usuarioId === agendamento.atleta.usuarioId;
+    }
+    // Caso contrário, foi criado pelo organizer/admin
+    return false;
+  };
+
   // Função para obter cor da quadra (cores diferentes para cada quadra)
   const getCorQuadra = (quadraId: string) => {
     const cores = [
@@ -1183,8 +1193,16 @@ export default function ArenaAgendaSemanalPage() {
                                     <div className="p-1.5 h-full flex flex-col justify-between">
                                       <div className="flex-1">
                                         <div className="flex items-start justify-between gap-1 mb-0.5">
-                                          <div className="text-[10px] font-bold opacity-90 flex-1">
+                                          <div className="text-[10px] font-bold opacity-90 flex-1 flex items-center gap-1">
                                             {quadra?.nome || 'Quadra'}
+                                            {/* Indicador visual: criado pelo atleta ou organizer */}
+                                            {agendamento.atletaId && (
+                                              foiCriadoPeloAtleta(agendamento) ? (
+                                                <Smartphone className="w-3 h-3" title="Criado pelo atleta" />
+                                              ) : (
+                                                <UserCog className="w-3 h-3" title="Criado pelo organizer" />
+                                              )
+                                            )}
                                           </div>
                                         <button
                                           type="button"

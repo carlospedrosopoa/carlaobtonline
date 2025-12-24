@@ -9,7 +9,7 @@ import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelam
 import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoRecorrenteModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search, Lock } from 'lucide-react';
+import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search, Lock, Smartphone, UserCog } from 'lucide-react';
 
 export default function ArenaAgendamentosPage() {
   const { usuario, isAdmin, isOrganizer } = useAuth();
@@ -184,12 +184,28 @@ export default function ArenaAgendamentosPage() {
     );
   };
 
+  // Identifica se o agendamento foi criado pelo próprio atleta ou pelo organizer/admin
+  const foiCriadoPeloAtleta = (agendamento: Agendamento): boolean => {
+    // Se tem atleta vinculado e o usuarioId do agendamento é o mesmo do atleta, foi criado pelo atleta
+    if (agendamento.atletaId && agendamento.atleta?.usuarioId && agendamento.usuarioId) {
+      return agendamento.usuarioId === agendamento.atleta.usuarioId;
+    }
+    // Caso contrário, foi criado pelo organizer/admin
+    return false;
+  };
+
   const getTipoBadge = (agendamento: Agendamento) => {
     if (agendamento.atletaId && agendamento.atleta) {
+      const criadoPeloAtleta = foiCriadoPeloAtleta(agendamento);
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
           <Users className="w-3 h-3" />
           Atleta
+          {criadoPeloAtleta ? (
+            <Smartphone className="w-3 h-3" title="Criado pelo atleta" />
+          ) : (
+            <UserCog className="w-3 h-3" title="Criado pelo organizer" />
+          )}
         </span>
       );
     }
