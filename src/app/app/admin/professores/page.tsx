@@ -21,6 +21,8 @@ interface NovoProfessorForm {
   valorHora: string;
   telefoneProfissional: string;
   emailProfissional: string;
+  fotoUrl: string | null;
+  logoUrl: string | null;
   ativo: boolean;
   aceitaNovosAlunos: boolean;
 }
@@ -31,6 +33,8 @@ interface EditarProfessorForm {
   valorHora: string;
   telefoneProfissional: string;
   emailProfissional: string;
+  fotoUrl: string | null;
+  logoUrl: string | null;
   ativo: boolean;
   aceitaNovosAlunos: boolean;
 }
@@ -47,6 +51,10 @@ export default function AdminProfessoresPage() {
   const [modalDeletarAberto, setModalDeletarAberto] = useState(false);
   const [professorEditando, setProfessorEditando] = useState<ProfessorAdmin | null>(null);
   const [professorDeletando, setProfessorDeletando] = useState<ProfessorAdmin | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [fotoPreviewEdit, setFotoPreviewEdit] = useState<string | null>(null);
+  const [logoPreviewEdit, setLogoPreviewEdit] = useState<string | null>(null);
 
   const [form, setForm] = useState<NovoProfessorForm>({
     userId: '',
@@ -55,6 +63,8 @@ export default function AdminProfessoresPage() {
     valorHora: '',
     telefoneProfissional: '',
     emailProfissional: '',
+    fotoUrl: null,
+    logoUrl: null,
     ativo: true,
     aceitaNovosAlunos: true,
   });
@@ -65,6 +75,8 @@ export default function AdminProfessoresPage() {
     valorHora: '',
     telefoneProfissional: '',
     emailProfissional: '',
+    fotoUrl: null,
+    logoUrl: null,
     ativo: true,
     aceitaNovosAlunos: true,
   });
@@ -132,9 +144,13 @@ export default function AdminProfessoresPage() {
         valorHora: '',
         telefoneProfissional: '',
         emailProfissional: '',
+        fotoUrl: null,
+        logoUrl: null,
         ativo: true,
         aceitaNovosAlunos: true,
       });
+      setFotoPreview(null);
+      setLogoPreview(null);
 
       await carregarDados();
     } catch (error: any) {
@@ -157,9 +173,13 @@ export default function AdminProfessoresPage() {
       valorHora: professor.valorHora ? String(professor.valorHora) : '',
       telefoneProfissional: professor.telefoneProfissional || '',
       emailProfissional: professor.emailProfissional || '',
+      fotoUrl: professor.fotoUrl || null,
+      logoUrl: professor.logoUrl || null,
       ativo: professor.ativo,
       aceitaNovosAlunos: professor.aceitaNovosAlunos,
     });
+    setFotoPreviewEdit(professor.fotoUrl || null);
+    setLogoPreviewEdit(professor.logoUrl || null);
     setErroEdit('');
     setModalEditarAberto(true);
   };
@@ -168,6 +188,83 @@ export default function AdminProfessoresPage() {
     setModalEditarAberto(false);
     setProfessorEditando(null);
     setErroEdit('');
+    setFotoPreviewEdit(null);
+    setLogoPreviewEdit(null);
+  };
+
+  const handleFileChange = (
+    file: File,
+    tipo: 'foto' | 'logo',
+    modo: 'criar' | 'editar'
+  ) => {
+    if (!file.type.startsWith('image/')) {
+      if (modo === 'criar') {
+        setErroForm('Selecione um arquivo de imagem válido.');
+      } else {
+        setErroEdit('Selecione um arquivo de imagem válido.');
+      }
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      if (modo === 'criar') {
+        setErroForm('A imagem deve ter no máximo 5MB.');
+      } else {
+        setErroEdit('A imagem deve ter no máximo 5MB.');
+      }
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      if (modo === 'criar') {
+        if (tipo === 'foto') {
+          setForm({ ...form, fotoUrl: base64String });
+          setFotoPreview(base64String);
+        } else {
+          setForm({ ...form, logoUrl: base64String });
+          setLogoPreview(base64String);
+        }
+      } else {
+        if (tipo === 'foto') {
+          setFormEdit({ ...formEdit, fotoUrl: base64String });
+          setFotoPreviewEdit(base64String);
+        } else {
+          setFormEdit({ ...formEdit, logoUrl: base64String });
+          setLogoPreviewEdit(base64String);
+        }
+        setErroEdit('');
+      }
+    };
+    reader.onerror = () => {
+      if (modo === 'criar') {
+        setErroForm('Erro ao ler a imagem. Tente novamente.');
+      } else {
+        setErroEdit('Erro ao ler a imagem. Tente novamente.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removerImagem = (tipo: 'foto' | 'logo', modo: 'criar' | 'editar') => {
+    if (modo === 'criar') {
+      if (tipo === 'foto') {
+        setForm({ ...form, fotoUrl: null });
+        setFotoPreview(null);
+      } else {
+        setForm({ ...form, logoUrl: null });
+        setLogoPreview(null);
+      }
+    } else {
+      if (tipo === 'foto') {
+        setFormEdit({ ...formEdit, fotoUrl: null });
+        setFotoPreviewEdit(null);
+      } else {
+        setFormEdit({ ...formEdit, logoUrl: null });
+        setLogoPreviewEdit(null);
+      }
+    }
   };
 
   const handleSalvarEdicao = async (e: React.FormEvent) => {
@@ -184,6 +281,8 @@ export default function AdminProfessoresPage() {
         valorHora: formEdit.valorHora ? parseFloat(formEdit.valorHora) : null,
         telefoneProfissional: formEdit.telefoneProfissional.trim() || null,
         emailProfissional: formEdit.emailProfissional.trim() || null,
+        fotoUrl: formEdit.fotoUrl,
+        logoUrl: formEdit.logoUrl,
         ativo: formEdit.ativo,
         aceitaNovosAlunos: formEdit.aceitaNovosAlunos,
       };
@@ -374,6 +473,76 @@ export default function AdminProfessoresPage() {
             />
           </div>
 
+          {/* Foto do Professor */}
+          <div className="sm:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Foto do Professor (opcional)
+            </label>
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileChange(file, 'foto', 'criar');
+                }}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+              />
+              {fotoPreview && (
+                <div className="relative inline-block">
+                  <img
+                    src={fotoPreview}
+                    alt="Preview da foto"
+                    className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removerImagem('foto', 'criar')}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Máximo 5MB. Formatos: JPG, PNG, GIF, WEBP</p>
+          </div>
+
+          {/* Logo do Professor */}
+          <div className="sm:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Logomarca do Professor (opcional)
+            </label>
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileChange(file, 'logo', 'criar');
+                }}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+              />
+              {logoPreview && (
+                <div className="relative inline-block">
+                  <img
+                    src={logoPreview}
+                    alt="Preview da logo"
+                    className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removerImagem('logo', 'criar')}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Máximo 5MB. Formatos: JPG, PNG, GIF, WEBP</p>
+          </div>
+
           <div className="sm:col-span-1">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -490,6 +659,27 @@ export default function AdminProfessoresPage() {
                       <span className="font-medium">Valor/Hora:</span> {formatCurrency(professor.valorHora)}
                     </p>
                   )}
+
+                  <div className="flex gap-2 mb-2">
+                    {professor.fotoUrl && (
+                      <div>
+                        <img
+                          src={professor.fotoUrl}
+                          alt="Foto do professor"
+                          className="w-16 h-16 object-cover rounded-lg border border-gray-300"
+                        />
+                      </div>
+                    )}
+                    {professor.logoUrl && (
+                      <div>
+                        <img
+                          src={professor.logoUrl}
+                          alt="Logo do professor"
+                          className="w-16 h-16 object-cover rounded-lg border border-gray-300"
+                        />
+                      </div>
+                    )}
+                  </div>
 
                   {professor.telefoneProfissional && (
                     <p className="text-xs text-gray-600 mb-1">
@@ -642,6 +832,76 @@ export default function AdminProfessoresPage() {
                   }
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
+              </div>
+
+              {/* Foto do Professor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Foto do Professor (opcional)
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileChange(file, 'foto', 'editar');
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                  />
+                  {fotoPreviewEdit && (
+                    <div className="relative inline-block">
+                      <img
+                        src={fotoPreviewEdit}
+                        alt="Preview da foto"
+                        className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removerImagem('foto', 'editar')}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Máximo 5MB. Formatos: JPG, PNG, GIF, WEBP</p>
+              </div>
+
+              {/* Logo do Professor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Logomarca do Professor (opcional)
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileChange(file, 'logo', 'editar');
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                  />
+                  {logoPreviewEdit && (
+                    <div className="relative inline-block">
+                      <img
+                        src={logoPreviewEdit}
+                        alt="Preview da logo"
+                        className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removerImagem('logo', 'editar')}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Máximo 5MB. Formatos: JPG, PNG, GIF, WEBP</p>
               </div>
 
               <div className="flex gap-4">

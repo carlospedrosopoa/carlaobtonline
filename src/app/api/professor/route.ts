@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { criarProfessor, listarProfessores } from '@/lib/professorService';
+import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
 
 // GET /api/professor - Listar professores
 export async function GET(request: NextRequest) {
@@ -75,6 +76,8 @@ export async function POST(request: NextRequest) {
       valorHora,
       telefoneProfissional,
       emailProfissional,
+      fotoUrl,
+      logoUrl,
       ativo,
       aceitaNovosAlunos,
     } = body;
@@ -101,12 +104,66 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
+    // Processar fotoUrl: se for base64, fazer upload para GCS
+    let fotoUrlProcessada: string | null = null;
+    if (fotoUrl) {
+      if (fotoUrl.startsWith('data:image/')) {
+        try {
+          const buffer = base64ToBuffer(fotoUrl);
+          const mimeMatch = fotoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `professor-foto-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'professores');
+          fotoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload da foto:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload da foto' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (fotoUrl.startsWith('http://') || fotoUrl.startsWith('https://')) {
+        fotoUrlProcessada = fotoUrl;
+      } else {
+        fotoUrlProcessada = null;
+      }
+    }
+
+    // Processar logoUrl: se for base64, fazer upload para GCS
+    let logoUrlProcessada: string | null = null;
+    if (logoUrl) {
+      if (logoUrl.startsWith('data:image/')) {
+        try {
+          const buffer = base64ToBuffer(logoUrl);
+          const mimeMatch = logoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `professor-logo-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'professores');
+          logoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload da logo:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload da logo' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+        logoUrlProcessada = logoUrl;
+      } else {
+        logoUrlProcessada = null;
+      }
+    }
+
     const novoProfessor = await criarProfessor(userIdParaCriar, {
       especialidade: especialidade || null,
       bio: bio || null,
       valorHora: valorHora || null,
       telefoneProfissional: telefoneProfissional || null,
       emailProfissional: emailProfissional || null,
+      fotoUrl: fotoUrlProcessada,
+      logoUrl: logoUrlProcessada,
       ativo: ativo !== undefined ? ativo : true,
       aceitaNovosAlunos: aceitaNovosAlunos !== undefined ? aceitaNovosAlunos : true,
     });

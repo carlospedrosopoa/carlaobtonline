@@ -11,6 +11,8 @@ export interface CriarProfessorData {
   valorHora?: number | null;
   telefoneProfissional?: string | null;
   emailProfissional?: string | null;
+  fotoUrl?: string | null;
+  logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
 }
@@ -21,6 +23,8 @@ export interface AtualizarProfessorData {
   valorHora?: number | null;
   telefoneProfissional?: string | null;
   emailProfissional?: string | null;
+  fotoUrl?: string | null;
+  logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
 }
@@ -75,8 +79,9 @@ export async function criarProfessor(usuarioId: string, dados: CriarProfessorDat
     `INSERT INTO "Professor" (
       id, "userId", especialidade, bio, "valorHora", 
       "telefoneProfissional", "emailProfissional", 
+      "fotoUrl", "logoUrl",
       ativo, "aceitaNovosAlunos", "createdAt", "updatedAt"
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
     [
       id,
       usuarioId,
@@ -85,6 +90,8 @@ export async function criarProfessor(usuarioId: string, dados: CriarProfessorDat
       dados.valorHora || null,
       dados.telefoneProfissional || null,
       dados.emailProfissional || null,
+      dados.fotoUrl || null,
+      dados.logoUrl || null,
       dados.ativo !== undefined ? dados.ativo : true,
       dados.aceitaNovosAlunos !== undefined ? dados.aceitaNovosAlunos : true,
     ]
@@ -122,6 +129,8 @@ export async function buscarProfessorPorId(professorId: string) {
     valorHora: row.valorHora ? parseFloat(row.valorHora) : null,
     telefoneProfissional: row.telefoneProfissional,
     emailProfissional: row.emailProfissional,
+    fotoUrl: row.fotoUrl,
+    logoUrl: row.logoUrl,
     ativo: row.ativo,
     aceitaNovosAlunos: row.aceitaNovosAlunos,
     createdAt: row.createdAt,
@@ -164,6 +173,8 @@ export async function buscarProfessorPorUserId(userId: string) {
     valorHora: row.valorHora ? parseFloat(row.valorHora) : null,
     telefoneProfissional: row.telefoneProfissional,
     emailProfissional: row.emailProfissional,
+    fotoUrl: row.fotoUrl,
+    logoUrl: row.logoUrl,
     ativo: row.ativo,
     aceitaNovosAlunos: row.aceitaNovosAlunos,
     createdAt: row.createdAt,
@@ -204,6 +215,14 @@ export async function atualizarProfessor(professorId: string, dados: AtualizarPr
   if (dados.emailProfissional !== undefined) {
     campos.push(`"emailProfissional" = $${paramIndex++}`);
     valores.push(dados.emailProfissional || null);
+  }
+  if (dados.fotoUrl !== undefined) {
+    campos.push(`"fotoUrl" = $${paramIndex++}`);
+    valores.push(dados.fotoUrl || null);
+  }
+  if (dados.logoUrl !== undefined) {
+    campos.push(`"logoUrl" = $${paramIndex++}`);
+    valores.push(dados.logoUrl || null);
   }
   if (dados.ativo !== undefined) {
     campos.push(`ativo = $${paramIndex++}`);
@@ -287,6 +306,8 @@ export async function listarProfessores(filtros?: {
     valorHora: row.valorHora ? parseFloat(row.valorHora) : null,
     telefoneProfissional: row.telefoneProfissional,
     emailProfissional: row.emailProfissional,
+    fotoUrl: row.fotoUrl,
+    logoUrl: row.logoUrl,
     ativo: row.ativo,
     aceitaNovosAlunos: row.aceitaNovosAlunos,
     createdAt: row.createdAt,

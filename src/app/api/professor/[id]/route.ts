@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { buscarProfessorPorId, buscarProfessorPorUserId, atualizarProfessor, deletarProfessor } from '@/lib/professorService';
+import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
 
 // GET /api/professor/[id] - Buscar professor por ID
 export async function GET(
@@ -108,9 +109,101 @@ export async function PUT(
       valorHora,
       telefoneProfissional,
       emailProfissional,
+      fotoUrl,
+      logoUrl,
       ativo,
       aceitaNovosAlunos,
     } = body;
+
+    // Processar fotoUrl: se for base64, fazer upload para GCS
+    // Se for null, deletar imagem antiga do GCS
+    let fotoUrlProcessada: string | null | undefined = undefined;
+    if (fotoUrl !== undefined) {
+      if (fotoUrl === null || fotoUrl === '') {
+        // Deletar imagem antiga se existir
+        if (professorExistente.fotoUrl) {
+          try {
+            await deleteImage(professorExistente.fotoUrl);
+          } catch (error) {
+            console.error('Erro ao deletar foto antiga:', error);
+          }
+        }
+        fotoUrlProcessada = null;
+      } else if (fotoUrl.startsWith('data:image/')) {
+        try {
+          // Deletar imagem antiga se existir
+          if (professorExistente.fotoUrl) {
+            try {
+              await deleteImage(professorExistente.fotoUrl);
+            } catch (error) {
+              console.error('Erro ao deletar foto antiga:', error);
+            }
+          }
+          const buffer = base64ToBuffer(fotoUrl);
+          const mimeMatch = fotoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `professor-foto-${professorId}-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'professores');
+          fotoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload da foto:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload da foto' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (fotoUrl.startsWith('http://') || fotoUrl.startsWith('https://')) {
+        fotoUrlProcessada = fotoUrl;
+      } else {
+        fotoUrlProcessada = null;
+      }
+    }
+
+    // Processar logoUrl: se for base64, fazer upload para GCS
+    // Se for null, deletar imagem antiga do GCS
+    let logoUrlProcessada: string | null | undefined = undefined;
+    if (logoUrl !== undefined) {
+      if (logoUrl === null || logoUrl === '') {
+        // Deletar imagem antiga se existir
+        if (professorExistente.logoUrl) {
+          try {
+            await deleteImage(professorExistente.logoUrl);
+          } catch (error) {
+            console.error('Erro ao deletar logo antiga:', error);
+          }
+        }
+        logoUrlProcessada = null;
+      } else if (logoUrl.startsWith('data:image/')) {
+        try {
+          // Deletar imagem antiga se existir
+          if (professorExistente.logoUrl) {
+            try {
+              await deleteImage(professorExistente.logoUrl);
+            } catch (error) {
+              console.error('Erro ao deletar logo antiga:', error);
+            }
+          }
+          const buffer = base64ToBuffer(logoUrl);
+          const mimeMatch = logoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `professor-logo-${professorId}-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'professores');
+          logoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload da logo:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload da logo' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+        logoUrlProcessada = logoUrl;
+      } else {
+        logoUrlProcessada = null;
+      }
+    }
 
     // PROFESSOR não pode alterar seu próprio status ativo (apenas ADMIN)
     const dadosAtualizacao: any = {};
@@ -119,6 +212,8 @@ export async function PUT(
     if (valorHora !== undefined) dadosAtualizacao.valorHora = valorHora || null;
     if (telefoneProfissional !== undefined) dadosAtualizacao.telefoneProfissional = telefoneProfissional || null;
     if (emailProfissional !== undefined) dadosAtualizacao.emailProfissional = emailProfissional || null;
+    if (fotoUrlProcessada !== undefined) dadosAtualizacao.fotoUrl = fotoUrlProcessada;
+    if (logoUrlProcessada !== undefined) dadosAtualizacao.logoUrl = logoUrlProcessada;
     if (aceitaNovosAlunos !== undefined) dadosAtualizacao.aceitaNovosAlunos = aceitaNovosAlunos;
 
     // Apenas ADMIN pode alterar status ativo
