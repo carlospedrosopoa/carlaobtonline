@@ -495,7 +495,7 @@ export async function DELETE(
 
     // Buscar usuário no banco para validar senha
     const usuarioResult = await query(
-      'SELECT id, email, password, senhaHash FROM "User" WHERE id = $1',
+      'SELECT id, email, password FROM "User" WHERE id = $1',
       [usuario.id]
     );
 
@@ -508,7 +508,7 @@ export async function DELETE(
     }
 
     const usuarioDb = usuarioResult.rows[0];
-    const senhaHash = usuarioDb.password || usuarioDb.senhaHash;
+    const senhaHash = usuarioDb.password;
 
     if (!senhaHash) {
       const errorResponse = NextResponse.json(
