@@ -245,9 +245,33 @@ export const api = {
   
   delete: async (endpoint: string, config?: any) => {
     try {
+      // Se config contém 'data', usa como body (padrão axios)
+      // Caso contrário, se config existe e não é apenas headers, usa como body
+      let body: any = undefined;
+      let headers: any = undefined;
+      
+      if (config) {
+        if (config.data !== undefined) {
+          // Padrão axios: { data: {...}, headers: {...} }
+          body = config.data;
+          headers = config.headers;
+        } else if (config.headers !== undefined && Object.keys(config).length === 1) {
+          // Apenas headers, sem body
+          headers = config.headers;
+        } else {
+          // Objeto simples como body (ex: { senha: '...' })
+          const { headers: configHeaders, ...rest } = config;
+          if (Object.keys(rest).length > 0) {
+            body = rest;
+          }
+          headers = configHeaders;
+        }
+      }
+      
       const response = await apiRequest(endpoint, {
         method: 'DELETE',
-        headers: config?.headers,
+        body: body ? JSON.stringify(body) : undefined,
+        headers: headers,
       });
       
       // 204 No Content - não tem body
