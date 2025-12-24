@@ -18,6 +18,8 @@ export interface CriarProfessorPayload {
   valorHora?: number | null;
   telefoneProfissional?: string | null;
   emailProfissional?: string | null;
+  fotoUrl?: string | null;
+  logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
 }
@@ -28,6 +30,8 @@ export interface AtualizarProfessorPayload {
   valorHora?: number | null;
   telefoneProfissional?: string | null;
   emailProfissional?: string | null;
+  fotoUrl?: string | null;
+  logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
 }
