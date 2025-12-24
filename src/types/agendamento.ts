@@ -26,6 +26,8 @@ export interface Point {
   antecedenciaLembrete?: number | null;
   // Configurações Infinite Pay
   infinitePayHandle?: string | null;
+  // Template de Card de Jogos
+  cardTemplateUrl?: string | null;
   assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
   createdAt: string;
   updatedAt: string;
@@ -138,6 +140,8 @@ export interface CriarPointPayload {
   antecedenciaLembrete?: number | null;
   // Configurações Infinite Pay (opcionais)
   infinitePayHandle?: string | null;
+  // Template de Card de Jogos (opcional)
+  cardTemplateUrl?: string | null;
 }
 
 export interface CriarQuadraPayload {

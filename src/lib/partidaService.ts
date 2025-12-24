@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 export async function criarPartida(dados: {
   data: string;
   local: string;
+  pointId?: string | null;
   atleta1Id: string;
   atleta2Id: string;
   atleta3Id?: string | null;
@@ -26,12 +27,13 @@ export async function criarPartida(dados: {
 
   const partidaId = uuidv4();
   await query(
-    `INSERT INTO "Partida" (id, data, local, "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id", "gamesTime1", "gamesTime2", "tiebreakTime1", "tiebreakTime2", "createdAt", "updatedAt") 
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
+    `INSERT INTO "Partida" (id, data, local, "pointId", "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id", "gamesTime1", "gamesTime2", "tiebreakTime1", "tiebreakTime2", "createdAt", "updatedAt") 
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
     [
       partidaId,
       new Date(dados.data),
       dados.local,
+      dados.pointId || null,
       dados.atleta1Id,
       dados.atleta2Id,
       dados.atleta3Id || null,

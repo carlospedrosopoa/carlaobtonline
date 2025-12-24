@@ -5,6 +5,7 @@ export interface PartidaParaCard {
   id: string;
   data: Date;
   local: string;
+  pointId: string | null; // ID da arena (Point) onde a partida foi realizada
   gamesTime1: number | null;
   gamesTime2: number | null;
   tiebreakTime1: number | null;
@@ -41,6 +42,7 @@ export async function buscarPartidaParaCard(partidaId: string): Promise<PartidaP
       p.id,
       p.data,
       p.local,
+      p."pointId",
       p."gamesTime1",
       p."gamesTime2",
       p."tiebreakTime1",
@@ -77,6 +79,7 @@ export async function buscarPartidaParaCard(partidaId: string): Promise<PartidaP
     id: row.id,
     data: row.data,
     local: row.local,
+    pointId: row.pointId || null,
     gamesTime1: row.gamesTime1,
     gamesTime2: row.gamesTime2,
     tiebreakTime1: row.tiebreakTime1,
@@ -123,6 +126,38 @@ export function obterTemplatePadrao(): string | null {
   console.log('[cardService] Template padrão obtido:', templateUrl ? templateUrl.substring(0, 50) + '...' : 'null');
   console.log('[cardService] CARD_DEFAULT_TEMPLATE_URL definida?', !!process.env.CARD_DEFAULT_TEMPLATE_URL);
   return templateUrl;
+}
+
+/**
+ * Busca o template de card da arena pelo pointId
+ */
+export async function obterTemplateArenaPorPointId(pointId: string | null): Promise<string | null> {
+  if (!pointId) {
+    return null;
+  }
+
+  try {
+    const result = await query(
+      `SELECT "cardTemplateUrl" FROM "Point" 
+       WHERE id = $1
+       AND "cardTemplateUrl" IS NOT NULL
+       AND ativo = true
+       LIMIT 1`,
+      [pointId]
+    );
+
+    if (result.rows.length > 0 && result.rows[0].cardTemplateUrl) {
+      const templateUrl = result.rows[0].cardTemplateUrl;
+      console.log('[cardService] Template da arena encontrado:', templateUrl.substring(0, 50) + '...');
+      return templateUrl;
+    }
+
+    console.log('[cardService] Nenhum template de arena encontrado para pointId:', pointId);
+    return null;
+  } catch (error: any) {
+    console.error('[cardService] Erro ao buscar template da arena:', error.message);
+    return null;
+  }
 }
 
 /**

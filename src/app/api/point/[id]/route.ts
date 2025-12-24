@@ -17,7 +17,7 @@ export async function GET(
     try {
       result = await query(
         `SELECT 
-          id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+          id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
@@ -33,7 +33,7 @@ export async function GET(
         console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, usando query sem eles');
         result = await query(
           `SELECT 
-            id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
             assinante, "createdAt", "updatedAt"
           FROM "Point"
           WHERE id = $1`,
@@ -91,7 +91,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const { 
-      nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo,
+      nome, endereco, telefone, email, descricao, logoUrl, cardTemplateUrl, latitude, longitude, ativo,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
       enviarLembretesAgendamento, antecedenciaLembrete,
@@ -106,9 +106,9 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    // Buscar point existente para verificar logo antigo
+    // Buscar point existente para verificar logo e template antigos
     const pointExistente = await query(
-      `SELECT "logoUrl" FROM "Point" WHERE id = $1`,
+      `SELECT "logoUrl", "cardTemplateUrl" FROM "Point" WHERE id = $1`,
       [id]
     );
 
@@ -171,19 +171,78 @@ export async function PUT(
       ? logoUrlProcessada 
       : (logoUrl !== undefined ? logoUrl : (pointExistente.rows.length > 0 ? pointExistente.rows[0].logoUrl : null));
 
+    // Processar cardTemplateUrl: se for base64, fazer upload para GCS
+    let cardTemplateUrlProcessada: string | null | undefined = undefined;
+    if (cardTemplateUrl !== undefined) {
+      if (cardTemplateUrl === null) {
+        // Se for null, deletar template antigo se existir
+        if (pointExistente.rows.length > 0 && pointExistente.rows[0].cardTemplateUrl) {
+          const templateAntigo = pointExistente.rows[0].cardTemplateUrl;
+          if (templateAntigo && templateAntigo.startsWith('https://storage.googleapis.com/')) {
+            try {
+              await deleteImage(templateAntigo);
+            } catch (error) {
+              console.error('Erro ao deletar template antigo:', error);
+            }
+          }
+        }
+        cardTemplateUrlProcessada = null;
+      } else if (cardTemplateUrl.startsWith('data:image/')) {
+        // Se for base64, fazer upload
+        try {
+          const buffer = base64ToBuffer(cardTemplateUrl);
+          const mimeMatch = cardTemplateUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'png';
+          const fileName = `card-template-${id}-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'templates/cards');
+          
+          // Deletar template antigo se existir
+          if (pointExistente.rows.length > 0 && pointExistente.rows[0].cardTemplateUrl) {
+            const templateAntigo = pointExistente.rows[0].cardTemplateUrl;
+            if (templateAntigo && templateAntigo.startsWith('https://storage.googleapis.com/')) {
+              try {
+                await deleteImage(templateAntigo);
+              } catch (error) {
+                console.error('Erro ao deletar template antigo:', error);
+              }
+            }
+          }
+          
+          cardTemplateUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload do template de card:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload do template de card' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (cardTemplateUrl.startsWith('http://') || cardTemplateUrl.startsWith('https://')) {
+        // Se já for uma URL, manter como está
+        cardTemplateUrlProcessada = cardTemplateUrl;
+      } else {
+        cardTemplateUrlProcessada = null;
+      }
+    }
+
+    // Usar cardTemplateUrlProcessada se foi processado, senão usar cardTemplateUrl original ou manter o atual
+    const cardTemplateUrlFinal = cardTemplateUrlProcessada !== undefined 
+      ? cardTemplateUrlProcessada 
+      : (cardTemplateUrl !== undefined ? cardTemplateUrl : (pointExistente.rows.length > 0 ? pointExistente.rows[0].cardTemplateUrl : null));
+
     // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
     try {
       result = await query(
         `UPDATE "Point"
-         SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, latitude = $7, longitude = $8, ativo = $9,
-             "whatsappAccessToken" = $10, "whatsappPhoneNumberId" = $11, "whatsappBusinessAccountId" = $12, 
-             "whatsappApiVersion" = $13, "whatsappAtivo" = $14,
-             "gzappyApiKey" = $15, "gzappyInstanceId" = $16, "gzappyAtivo" = $17,
-             "enviarLembretesAgendamento" = $18, "antecedenciaLembrete" = $19, 
-             "infinitePayHandle" = $20, "updatedAt" = NOW()
-         WHERE id = $21
-         RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+         SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9, ativo = $10,
+             "whatsappAccessToken" = $11, "whatsappPhoneNumberId" = $12, "whatsappBusinessAccountId" = $13, 
+             "whatsappApiVersion" = $14, "whatsappAtivo" = $15,
+             "gzappyApiKey" = $16, "gzappyInstanceId" = $17, "gzappyAtivo" = $18,
+             "enviarLembretesAgendamento" = $19, "antecedenciaLembrete" = $20, 
+             "infinitePayHandle" = $21, "updatedAt" = NOW()
+         WHERE id = $22
+         RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
                    "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
                    "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
                    "enviarLembretesAgendamento", "antecedenciaLembrete",
@@ -191,7 +250,7 @@ export async function PUT(
                    "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
-          latitude || null, longitude || null, ativo ?? true,
+          cardTemplateUrlFinal, latitude || null, longitude || null, ativo ?? true,
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
           gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
@@ -206,13 +265,13 @@ export async function PUT(
         console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, atualizando sem eles');
         result = await query(
           `UPDATE "Point"
-           SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, latitude = $7, longitude = $8, ativo = $9, "updatedAt" = NOW()
-           WHERE id = $10
-           RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+           SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9, ativo = $10, "updatedAt" = NOW()
+           WHERE id = $11
+           RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
                      "createdAt", "updatedAt"`,
           [
             nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
-            latitude || null, longitude || null, ativo ?? true,
+            cardTemplateUrlFinal, latitude || null, longitude || null, ativo ?? true,
             id
           ]
         );

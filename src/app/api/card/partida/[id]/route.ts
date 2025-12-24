@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { buscarPartidaParaCard, salvarTemplatePartida, obterTemplatePadrao, salvarCardUrl } from '@/lib/cardService';
+import { buscarPartidaParaCard, salvarTemplatePartida, obterTemplatePadrao, obterTemplateArenaPorPointId, salvarCardUrl } from '@/lib/cardService';
 import { generateMatchCard } from '@/lib/generateCard';
 import { uploadImage, deleteImage } from '@/lib/googleCloudStorage';
 import { query } from '@/lib/db';
@@ -53,21 +53,29 @@ export async function GET(
     }
 
     // Determinar qual template usar
-    // Prioridade: templateUrl da partida > template padrão (variável de ambiente)
+    // Prioridade: templateUrl da partida > template da arena (cardTemplateUrl do Point) > template padrão (variável de ambiente)
     const templatePadrao = obterTemplatePadrao();
-    const templateUrlParaUsar = partida.templateUrl || templatePadrao;
+    let templateArena: string | null = null;
+    
+    // Se a partida não tem template próprio, tentar buscar template da arena pelo pointId
+    if (!partida.templateUrl && partida.pointId) {
+      templateArena = await obterTemplateArenaPorPointId(partida.pointId);
+    }
+    
+    const templateUrlParaUsar = partida.templateUrl || templateArena || templatePadrao;
     
     console.log('[Card] Template da partida:', partida.templateUrl || 'null');
+    console.log('[Card] Template da arena:', templateArena || 'null');
     console.log('[Card] Template padrão:', templatePadrao || 'null');
     console.log('[Card] Template que será usado:', templateUrlParaUsar || 'fundo programático');
     
-    // Se a partida não tem template salvo e temos um padrão, salvar na partida
-    if (!partida.templateUrl && templatePadrao) {
+    // Se a partida não tem template salvo e temos um template (da arena ou padrão), salvar na partida
+    if (!partida.templateUrl && templateUrlParaUsar) {
       try {
-        await salvarTemplatePartida(partida.id, templatePadrao);
-        console.log('[Card] Template padrão salvo na partida:', templatePadrao.substring(0, 50) + '...');
+        await salvarTemplatePartida(partida.id, templateUrlParaUsar);
+        console.log('[Card] Template salvo na partida:', templateUrlParaUsar.substring(0, 50) + '...');
         // Atualizar objeto partida para refletir a mudança
-        partida.templateUrl = templatePadrao;
+        partida.templateUrl = templateUrlParaUsar;
       } catch (error: any) {
         console.warn('[Card] Erro ao salvar template na partida:', error.message);
         // Continuar mesmo se falhar ao salvar

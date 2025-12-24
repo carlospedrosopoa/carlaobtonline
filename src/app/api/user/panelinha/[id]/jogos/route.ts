@@ -72,6 +72,7 @@ export async function GET(
         p."gamesTime2",
         p."tiebreakTime1",
         p."tiebreakTime2",
+        p."pointId",
         p."createdAt",
         p."updatedAt",
         a1.id as "atleta1Id",
@@ -101,6 +102,7 @@ export async function GET(
       id: row.id,
       data: row.data,
       local: row.local,
+      pointId: row.pointId || null,
       gamesTime1: row.gamesTime1,
       gamesTime2: row.gamesTime2,
       tiebreakTime1: row.tiebreakTime1,
@@ -162,6 +164,7 @@ export async function POST(
     const { 
       data, 
       local, 
+      pointId,
       atleta1Id, 
       atleta2Id, 
       atleta3Id, 
@@ -240,6 +243,7 @@ export async function POST(
     const partida = await criarPartida({
       data,
       local,
+      pointId: pointId || null,
       atleta1Id,
       atleta2Id,
       atleta3Id: atleta3Id || null,

@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
       result = await query(
         `SELECT 
-          id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+          id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
         result = await query(
           `SELECT 
-            id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
             assinante, "createdAt", "updatedAt"
           FROM "Point"
           ${whereClause}
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { 
-      nome, endereco, telefone, email, descricao, logoUrl, latitude, longitude, ativo = true,
+      nome, endereco, telefone, email, descricao, logoUrl, cardTemplateUrl, latitude, longitude, ativo = true,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
       enviarLembretesAgendamento, antecedenciaLembrete,
@@ -133,12 +133,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Processar cardTemplateUrl: se for base64, fazer upload para GCS
+    let cardTemplateUrlProcessada: string | null = null;
+    if (cardTemplateUrl) {
+      if (cardTemplateUrl.startsWith('data:image/')) {
+        try {
+          const buffer = base64ToBuffer(cardTemplateUrl);
+          const mimeMatch = cardTemplateUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'png';
+          const fileName = `card-template-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'templates/cards');
+          cardTemplateUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload do template de card:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload do template de card' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (cardTemplateUrl.startsWith('http://') || cardTemplateUrl.startsWith('https://')) {
+        // Se já for uma URL, manter como está
+        cardTemplateUrlProcessada = cardTemplateUrl;
+      } else {
+        cardTemplateUrlProcessada = null;
+      }
+    }
+
     // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
     try {
       result = await query(
         `INSERT INTO "Point" (
-          id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+          id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
@@ -146,15 +173,15 @@ export async function POST(request: NextRequest) {
           "createdAt", "updatedAt"
         )
          VALUES (
-          gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9,
-          $10, $11, $12, $13, $14,
-          $15, $16, $17,
-          $18, $19,
-          $20,
+          gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          $11, $12, $13, $14, $15,
+          $16, $17, $18,
+          $19, $20,
+          $21,
           NOW(), NOW()
          )
          RETURNING 
-          id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+          id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
@@ -162,7 +189,7 @@ export async function POST(request: NextRequest) {
           "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
-          latitude || null, longitude || null, ativo,
+          cardTemplateUrlProcessada, latitude || null, longitude || null, ativo,
           whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
           gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
@@ -176,19 +203,19 @@ export async function POST(request: NextRequest) {
         console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, criando sem eles');
         result = await query(
           `INSERT INTO "Point" (
-            id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
             "createdAt", "updatedAt"
           )
            VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9,
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             NOW(), NOW()
            )
            RETURNING 
-            id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
             "createdAt", "updatedAt"`,
           [
             nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
-            latitude || null, longitude || null, ativo
+            cardTemplateUrlProcessada, latitude || null, longitude || null, ativo
           ]
         );
         // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade

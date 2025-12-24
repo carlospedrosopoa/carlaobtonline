@@ -32,8 +32,10 @@ export default function AdminPointsPage() {
     enviarLembretesAgendamento: false,
     antecedenciaLembrete: 8,
     infinitePayHandle: null,
+    cardTemplateUrl: null,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [cardTemplatePreview, setCardTemplatePreview] = useState<string | null>(null);
   const [buscandoGeolocalizacao, setBuscandoGeolocalizacao] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -80,8 +82,10 @@ export default function AdminPointsPage() {
         enviarLembretesAgendamento: point.enviarLembretesAgendamento ?? false,
         antecedenciaLembrete: point.antecedenciaLembrete ?? 8,
         infinitePayHandle: point.infinitePayHandle || null,
+        cardTemplateUrl: point.cardTemplateUrl || null,
       });
       setLogoPreview(point.logoUrl || null);
+      setCardTemplatePreview(point.cardTemplateUrl || null);
     } else {
       setPointEditando(null);
       setForm({
@@ -105,8 +109,10 @@ export default function AdminPointsPage() {
         enviarLembretesAgendamento: false,
         antecedenciaLembrete: 8,
         infinitePayHandle: null,
+        cardTemplateUrl: null,
       });
       setLogoPreview(null);
+      setCardTemplatePreview(null);
     }
     setErro('');
     setModalAberto(true);
@@ -145,6 +151,37 @@ export default function AdminPointsPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCardTemplateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setErro('Por favor, selecione apenas arquivos de imagem.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setErro('O template de card deve ter no máximo 10MB.');
+        return;
+      }
+      // Converter para base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setForm({ ...form, cardTemplateUrl: base64String });
+        setCardTemplatePreview(base64String);
+        setErro('');
+      };
+      reader.onerror = () => {
+        setErro('Erro ao ler a imagem. Tente novamente.');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removerCardTemplate = () => {
+    setForm({ ...form, cardTemplateUrl: null });
+    setCardTemplatePreview(null);
   };
 
   const buscarGeolocalizacao = async () => {
@@ -469,6 +506,41 @@ export default function AdminPointsPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                   <p className="text-xs text-gray-500">Formatos aceitos: JPG, PNG, GIF (máximo 5MB)</p>
+                </div>
+              </div>
+
+              {/* Template de Card de Jogos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Template de Card de Jogos (opcional)
+                </label>
+                <div className="space-y-2">
+                  {cardTemplatePreview && (
+                    <div className="relative inline-block">
+                      <img
+                        src={cardTemplatePreview}
+                        alt="Preview do template"
+                        className="max-w-full h-auto max-h-96 rounded-lg border border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={removerCardTemplate}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center text-lg hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCardTemplateChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Template personalizado para cards de jogos desta arena. Formatos aceitos: JPG, PNG (máximo 10MB). 
+                    Recomendado: 1080x1920px (formato vertical).
+                  </p>
                 </div>
               </div>
 

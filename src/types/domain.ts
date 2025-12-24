@@ -27,6 +27,7 @@ export interface Partida {
   id: string;
   data: string;
   local: string;
+  pointId?: string | null;
   atleta1?: Atleta;
   atleta2?: Atleta;
   atleta3?: Atleta;
