@@ -76,8 +76,8 @@ export const cardClienteService = {
     return res.data;
   },
 
-  deletar: async (id: string): Promise<void> => {
-    await api.delete(`/gestao-arena/card-cliente/${id}`);
+  deletar: async (id: string, senha: string): Promise<void> => {
+    await api.delete(`/gestao-arena/card-cliente/${id}`, { senha });
   },
 
   limparTodos: async (pointId: string): Promise<{ mensagem: string; totalCards: number }> => {

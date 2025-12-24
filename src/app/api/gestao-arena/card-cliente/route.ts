@@ -2,14 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
-import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarCardClientePayload, AtualizarCardClientePayload, StatusCard } from '@/types/gestaoArena';
-
-// Suportar requisições OPTIONS (preflight)
-export async function OPTIONS(request: NextRequest) {
-  const preflightResponse = handleCorsPreflight(request);
-  return preflightResponse || new NextResponse(null, { status: 204 });
-}
 
 // GET /api/gestao-arena/card-cliente - Listar cards de clientes
 export async function GET(request: NextRequest) {
@@ -28,12 +21,12 @@ export async function GET(request: NextRequest) {
     const incluirItens = searchParams.get('incluirItens') === 'true';
     const incluirPagamentos = searchParams.get('incluirPagamentos') === 'true';
 
-    // Query base - usar apenas at.fone (whatsapp não existe na tabela User)
+    // Query base - tentar com whatsapp primeiro, se falhar usar sem
     let sql = `SELECT 
       c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
       c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdBy", c."fechadoAt", c."fechadoBy",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
-      NULL as "usuario_whatsapp",
+      u.whatsapp as "usuario_whatsapp",
       at.fone as "atleta_fone"
     FROM "CardCliente" c
     LEFT JOIN "User" u ON c."usuarioId" = u.id
@@ -67,7 +60,48 @@ export async function GET(request: NextRequest) {
 
     sql += ` ORDER BY c."numeroCard" DESC`;
 
-    const result = await query(sql, params);
+    let result;
+    try {
+      result = await query(sql, params);
+    } catch (error: any) {
+      // Se falhar por coluna whatsapp não encontrada, tentar sem whatsapp
+      if (error.code === '42703' || error.message?.includes('whatsapp') || error.message?.includes('column')) {
+        sql = `SELECT 
+          c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
+          c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdBy", c."fechadoAt", c."fechadoBy",
+          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", NULL as "usuario_whatsapp",
+          at.fone as "atleta_fone"
+        FROM "CardCliente" c
+        LEFT JOIN "User" u ON c."usuarioId" = u.id
+        LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+        WHERE 1=1`;
+        
+        // Reconstruir WHERE clauses
+        const params2: any[] = [];
+        let paramCount2 = 1;
+        
+        if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
+          sql += ` AND c."pointId" = $${paramCount2}`;
+          params2.push(usuario.pointIdGestor);
+          paramCount2++;
+        } else if (pointId) {
+          sql += ` AND c."pointId" = $${paramCount2}`;
+          params2.push(pointId);
+          paramCount2++;
+        }
+        
+        if (status) {
+          sql += ` AND c.status = $${paramCount2}`;
+          params2.push(status);
+          paramCount2++;
+        }
+        
+        sql += ` ORDER BY c."numeroCard" DESC`;
+        result = await query(sql, params2);
+      } else {
+        throw error;
+      }
+    }
     
     const cards = result.rows.map((row: any) => {
       const card: any = {
@@ -92,7 +126,7 @@ export async function GET(request: NextRequest) {
           id: row.usuario_id,
           name: row.usuario_name,
           email: row.usuario_email,
-          whatsapp: row.atleta_fone || null, // WhatsApp vem do telefone do atleta
+          whatsapp: row.usuario_whatsapp || null,
           telefone: row.atleta_fone || null, // Telefone vem do atleta vinculado
         };
       }
@@ -214,15 +248,13 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    const response = NextResponse.json(cards);
-    return withCors(response, request);
+    return NextResponse.json(cards);
   } catch (error: any) {
     console.error('Erro ao listar cards de clientes:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao listar cards de clientes', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 
@@ -290,15 +322,13 @@ export async function POST(request: NextRequest) {
       [pointId, numeroCard, observacoes || null, usuarioId || null, nomeAvulso || null, telefoneAvulso || null, usuario.id]
     );
 
-    const response = NextResponse.json(result.rows[0], { status: 201 });
-    return withCors(response, request);
+    return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error: any) {
     console.error('Erro ao criar card de cliente:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao criar card de cliente', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 

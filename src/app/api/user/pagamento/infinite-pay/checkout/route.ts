@@ -151,33 +151,14 @@ export async function POST(request: NextRequest) {
 
     // Gerar link de checkout usando a API oficial do Infinite Pay
     // redirectUrl: URL do frontend para redirecionar o usuário após pagamento
-    // IMPORTANTE: Usar URL de produção fixa para garantir que sempre funcione
-    // O domínio correto é atleta.playnaquadra.com.br (sem "app" no início)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://atleta.playnaquadra.com.br';
-    const redirectUrl = `${appUrl}/app/atleta/consumo?payment_callback=${orderId}`;
+    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/app/atleta/consumo?payment_callback=${orderId}`;
     
     // webhookUrl: URL do backend (carlaobtonline) para receber notificação do Infinite Pay
     // IMPORTANTE: Deve ser a URL do backend, não do frontend
-    // CRÍTICO: Sempre usar URL de produção fixa para webhook, nunca URL de preview/deployment temporário
-    // O webhook precisa de uma URL estável que sempre exista, mesmo após deployments
-    let backendUrl: string;
-    if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('vercel.app')) {
-      // Se NEXT_PUBLIC_API_URL está configurada e não é Vercel, usa ela (remove /api se tiver)
-      backendUrl = process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '');
-    } else {
-      // SEMPRE usar URL de produção fixa para webhook (nunca usar VERCEL_URL que é temporário)
-      // Isso garante que o webhook sempre funcione, mesmo após novos deployments
-      backendUrl = 'https://carlaobtonline.vercel.app';
-    }
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'https://carlaobtonline.vercel.app';
     const webhookUrl = `${backendUrl}/api/user/pagamento/infinite-pay/callback`;
-    
-    console.log('[INFINITE PAY CHECKOUT] URLs configuradas:', {
-      redirectUrl,
-      webhookUrl,
-      backendUrl,
-      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-      VERCEL_URL: process.env.VERCEL_URL,
-    });
 
     // Montar payload conforme documentação oficial do Infinite Pay
     // Nota: A API espera "items" (inglês), não "itens" (português)

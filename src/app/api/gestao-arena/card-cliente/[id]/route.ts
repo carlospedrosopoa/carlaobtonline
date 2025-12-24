@@ -3,13 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
+import bcrypt from 'bcryptjs';
 import type { AtualizarCardClientePayload, StatusCard } from '@/types/gestaoArena';
-
-// Suportar requisições OPTIONS (preflight)
-export async function OPTIONS(request: NextRequest) {
-  const preflightResponse = handleCorsPreflight(request);
-  return preflightResponse || new NextResponse(null, { status: 204 });
-}
 
 // GET /api/gestao-arena/card-cliente/[id] - Obter card de cliente
 export async function GET(
@@ -31,21 +26,43 @@ export async function GET(
     const incluirPagamentos = searchParams.get('incluirPagamentos') !== 'false'; // Por padrão inclui
     const incluirAgendamentos = searchParams.get('incluirAgendamentos') !== 'false'; // Por padrão inclui
 
-    // Query - usar apenas at.fone (whatsapp não existe na tabela User)
-    const result = await query(
-      `SELECT 
-        c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
-        c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
-        c."createdBy", c."fechadoAt", c."fechadoBy",
-        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
-        NULL as "usuario_whatsapp",
-        at.fone as "atleta_fone"
-      FROM "CardCliente" c
-      LEFT JOIN "User" u ON c."usuarioId" = u.id
-      LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
-      WHERE c.id = $1`,
-      [id]
-    );
+    // Tentar query com whatsapp, se falhar usar sem
+    let result;
+    try {
+      result = await query(
+        `SELECT 
+          c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
+          c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
+          c."createdBy", c."fechadoAt", c."fechadoBy",
+          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
+          u.whatsapp as "usuario_whatsapp",
+          at.fone as "atleta_fone"
+        FROM "CardCliente" c
+        LEFT JOIN "User" u ON c."usuarioId" = u.id
+        LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+        WHERE c.id = $1`,
+        [id]
+      );
+    } catch (error: any) {
+      // Se falhar por coluna não encontrada, tentar sem whatsapp
+      if (error.code === '42703' || error.message?.includes('whatsapp') || error.message?.includes('column')) {
+        result = await query(
+          `SELECT 
+            c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
+            c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
+            c."createdBy", c."fechadoAt", c."fechadoBy",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", NULL as "usuario_whatsapp",
+            at.fone as "atleta_fone"
+          FROM "CardCliente" c
+          LEFT JOIN "User" u ON c."usuarioId" = u.id
+          LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+          WHERE c.id = $1`,
+          [id]
+        );
+      } else {
+        throw error;
+      }
+    }
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -77,7 +94,7 @@ export async function GET(
         id: row.usuario_id,
         name: row.usuario_name,
         email: row.usuario_email,
-        whatsapp: row.atleta_fone || null, // WhatsApp vem do telefone do atleta
+        whatsapp: row.usuario_whatsapp || null,
         telefone: row.atleta_fone || null, // Telefone vem do atleta vinculado
       };
     }
@@ -258,15 +275,13 @@ export async function GET(
     card.totalPago = totalPago;
     card.saldo = card.valorTotal - totalPago;
 
-    const response = NextResponse.json(card);
-    return withCors(response, request);
+    return NextResponse.json(card);
   } catch (error: any) {
     console.error('Erro ao obter card de cliente:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao obter card de cliente', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 
@@ -425,16 +440,20 @@ export async function PUT(
       values
     );
 
-    const response = NextResponse.json(result.rows[0]);
-    return withCors(response, request);
+    return NextResponse.json(result.rows[0]);
   } catch (error: any) {
     console.error('Erro ao atualizar card de cliente:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao atualizar card de cliente', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
+}
+
+// OPTIONS /api/gestao-arena/card-cliente/[id] - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
 }
 
 // DELETE /api/gestao-arena/card-cliente/[id] - Deletar card de cliente
@@ -445,20 +464,69 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para deletar cards de clientes' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
+    const body = await request.json().catch(() => ({}));
+    const { senha } = body;
+
+    // Validar senha
+    if (!senha) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Senha é obrigatória para excluir o card' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Buscar usuário no banco para validar senha
+    const usuarioResult = await query(
+      'SELECT id, email, password, senhaHash FROM "User" WHERE id = $1',
+      [usuario.id]
+    );
+
+    if (usuarioResult.rows.length === 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Usuário não encontrado' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const usuarioDb = usuarioResult.rows[0];
+    const senhaHash = usuarioDb.password || usuarioDb.senhaHash;
+
+    if (!senhaHash) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Erro na configuração do usuário' },
+        { status: 500 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Validar senha
+    const senhaValida = await bcrypt.compare(senha, senhaHash);
+
+    if (!senhaValida) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Senha incorreta' },
+        { status: 401 }
+      );
+      return withCors(errorResponse, request);
+    }
 
     const existe = await query(
       'SELECT "pointId" FROM "CardCliente" WHERE id = $1',
@@ -466,20 +534,22 @@ export async function DELETE(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card de cliente não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const card = existe.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -491,10 +561,11 @@ export async function DELETE(
     const status = cardInfo.rows[0].status;
 
     if (status === 'FECHADO') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível deletar um card fechado' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se há itens ou pagamentos
@@ -508,10 +579,11 @@ export async function DELETE(
     );
 
     if (itens.rows.length > 0 || pagamentos.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível deletar um card que possui itens ou pagamentos. Cancele o card ao invés de deletá-lo.' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     await query('DELETE FROM "CardCliente" WHERE id = $1', [id]);

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cardClienteService } from '@/services/gestaoArenaService';
 import { api } from '@/lib/api';
 import type { CardCliente, CriarCardClientePayload, AtualizarCardClientePayload } from '@/types/gestaoArena';
-import { X, User, UserPlus, Search } from 'lucide-react';
+import { X, User, UserPlus, Search, Trash2 } from 'lucide-react';
 
 interface CriarEditarCardModalProps {
   isOpen: boolean;
@@ -34,6 +34,9 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [carregandoAtletas, setCarregandoAtletas] = useState(false);
+  const [mostrarModalExcluir, setMostrarModalExcluir] = useState(false);
+  const [senhaExclusao, setSenhaExclusao] = useState('');
+  const [excluindo, setExcluindo] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -141,6 +144,42 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
       setErro(error?.response?.data?.mensagem || 'Erro ao salvar card');
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const excluirCard = async () => {
+    if (!card) return;
+
+    if (!senhaExclusao) {
+      setErro('Por favor, informe sua senha para excluir o card');
+      return;
+    }
+
+    const confirmacao = confirm(
+      '⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL.\n\n' +
+      'Tem certeza que deseja excluir este card?\n\n' +
+      'Esta ação não pode ser desfeita.'
+    );
+
+    if (!confirmacao) {
+      setSenhaExclusao('');
+      setMostrarModalExcluir(false);
+      return;
+    }
+
+    try {
+      setExcluindo(true);
+      setErro('');
+      await cardClienteService.deletar(card.id, senhaExclusao);
+      alert('Card excluído com sucesso');
+      onSuccess(); // Recarregar lista
+      onClose();
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao excluir card');
+    } finally {
+      setExcluindo(false);
+      setSenhaExclusao('');
+      setMostrarModalExcluir(false);
     }
   };
 
@@ -296,20 +335,73 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
           </div>
 
           {/* Botões */}
-          <div className="flex gap-3 pt-4">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={salvar}
-              disabled={salvando}
-              className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {salvando ? 'Salvando...' : 'Salvar'}
-            </button>
+          <div className="flex flex-col gap-3 pt-4">
+            <div className="flex gap-3">
+              {card && (
+                <button
+                  onClick={() => setMostrarModalExcluir(true)}
+                  disabled={salvando || excluindo}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir Card
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvar}
+                disabled={salvando || excluindo}
+                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+
+            {/* Modal de confirmação de exclusão */}
+            {mostrarModalExcluir && (
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-red-800 mb-2">Confirmar Exclusão</h3>
+                  <p className="text-sm text-red-700 mb-3">
+                    Para excluir este card, por favor, informe sua senha:
+                  </p>
+                  <input
+                    type="password"
+                    value={senhaExclusao}
+                    onChange={(e) => setSenhaExclusao(e.target.value)}
+                    placeholder="Digite sua senha"
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mb-3"
+                    disabled={excluindo}
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setMostrarModalExcluir(false);
+                        setSenhaExclusao('');
+                        setErro('');
+                      }}
+                      disabled={excluindo}
+                      className="flex-1 px-3 py-1.5 text-sm border border-red-300 text-red-700 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={excluirCard}
+                      disabled={excluindo || !senhaExclusao}
+                      className="flex-1 px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {excluindo ? 'Excluindo...' : 'Confirmar Exclusão'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

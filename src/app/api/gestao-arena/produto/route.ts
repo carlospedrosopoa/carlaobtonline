@@ -2,14 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
-import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarProdutoPayload, AtualizarProdutoPayload } from '@/types/gestaoArena';
-
-// Suportar requisições OPTIONS (preflight)
-export async function OPTIONS(request: NextRequest) {
-  const preflightResponse = handleCorsPreflight(request);
-  return preflightResponse || new NextResponse(null, { status: 204 });
-}
 
 // GET /api/gestao-arena/produto - Listar produtos
 export async function GET(request: NextRequest) {
@@ -66,15 +59,13 @@ export async function GET(request: NextRequest) {
 
     const result = await query(sql, params);
     
-    const response = NextResponse.json(result.rows);
-    return withCors(response, request);
+    return NextResponse.json(result.rows);
   } catch (error: any) {
     console.error('Erro ao listar produtos:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao listar produtos', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 
@@ -139,15 +130,13 @@ export async function POST(request: NextRequest) {
       [pointId, nome, descricao || null, precoVenda, precoCusto || null, categoria || null, ativo, acessoRapido]
     );
 
-    const response = NextResponse.json(result.rows[0], { status: 201 });
-    return withCors(response, request);
+    return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error: any) {
     console.error('Erro ao criar produto:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao criar produto', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 

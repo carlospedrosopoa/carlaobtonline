@@ -2,13 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
-import { withCors, handleCorsPreflight } from '@/lib/cors';
-
-// Suportar requisições OPTIONS (preflight)
-export async function OPTIONS(request: NextRequest) {
-  const preflightResponse = handleCorsPreflight(request);
-  return preflightResponse || new NextResponse(null, { status: 204 });
-}
 
 // DELETE /api/gestao-arena/card-cliente/[id]/agendamento/[agendamentoCardId] - Desvincular agendamento do card
 export async function DELETE(
@@ -128,15 +121,13 @@ export async function DELETE(
       );
     }
 
-    const response = NextResponse.json({ mensagem: 'Agendamento desvinculado com sucesso' });
-    return withCors(response, request);
+    return NextResponse.json({ mensagem: 'Agendamento desvinculado com sucesso' });
   } catch (error: any) {
     console.error('Erro ao desvincular agendamento do card:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao desvincular agendamento do card', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 

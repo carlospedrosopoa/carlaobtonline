@@ -9,10 +9,8 @@ import { query } from '@/lib/db';
 // Conforme documentação: responder com 200 OK para sucesso, 400 para erro
 export async function POST(request: NextRequest) {
   try {
-    const origin = request.headers.get('origin');
     console.log('[INFINITE PAY WEBHOOK] Recebendo webhook...');
     console.log('[INFINITE PAY WEBHOOK] URL:', request.url);
-    console.log('[INFINITE PAY WEBHOOK] Origin:', origin);
     console.log('[INFINITE PAY WEBHOOK] Headers:', Object.fromEntries(request.headers.entries()));
     
     const body = await request.json();
@@ -43,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Buscar pagamento pelo order_nsu (orderId)
     const pagamentoResult = await query(
-      `SELECT p.*, c."usuarioId", c."valorTotal", c."pointId",
+      `SELECT p.*, c."usuarioId", c."valorTotal",
               COALESCE(SUM(p2.valor), 0) as "totalPago"
        FROM "PagamentoInfinitePay" p
        INNER JOIN "CardCliente" c ON p."cardId" = c.id
@@ -86,36 +84,19 @@ export async function POST(request: NextRequest) {
       );
 
       if (pagamentoExistente.rows.length === 0) {
-        // Buscar pointId do card para criar/buscar forma de pagamento
-        const cardPointResult = await query(
-          'SELECT "pointId" FROM "CardCliente" WHERE id = $1',
-          [pagamento.cardId]
-        );
-        const pointId = cardPointResult.rows[0]?.pointId;
-
-        if (!pointId) {
-          console.error('[INFINITE PAY WEBHOOK] PointId não encontrado para o card:', pagamento.cardId);
-          const errorResponse = NextResponse.json(
-            { mensagem: 'Arena não encontrada para este card' },
-            { status: 400 }
-          );
-          return withCors(errorResponse, request);
-        }
-
-        // Buscar forma de pagamento Infinite Pay para esta arena ou criar uma padrão
+        // Buscar forma de pagamento Infinite Pay ou criar uma padrão
         let formaPagamentoId = await query(
-          'SELECT id FROM "FormaPagamento" WHERE "pointId" = $1 AND nome ILIKE $2 LIMIT 1',
-          [pointId, '%infinite pay%']
+          'SELECT id FROM "FormaPagamento" WHERE nome ILIKE $1 LIMIT 1',
+          ['%infinite pay%']
         );
 
         if (formaPagamentoId.rows.length === 0) {
-          // Criar forma de pagamento se não existir para esta arena
-          // Usar 'OUTRO' pois Infinite Pay pode processar PIX, cartão de crédito ou débito
+          // Criar forma de pagamento se não existir
           const novaForma = await query(
-            `INSERT INTO "FormaPagamento" (id, "pointId", nome, tipo, ativo, "createdAt", "updatedAt")
-             VALUES (gen_random_uuid()::text, $1, 'Infinite Pay', 'OUTRO', true, NOW(), NOW())
+            `INSERT INTO "FormaPagamento" (id, nome, tipo, "createdAt")
+             VALUES (gen_random_uuid()::text, 'Infinite Pay', 'CARTAO', NOW())
              RETURNING id`,
-            [pointId]
+            []
           );
           formaPagamentoId = novaForma;
         }
@@ -123,26 +104,6 @@ export async function POST(request: NextRequest) {
         // Criar pagamento no card
         // paid_amount está em centavos, converter para reais
         const valorPago = (paid_amount || amount) / 100;
-        
-        // Montar observações detalhadas para identificar a operação
-        const observacoes = [
-          `Pagamento via Infinite Pay`,
-          `Método: ${capture_method || 'N/A'}`,
-          `Order NSU: ${order_nsu}`,
-          transaction_nsu ? `Transaction NSU: ${transaction_nsu}` : '',
-          invoice_slug ? `Invoice Slug: ${invoice_slug}` : '',
-          installments && installments > 1 ? `Parcelado em ${installments}x` : 'À vista',
-          receipt_url ? `Comprovante: ${receipt_url}` : '',
-          `Valor pago: R$ ${valorPago.toFixed(2)}`,
-          `Processado em: ${new Date().toLocaleString('pt-BR')}`,
-        ].filter(Boolean).join(' | ');
-        
-        console.log('[INFINITE PAY WEBHOOK] Criando pagamento no card:', {
-          cardId: pagamento.cardId,
-          valor: valorPago,
-          order_nsu,
-          transaction_nsu,
-        });
         
         const pagamentoCard = await query(
           `INSERT INTO "PagamentoCard" (
@@ -157,29 +118,19 @@ export async function POST(request: NextRequest) {
             pagamento.cardId,
             formaPagamentoId.rows[0].id,
             valorPago,
-            observacoes,
+            `Pagamento via Infinite Pay - ${capture_method || 'N/A'} - Order: ${order_nsu}${receipt_url ? ` - Comprovante: ${receipt_url}` : ''}`,
             order_nsu,
             transaction_nsu || null,
             pagamento.usuarioId,
           ]
         );
-        
-        console.log('[INFINITE PAY WEBHOOK] Pagamento criado no card com sucesso:', pagamentoCard.rows[0].id);
 
         // Verificar se o card deve ser fechado
         const totalPago = parseFloat(pagamento.totalPago) + valorPago;
         const valorTotal = parseFloat(pagamento.valorTotal);
 
-        console.log('[INFINITE PAY WEBHOOK] Verificando fechamento do card:', {
-          cardId: pagamento.cardId,
-          totalPago,
-          valorTotal,
-          saldoPendente: valorTotal - totalPago,
-          deveFechar: totalPago >= valorTotal,
-        });
-
         if (totalPago >= valorTotal) {
-          // Fechar o card automaticamente
+          // Fechar o card
           await query(
             `UPDATE "CardCliente"
              SET status = 'FECHADO',
@@ -189,10 +140,6 @@ export async function POST(request: NextRequest) {
              WHERE id = $2`,
             [pagamento.usuarioId, pagamento.cardId]
           );
-          console.log('[INFINITE PAY WEBHOOK] ✅ Card fechado automaticamente - saldo quitado');
-        } else {
-          const saldoPendente = valorTotal - totalPago;
-          console.log('[INFINITE PAY WEBHOOK] ⚠️ Card mantido aberto - saldo pendente: R$', saldoPendente.toFixed(2));
         }
       }
     }
@@ -205,19 +152,7 @@ export async function POST(request: NextRequest) {
       message: 'Status atualizado com sucesso',
     });
 
-    // Para webhook, permitir qualquer origem (o Infinite Pay pode chamar de qualquer lugar)
-    // Webhooks geralmente não têm origem (são chamadas server-to-server)
-    const corsResponse = withCors(response, request);
-    
-    // Adicionar headers CORS permissivos para webhook
-    // Se não tiver origem, permitir qualquer origem
-    const webhookOrigin = origin || '*';
-    corsResponse.headers.set('Access-Control-Allow-Origin', webhookOrigin);
-    corsResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    corsResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    corsResponse.headers.set('Access-Control-Allow-Credentials', 'false');
-    
-    return corsResponse;
+    return withCors(response, request);
   } catch (error: any) {
     console.error('[INFINITE PAY CALLBACK] Erro:', error);
     const errorResponse = NextResponse.json(
@@ -232,20 +167,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Suportar requisições OPTIONS (preflight)
-// IMPORTANTE: Webhook precisa aceitar preflight de qualquer origem
-// Webhooks são chamadas server-to-server, então podem não ter origem
 export async function OPTIONS(request: NextRequest) {
-  const origin = request.headers.get('origin');
-  const response = new NextResponse(null, { status: 204 });
-  
-  // Para webhook, sempre permitir (pode ser chamado de qualquer lugar)
-  const webhookOrigin = origin || '*';
-  response.headers.set('Access-Control-Allow-Origin', webhookOrigin);
-  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  response.headers.set('Access-Control-Allow-Credentials', 'false');
-  response.headers.set('Access-Control-Max-Age', '86400');
-  
-  return response;
+  return withCors(new NextResponse(null, { status: 204 }), request);
 }
 

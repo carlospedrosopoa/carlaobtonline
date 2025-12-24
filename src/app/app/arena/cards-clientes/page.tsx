@@ -10,7 +10,7 @@ import CriarEditarCardModal from '@/components/CriarEditarCardModal';
 import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, Trash2, RotateCw } from 'lucide-react';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
 
@@ -28,7 +28,6 @@ export default function CardsClientesPage() {
   const [modalItensAberto, setModalItensAberto] = useState(false);
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false);
   const [cardGerenciando, setCardGerenciando] = useState<CardCliente | null>(null);
-  const [limpandoCards, setLimpandoCards] = useState(false);
   const [nomeArena, setNomeArena] = useState<string>('');
 
   useEffect(() => {
@@ -241,36 +240,6 @@ export default function CardsClientesPage() {
     }
   };
 
-  const limparTodosCards = async () => {
-    if (!usuario?.pointIdGestor) {
-      alert('Erro: Arena não identificada.');
-      return;
-    }
-
-    const confirmacao = confirm(
-      `⚠️ ATENÇÃO: Esta ação irá DELETAR TODOS os cards de clientes desta arena (${cards.length} card(s) encontrado(s)).\n\n` +
-      `Esta ação é IRREVERSÍVEL e irá remover:\n` +
-      `- Todos os cards\n` +
-      `- Todos os itens dos cards\n` +
-      `- Todos os pagamentos dos cards\n\n` +
-      `Deseja continuar?`
-    );
-
-    if (!confirmacao) return;
-
-    try {
-      setLimpandoCards(true);
-      const resultado = await cardClienteService.limparTodos(usuario.pointIdGestor);
-      alert(`${resultado.mensagem}\n\nTotal de cards deletados: ${resultado.totalCards}`);
-      carregarCards();
-    } catch (error: any) {
-      console.error('Erro ao limpar cards:', error);
-      const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao limpar cards';
-      alert(`Erro ao limpar cards: ${mensagemErro}`);
-    } finally {
-      setLimpandoCards(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -310,29 +279,6 @@ export default function CardsClientesPage() {
             <Zap className="w-5 h-5" />
             Nova Venda
           </button>
-          {(usuario?.role === 'ADMIN' || usuario?.role === 'ORGANIZER') && (
-            <button
-              onClick={limparTodosCards}
-              disabled={limpandoCards || !usuario?.pointIdGestor}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Limpar todos os cards desta arena (apenas desenvolvimento)"
-            >
-              {limpandoCards ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Limpando...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="w-5 h-5" />
-                  Limpar Todos
-                </>
-              )}
-            </button>
-          )}
         </div>
       </div>
 

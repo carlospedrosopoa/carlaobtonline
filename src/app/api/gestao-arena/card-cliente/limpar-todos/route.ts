@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
-import { withCors, handleCorsPreflight } from '@/lib/cors';
 
 // POST /api/gestao-arena/card-cliente/limpar-todos - Limpar todos os cards de uma arena
 export async function POST(request: NextRequest) {
@@ -101,18 +100,16 @@ export async function POST(request: NextRequest) {
       [pointId]
     );
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       mensagem: `${totalCards} card(s) deletado(s) com sucesso`,
       totalCards,
     });
-    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao limpar cards:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao limpar cards', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 

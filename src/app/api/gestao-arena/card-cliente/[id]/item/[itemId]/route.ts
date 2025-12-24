@@ -2,14 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
-import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { AtualizarItemCardPayload } from '@/types/gestaoArena';
-
-// Suportar requisições OPTIONS (preflight)
-export async function OPTIONS(request: NextRequest) {
-  const preflightResponse = handleCorsPreflight(request);
-  return preflightResponse || new NextResponse(null, { status: 204 });
-}
 
 // PUT /api/gestao-arena/card-cliente/[id]/item/[itemId] - Atualizar item do card
 export async function PUT(
@@ -177,15 +170,13 @@ export async function PUT(
       [novoValorTotal, cardId]
     );
 
-    const response = NextResponse.json(result.rows[0]);
-    return withCors(response, request);
+    return NextResponse.json(result.rows[0]);
   } catch (error: any) {
     console.error('Erro ao atualizar item do card:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao atualizar item do card', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 
@@ -282,15 +273,13 @@ export async function DELETE(
       [novoValorTotal, cardId]
     );
 
-    const response = NextResponse.json({ mensagem: 'Item removido com sucesso' });
-    return withCors(response, request);
+    return NextResponse.json({ mensagem: 'Item removido com sucesso' });
   } catch (error: any) {
     console.error('Erro ao remover item do card:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao remover item do card', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 

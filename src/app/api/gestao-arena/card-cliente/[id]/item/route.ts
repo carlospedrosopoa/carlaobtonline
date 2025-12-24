@@ -2,14 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
-import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarItemCardPayload, AtualizarItemCardPayload } from '@/types/gestaoArena';
-
-// Suportar requisições OPTIONS (preflight)
-export async function OPTIONS(request: NextRequest) {
-  const preflightResponse = handleCorsPreflight(request);
-  return preflightResponse || new NextResponse(null, { status: 204 });
-}
 
 // GET /api/gestao-arena/card-cliente/[id]/item - Listar itens do card
 export async function GET(
@@ -19,11 +12,10 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
-      return withCors(errorResponse, request);
     }
 
     const { id: cardId } = await params;
@@ -35,22 +27,20 @@ export async function GET(
     );
 
     if (cardResult.rows.length === 0) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Card não encontrado' },
         { status: 404 }
       );
-      return withCors(errorResponse, request);
     }
 
     const card = cardResult.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        const errorResponse = NextResponse.json(
+        return NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
-        return withCors(errorResponse, request);
       }
     }
 
@@ -85,15 +75,13 @@ export async function GET(
       } : null,
     }));
 
-    const response = NextResponse.json(itens);
-    return withCors(response, request);
+    return NextResponse.json(itens);
   } catch (error: any) {
     console.error('Erro ao listar itens do card:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao listar itens do card', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 
@@ -105,19 +93,17 @@ export async function POST(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
-      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Você não tem permissão para adicionar itens ao card' },
         { status: 403 }
       );
-      return withCors(errorResponse, request);
     }
 
     const { id: cardId } = await params;
@@ -125,11 +111,10 @@ export async function POST(
     const { produtoId, quantidade, precoUnitario, observacoes } = body;
 
     if (!produtoId || !quantidade || quantidade <= 0) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'ProdutoId e quantidade são obrigatórios' },
         { status: 400 }
       );
-      return withCors(errorResponse, request);
     }
 
     // Verificar se o card existe e se está aberto
@@ -139,30 +124,27 @@ export async function POST(
     );
 
     if (cardResult.rows.length === 0) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Card não encontrado' },
         { status: 404 }
       );
-      return withCors(errorResponse, request);
     }
 
     const card = cardResult.rows[0];
 
     if (card.status !== 'ABERTO') {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Não é possível adicionar itens a um card fechado ou cancelado' },
         { status: 400 }
       );
-      return withCors(errorResponse, request);
     }
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        const errorResponse = NextResponse.json(
+        return NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
-        return withCors(errorResponse, request);
       }
     }
 
@@ -173,19 +155,17 @@ export async function POST(
     );
 
     if (produtoResult.rows.length === 0) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Produto não encontrado' },
         { status: 404 }
       );
-      return withCors(errorResponse, request);
     }
 
     if (!produtoResult.rows[0].ativo) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { mensagem: 'Produto não está ativo' },
         { status: 400 }
       );
-      return withCors(errorResponse, request);
     }
 
     // Usar preço informado ou preço do produto
@@ -226,15 +206,13 @@ export async function POST(
       [novoValorTotal, cardId]
     );
 
-    const response = NextResponse.json(itemResult.rows[0], { status: 201 });
-    return withCors(response, request);
+    return NextResponse.json(itemResult.rows[0], { status: 201 });
   } catch (error: any) {
     console.error('Erro ao adicionar item ao card:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { mensagem: 'Erro ao adicionar item ao card', error: error.message },
       { status: 500 }
     );
-    return withCors(errorResponse, request);
   }
 }
 
