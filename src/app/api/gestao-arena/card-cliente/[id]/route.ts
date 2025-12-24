@@ -544,7 +544,7 @@ export async function DELETE(
 
     const card = existe.rows[0];
 
-    if (usuario.role === 'ORGANIZER' || usuario.role === 'PROFESSOR') {
+    if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
         const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
