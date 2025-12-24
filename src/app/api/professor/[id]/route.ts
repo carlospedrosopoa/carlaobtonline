@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { buscarProfessorPorId, atualizarProfessor } from '@/lib/professorService';
+import { buscarProfessorPorId, buscarProfessorPorUserId, atualizarProfessor } from '@/lib/professorService';
 
 // GET /api/professor/[id] - Buscar professor por ID
 export async function GET(
@@ -19,7 +19,13 @@ export async function GET(
     const { user } = authResult;
     const { id } = await params;
 
-    const professor = await buscarProfessorPorId(id);
+    // Tentar buscar por professorId primeiro
+    let professor = await buscarProfessorPorId(id);
+
+    // Se não encontrou, tentar buscar por userId (para compatibilidade)
+    if (!professor) {
+      professor = await buscarProfessorPorUserId(id);
+    }
 
     if (!professor) {
       const errorResponse = NextResponse.json(
@@ -66,8 +72,13 @@ export async function PUT(
     const { user } = authResult;
     const { id } = await params;
 
-    // Verificar se o professor existe e se o usuário tem permissão
-    const professorExistente = await buscarProfessorPorId(id);
+    // Tentar buscar por professorId primeiro
+    let professorExistente = await buscarProfessorPorId(id);
+
+    // Se não encontrou, tentar buscar por userId (para compatibilidade)
+    if (!professorExistente) {
+      professorExistente = await buscarProfessorPorUserId(id);
+    }
 
     if (!professorExistente) {
       const errorResponse = NextResponse.json(
@@ -76,6 +87,9 @@ export async function PUT(
       );
       return withCors(errorResponse, request);
     }
+
+    // Usar o professorId real para atualização
+    const professorId = professorExistente.id;
 
     // Verificar permissões: ADMIN pode atualizar qualquer professor
     // PROFESSOR só pode atualizar seu próprio perfil
@@ -112,7 +126,7 @@ export async function PUT(
       dadosAtualizacao.ativo = ativo;
     }
 
-    const professorAtualizado = await atualizarProfessor(id, dadosAtualizacao);
+    const professorAtualizado = await atualizarProfessor(professorId, dadosAtualizacao);
 
     const response = NextResponse.json(professorAtualizado, { status: 200 });
     return withCors(response, request);
