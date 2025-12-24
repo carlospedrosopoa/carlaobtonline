@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       id: 'test-id',
       data: new Date(),
       local: 'Quadra Central - Arena Teste',
+      pointId: null, // Sem pointId para o teste
       gamesTime1: 6,
       gamesTime2: 4,
       tiebreakTime1: null,
