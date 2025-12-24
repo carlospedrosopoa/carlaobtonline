@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
       p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId"
     FROM "Agendamento" a
     LEFT JOIN "Quadra" q ON a."quadraId" = q.id
     LEFT JOIN "Point" p ON q."pointId" = p.id
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
       p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId"
     FROM "Agendamento" a
     LEFT JOIN "Quadra" q ON a."quadraId" = q.id
     LEFT JOIN "Point" p ON q."pointId" = p.id
