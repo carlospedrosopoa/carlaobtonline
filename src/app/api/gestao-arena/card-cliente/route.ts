@@ -2,17 +2,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarCardClientePayload, AtualizarCardClientePayload, StatusCard } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/card-cliente - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+  return new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/card-cliente - Listar cards de clientes
 export async function GET(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { searchParams } = new URL(request.url);
@@ -46,10 +57,11 @@ export async function GET(request: NextRequest) {
       params.push(pointId);
       paramCount++;
     } else if (usuario.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para listar cards de clientes' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (status) {
@@ -248,13 +260,15 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    return NextResponse.json(cards);
+    const response = NextResponse.json(cards);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar cards de clientes:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar cards de clientes', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -263,45 +277,50 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem criar cards
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para criar cards de clientes' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body: CriarCardClientePayload = await request.json();
     const { pointId, observacoes, usuarioId, nomeAvulso, telefoneAvulso } = body;
 
     if (!pointId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'PointId é obrigatório' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Se não há usuário vinculado, nome avulso é obrigatório (telefone é opcional)
     if (!usuarioId && !nomeAvulso) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'É necessário vincular um cliente ou informar o nome do cliente avulso' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta arena' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -322,13 +341,15 @@ export async function POST(request: NextRequest) {
       [pointId, numeroCard, observacoes || null, usuarioId || null, nomeAvulso || null, telefoneAvulso || null, usuario.id]
     );
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const response = NextResponse.json(result.rows[0], { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar card de cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar card de cliente', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
