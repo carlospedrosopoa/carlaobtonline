@@ -8,7 +8,7 @@ import { buscarProfessorPorUserId } from '@/lib/professorService';
 // POST /api/professor/aula/[id]/presenca - Marcar presença de alunos
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = await requireAuth(request);
@@ -18,7 +18,7 @@ export async function POST(
     }
 
     const { user } = authResult;
-    const { id: aulaId } = params;
+    const { id: aulaId } = await params;
 
     // Verificar se a aula existe e se o usuário tem permissão
     const aula = await buscarAulaPorId(aulaId);

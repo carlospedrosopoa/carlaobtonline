@@ -8,7 +8,7 @@ import { buscarProfessorPorUserId } from '@/lib/professorService';
 // GET /api/professor/aula/[id] - Buscar aula por ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = await requireAuth(request);
@@ -18,7 +18,7 @@ export async function GET(
     }
 
     const { user } = authResult;
-    const { id } = params;
+    const { id } = await params;
 
     const aula = await buscarAulaPorId(id);
 
@@ -58,7 +58,7 @@ export async function GET(
 // PUT /api/professor/aula/[id] - Atualizar aula
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = await requireAuth(request);
@@ -68,7 +68,7 @@ export async function PUT(
     }
 
     const { user } = authResult;
-    const { id } = params;
+    const { id } = await params;
 
     // Verificar se a aula existe e se o usuário tem permissão
     const aulaExistente = await buscarAulaPorId(id);
