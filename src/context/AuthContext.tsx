@@ -10,7 +10,7 @@ type JwtPayload = {
   name?: string;
   nome?: string;
   email?: string;
-  role?: 'ADMIN' | 'USER' | 'ORGANIZER' | string;
+  role?: 'ADMIN' | 'USER' | 'ORGANIZER' | 'PROFESSOR' | string;
   atletaId?: string | null;
   pointIdGestor?: string | null;
   iat?: number;
@@ -25,6 +25,7 @@ type AuthContextType = {
   isAdmin: boolean;
   isOrganizer: boolean;
   isUser: boolean;
+  isProfessor: boolean;
   pointIdGestor: string | null;
   atletaId: string | null;
   setUsuario: (usuario: JwtPayload | null) => void;
@@ -45,6 +46,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isOrganizer: false,
   isUser: false,
+  isProfessor: false,
   pointIdGestor: null,
   atletaId: null,
   logout: () => {},
@@ -185,7 +187,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAdmin = usuario?.role === 'ADMIN';
   const isOrganizer = usuario?.role === 'ORGANIZER';
-  const isUser = usuario?.role === 'USER' || (!isAdmin && !isOrganizer);
+  const isProfessor = usuario?.role === 'PROFESSOR';
+  const isUser = usuario?.role === 'USER' || (!isAdmin && !isOrganizer && !isProfessor);
   const pointIdGestor = usuario?.pointIdGestor ?? null;
   const atletaId = usuario?.atletaId ?? null;
 
@@ -198,6 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isAdmin,
       isOrganizer,
       isUser,
+      isProfessor,
       pointIdGestor,
       atletaId,
       setUsuario,
@@ -205,7 +209,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       login,
       authReady,
     }),
-    [usuario, token, basicCreds, isAdmin, isOrganizer, isUser, pointIdGestor, atletaId, authReady]
+    [usuario, token, basicCreds, isAdmin, isOrganizer, isUser, isProfessor, pointIdGestor, atletaId, authReady]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

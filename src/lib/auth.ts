@@ -158,7 +158,7 @@ export function usuarioTemAcessoAoPoint(usuario: User, pointId: string): boolean
     return usuario.pointIdGestor === pointId; // ORGANIZER apenas ao seu point
   }
   
-  return false; // USER não tem acesso a gestão de points
+  return false; // USER e PROFESSOR não têm acesso a gestão de points
 }
 
 // Verifica se o usuário tem acesso a uma quadra (via pointId da quadra)
@@ -176,6 +176,11 @@ export async function usuarioTemAcessoAQuadra(usuario: User, quadraId: string): 
     return quadraResult.rows[0].pointId === usuario.pointIdGestor;
   }
   
-  return false; // USER não tem acesso a gestão de quadras
+  return false; // USER e PROFESSOR não têm acesso a gestão de quadras
+}
+
+// Helper para verificar se o usuário pode gerenciar (apenas ADMIN e ORGANIZER)
+export function podeGerenciar(usuario: User): boolean {
+  return usuario.role === 'ADMIN' || usuario.role === 'ORGANIZER';
 }
 
