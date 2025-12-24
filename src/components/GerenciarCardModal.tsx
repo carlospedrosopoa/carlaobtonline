@@ -74,6 +74,12 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   const [validandoSenha, setValidandoSenha] = useState(false);
   const [erroSenha, setErroSenha] = useState('');
 
+  // Estados para modal de exclusão
+  const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
+  const [senhaExclusao, setSenhaExclusao] = useState('');
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState('');
+
 
   useEffect(() => {
     if (isOpen && card) {
@@ -467,7 +473,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     if (!cardCompleto) return;
 
     // Confirmação rigorosa para evitar cliques acidentais
-    const confirmacao1 = confirm('⚠️ ATENÇÃO: Você está prestes a CANCELAR este card.\n\nEsta ação é IRREVERSÍVEL e todos os dados serão perdidos.\n\nDeseja realmente continuar?');
+    const confirmacao1 = confirm('⚠️ ATENÇÃO: Você está prestes a CANCELAR este card.\n\nEsta ação não pode ser desfeita e todos os dados serão perdidos.\n\nDeseja realmente continuar?');
     if (!confirmacao1) return;
 
     const confirmacao2 = confirm('⚠️ ÚLTIMA CONFIRMAÇÃO:\n\nTem CERTEZA ABSOLUTA que deseja CANCELAR este card?\n\nEsta ação não pode ser desfeita.');
@@ -481,6 +487,52 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       onSuccess(cardAtualizado);
     } catch (error: any) {
       alert(error?.response?.data?.mensagem || 'Erro ao cancelar card');
+    }
+  };
+
+  const abrirModalExcluir = () => {
+    setSenhaExclusao('');
+    setErroExclusao('');
+    setModalExcluirAberto(true);
+  };
+
+  const fecharModalExcluir = () => {
+    setModalExcluirAberto(false);
+    setSenhaExclusao('');
+    setErroExclusao('');
+  };
+
+  const excluirCard = async () => {
+    if (!cardCompleto) return;
+
+    if (!senhaExclusao.trim()) {
+      setErroExclusao('Por favor, informe sua senha para excluir o card');
+      return;
+    }
+
+    const confirmacao = confirm(
+      '⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL.\n\n' +
+      'Tem certeza que deseja excluir este card?\n\n' +
+      'Esta ação não pode ser desfeita.'
+    );
+
+    if (!confirmacao) {
+      setSenhaExclusao('');
+      setModalExcluirAberto(false);
+      return;
+    }
+
+    try {
+      setExcluindo(true);
+      setErroExclusao('');
+      await cardClienteService.deletar(cardCompleto.id, senhaExclusao);
+      alert('Card excluído com sucesso');
+      onClose();
+      onSuccess(); // Recarregar lista
+    } catch (error: any) {
+      setErroExclusao(error?.response?.data?.mensagem || 'Erro ao excluir card');
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -908,16 +960,22 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           </button>
                         </div>
                       )}
-                      <div className="border-t border-gray-200 pt-3">
+                      <div className="border-t border-gray-200 pt-3 space-y-2">
                         <button
                           onClick={cancelarCard}
                           className="w-full px-4 py-2 bg-gray-100 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                         >
-                          ⚠️ Cancelar Card (Irreversível)
+                          ⚠️ Cancelar Card
                         </button>
-                        <p className="text-xs text-gray-500 mt-1 text-center">
+                        <p className="text-xs text-gray-500 text-center">
                           Esta ação não pode ser desfeita
                         </p>
+                        <button
+                          onClick={abrirModalExcluir}
+                          className="w-full px-4 py-2 bg-red-100 text-red-600 border border-red-300 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                        >
+                          🗑️ Excluir Card
+                        </button>
                       </div>
                     </>
                   ) : (
@@ -1270,6 +1328,63 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
                     {validandoSenha ? 'Validando...' : 'Confirmar e Reabrir'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Excluir Card */}
+        {modalExcluirAberto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Excluir Card</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Para excluir este card, por favor, informe sua senha:
+              </p>
+              {erroExclusao && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {erroExclusao}
+                </div>
+              )}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
+                  <input
+                    type="password"
+                    value={senhaExclusao}
+                    onChange={(e) => {
+                      setSenhaExclusao(e.target.value);
+                      setErroExclusao('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !excluindo && senhaExclusao.trim()) {
+                        excluirCard();
+                      }
+                    }}
+                    placeholder="Digite sua senha"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                    autoFocus
+                    disabled={excluindo}
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={fecharModalExcluir}
+                    disabled={excluindo}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={excluirCard}
+                    disabled={excluindo || !senhaExclusao.trim()}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {excluindo ? 'Excluindo...' : 'Confirmar e Excluir'}
                   </button>
                 </div>
               </div>
