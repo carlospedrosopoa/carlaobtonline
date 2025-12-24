@@ -2,7 +2,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { AtualizarItemCardPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/card-cliente/[id]/item/[itemId] - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+  return new NextResponse(null, { status: 204 });
+}
 
 // PUT /api/gestao-arena/card-cliente/[id]/item/[itemId] - Atualizar item do card
 export async function PUT(
@@ -12,17 +22,19 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para atualizar itens do card' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id: cardId, itemId } = await params;
@@ -35,27 +47,30 @@ export async function PUT(
     );
 
     if (cardResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const card = cardResult.rows[0];
 
     if (card.status !== 'ABERTO') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível atualizar itens de um card fechado ou cancelado' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -66,10 +81,11 @@ export async function PUT(
     );
 
     if (itemResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Item não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const itemAtual = itemResult.rows[0];
@@ -102,10 +118,11 @@ export async function PUT(
 
     if (body.quantidade !== undefined) {
       if (body.quantidade <= 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Quantidade deve ser maior que zero' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
       updates.push(`quantidade = $${paramCount}`);
       values.push(body.quantidade);
@@ -113,10 +130,11 @@ export async function PUT(
     }
     if (body.precoUnitario !== undefined) {
       if (body.precoUnitario <= 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Preço unitário deve ser maior que zero' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
       updates.push(`"precoUnitario" = $${paramCount}`);
       values.push(body.precoUnitario);
@@ -129,10 +147,11 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -170,13 +189,15 @@ export async function PUT(
       [novoValorTotal, cardId]
     );
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar item do card:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar item do card', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -188,17 +209,19 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para remover itens do card' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id: cardId, itemId } = await params;
@@ -210,27 +233,30 @@ export async function DELETE(
     );
 
     if (cardResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const card = cardResult.rows[0];
 
     if (card.status !== 'ABERTO') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível remover itens de um card fechado ou cancelado' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -241,10 +267,11 @@ export async function DELETE(
     );
 
     if (itemResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Item não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     await query('DELETE FROM "ItemCard" WHERE id = $1', [itemId]);
@@ -273,13 +300,15 @@ export async function DELETE(
       [novoValorTotal, cardId]
     );
 
-    return NextResponse.json({ mensagem: 'Item removido com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Item removido com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao remover item do card:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao remover item do card', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

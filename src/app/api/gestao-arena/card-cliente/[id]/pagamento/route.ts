@@ -2,7 +2,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarPagamentoCardPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/card-cliente/[id]/pagamento - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+  return new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/card-cliente/[id]/pagamento - Listar pagamentos do card
 export async function GET(
@@ -12,10 +22,11 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id: cardId } = await params;
@@ -27,20 +38,22 @@ export async function GET(
     );
 
     if (cardResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const card = cardResult.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -108,13 +121,15 @@ export async function GET(
       })
     );
 
-    return NextResponse.json(pagamentos);
+    const response = NextResponse.json(pagamentos);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar pagamentos do card:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar pagamentos do card', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -133,10 +148,11 @@ export async function POST(
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para adicionar pagamentos ao card' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id: cardId } = await params;
@@ -144,10 +160,11 @@ export async function POST(
     const { formaPagamentoId, valor, observacoes, itemIds } = body;
 
     if (!formaPagamentoId || !valor || valor <= 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'FormaPagamentoId e valor são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se o card existe
@@ -157,27 +174,30 @@ export async function POST(
     );
 
     if (cardResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const card = cardResult.rows[0];
 
     if (card.status === 'CANCELADO') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível adicionar pagamentos a um card cancelado' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -188,17 +208,19 @@ export async function POST(
     );
 
     if (formaPagamentoResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Forma de pagamento não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (!formaPagamentoResult.rows[0].ativo) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Forma de pagamento não está ativa' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se há uma abertura de caixa aberta
@@ -208,10 +230,11 @@ export async function POST(
     );
 
     if (aberturaAbertaResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Calcular total já pago
@@ -235,10 +258,11 @@ export async function POST(
       );
 
       if (itensResult.rows.length !== itemIds.length) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Um ou mais itens não pertencem a este card' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       // Calcular valor total dos itens selecionados
@@ -246,10 +270,11 @@ export async function POST(
 
       // Verificar se o valor do pagamento corresponde ao valor dos itens (ou é menor, permitindo pagamento parcial)
       if (valor > valorItens) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: `O valor do pagamento (R$ ${valor.toFixed(2)}) não pode ser maior que o valor dos itens selecionados (R$ ${valorItens.toFixed(2)})` },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       // Verificar se os itens já não estão totalmente pagos
@@ -265,10 +290,11 @@ export async function POST(
         const valorItem = parseFloat(item.precoTotal);
 
         if (totalPagoItem >= valorItem) {
-          return NextResponse.json(
+          const errorResponse = NextResponse.json(
             { mensagem: `O item já está totalmente pago` },
             { status: 400 }
           );
+          return withCors(errorResponse, request);
         }
       }
     }
@@ -309,13 +335,15 @@ export async function POST(
     // Não fechar automaticamente - o card será fechado manualmente quando necessário
     // O sistema mantém o saldo (valorTotal - totalPago) para controle
 
-    return NextResponse.json(pagamentoResult.rows[0], { status: 201 });
+    const response = NextResponse.json(pagamentoResult.rows[0], { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao adicionar pagamento ao card:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao adicionar pagamento ao card', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

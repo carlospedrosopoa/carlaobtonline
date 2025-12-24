@@ -2,6 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
+
+// OPTIONS /api/gestao-arena/card-cliente/[id]/pagamento/[pagamentoId] - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+  return new NextResponse(null, { status: 204 });
+}
 
 // DELETE /api/gestao-arena/card-cliente/[id]/pagamento/[pagamentoId] - Remover pagamento do card
 export async function DELETE(
@@ -11,17 +21,19 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para remover pagamentos do card' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id: cardId, pagamentoId } = await params;
@@ -33,27 +45,30 @@ export async function DELETE(
     );
 
     if (cardResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const card = cardResult.rows[0];
 
     if (card.status === 'CANCELADO') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível remover pagamentos de um card cancelado' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -67,10 +82,11 @@ export async function DELETE(
     );
 
     if (pagamentoResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Pagamento não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const pagamento = pagamentoResult.rows[0];
@@ -123,13 +139,15 @@ export async function DELETE(
       }
     }
 
-    return NextResponse.json({ mensagem: 'Pagamento removido com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Pagamento removido com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao remover pagamento do card:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao remover pagamento do card', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
