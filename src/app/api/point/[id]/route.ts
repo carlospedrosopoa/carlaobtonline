@@ -12,7 +12,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
+    // Tentar primeiro com todos os campos (WhatsApp, Gzappy, cardTemplateUrl)
     let result;
     try {
       result = await query(
@@ -28,21 +28,40 @@ export async function GET(
         [id]
       );
     } catch (error: any) {
-      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
-      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, usando query sem eles');
-        result = await query(
-          `SELECT 
-            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-            assinante, "createdAt", "updatedAt"
-          FROM "Point"
-          WHERE id = $1`,
-          [id]
-        );
-        // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
+      // Se falhar (colunas não existem), tentar sem elas
+      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('cardTemplateUrl') || error.message?.includes('column') || error.code === '42703') {
+        console.log('⚠️ Alguns campos não encontrados, usando query básica');
+        try {
+          // Tentar com cardTemplateUrl
+          result = await query(
+            `SELECT 
+              id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+              assinante, "createdAt", "updatedAt"
+            FROM "Point"
+            WHERE id = $1`,
+            [id]
+          );
+        } catch (error2: any) {
+          // Se ainda falhar, tentar sem cardTemplateUrl
+          if (error2.message?.includes('cardTemplateUrl') || error2.code === '42703') {
+            console.log('⚠️ Campo cardTemplateUrl não encontrado, usando query sem ele');
+            result = await query(
+              `SELECT 
+                id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+                assinante, "createdAt", "updatedAt"
+              FROM "Point"
+              WHERE id = $1`,
+              [id]
+            );
+          } else {
+            throw error2;
+          }
+        }
+        // Adicionar campos faltantes como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
+            cardTemplateUrl: result.rows[0].cardTemplateUrl ?? null,
             whatsappAccessToken: null,
             whatsappPhoneNumberId: null,
             whatsappBusinessAccountId: null,

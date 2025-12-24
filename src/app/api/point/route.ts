@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const apenasAtivos = searchParams.get('apenasAtivos') === 'true';
     
-    // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
+    // Tentar primeiro com todos os campos (WhatsApp, Gzappy, cardTemplateUrl)
     let result;
     try {
       const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
@@ -36,21 +36,41 @@ export async function GET(request: NextRequest) {
         ORDER BY nome ASC`
       );
     } catch (error: any) {
-      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
-      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, usando query sem eles');
-        const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
-        result = await query(
-          `SELECT 
-            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-            assinante, "createdAt", "updatedAt"
-          FROM "Point"
-          ${whereClause}
-          ORDER BY nome ASC`
-        );
-        // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
+      // Se falhar (colunas não existem), tentar sem elas
+      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('cardTemplateUrl') || error.message?.includes('column') || error.code === '42703') {
+        console.log('⚠️ Alguns campos não encontrados, usando query básica');
+        try {
+          const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
+          // Tentar com cardTemplateUrl
+          result = await query(
+            `SELECT 
+              id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+              assinante, "createdAt", "updatedAt"
+            FROM "Point"
+            ${whereClause}
+            ORDER BY nome ASC`
+          );
+        } catch (error2: any) {
+          // Se ainda falhar, tentar sem cardTemplateUrl
+          if (error2.message?.includes('cardTemplateUrl') || error2.code === '42703') {
+            console.log('⚠️ Campo cardTemplateUrl não encontrado, usando query sem ele');
+            const whereClause = apenasAtivos ? 'WHERE ativo = true' : '';
+            result = await query(
+              `SELECT 
+                id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+                assinante, "createdAt", "updatedAt"
+              FROM "Point"
+              ${whereClause}
+              ORDER BY nome ASC`
+            );
+          } else {
+            throw error2;
+          }
+        }
+        // Adicionar campos faltantes como null para compatibilidade
         result.rows = result.rows.map((row: any) => ({
           ...row,
+          cardTemplateUrl: row.cardTemplateUrl ?? null,
           whatsappAccessToken: null,
           whatsappPhoneNumberId: null,
           whatsappBusinessAccountId: null,
