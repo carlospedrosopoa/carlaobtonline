@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { buscarProfessorPorId, buscarProfessorPorUserId, atualizarProfessor } from '@/lib/professorService';
+import { buscarProfessorPorId, buscarProfessorPorUserId, atualizarProfessor, deletarProfessor } from '@/lib/professorService';
 
 // GET /api/professor/[id] - Buscar professor por ID
 export async function GET(
@@ -134,6 +134,67 @@ export async function PUT(
     console.error('Erro ao atualizar professor:', error);
     const errorResponse = NextResponse.json(
       { mensagem: error.message || 'Erro ao atualizar professor' },
+      { status: 500 }
+    );
+    return withCors(errorResponse, request);
+  }
+}
+
+// DELETE /api/professor/[id] - Deletar professor (apenas ADMIN)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authResult = await requireAuth(request);
+    
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    const { user } = authResult;
+
+    // Apenas ADMIN pode deletar professores
+    if (user.role !== 'ADMIN') {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Acesso negado. Apenas administradores podem deletar professores.' },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const { id } = await params;
+
+    // Tentar buscar por professorId primeiro
+    let professorExistente = await buscarProfessorPorId(id);
+
+    // Se não encontrou, tentar buscar por userId (para compatibilidade)
+    if (!professorExistente) {
+      professorExistente = await buscarProfessorPorUserId(id);
+    }
+
+    if (!professorExistente) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Professor não encontrado' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Usar o professorId real para deletar
+    const professorId = professorExistente.id;
+
+    await deletarProfessor(professorId);
+
+    const response = NextResponse.json(
+      { mensagem: 'Professor deletado com sucesso' },
+      { status: 200 }
+    );
+    return withCors(response, request);
+  } catch (error: any) {
+    console.error('Erro ao deletar professor:', error);
+    const errorResponse = NextResponse.json(
+      { mensagem: error.message || 'Erro ao deletar professor' },
       { status: 500 }
     );
     return withCors(errorResponse, request);

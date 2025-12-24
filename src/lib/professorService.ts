@@ -230,6 +230,22 @@ export async function atualizarProfessor(professorId: string, dados: AtualizarPr
 }
 
 /**
+ * Deletar professor
+ */
+export async function deletarProfessor(professorId: string) {
+  // Verificar se o professor existe
+  const professor = await buscarProfessorPorId(professorId);
+  if (!professor) {
+    throw new Error('Professor não encontrado');
+  }
+
+  // Deletar o registro
+  await query('DELETE FROM "Professor" WHERE id = $1', [professorId]);
+
+  return { mensagem: 'Professor deletado com sucesso' };
+}
+
+/**
  * Listar professores (com filtros opcionais)
  */
 export async function listarProfessores(filtros?: {

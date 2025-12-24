@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Verificar se o usuário tem role PROFESSOR ou ADMIN
     if (user.role !== 'PROFESSOR' && user.role !== 'ADMIN') {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Apenas usuários com role PROFESSOR podem criar perfil de professor.' },
+        { mensagem: 'Apenas usuários com role PROFESSOR ou ADMIN podem criar perfil de professor.' },
         { status: 403 }
       );
       return withCors(errorResponse, request);

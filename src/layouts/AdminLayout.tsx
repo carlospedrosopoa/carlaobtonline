@@ -18,6 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { to: '/app/admin/agendamentos', label: 'Agenda' },
     { to: '/app/admin/usuarios', label: 'Usuários' },
     { to: '/app/admin/organizers', label: 'Gestores de Arena' },
+    { to: '/app/admin/professores', label: 'Professores' },
     { to: '/app/admin/atletas', label: 'Atletas' },
   ];
 
