@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool, query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarVendaRapidaPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/venda-rapida - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // POST /api/gestao-arena/venda-rapida - Criar card + itens + pagamento em uma única transação
 export async function POST(request: NextRequest) {
@@ -17,10 +24,11 @@ export async function POST(request: NextRequest) {
         client.release();
         clientLiberado = true;
       }
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem criar vendas
@@ -29,10 +37,11 @@ export async function POST(request: NextRequest) {
         client.release();
         clientLiberado = true;
       }
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para criar vendas' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body: CriarVendaRapidaPayload = await request.json();
@@ -44,10 +53,11 @@ export async function POST(request: NextRequest) {
         client.release();
         clientLiberado = true;
       }
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'PointId é obrigatório' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Se não há usuário vinculado, nome avulso é obrigatório (telefone é opcional)
@@ -56,28 +66,31 @@ export async function POST(request: NextRequest) {
         client.release();
         clientLiberado = true;
       }
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'É necessário vincular um cliente ou informar o nome do cliente avulso' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (!itens || itens.length === 0) {
       if (client) client.release();
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'É necessário adicionar pelo menos um item' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, pointId)) {
         if (client) client.release();
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta arena' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -157,10 +170,11 @@ export async function POST(request: NextRequest) {
         if (aberturaAbertaResult.rows.length === 0) {
           await client.query('ROLLBACK');
           if (client) client.release();
-          return NextResponse.json(
+          const errorResponse = NextResponse.json(
             { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
             { status: 400 }
           );
+          return withCors(errorResponse, request);
         }
 
         // Validar valor do pagamento
@@ -263,7 +277,8 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('Retornando card completo:', cardCompleto.id);
-      return NextResponse.json(cardCompleto, { status: 201 });
+      const response = NextResponse.json(cardCompleto, { status: 201 });
+      return withCors(response, request);
     } catch (error: any) {
       console.error('Erro na transação, fazendo rollback...', error);
       console.error('Detalhes do erro:', {
@@ -291,10 +306,11 @@ export async function POST(request: NextRequest) {
     console.error('Erro ao criar venda rápida:', error);
     console.error('Stack trace:', error.stack);
     const mensagem = error.message || 'Erro ao criar venda rápida';
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem, error: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined },
       { status: error.status || 500 }
     );
+    return withCors(errorResponse, request);
   } finally {
     // Não liberar aqui - o client já foi liberado no finally interno
     // Isso evita tentar liberar duas vezes
