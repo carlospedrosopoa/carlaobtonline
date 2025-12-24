@@ -14,10 +14,11 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -65,10 +66,11 @@ export async function GET(
     }
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card de cliente não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const row = result.rows[0];
@@ -102,10 +104,11 @@ export async function GET(
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, card.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -275,13 +278,15 @@ export async function GET(
     card.totalPago = totalPago;
     card.saldo = card.valorTotal - totalPago;
 
-    return NextResponse.json(card);
+    const response = NextResponse.json(card);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter card de cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter card de cliente', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -293,17 +298,19 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para atualizar cards de clientes' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -316,10 +323,11 @@ export async function PUT(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Card de cliente não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const cardAtual = existe.rows[0];
@@ -327,10 +335,11 @@ export async function PUT(
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, cardAtual.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este card' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -353,10 +362,11 @@ export async function PUT(
       const saldoPendente = valorTotal - totalPago;
 
       if (totalPago < valorTotal) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: `Não é possível fechar o card com saldo pendente. Valor total: R$ ${valorTotal.toFixed(2)}, já pago: R$ ${totalPago.toFixed(2)}, saldo pendente: R$ ${saldoPendente.toFixed(2)}. O card pode permanecer aberto para receber pagamentos parciais.` },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -415,18 +425,20 @@ export async function PUT(
       const novoNomeAvulso = body.nomeAvulso !== undefined ? body.nomeAvulso : cardAtual.nomeAvulso;
       
       if (!novoUsuarioId && !novoNomeAvulso) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'É necessário vincular um cliente ou informar o nome do cliente avulso' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -435,18 +447,20 @@ export async function PUT(
     const result = await query(
       `UPDATE "CardCliente" 
        SET ${updates.join(', ')} 
-       WHERE id = $${paramCount} 
-       RETURNING *`,
+      WHERE id = $${paramCount} 
+      RETURNING *`,
       values
     );
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar card de cliente:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar card de cliente', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
