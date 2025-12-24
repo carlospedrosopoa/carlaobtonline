@@ -268,6 +268,7 @@ export async function GET(request: NextRequest) {
         id: row.atleta_id,
         nome: row.atleta_nome,
         fone: row.atleta_fone,
+        usuarioId: row.atleta_usuarioId || null,
       } : null,
       // Inicializar atletasParticipantes como array vazio (será preenchido depois)
       atletasParticipantes: [],
