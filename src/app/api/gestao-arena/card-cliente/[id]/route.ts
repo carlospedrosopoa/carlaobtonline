@@ -494,7 +494,16 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const body = await request.json().catch(() => ({}));
+    
+    // Fazer parse do body
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch (error: any) {
+      // Se não conseguir fazer parse (body vazio ou inválido), body permanece como objeto vazio
+      console.error('Erro ao fazer parse do body DELETE:', error?.message);
+    }
+    
     const { senha } = body;
 
     // Validar senha
@@ -606,8 +615,9 @@ export async function DELETE(
     return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar card de cliente:', error);
+    console.error('Stack trace:', error.stack);
     const errorResponse = NextResponse.json(
-      { mensagem: 'Erro ao deletar card de cliente', error: error.message },
+      { mensagem: 'Erro ao deletar card de cliente', error: error.message, details: process.env.NODE_ENV === 'development' ? error.stack : undefined },
       { status: 500 }
     );
     return withCors(errorResponse, request);
