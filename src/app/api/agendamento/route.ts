@@ -775,7 +775,8 @@ export async function POST(request: NextRequest) {
       );
     } catch (error: any) {
       // Se os campos não existem, buscar sem eles
-      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
+      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') ||
+          error.message?.includes('professorId') || error.message?.includes('ehAula')) {
         agendamentoCompleto = await query(
           `SELECT 
             a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
