@@ -402,7 +402,7 @@ export async function listarProfessores(filtros?: {
   }
 
   const result = await query(
-    `SELECT DISTINCT p.*, 
+    `SELECT p.*, 
             u.id as "usuario_id",
             u.name as "usuario_name",
             u.email as "usuario_email",
