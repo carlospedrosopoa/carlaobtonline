@@ -626,6 +626,31 @@ export async function POST(request: NextRequest) {
 
       // Tentar inserir com campos de recorrência e aula (se existirem)
       try {
+        // Valores que serão inseridos
+        const valoresInsercao = {
+          quadraId,
+          usuarioIdFinal,
+          atletaIdFinal: atletaIdFinal || null,
+          nomeAvulsoFinal: nomeAvulsoFinal || null,
+          telefoneAvulsoFinal: telefoneAvulsoFinal || null,
+          dataHora: dataHoraAgendamento.toISOString(),
+          duracao,
+          valorHora,
+          valorCalculado,
+          valorFinal,
+          observacoes: observacoes || null,
+          recorrenciaId: recorrenciaId || null,
+          recorrenciaConfig: recorrenciaConfig ? JSON.stringify(recorrenciaConfig) : null,
+          ehAula: ehAulaFinal,
+          professorId: professorId && professorId.trim() ? professorId : null,
+        };
+        
+        // Log detalhado dos valores que serão inseridos
+        console.log('[POST /api/agendamento] ============================================');
+        console.log('[POST /api/agendamento] Valores que serão inseridos no banco:');
+        console.log(JSON.stringify(valoresInsercao, null, 2));
+        console.log('[POST /api/agendamento] ============================================');
+        
         const result = await query(
           `INSERT INTO "Agendamento" (
             id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
@@ -638,21 +663,21 @@ export async function POST(request: NextRequest) {
           )
           RETURNING id`,
           [
-            quadraId,
-            usuarioIdFinal,
-            atletaIdFinal || null,
-            nomeAvulsoFinal || null,
-            telefoneAvulsoFinal || null,
-            dataHoraAgendamento.toISOString(), // Já está em UTC
-            duracao,
-            valorHora,
-            valorCalculado,
-            valorFinal,
-            observacoes || null,
-            recorrenciaId || null,
-            recorrenciaConfig ? JSON.stringify(recorrenciaConfig) : null,
-            ehAulaFinal, // Usar o valor já processado
-            professorId && professorId.trim() ? professorId : null,
+            valoresInsercao.quadraId,
+            valoresInsercao.usuarioIdFinal,
+            valoresInsercao.atletaIdFinal,
+            valoresInsercao.nomeAvulsoFinal,
+            valoresInsercao.telefoneAvulsoFinal,
+            valoresInsercao.dataHora,
+            valoresInsercao.duracao,
+            valoresInsercao.valorHora,
+            valoresInsercao.valorCalculado,
+            valoresInsercao.valorFinal,
+            valoresInsercao.observacoes,
+            valoresInsercao.recorrenciaId,
+            valoresInsercao.recorrenciaConfig,
+            valoresInsercao.ehAula,
+            valoresInsercao.professorId,
           ]
         );
         return result.rows[0].id;
