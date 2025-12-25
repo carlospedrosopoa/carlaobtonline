@@ -821,6 +821,8 @@ export async function POST(request: NextRequest) {
           ? JSON.parse(row.recorrenciaConfig) 
           : row.recorrenciaConfig)
         : null,
+      ehAula: row.ehAula ?? false,
+      professorId: row.professorId || null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       quadra: {
