@@ -28,14 +28,14 @@ export async function GET(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    // Construir SQL base
+    // Construir SQL base (sem professorId inicialmente)
     let sqlBase = `SELECT 
       a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
       a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-      a.status, a.observacoes, a."ehAula", a."professorId", a."createdAt", a."updatedAt"`;
+      a.status, a.observacoes, a."ehAula", a."createdAt", a."updatedAt"`;
     
-    // Tentar incluir campos de recorrência
-    let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig",
+    // Tentar incluir campos de recorrência e professor
+    let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig", a."professorId",
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
       p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
@@ -135,18 +135,21 @@ export async function GET(request: NextRequest) {
 
     sql += ` ORDER BY a."dataHora" ASC`;
 
-    // Tentar executar com campos de recorrência, se falhar, tentar sem eles
+    // Tentar executar com campos de recorrência e professor, se falhar, tentar sem eles
     let result;
     try {
       result = await query(sql, params);
     } catch (error: any) {
-      // Se os campos de recorrência não existem, tentar sem eles
-      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
-        sql = sqlBase + `
+      // Se os campos de recorrência ou professorId não existem, tentar sem eles
+      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || error.message?.includes('professorId')) {
+        sql = sqlBase + `,
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
       p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId"
+      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",
+      NULL as "professorId", NULL as "professor_id", NULL as "professor_userId", NULL as "professor_especialidade",
+      NULL as "professor_bio", NULL as "professor_valorHora", NULL as "professor_ativo",
+      NULL as "professor_usuario_id", NULL as "professor_usuario_name", NULL as "professor_usuario_email"
     FROM "Agendamento" a
     LEFT JOIN "Quadra" q ON a."quadraId" = q.id
     LEFT JOIN "Point" p ON q."pointId" = p.id
@@ -154,7 +157,8 @@ export async function GET(request: NextRequest) {
     LEFT JOIN "Atleta" at ON a."atletaId" = at.id
     WHERE 1=1`;
         
-        // Reconstruir filtros
+        // Reconstruir filtros e params
+        const paramsFallback: any[] = [];
         let paramCount = 1;
         if (quadraId) {
           sql += ` AND a."quadraId" = $${paramCount}`;
