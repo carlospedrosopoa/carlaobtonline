@@ -413,7 +413,7 @@ export async function POST(request: NextRequest) {
       valorNegociado,
       recorrencia,
       atletasParticipantesIds,
-      ehAula = false,
+      ehAula,
       professorId,
     } = body as {
       quadraId: string;
@@ -492,7 +492,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar se ehAula requer professorId
-    if (ehAula && !professorId) {
+    // Garantir que ehAula seja boolean (true/false, não undefined)
+    const ehAulaFinal = ehAula === true || ehAula === 'true' || Boolean(ehAula);
+    if (ehAulaFinal && !professorId) {
       const errorResponse = NextResponse.json(
         { mensagem: 'professorId é obrigatório quando ehAula é true' },
         { status: 400 }
@@ -517,7 +519,7 @@ export async function POST(request: NextRequest) {
     let valorCalculado: number | null = null;
 
     // Se for aula, buscar valorHoraAula, senão valorHora
-    const campoValor = ehAula ? 'valorHoraAula' : 'valorHora';
+    const campoValor = ehAulaFinal ? 'valorHoraAula' : 'valorHora';
     const tabelaPrecoResult = await query(
       `SELECT "valorHora", "valorHoraAula", "inicioMinutoDia", "fimMinutoDia"
        FROM "TabelaPreco"
@@ -534,7 +536,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (precoAplicavel) {
-        if (ehAula) {
+        if (ehAulaFinal) {
           // Para aula, usar valorHoraAula se disponível, senão usar valorHora como fallback
           valorHora = precoAplicavel.valorHoraAula !== null && precoAplicavel.valorHoraAula !== undefined
             ? parseFloat(precoAplicavel.valorHoraAula)
