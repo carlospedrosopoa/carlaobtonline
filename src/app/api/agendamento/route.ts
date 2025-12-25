@@ -630,18 +630,19 @@ export async function POST(request: NextRequest) {
         );
         return result.rows[0].id;
       } catch (error: any) {
-        // Se os campos de recorrência não existem, tentar sem eles (mas com ehAula e professorId)
-        if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
-          // Tentar com ehAula e professorId primeiro
+        // Se os campos de recorrência, ehAula ou professorId não existem, tentar sem eles
+        if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || 
+            error.message?.includes('ehAula') || error.message?.includes('professorId')) {
+          // Tentar com apenas campos básicos (sem recorrência, ehAula e professorId)
           try {
             const result = await query(
               `INSERT INTO "Agendamento" (
                 id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
                 "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-                status, observacoes, "ehAula", "professorId", "createdAt", "updatedAt"
+                status, observacoes, "createdAt", "updatedAt"
               )
               VALUES (
-                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, $12, $13, NOW(), NOW()
+                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
               )
               RETURNING id`,
               [
@@ -656,40 +657,11 @@ export async function POST(request: NextRequest) {
                 valorCalculado,
                 valorFinal,
                 observacoes || null,
-                ehAula || false,
-                professorId || null,
               ]
             );
             return result.rows[0].id;
           } catch (error2: any) {
-            // Se ehAula ou professorId não existem, inserir sem eles (bancos muito antigos)
-            if (error2.message?.includes('ehAula') || error2.message?.includes('professorId')) {
-              const result = await query(
-                `INSERT INTO "Agendamento" (
-                  id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
-                  "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-                  status, observacoes, "createdAt", "updatedAt"
-                )
-                VALUES (
-                  gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
-                )
-                RETURNING id`,
-                [
-                  quadraId,
-                  usuarioIdFinal,
-                  atletaIdFinal || null,
-                  nomeAvulsoFinal || null,
-                  telefoneAvulsoFinal || null,
-                  dataHoraAgendamento.toISOString(), // Já está em UTC
-                  duracao,
-                  valorHora,
-                  valorCalculado,
-                  valorFinal,
-                  observacoes || null,
-                ]
-              );
-              return result.rows[0].id;
-            }
+            console.error('Erro ao inserir agendamento mesmo sem campos opcionais:', error2);
             throw error2;
           }
         }
