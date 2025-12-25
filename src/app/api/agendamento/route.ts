@@ -402,6 +402,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    
+    // Log completo do body recebido para debug
+    console.log('[POST /api/agendamento] ============================================');
+    console.log('[POST /api/agendamento] Body completo recebido:', JSON.stringify(body, null, 2));
+    console.log('[POST /api/agendamento] ============================================');
+    
     const {
       quadraId,
       dataHora,
@@ -429,6 +435,14 @@ export async function POST(request: NextRequest) {
       ehAula?: boolean;
       professorId?: string | null;
     };
+    
+    // Log dos valores extraídos
+    console.log('[POST /api/agendamento] Valores extraídos do body:', {
+      ehAula: ehAula,
+      ehAulaType: typeof ehAula,
+      professorId: professorId,
+      professorIdType: typeof professorId,
+    });
 
     if (!quadraId || !dataHora) {
       const errorResponse = NextResponse.json(
