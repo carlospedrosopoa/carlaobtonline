@@ -163,7 +163,8 @@ export interface TabelaPreco {
   };
   inicioMinutoDia: number; // minutos desde 00:00
   fimMinutoDia: number;
-  valorHora: number;
+  valorHora: number; // Valor de locação por hora para atletas
+  valorHoraAula?: number | null; // Valor de locação por hora para aulas/professores (opcional, se null usa valorHora)
   ativo: boolean;
   createdAt: string;
   updatedAt: string;

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     let sql = `SELECT 
       tp.id, tp."quadraId", tp."inicioMinutoDia", tp."fimMinutoDia", 
-      tp."valorHora", tp.ativo, tp."createdAt", tp."updatedAt",
+      tp."valorHora", tp."valorHoraAula", tp.ativo, tp."createdAt", tp."updatedAt",
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId"
     FROM "TabelaPreco" tp
     LEFT JOIN "Quadra" q ON tp."quadraId" = q.id`;
@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
       inicioMinutoDia: row.inicioMinutoDia,
       fimMinutoDia: row.fimMinutoDia,
       valorHora: parseFloat(row.valorHora),
+      valorHoraAula: row.valorHoraAula !== null && row.valorHoraAula !== undefined ? parseFloat(row.valorHoraAula) : null,
       ativo: row.ativo,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { quadraId, horaInicio, horaFim, valorHora, ativo = true } = body;
+    const { quadraId, horaInicio, horaFim, valorHora, valorHoraAula, ativo = true } = body;
 
     if (!quadraId || !horaInicio || !horaFim || valorHora === undefined) {
       const errorResponse = NextResponse.json(
@@ -168,10 +169,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query(
-      `INSERT INTO "TabelaPreco" (id, "quadraId", "inicioMinutoDia", "fimMinutoDia", "valorHora", ativo, "createdAt", "updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), NOW())
-       RETURNING id, "quadraId", "inicioMinutoDia", "fimMinutoDia", "valorHora", ativo, "createdAt", "updatedAt"`,
-      [quadraId, inicioMinutoDia, fimMinutoDia, valorHora, ativo]
+      `INSERT INTO "TabelaPreco" (id, "quadraId", "inicioMinutoDia", "fimMinutoDia", "valorHora", "valorHoraAula", ativo, "createdAt", "updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW())
+       RETURNING id, "quadraId", "inicioMinutoDia", "fimMinutoDia", "valorHora", "valorHoraAula", ativo, "createdAt", "updatedAt"`,
+      [quadraId, inicioMinutoDia, fimMinutoDia, valorHora, valorHoraAula || null, ativo]
     );
 
     // Buscar quadra para incluir no retorno
@@ -179,6 +180,7 @@ export async function POST(request: NextRequest) {
     const tabelaPreco = {
       ...result.rows[0],
       valorHora: parseFloat(result.rows[0].valorHora),
+      valorHoraAula: result.rows[0].valorHoraAula !== null && result.rows[0].valorHoraAula !== undefined ? parseFloat(result.rows[0].valorHoraAula) : null,
       quadra: quadraResult.rows[0] || null,
     };
 

@@ -30,7 +30,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { horaInicio, horaFim, valorHora, ativo } = body;
+    const { horaInicio, horaFim, valorHora, valorHoraAula, ativo } = body;
 
     // Verificar se a tabela existe e obter quadraId
     const tabelaCheck = await query(
@@ -117,6 +117,12 @@ export async function PUT(
       paramCount++;
     }
 
+    if (valorHoraAula !== undefined) {
+      updates.push(`"valorHoraAula" = $${paramCount}`);
+      paramsUpdate.push(valorHoraAula === null ? null : valorHoraAula);
+      paramCount++;
+    }
+
     if (ativo !== undefined) {
       updates.push(`ativo = $${paramCount}`);
       paramsUpdate.push(ativo);
@@ -137,7 +143,7 @@ export async function PUT(
     const sql = `UPDATE "TabelaPreco"
                  SET ${updates.join(', ')}
                  WHERE id = $${paramCount}
-                 RETURNING id, "quadraId", "inicioMinutoDia", "fimMinutoDia", "valorHora", ativo, "createdAt", "updatedAt"`;
+                 RETURNING id, "quadraId", "inicioMinutoDia", "fimMinutoDia", "valorHora", "valorHoraAula", ativo, "createdAt", "updatedAt"`;
 
     const result = await query(sql, paramsUpdate);
 
@@ -146,6 +152,7 @@ export async function PUT(
     const tabelaPreco = {
       ...result.rows[0],
       valorHora: parseFloat(result.rows[0].valorHora),
+      valorHoraAula: result.rows[0].valorHoraAula !== null && result.rows[0].valorHoraAula !== undefined ? parseFloat(result.rows[0].valorHoraAula) : null,
       quadra: quadraResult.rows[0] || null,
     };
 

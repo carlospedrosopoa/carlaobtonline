@@ -42,6 +42,7 @@ export default function AdminTabelaPrecoPage() {
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFim, setHoraFim] = useState('');
   const [valorHora, setValorHora] = useState('');
+  const [valorHoraAula, setValorHoraAula] = useState('');
   const [ativo, setAtivo] = useState(true);
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export default function AdminTabelaPrecoPage() {
     setHoraInicio('');
     setHoraFim('');
     setValorHora('');
+    setValorHoraAula('');
     setAtivo(true);
     setErro('');
   };
@@ -137,6 +139,7 @@ export default function AdminTabelaPrecoPage() {
     setHoraInicio(minutosParaHora(faixa.inicioMinutoDia));
     setHoraFim(minutosParaHora(faixa.fimMinutoDia));
     setValorHora(faixa.valorHora.toString().replace('.', ','));
+    setValorHoraAula(faixa.valorHoraAula ? faixa.valorHoraAula.toString().replace('.', ',') : '');
     setAtivo(faixa.ativo);
     setErro('');
   };
@@ -154,6 +157,7 @@ export default function AdminTabelaPrecoPage() {
     if (!quadraSelecionada) return;
 
     const valor = parseFloat(valorHora.replace(',', '.'));
+    const valorAula = valorHoraAula.trim() ? parseFloat(valorHoraAula.replace(',', '.')) : null;
 
     setSalvando(true);
     try {
@@ -162,6 +166,7 @@ export default function AdminTabelaPrecoPage() {
           horaInicio,
           horaFim,
           valorHora: valor,
+          valorHoraAula: valorAula,
           ativo,
         });
       } else {
@@ -170,6 +175,7 @@ export default function AdminTabelaPrecoPage() {
           horaInicio,
           horaFim,
           valorHora: valor,
+          valorHoraAula: valorAula,
           ativo,
         });
       }
@@ -326,7 +332,10 @@ export default function AdminTabelaPrecoPage() {
                         Fim
                       </th>
                       <th className="border border-gray-200 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                        Valor/hora
+                        Valor/hora (Atleta)
+                      </th>
+                      <th className="border border-gray-200 px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                        Valor/hora (Aula)
                       </th>
                       <th className="border border-gray-200 px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         Ativo
@@ -347,6 +356,12 @@ export default function AdminTabelaPrecoPage() {
                         </td>
                         <td className="border border-gray-200 px-3 py-2 text-sm text-gray-800">
                           {formatCurrency(faixa.valorHora)}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2 text-sm text-gray-800">
+                          {formatCurrency(faixa.valorHoraAula || faixa.valorHora)}
+                          {faixa.valorHoraAula && (
+                            <span className="text-xs text-gray-500 ml-1">(personalizado)</span>
+                          )}
                         </td>
                         <td className="border border-gray-200 px-3 py-2 text-sm text-gray-800">
                           <span
@@ -406,7 +421,7 @@ export default function AdminTabelaPrecoPage() {
                 )}
               </div>
 
-              <form onSubmit={handleSalvar} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+              <form onSubmit={handleSalvar} className="grid grid-cols-1 sm:grid-cols-5 gap-4 items-end">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Início (HH:mm)
@@ -433,7 +448,7 @@ export default function AdminTabelaPrecoPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Valor por hora (R$)
+                    Valor/hora - Atleta (R$)
                   </label>
                   <input
                     type="text"
@@ -446,6 +461,25 @@ export default function AdminTabelaPrecoPage() {
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Valor/hora - Aula (R$) <span className="text-gray-500 text-xs">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={valorHoraAula}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d,.-]/g, '');
+                      setValorHoraAula(raw);
+                    }}
+                    placeholder="Ex: 100,00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Se vazio, usa o valor de atleta
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-3">

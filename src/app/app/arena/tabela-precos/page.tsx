@@ -37,6 +37,7 @@ export default function ArenaTabelaPrecosPage() {
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFim, setHoraFim] = useState('');
   const [valorHora, setValorHora] = useState('');
+  const [valorHoraAula, setValorHoraAula] = useState('');
   const [ativo, setAtivo] = useState(true);
 
   useEffect(() => {
@@ -82,6 +83,7 @@ export default function ArenaTabelaPrecosPage() {
     setHoraInicio('');
     setHoraFim('');
     setValorHora('');
+    setValorHoraAula('');
     setAtivo(true);
     setErro('');
   };
@@ -109,6 +111,7 @@ export default function ArenaTabelaPrecosPage() {
     setHoraInicio(minutosParaHora(faixa.inicioMinutoDia));
     setHoraFim(minutosParaHora(faixa.fimMinutoDia));
     setValorHora(faixa.valorHora.toString().replace('.', ','));
+    setValorHoraAula(faixa.valorHoraAula ? faixa.valorHoraAula.toString().replace('.', ',') : '');
     setAtivo(faixa.ativo);
     setErro('');
   };
@@ -126,6 +129,7 @@ export default function ArenaTabelaPrecosPage() {
     if (!quadraSelecionada) return;
 
     const valor = parseFloat(valorHora.replace(',', '.'));
+    const valorAula = valorHoraAula.trim() ? parseFloat(valorHoraAula.replace(',', '.')) : null;
 
     setSalvando(true);
     try {
@@ -134,6 +138,7 @@ export default function ArenaTabelaPrecosPage() {
           horaInicio,
           horaFim,
           valorHora: valor,
+          valorHoraAula: valorAula,
           ativo,
         });
       } else {
@@ -142,6 +147,7 @@ export default function ArenaTabelaPrecosPage() {
           horaInicio,
           horaFim,
           valorHora: valor,
+          valorHoraAula: valorAula,
           ativo,
         });
       }
@@ -265,7 +271,10 @@ export default function ArenaTabelaPrecosPage() {
                         Fim
                       </th>
                       <th className="border border-gray-200 px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                        Valor/hora
+                        Valor/hora (Atleta)
+                      </th>
+                      <th className="border border-gray-200 px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                        Valor/hora (Aula)
                       </th>
                       <th className="border border-gray-200 px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         Ativo
@@ -286,6 +295,12 @@ export default function ArenaTabelaPrecosPage() {
                         </td>
                         <td className="border border-gray-200 px-3 py-2 text-sm text-gray-800">
                           {formatCurrency(faixa.valorHora)}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2 text-sm text-gray-800">
+                          {formatCurrency(faixa.valorHoraAula || faixa.valorHora)}
+                          {faixa.valorHoraAula && (
+                            <span className="text-xs text-gray-500 ml-1">(personalizado)</span>
+                          )}
                         </td>
                         <td className="border border-gray-200 px-3 py-2 text-sm text-gray-800">
                           <span
@@ -345,7 +360,7 @@ export default function ArenaTabelaPrecosPage() {
                 )}
               </div>
 
-              <form onSubmit={handleSalvar} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+              <form onSubmit={handleSalvar} className="grid grid-cols-1 sm:grid-cols-5 gap-4 items-end">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Início (HH:mm)
@@ -372,7 +387,7 @@ export default function ArenaTabelaPrecosPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Valor por hora (R$)
+                    Valor/hora - Atleta (R$)
                   </label>
                   <input
                     type="text"

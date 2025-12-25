@@ -145,6 +145,7 @@ export const tabelaPrecoService = {
     horaInicio: string; // "HH:mm"
     horaFim: string; // "HH:mm"
     valorHora: number;
+    valorHoraAula?: number | null;
     ativo?: boolean;
   }): Promise<TabelaPreco> => {
     const res = await api.post("/tabela-preco", payload);
@@ -157,6 +158,7 @@ export const tabelaPrecoService = {
       horaInicio?: string;
       horaFim?: string;
       valorHora?: number;
+      valorHoraAula?: number | null;
       ativo?: boolean;
     }
   ): Promise<TabelaPreco> => {
