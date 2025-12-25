@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { buscarProfessorPorId, buscarProfessorPorUserId, atualizarProfessor, deletarProfessor } from '@/lib/professorService';
+import { buscarProfessorPorId, buscarProfessorPorUserId, buscarProfessorComArenas, atualizarProfessor, deletarProfessor } from '@/lib/professorService';
 import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
 
 // GET /api/professor/[id] - Buscar professor por ID
@@ -22,6 +22,7 @@ export async function GET(
 
     // Tentar buscar por professorId primeiro
     let professor = await buscarProfessorPorId(id);
+    let professorId: string | null = null;
 
     // Se não encontrou, tentar buscar por userId (para compatibilidade)
     if (!professor) {
@@ -36,6 +37,8 @@ export async function GET(
       return withCors(errorResponse, request);
     }
 
+    professorId = professor.id;
+
     // Verificar permissões: ADMIN pode ver qualquer professor
     // PROFESSOR só pode ver seu próprio perfil
     if (user.role !== 'ADMIN' && professor.userId !== user.id) {
@@ -46,7 +49,10 @@ export async function GET(
       return withCors(errorResponse, request);
     }
 
-    const response = NextResponse.json(professor, { status: 200 });
+    // Buscar professor com arenas
+    const professorComArenas = await buscarProfessorComArenas(professorId);
+
+    const response = NextResponse.json(professorComArenas, { status: 200 });
     return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao buscar professor:', error);
@@ -113,6 +119,8 @@ export async function PUT(
       logoUrl,
       ativo,
       aceitaNovosAlunos,
+      pointIdPrincipal,
+      pointIdsFrequentes,
     } = body;
 
     // Processar fotoUrl: se for base64, fazer upload para GCS
@@ -215,6 +223,8 @@ export async function PUT(
     if (fotoUrlProcessada !== undefined) dadosAtualizacao.fotoUrl = fotoUrlProcessada;
     if (logoUrlProcessada !== undefined) dadosAtualizacao.logoUrl = logoUrlProcessada;
     if (aceitaNovosAlunos !== undefined) dadosAtualizacao.aceitaNovosAlunos = aceitaNovosAlunos;
+    if (pointIdPrincipal !== undefined) dadosAtualizacao.pointIdPrincipal = pointIdPrincipal || null;
+    if (pointIdsFrequentes !== undefined) dadosAtualizacao.pointIdsFrequentes = Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [];
 
     // Apenas ADMIN pode alterar status ativo
     if (user.role === 'ADMIN' && ativo !== undefined) {

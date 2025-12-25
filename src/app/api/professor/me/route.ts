@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    const response = NextResponse.json(professor, { status: 200 });
+    // Buscar professor com arenas
+    const professorComArenas = await buscarProfessorComArenas(professor.id);
+
+    const response = NextResponse.json(professorComArenas, { status: 200 });
     return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao buscar professor:', error);

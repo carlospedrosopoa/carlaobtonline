@@ -15,6 +15,8 @@ export interface CriarProfessorData {
   logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
+  pointIdPrincipal?: string | null;
+  pointIdsFrequentes?: string[];
 }
 
 export interface AtualizarProfessorData {
@@ -27,6 +29,8 @@ export interface AtualizarProfessorData {
   logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
+  pointIdPrincipal?: string | null;
+  pointIdsFrequentes?: string[];
 }
 
 export interface CriarAulaData {
@@ -79,9 +83,9 @@ export async function criarProfessor(usuarioId: string, dados: CriarProfessorDat
     `INSERT INTO "Professor" (
       id, "userId", especialidade, bio, "valorHora", 
       "telefoneProfissional", "emailProfissional", 
-      "fotoUrl", "logoUrl",
+      "fotoUrl", "logoUrl", "pointIdPrincipal",
       ativo, "aceitaNovosAlunos", "createdAt", "updatedAt"
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
     [
       id,
       usuarioId,
@@ -92,16 +96,32 @@ export async function criarProfessor(usuarioId: string, dados: CriarProfessorDat
       dados.emailProfissional || null,
       dados.fotoUrl || null,
       dados.logoUrl || null,
+      dados.pointIdPrincipal || null,
       dados.ativo !== undefined ? dados.ativo : true,
       dados.aceitaNovosAlunos !== undefined ? dados.aceitaNovosAlunos : true,
     ]
   );
 
-  return await buscarProfessorPorId(id);
+  // Adicionar arenas frequentes se fornecido
+  if (dados.pointIdsFrequentes && dados.pointIdsFrequentes.length > 0) {
+    try {
+      for (const pointId of dados.pointIdsFrequentes) {
+        await query(
+          'INSERT INTO "ProfessorPoint" ("professorId", "pointId", "createdAt") VALUES ($1, $2, NOW()) ON CONFLICT ("professorId", "pointId") DO NOTHING',
+          [id, pointId]
+        );
+      }
+    } catch (error: any) {
+      console.warn('Erro ao criar arenas frequentes (tabela pode não existir ainda):', error?.message);
+      // Continua mesmo se houver erro - a tabela pode não existir ainda
+    }
+  }
+
+  return await buscarProfessorComArenas(id);
 }
 
 /**
- * Buscar professor por ID
+ * Buscar professor por ID (sem arenas)
  */
 export async function buscarProfessorPorId(professorId: string) {
   const result = await query(
@@ -131,6 +151,7 @@ export async function buscarProfessorPorId(professorId: string) {
     emailProfissional: row.emailProfissional,
     fotoUrl: row.fotoUrl,
     logoUrl: row.logoUrl,
+    pointIdPrincipal: row.pointIdPrincipal,
     ativo: row.ativo,
     aceitaNovosAlunos: row.aceitaNovosAlunos,
     createdAt: row.createdAt,
@@ -141,6 +162,57 @@ export async function buscarProfessorPorId(professorId: string) {
       email: row.usuario_email,
       role: row.usuario_role,
     } : null,
+  };
+}
+
+/**
+ * Buscar professor com arenas (principal e frequentes)
+ */
+export async function buscarProfessorComArenas(professorId: string) {
+  const professor = await buscarProfessorPorId(professorId);
+  if (!professor) {
+    return null;
+  }
+
+  // Buscar arenas frequentes (com tratamento de erro caso a tabela não exista)
+  let arenasFrequentes: any[] = [];
+  try {
+    const arenasFrequentesResult = await query(
+      `SELECT p.id, p.nome, p."logoUrl"
+       FROM "ProfessorPoint" pp
+       JOIN "Point" p ON pp."pointId" = p.id
+       WHERE pp."professorId" = $1
+       ORDER BY p.nome ASC`,
+      [professorId]
+    );
+    arenasFrequentes = arenasFrequentesResult.rows;
+  } catch (error: any) {
+    // Se a tabela não existir ou houver erro, retorna array vazio
+    console.warn('Erro ao buscar arenas frequentes (tabela pode não existir ainda):', error?.message);
+    arenasFrequentes = [];
+  }
+
+  // Buscar arena principal
+  let arenaPrincipal = null;
+  if (professor.pointIdPrincipal) {
+    try {
+      const arenaPrincipalResult = await query(
+        `SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1`,
+        [professor.pointIdPrincipal]
+      );
+      if (arenaPrincipalResult.rows.length > 0) {
+        arenaPrincipal = arenaPrincipalResult.rows[0];
+      }
+    } catch (error: any) {
+      console.warn('Erro ao buscar arena principal:', error?.message);
+      arenaPrincipal = null;
+    }
+  }
+
+  return {
+    ...professor,
+    arenasFrequentes,
+    arenaPrincipal,
   };
 }
 
@@ -175,6 +247,7 @@ export async function buscarProfessorPorUserId(userId: string) {
     emailProfissional: row.emailProfissional,
     fotoUrl: row.fotoUrl,
     logoUrl: row.logoUrl,
+    pointIdPrincipal: row.pointIdPrincipal,
     ativo: row.ativo,
     aceitaNovosAlunos: row.aceitaNovosAlunos,
     createdAt: row.createdAt,
@@ -232,20 +305,48 @@ export async function atualizarProfessor(professorId: string, dados: AtualizarPr
     campos.push(`"aceitaNovosAlunos" = $${paramIndex++}`);
     valores.push(dados.aceitaNovosAlunos);
   }
-
-  if (campos.length === 0) {
-    return await buscarProfessorPorId(professorId);
+  if (dados.pointIdPrincipal !== undefined) {
+    campos.push(`"pointIdPrincipal" = $${paramIndex++}`);
+    valores.push(dados.pointIdPrincipal || null);
   }
 
-  valores.push(professorId);
-  await query(
-    `UPDATE "Professor" 
-     SET ${campos.join(', ')}, "updatedAt" = NOW()
-     WHERE id = $${paramIndex}`,
-    valores
-  );
+  if (campos.length === 0 && dados.pointIdsFrequentes === undefined) {
+    // Se não há campos para atualizar e não há arenas frequentes, retornar sem fazer UPDATE
+    return await buscarProfessorComArenas(professorId);
+  }
 
-  return await buscarProfessorPorId(professorId);
+  if (campos.length > 0) {
+    valores.push(professorId);
+    await query(
+      `UPDATE "Professor" 
+       SET ${campos.join(', ')}, "updatedAt" = NOW()
+       WHERE id = $${paramIndex}`,
+      valores
+    );
+  }
+
+  // Atualizar arenas frequentes se fornecido
+  if (dados.pointIdsFrequentes !== undefined) {
+    try {
+      // Remover todas as arenas frequentes existentes
+      await query('DELETE FROM "ProfessorPoint" WHERE "professorId" = $1', [professorId]);
+      
+      // Inserir novas arenas frequentes
+      if (dados.pointIdsFrequentes.length > 0) {
+        for (const pointId of dados.pointIdsFrequentes) {
+          await query(
+            'INSERT INTO "ProfessorPoint" ("professorId", "pointId", "createdAt") VALUES ($1, $2, NOW())',
+            [professorId, pointId]
+          );
+        }
+      }
+    } catch (error: any) {
+      console.warn('Erro ao atualizar arenas frequentes (tabela pode não existir ainda):', error?.message);
+      // Continua mesmo se houver erro - a tabela pode não existir ainda
+    }
+  }
+
+  return await buscarProfessorComArenas(professorId);
 }
 
 /**
@@ -298,7 +399,7 @@ export async function listarProfessores(filtros?: {
     params
   );
 
-  return result.rows.map((row: any) => ({
+  const professores = result.rows.map((row: any) => ({
     id: row.id,
     userId: row.userId,
     especialidade: row.especialidade,
@@ -308,6 +409,7 @@ export async function listarProfessores(filtros?: {
     emailProfissional: row.emailProfissional,
     fotoUrl: row.fotoUrl,
     logoUrl: row.logoUrl,
+    pointIdPrincipal: row.pointIdPrincipal,
     ativo: row.ativo,
     aceitaNovosAlunos: row.aceitaNovosAlunos,
     createdAt: row.createdAt,
@@ -319,6 +421,25 @@ export async function listarProfessores(filtros?: {
       role: row.usuario_role,
     } : null,
   }));
+
+  // Buscar arenas para cada professor
+  const professoresComArenas = await Promise.all(
+    professores.map(async (professor) => {
+      try {
+        return await buscarProfessorComArenas(professor.id);
+      } catch (error: any) {
+        console.warn(`Erro ao buscar arenas do professor ${professor.id}:`, error?.message);
+        // Retorna o professor sem arenas em caso de erro
+        return {
+          ...professor,
+          arenasFrequentes: [],
+          arenaPrincipal: null,
+        };
+      }
+    })
+  );
+
+  return professoresComArenas;
 }
 
 // ========== FUNÇÕES DE AULA ==========

@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { userService } from '@/services/userService';
 import { professorService, type ProfessorAdmin, type CriarProfessorPayload, type AtualizarProfessorPayload } from '@/services/professorService';
+import { pointService } from '@/services/agendamentoService';
+import type { Point } from '@/types/agendamento';
 import { AlertCircle, Plus, RefreshCcw, Edit3, Trash2, User } from 'lucide-react';
 
 interface Usuario {
@@ -25,6 +27,8 @@ interface NovoProfessorForm {
   logoUrl: string | null;
   ativo: boolean;
   aceitaNovosAlunos: boolean;
+  pointIdPrincipal: string;
+  pointIdsFrequentes: string[];
 }
 
 interface EditarProfessorForm {
@@ -37,11 +41,15 @@ interface EditarProfessorForm {
   logoUrl: string | null;
   ativo: boolean;
   aceitaNovosAlunos: boolean;
+  pointIdPrincipal: string;
+  pointIdsFrequentes: string[];
 }
 
 export default function AdminProfessoresPage() {
   const [professores, setProfessores] = useState<ProfessorAdmin[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [points, setPoints] = useState<Point[]>([]);
+  const [carregandoArenas, setCarregandoArenas] = useState(false);
   const [loading, setLoading] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erroLista, setErroLista] = useState('');
@@ -67,6 +75,8 @@ export default function AdminProfessoresPage() {
     logoUrl: null,
     ativo: true,
     aceitaNovosAlunos: true,
+    pointIdPrincipal: '',
+    pointIdsFrequentes: [],
   });
 
   const [formEdit, setFormEdit] = useState<EditarProfessorForm>({
@@ -79,11 +89,26 @@ export default function AdminProfessoresPage() {
     logoUrl: null,
     ativo: true,
     aceitaNovosAlunos: true,
+    pointIdPrincipal: '',
+    pointIdsFrequentes: [],
   });
 
   useEffect(() => {
     carregarDados();
+    carregarArenas();
   }, []);
+
+  const carregarArenas = async () => {
+    try {
+      setCarregandoArenas(true);
+      const data = await pointService.listar();
+      setPoints(data.filter((p) => p.ativo));
+    } catch (error) {
+      console.error('Erro ao carregar arenas:', error);
+    } finally {
+      setCarregandoArenas(false);
+    }
+  };
 
   const carregarDados = async () => {
     try {
@@ -124,6 +149,11 @@ export default function AdminProfessoresPage() {
 
     setSalvando(true);
     try {
+      // Se selecionou uma arena principal, garantir que ela está nas frequentes
+      const arenasFrequentes = form.pointIdPrincipal && !form.pointIdsFrequentes.includes(form.pointIdPrincipal)
+        ? [...form.pointIdsFrequentes, form.pointIdPrincipal]
+        : form.pointIdsFrequentes;
+
       const payload: CriarProfessorPayload = {
         userId: form.userId,
         especialidade: form.especialidade.trim() || null,
@@ -131,8 +161,12 @@ export default function AdminProfessoresPage() {
         valorHora: form.valorHora ? parseFloat(form.valorHora) : null,
         telefoneProfissional: form.telefoneProfissional.trim() || null,
         emailProfissional: form.emailProfissional.trim() || null,
+        fotoUrl: form.fotoUrl,
+        logoUrl: form.logoUrl,
         ativo: form.ativo,
         aceitaNovosAlunos: form.aceitaNovosAlunos,
+        pointIdPrincipal: form.pointIdPrincipal || null,
+        pointIdsFrequentes: arenasFrequentes,
       };
 
       await professorService.criar(payload);
@@ -148,6 +182,8 @@ export default function AdminProfessoresPage() {
         logoUrl: null,
         ativo: true,
         aceitaNovosAlunos: true,
+        pointIdPrincipal: '',
+        pointIdsFrequentes: [],
       });
       setFotoPreview(null);
       setLogoPreview(null);
@@ -165,21 +201,32 @@ export default function AdminProfessoresPage() {
     }
   };
 
-  const abrirModalEditar = (professor: ProfessorAdmin) => {
+  const abrirModalEditar = async (professor: ProfessorAdmin) => {
     setProfessorEditando(professor);
+    
+    // Buscar professor completo com arenas
+    let professorCompleto = professor;
+    try {
+      professorCompleto = await professorService.buscarPorId(professor.id);
+    } catch (error) {
+      console.error('Erro ao buscar professor completo:', error);
+    }
+
     setFormEdit({
-      especialidade: professor.especialidade || '',
-      bio: professor.bio || '',
-      valorHora: professor.valorHora ? String(professor.valorHora) : '',
-      telefoneProfissional: professor.telefoneProfissional || '',
-      emailProfissional: professor.emailProfissional || '',
-      fotoUrl: professor.fotoUrl || null,
-      logoUrl: professor.logoUrl || null,
-      ativo: professor.ativo,
-      aceitaNovosAlunos: professor.aceitaNovosAlunos,
+      especialidade: professorCompleto.especialidade || '',
+      bio: professorCompleto.bio || '',
+      valorHora: professorCompleto.valorHora ? String(professorCompleto.valorHora) : '',
+      telefoneProfissional: professorCompleto.telefoneProfissional || '',
+      emailProfissional: professorCompleto.emailProfissional || '',
+      fotoUrl: professorCompleto.fotoUrl || null,
+      logoUrl: professorCompleto.logoUrl || null,
+      ativo: professorCompleto.ativo,
+      aceitaNovosAlunos: professorCompleto.aceitaNovosAlunos,
+      pointIdPrincipal: professorCompleto.pointIdPrincipal || '',
+      pointIdsFrequentes: professorCompleto.arenasFrequentes?.map(a => a.id) || [],
     });
-    setFotoPreviewEdit(professor.fotoUrl || null);
-    setLogoPreviewEdit(professor.logoUrl || null);
+    setFotoPreviewEdit(professorCompleto.fotoUrl || null);
+    setLogoPreviewEdit(professorCompleto.logoUrl || null);
     setErroEdit('');
     setModalEditarAberto(true);
   };
@@ -275,6 +322,11 @@ export default function AdminProfessoresPage() {
     setSalvando(true);
 
     try {
+      // Se selecionou uma arena principal, garantir que ela está nas frequentes
+      const arenasFrequentes = formEdit.pointIdPrincipal && !formEdit.pointIdsFrequentes.includes(formEdit.pointIdPrincipal)
+        ? [...formEdit.pointIdsFrequentes, formEdit.pointIdPrincipal]
+        : formEdit.pointIdsFrequentes;
+
       const payload: AtualizarProfessorPayload = {
         especialidade: formEdit.especialidade.trim() || null,
         bio: formEdit.bio.trim() || null,
@@ -285,6 +337,8 @@ export default function AdminProfessoresPage() {
         logoUrl: formEdit.logoUrl,
         ativo: formEdit.ativo,
         aceitaNovosAlunos: formEdit.aceitaNovosAlunos,
+        pointIdPrincipal: formEdit.pointIdPrincipal || null,
+        pointIdsFrequentes: arenasFrequentes,
       };
 
       await professorService.atualizar(professorEditando.id, payload);
@@ -935,6 +989,79 @@ export default function AdminProfessoresPage() {
                   <span className="text-sm font-medium text-gray-700">Aceita Novos Alunos</span>
                 </label>
               </div>
+
+              {/* Arenas */}
+              {!carregandoArenas && points.length > 0 && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Arena Principal (opcional)
+                    </label>
+                    <select
+                      value={formEdit.pointIdPrincipal}
+                      onChange={(e) => {
+                        setFormEdit((f) => ({ ...f, pointIdPrincipal: e.target.value }));
+                        setErroEdit('');
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    >
+                      <option value="">Selecione a arena principal</option>
+                      {points.map((point) => (
+                        <option key={point.id} value={point.id}>
+                          {point.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Arenas que atua (opcional)
+                    </label>
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-2">
+                      {points.map((point) => (
+                        <label
+                          key={point.id}
+                          className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formEdit.pointIdsFrequentes.includes(point.id)}
+                            onChange={() => {
+                              const newIds = formEdit.pointIdsFrequentes.includes(point.id)
+                                ? formEdit.pointIdsFrequentes.filter(id => id !== point.id)
+                                : [...formEdit.pointIdsFrequentes, point.id];
+                              // Se desmarcou a arena principal, não permitir
+                              if (formEdit.pointIdPrincipal === point.id && !formEdit.pointIdsFrequentes.includes(point.id)) {
+                                setErroEdit('Não é possível remover a arena principal das arenas que atua.');
+                                return;
+                              }
+                              setFormEdit((f) => ({ ...f, pointIdsFrequentes: newIds }));
+                              setErroEdit('');
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                          />
+                          <div className="flex items-center gap-2 flex-1">
+                            {point.logoUrl && (
+                              <img
+                                src={point.logoUrl}
+                                alt={`Logo ${point.nome}`}
+                                className="w-6 h-6 object-contain rounded"
+                              />
+                            )}
+                            <span className="text-sm">{point.nome}</span>
+                            {formEdit.pointIdPrincipal === point.id && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                Principal
+                              </span>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {erroEdit && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-sm text-red-700">

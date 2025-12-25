@@ -80,6 +80,8 @@ export async function POST(request: NextRequest) {
       logoUrl,
       ativo,
       aceitaNovosAlunos,
+      pointIdPrincipal,
+      pointIdsFrequentes,
     } = body;
 
     // Se for ADMIN criando para outro usuário, precisa passar userId
@@ -166,6 +168,8 @@ export async function POST(request: NextRequest) {
       logoUrl: logoUrlProcessada,
       ativo: ativo !== undefined ? ativo : true,
       aceitaNovosAlunos: aceitaNovosAlunos !== undefined ? aceitaNovosAlunos : true,
+      pointIdPrincipal: pointIdPrincipal || null,
+      pointIdsFrequentes: Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [],
     });
 
     const response = NextResponse.json(novoProfessor, { status: 201 });

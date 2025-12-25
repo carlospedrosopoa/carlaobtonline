@@ -22,6 +22,8 @@ export interface CriarProfessorPayload {
   logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
+  pointIdPrincipal?: string | null;
+  pointIdsFrequentes?: string[];
 }
 
 export interface AtualizarProfessorPayload {
@@ -34,6 +36,8 @@ export interface AtualizarProfessorPayload {
   logoUrl?: string | null;
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
+  pointIdPrincipal?: string | null;
+  pointIdsFrequentes?: string[];
 }
 
 export const professorService = {
