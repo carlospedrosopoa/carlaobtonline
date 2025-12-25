@@ -28,11 +28,11 @@ export async function GET(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    // Construir SQL base (sem professorId inicialmente)
+    // Construir SQL base (sem campos opcionais: professorId, ehAula, recorrenciaId)
     let sqlBase = `SELECT 
       a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
       a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-      a.status, a.observacoes, a."ehAula", a."createdAt", a."updatedAt"`;
+      a.status, a.observacoes, a."createdAt", a."updatedAt"`;
     
     // Tentar incluir campos de recorrência e professor
     let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig", a."professorId",
@@ -140,14 +140,17 @@ export async function GET(request: NextRequest) {
     try {
       result = await query(sql, params);
     } catch (error: any) {
-      // Se os campos de recorrência ou professorId não existem, tentar sem eles
-      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || error.message?.includes('professorId')) {
+      // Se os campos de recorrência, ehAula ou professorId não existem, tentar sem eles
+      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || 
+          error.message?.includes('professorId') || error.message?.includes('ehAula') ||
+          error.code === '42703') { // 42703 = column does not exist
         sql = sqlBase + `,
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
       p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
       at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",
-      NULL as "professorId", NULL as "professor_id", NULL as "professor_userId", NULL as "professor_especialidade",
+      NULL as "recorrenciaId", NULL as "recorrenciaConfig",
+      NULL as "ehAula", NULL as "professorId", NULL as "professor_id", NULL as "professor_userId", NULL as "professor_especialidade",
       NULL as "professor_bio", NULL as "professor_valorHora", NULL as "professor_ativo",
       NULL as "professor_usuario_id", NULL as "professor_usuario_name", NULL as "professor_usuario_email"
     FROM "Agendamento" a
