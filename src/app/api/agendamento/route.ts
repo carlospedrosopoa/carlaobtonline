@@ -162,10 +162,12 @@ export async function GET(request: NextRequest) {
         let paramCount = 1;
         if (quadraId) {
           sql += ` AND a."quadraId" = $${paramCount}`;
+          paramsFallback.push(quadraId);
           paramCount++;
         }
         if (pointId) {
           sql += ` AND q."pointId" = $${paramCount}`;
+          paramsFallback.push(pointId);
           paramCount++;
         }
         // Por padrão, mostrar apenas agendamentos de hoje e futuros (a menos que incluirPassados seja true)
@@ -174,28 +176,28 @@ export async function GET(request: NextRequest) {
           const hoje = new Date();
           hoje.setUTCHours(0, 0, 0, 0);
           sql += ` AND a."dataHora" >= $${paramCount}`;
-          params.push(hoje.toISOString());
+          paramsFallback.push(hoje.toISOString());
           paramCount++;
         } else if (dataInicio) {
           // dataInicio vem como ISO string UTC
           sql += ` AND a."dataHora" >= $${paramCount}`;
-          params.push(dataInicio);
+          paramsFallback.push(dataInicio);
           paramCount++;
         }
         if (dataFim) {
           // dataFim vem como ISO string UTC
           sql += ` AND a."dataHora" <= $${paramCount}`;
-          params.push(dataFim);
+          paramsFallback.push(dataFim);
           paramCount++;
         }
         if (status) {
           sql += ` AND a.status = $${paramCount}`;
-          params.push(status);
+          paramsFallback.push(status);
           paramCount++;
         }
         if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
           sql += ` AND q."pointId" = $${paramCount}`;
-          params.push(usuario.pointIdGestor);
+          paramsFallback.push(usuario.pointIdGestor);
           paramCount++;
         } else if (apenasMeus && usuario.role !== 'ADMIN') {
           // USER comum vê apenas seus próprios agendamentos
@@ -211,24 +213,24 @@ export async function GET(request: NextRequest) {
               const atletaId = atletaResult.rows[0].id;
               // Incluir agendamentos onde usuarioId = usuario.id OU atletaId = atleta do usuário
               sql += ` AND (a."usuarioId" = $${paramCount} OR a."atletaId" = $${paramCount + 1})`;
-              params.push(usuario.id);
-              params.push(atletaId);
+              paramsFallback.push(usuario.id);
+              paramsFallback.push(atletaId);
               paramCount += 2;
             } else {
               // Se não tiver atleta, buscar apenas por usuarioId
               sql += ` AND a."usuarioId" = $${paramCount}`;
-              params.push(usuario.id);
+              paramsFallback.push(usuario.id);
               paramCount++;
             }
           } else {
             // Para outros roles (ORGANIZER), buscar apenas por usuarioId
             sql += ` AND a."usuarioId" = $${paramCount}`;
-            params.push(usuario.id);
+            paramsFallback.push(usuario.id);
             paramCount++;
           }
         }
         sql += ` ORDER BY a."dataHora" ASC`;
-        result = await query(sql, params);
+        result = await query(sql, paramsFallback);
       } else {
         throw error;
       }
