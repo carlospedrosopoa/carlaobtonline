@@ -562,6 +562,18 @@ export async function PUT(
       paramCount++;
     }
 
+    if (ehAula !== undefined) {
+      updates.push(`"ehAula" = $${paramCount}`);
+      paramsUpdate.push(ehAula);
+      paramCount++;
+    }
+
+    if (professorId !== undefined) {
+      updates.push(`"professorId" = $${paramCount}`);
+      paramsUpdate.push(professorId || null);
+      paramCount++;
+    }
+
     // Adicionar configuração de recorrência aos updates se fornecida
     if (recorrencia !== undefined) {
       try {
