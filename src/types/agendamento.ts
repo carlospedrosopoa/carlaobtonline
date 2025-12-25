@@ -111,6 +111,22 @@ export interface Agendamento {
   // Recorrência
   recorrenciaId?: string | null; // ID que agrupa agendamentos da mesma recorrência
   recorrenciaConfig?: RecorrenciaConfig | null; // Configuração da recorrência
+  // Aula/Professor
+  ehAula?: boolean; // Indica se o agendamento é para aula/professor
+  professorId?: string | null; // ID do professor vinculado (apenas quando ehAula = true)
+  professor?: {
+    id: string;
+    userId: string;
+    especialidade?: string | null;
+    bio?: string | null;
+    valorHora?: number | null;
+    ativo: boolean;
+    usuario?: {
+      id: string;
+      name: string;
+      email: string;
+    } | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -185,6 +201,9 @@ export interface CriarAgendamentoPayload {
   valorNegociado?: number;
   // Atletas participantes (múltiplos)
   atletasParticipantesIds?: string[]; // IDs dos atletas que participarão do agendamento
+  // Aula/Professor
+  ehAula?: boolean; // Indica se o agendamento é para aula/professor
+  professorId?: string | null; // ID do professor (obrigatório quando ehAula = true)
 }
 
 export type ModoAgendamento = "normal" | "atleta" | "avulso";
@@ -198,6 +217,9 @@ export interface AtualizarAgendamentoPayload {
   // Modo Avulso (admin)
   nomeAvulso?: string | null;
   telefoneAvulso?: string | null;
+  // Aula/Professor
+  ehAula?: boolean;
+  professorId?: string | null;
   // Valor negociado (opcional, admin)
   valorNegociado?: number | null;
   // Atletas participantes (múltiplos)

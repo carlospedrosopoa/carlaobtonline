@@ -25,16 +25,21 @@ export async function GET(
       `SELECT 
         a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
         a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-        a.status, a.observacoes, a."createdAt", a."updatedAt",
+        a.status, a.observacoes, a."ehAula", a."professorId", a."createdAt", a."updatedAt",
         q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
         p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
         u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-        at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId"
+        at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",
+        pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",
+        pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",
+        up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email"
       FROM "Agendamento" a
       LEFT JOIN "Quadra" q ON a."quadraId" = q.id
       LEFT JOIN "Point" p ON q."pointId" = p.id
       LEFT JOIN "User" u ON a."usuarioId" = u.id
       LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+      LEFT JOIN "Professor" pr ON a."professorId" = pr.id
+      LEFT JOIN "User" up ON pr."userId" = up.id
       WHERE a.id = $1`,
       [id]
     );
@@ -83,6 +88,21 @@ export async function GET(
       valorNegociado: row.valorNegociado,
       status: row.status,
       observacoes: row.observacoes,
+      ehAula: row.ehAula === true || row.ehAula === 'true' || false,
+      professorId: row.professorId || null,
+      professor: row.professor_id ? {
+        id: row.professor_id,
+        userId: row.professor_userId,
+        especialidade: row.professor_especialidade,
+        bio: row.professor_bio,
+        valorHora: row.professor_valorHora,
+        ativo: row.professor_ativo,
+        usuario: row.professor_usuario_id ? {
+          id: row.professor_usuario_id,
+          name: row.professor_usuario_name,
+          email: row.professor_usuario_email,
+        } : null,
+      } : null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       quadra: {
@@ -183,16 +203,32 @@ export async function PUT(
     let agendamentoCheck;
     try {
       agendamentoCheck = await query(
-        'SELECT "usuarioId", "quadraId", "recorrenciaId", "recorrenciaConfig" FROM "Agendamento" WHERE id = $1',
+        'SELECT "usuarioId", "quadraId", "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
         [id]
       );
     } catch (error: any) {
       // Se os campos não existem, buscar sem eles
-      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
-        agendamentoCheck = await query(
-          'SELECT "usuarioId", "quadraId" FROM "Agendamento" WHERE id = $1',
-          [id]
-        );
+      if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || error.message?.includes('ehAula') || error.message?.includes('professorId')) {
+        try {
+          agendamentoCheck = await query(
+            'SELECT "usuarioId", "quadraId", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
+            [id]
+          );
+        } catch (error2: any) {
+          if (error2.message?.includes('ehAula') || error2.message?.includes('professorId')) {
+            agendamentoCheck = await query(
+              'SELECT "usuarioId", "quadraId" FROM "Agendamento" WHERE id = $1',
+              [id]
+            );
+            // Adicionar valores padrão
+            if (agendamentoCheck.rows.length > 0) {
+              agendamentoCheck.rows[0].ehAula = false;
+              agendamentoCheck.rows[0].professorId = null;
+            }
+          } else {
+            throw error2;
+          }
+        }
       } else {
         throw error;
       }
@@ -244,6 +280,8 @@ export async function PUT(
       aplicarARecorrencia = false, // false = apenas este, true = este e todos futuros
       recorrencia, // Configuração de recorrência (opcional, para criar ou atualizar recorrência)
       atletasParticipantesIds, // IDs dos atletas participantes
+      ehAula,
+      professorId,
     } = body as {
       quadraId?: string;
       dataHora?: string;
@@ -256,6 +294,8 @@ export async function PUT(
       aplicarARecorrencia?: boolean;
       recorrencia?: RecorrenciaConfig;
       atletasParticipantesIds?: string[] | null;
+      ehAula?: boolean;
+      professorId?: string | null;
     };
 
     // Se quadraId foi alterado, verificar se o usuário tem acesso à nova quadra
@@ -380,6 +420,31 @@ export async function PUT(
       }
     }
 
+    // Validar se ehAula requer professorId
+    if (ehAula !== undefined && ehAula && !professorId) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'professorId é obrigatório quando ehAula é true' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Verificar se professor existe (se informado)
+    if (professorId) {
+      const professorCheck = await query('SELECT id FROM "Professor" WHERE id = $1', [professorId]);
+      if (professorCheck.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Professor não encontrado' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+    }
+
+    // Determinar se é aula: usar valor informado ou buscar do banco
+    const ehAulaFinal = ehAula !== undefined ? ehAula : (agendamentoAtual.ehAula || false);
+    const professorIdFinal = professorId !== undefined ? professorId : (agendamentoAtual.professorId || null);
+
     // Recalcular valores se necessário (quando muda quadra, data/hora ou duração)
     let valorHora: number | null = null;
     let valorCalculado: number | null = null;
@@ -400,7 +465,7 @@ export async function PUT(
       }
 
       const tabelaPrecoResult = await query(
-        `SELECT "valorHora", "inicioMinutoDia", "fimMinutoDia"
+        `SELECT "valorHora", "valorHoraAula", "inicioMinutoDia", "fimMinutoDia"
          FROM "TabelaPreco"
          WHERE "quadraId" = $1 AND ativo = true
          ORDER BY "inicioMinutoDia" ASC`,
@@ -413,7 +478,14 @@ export async function PUT(
         });
 
         if (precoAplicavel) {
-          valorHora = parseFloat(precoAplicavel.valorHora);
+          if (ehAulaFinal) {
+            // Para aula, usar valorHoraAula se disponível, senão usar valorHora como fallback
+            valorHora = precoAplicavel.valorHoraAula !== null && precoAplicavel.valorHoraAula !== undefined
+              ? parseFloat(precoAplicavel.valorHoraAula)
+              : parseFloat(precoAplicavel.valorHora);
+          } else {
+            valorHora = parseFloat(precoAplicavel.valorHora);
+          }
           valorCalculado = (valorHora * duracaoFinal) / 60;
         }
       }

@@ -32,19 +32,24 @@ export async function GET(request: NextRequest) {
     let sqlBase = `SELECT 
       a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
       a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-      a.status, a.observacoes, a."createdAt", a."updatedAt"`;
+      a.status, a.observacoes, a."ehAula", a."professorId", a."createdAt", a."updatedAt"`;
     
     // Tentar incluir campos de recorrência
     let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig",
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
       p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId"
+      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",
+      pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",
+      pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",
+      up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email"
     FROM "Agendamento" a
     LEFT JOIN "Quadra" q ON a."quadraId" = q.id
     LEFT JOIN "Point" p ON q."pointId" = p.id
     LEFT JOIN "User" u ON a."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+    LEFT JOIN "Professor" pr ON a."professorId" = pr.id
+    LEFT JOIN "User" up ON pr."userId" = up.id
     WHERE 1=1`;
 
     const params: any[] = [];
@@ -270,6 +275,21 @@ export async function GET(request: NextRequest) {
         fone: row.atleta_fone,
         usuarioId: row.atleta_usuarioId || null,
       } : null,
+      ehAula: row.ehAula === true || row.ehAula === 'true' || false,
+      professorId: row.professorId || null,
+      professor: row.professor_id ? {
+        id: row.professor_id,
+        userId: row.professor_userId,
+        especialidade: row.professor_especialidade,
+        bio: row.professor_bio,
+        valorHora: row.professor_valorHora,
+        ativo: row.professor_ativo,
+        usuario: row.professor_usuario_id ? {
+          id: row.professor_usuario_id,
+          name: row.professor_usuario_name,
+          email: row.professor_usuario_email,
+        } : null,
+      } : null,
       // Inicializar atletasParticipantes como array vazio (será preenchido depois)
       atletasParticipantes: [],
     }));
@@ -384,6 +404,8 @@ export async function POST(request: NextRequest) {
       valorNegociado,
       recorrencia,
       atletasParticipantesIds,
+      ehAula = false,
+      professorId,
     } = body as {
       quadraId: string;
       dataHora: string;
@@ -395,6 +417,8 @@ export async function POST(request: NextRequest) {
       valorNegociado?: number;
       recorrencia?: RecorrenciaConfig;
       atletasParticipantesIds?: string[];
+      ehAula?: boolean;
+      professorId?: string | null;
     };
 
     if (!quadraId || !dataHora) {
@@ -458,12 +482,35 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
+    // Validar se ehAula requer professorId
+    if (ehAula && !professorId) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'professorId é obrigatório quando ehAula é true' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Verificar se professor existe (se informado)
+    if (professorId) {
+      const professorCheck = await query('SELECT id FROM "Professor" WHERE id = $1', [professorId]);
+      if (professorCheck.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Professor não encontrado' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+    }
+
     // Calcular valores (buscar tabela de preços da quadra)
     let valorHora: number | null = null;
     let valorCalculado: number | null = null;
 
+    // Se for aula, buscar valorHoraAula, senão valorHora
+    const campoValor = ehAula ? 'valorHoraAula' : 'valorHora';
     const tabelaPrecoResult = await query(
-      `SELECT "valorHora", "inicioMinutoDia", "fimMinutoDia"
+      `SELECT "valorHora", "valorHoraAula", "inicioMinutoDia", "fimMinutoDia"
        FROM "TabelaPreco"
        WHERE "quadraId" = $1 AND ativo = true
        ORDER BY "inicioMinutoDia" ASC`,
@@ -478,7 +525,14 @@ export async function POST(request: NextRequest) {
       });
 
       if (precoAplicavel) {
-        valorHora = parseFloat(precoAplicavel.valorHora);
+        if (ehAula) {
+          // Para aula, usar valorHoraAula se disponível, senão usar valorHora como fallback
+          valorHora = precoAplicavel.valorHoraAula !== null && precoAplicavel.valorHoraAula !== undefined
+            ? parseFloat(precoAplicavel.valorHoraAula)
+            : parseFloat(precoAplicavel.valorHora);
+        } else {
+          valorHora = parseFloat(precoAplicavel.valorHora);
+        }
         valorCalculado = (valorHora * duracao) / 60;
       }
     }
@@ -537,16 +591,17 @@ export async function POST(request: NextRequest) {
         return null; // Conflito detectado
       }
 
-      // Tentar inserir com campos de recorrência (se existirem)
+      // Tentar inserir com campos de recorrência e aula (se existirem)
       try {
         const result = await query(
           `INSERT INTO "Agendamento" (
             id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
             "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-            status, observacoes, "recorrenciaId", "recorrenciaConfig", "createdAt", "updatedAt"
+            status, observacoes, "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId",
+            "createdAt", "updatedAt"
           )
           VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, $12, $13, NOW(), NOW()
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, $12, $13, $14, $15, NOW(), NOW()
           )
           RETURNING id`,
           [
@@ -563,37 +618,74 @@ export async function POST(request: NextRequest) {
             observacoes || null,
             recorrenciaId || null,
             recorrenciaConfig ? JSON.stringify(recorrenciaConfig) : null,
+            ehAula || false,
+            professorId || null,
           ]
         );
         return result.rows[0].id;
       } catch (error: any) {
-        // Se os campos de recorrência não existem, tentar sem eles
+        // Se os campos de recorrência não existem, tentar sem eles (mas com ehAula e professorId)
         if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
-          const result = await query(
-            `INSERT INTO "Agendamento" (
-              id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
-              "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-              status, observacoes, "createdAt", "updatedAt"
-            )
-            VALUES (
-              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
-            )
-            RETURNING id`,
-            [
-              quadraId,
-              usuarioIdFinal,
-              atletaIdFinal || null,
-              nomeAvulsoFinal || null,
-              telefoneAvulsoFinal || null,
-              dataHoraAgendamento.toISOString(), // Já está em UTC
-              duracao,
-              valorHora,
-              valorCalculado,
-              valorFinal,
-              observacoes || null,
-            ]
-          );
-          return result.rows[0].id;
+          // Tentar com ehAula e professorId primeiro
+          try {
+            const result = await query(
+              `INSERT INTO "Agendamento" (
+                id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+                status, observacoes, "ehAula", "professorId", "createdAt", "updatedAt"
+              )
+              VALUES (
+                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, $12, $13, NOW(), NOW()
+              )
+              RETURNING id`,
+              [
+                quadraId,
+                usuarioIdFinal,
+                atletaIdFinal || null,
+                nomeAvulsoFinal || null,
+                telefoneAvulsoFinal || null,
+                dataHoraAgendamento.toISOString(), // Já está em UTC
+                duracao,
+                valorHora,
+                valorCalculado,
+                valorFinal,
+                observacoes || null,
+                ehAula || false,
+                professorId || null,
+              ]
+            );
+            return result.rows[0].id;
+          } catch (error2: any) {
+            // Se ehAula ou professorId não existem, inserir sem eles (bancos muito antigos)
+            if (error2.message?.includes('ehAula') || error2.message?.includes('professorId')) {
+              const result = await query(
+                `INSERT INTO "Agendamento" (
+                  id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                  "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+                  status, observacoes, "createdAt", "updatedAt"
+                )
+                VALUES (
+                  gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
+                )
+                RETURNING id`,
+                [
+                  quadraId,
+                  usuarioIdFinal,
+                  atletaIdFinal || null,
+                  nomeAvulsoFinal || null,
+                  telefoneAvulsoFinal || null,
+                  dataHoraAgendamento.toISOString(), // Já está em UTC
+                  duracao,
+                  valorHora,
+                  valorCalculado,
+                  valorFinal,
+                  observacoes || null,
+                ]
+              );
+              return result.rows[0].id;
+            }
+            throw error2;
+          }
         }
         throw error;
       }
