@@ -403,8 +403,18 @@ export default function EditarAgendamentoModal({
     setValorNegociado(agendamentoParaUsar.valorNegociado ?? null);
 
     // Preenche campos de aula/professor
-    setEhAula(agendamentoParaUsar.ehAula || false);
-    setProfessorId(agendamentoParaUsar.professorId || '');
+    // Garantir que ehAula seja boolean verdadeiro se o valor for true
+    const ehAulaValue = agendamentoParaUsar.ehAula === true || agendamentoParaUsar.ehAula === 'true' || agendamentoParaUsar.ehAula === 1;
+    setEhAula(ehAulaValue);
+    // Preencher professorId se existir (pode ser string vazia, null ou undefined)
+    setProfessorId(agendamentoParaUsar.professorId ? String(agendamentoParaUsar.professorId) : '');
+    
+    console.log('[EditarAgendamentoModal] Preenchendo campos de aula:', {
+      ehAulaOriginal: agendamentoParaUsar.ehAula,
+      ehAulaValue,
+      professorIdOriginal: agendamentoParaUsar.professorId,
+      professorIdPreenchido: agendamentoParaUsar.professorId ? String(agendamentoParaUsar.professorId) : ''
+    });
 
     // Armazenar valores originais para comparação
     setValoresOriginais({
