@@ -1410,6 +1410,10 @@ export default function ArenaAgendaSemanalPage() {
             <span className="text-gray-700">Agendamento confirmado</span>
           </div>
           <div className="flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-green-600" />
+            <span className="text-gray-700">Aula/Professor</span>
+          </div>
+          <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-gray-600" />
             <span className="text-gray-700">Atleta</span>
           </div>
