@@ -403,8 +403,8 @@ export default function EditarAgendamentoModal({
     setValorNegociado(agendamentoParaUsar.valorNegociado ?? null);
 
     // Preenche campos de aula/professor
-    // Garantir que ehAula seja boolean verdadeiro se o valor for true
-    const ehAulaValue = agendamentoParaUsar.ehAula === true || agendamentoParaUsar.ehAula === 'true' || agendamentoParaUsar.ehAula === 1;
+    // Garantir que ehAula seja boolean verdadeiro (pode ser boolean, undefined ou null)
+    const ehAulaValue = agendamentoParaUsar.ehAula === true || Boolean(agendamentoParaUsar.ehAula);
     setEhAula(ehAulaValue);
     // Preencher professorId se existir (pode ser string vazia, null ou undefined)
     setProfessorId(agendamentoParaUsar.professorId ? String(agendamentoParaUsar.professorId) : '');
