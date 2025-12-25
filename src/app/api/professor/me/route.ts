@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { buscarProfessorPorUserId } from '@/lib/professorService';
+import { buscarProfessorPorUserId, buscarProfessorComArenas } from '@/lib/professorService';
 
 export async function GET(request: NextRequest) {
   try {
