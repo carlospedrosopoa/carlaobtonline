@@ -972,6 +972,8 @@ export default function EditarAgendamentoModal({
           nomeAvulso: resultado.nomeAvulso || '',
           telefoneAvulso: resultado.telefoneAvulso || '',
           atletasParticipantesIds: resultado.atletasParticipantes?.map((ap: any) => ap.atletaId).filter((id: string) => id) || [],
+          ehAula: resultado.ehAula || false,
+          professorId: resultado.professorId || null,
         });
       }
 
