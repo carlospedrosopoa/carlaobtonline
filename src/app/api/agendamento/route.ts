@@ -629,7 +629,7 @@ export async function POST(request: NextRequest) {
             observacoes || null,
             recorrenciaId || null,
             recorrenciaConfig ? JSON.stringify(recorrenciaConfig) : null,
-            ehAula === true || ehAula === 'true' || Boolean(ehAula),
+            ehAulaFinal, // Usar o valor já processado
             professorId && professorId.trim() ? professorId : null,
           ]
         );
