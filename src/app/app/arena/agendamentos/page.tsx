@@ -243,6 +243,15 @@ export default function ArenaAgendamentosPage() {
   };
 
   const getInfoAgendamento = (agendamento: Agendamento) => {
+    // Se for aula/professor, mostrar informações do professor primeiro
+    if (agendamento.ehAula && agendamento.professor) {
+      return {
+        nome: agendamento.professor.usuario?.name || agendamento.professor.especialidade || 'Professor',
+        contato: agendamento.professor.usuario?.email || '—',
+        tipo: 'Professor/Aula',
+      };
+    }
+    
     if (agendamento.atletaId && agendamento.atleta) {
       return {
         nome: agendamento.atleta.nome,
@@ -279,6 +288,18 @@ export default function ArenaAgendamentosPage() {
     const termoBuscaNumerico = termoBusca.replace(/\D/g, '');
     
     return agendamentos.filter((ag) => {
+      // Buscar no nome do professor (se for aula)
+      if (ag.ehAula && ag.professor?.usuario?.name && ag.professor.usuario.name.toLowerCase().includes(termoBusca)) {
+        return true;
+      }
+      // Buscar na especialidade do professor
+      if (ag.ehAula && ag.professor?.especialidade && ag.professor.especialidade.toLowerCase().includes(termoBusca)) {
+        return true;
+      }
+      // Buscar no email do professor
+      if (ag.ehAula && ag.professor?.usuario?.email && ag.professor.usuario.email.toLowerCase().includes(termoBusca)) {
+        return true;
+      }
       // Buscar no nome do atleta
       if (ag.atleta?.nome && ag.atleta.nome.toLowerCase().includes(termoBusca)) {
         return true;
