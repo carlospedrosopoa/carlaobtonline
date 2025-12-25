@@ -755,12 +755,13 @@ export async function POST(request: NextRequest) {
     // Buscar dados relacionados para retorno completo
     let agendamentoCompleto;
     try {
-      // Tentar buscar com campos de recorrência
+      // Tentar buscar com campos de recorrência, ehAula e professorId
       agendamentoCompleto = await query(
         `SELECT 
           a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
           a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-          a.status, a.observacoes, a."recorrenciaId", a."recorrenciaConfig", a."createdAt", a."updatedAt",
+          a.status, a.observacoes, a."recorrenciaId", a."recorrenciaConfig", a."ehAula", a."professorId",
+          a."createdAt", a."updatedAt",
           q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
           p.id as "point_id", p.nome as "point_nome",
           u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
