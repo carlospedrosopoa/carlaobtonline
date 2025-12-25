@@ -627,8 +627,8 @@ export async function POST(request: NextRequest) {
             observacoes || null,
             recorrenciaId || null,
             recorrenciaConfig ? JSON.stringify(recorrenciaConfig) : null,
-            ehAula || false,
-            professorId || null,
+            ehAula === true || ehAula === 'true' || Boolean(ehAula),
+            professorId && professorId.trim() ? professorId : null,
           ]
         );
         return result.rows[0].id;
