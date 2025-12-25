@@ -16,11 +16,12 @@ export async function GET(request: NextRequest) {
 
     const { user } = authResult;
 
-    // Apenas ADMIN pode listar todos os professores
+    // ADMIN pode listar todos os professores
+    // ORGANIZER pode listar professores que atuam na sua arena
     // PROFESSOR pode ver apenas seu próprio perfil (via /api/professor/me)
-    if (user.role !== 'ADMIN') {
+    if (user.role !== 'ADMIN' && user.role !== 'ORGANIZER') {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Acesso negado. Apenas administradores podem listar professores.' },
+        { mensagem: 'Acesso negado. Apenas administradores e organizadores podem listar professores.' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
@@ -30,10 +31,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const ativo = searchParams.get('ativo');
     const aceitaNovosAlunos = searchParams.get('aceitaNovosAlunos');
+    const pointId = searchParams.get('pointId'); // Para ORGANIZER filtrar por sua arena
 
     const filtros: any = {};
     if (ativo !== null) filtros.ativo = ativo === 'true';
     if (aceitaNovosAlunos !== null) filtros.aceitaNovosAlunos = aceitaNovosAlunos === 'true';
+    
+    // Se for ORGANIZER, filtrar por arena dele (pointIdGestor)
+    if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+      filtros.pointId = user.pointIdGestor;
+    } else if (pointId) {
+      // Permitir filtrar por pointId específico (útil para ADMIN)
+      filtros.pointId = pointId;
+    }
 
     const professores = await listarProfessores(filtros);
 

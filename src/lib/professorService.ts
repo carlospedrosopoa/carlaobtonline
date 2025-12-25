@@ -371,10 +371,14 @@ export async function deletarProfessor(professorId: string) {
 export async function listarProfessores(filtros?: {
   ativo?: boolean;
   aceitaNovosAlunos?: boolean;
+  pointId?: string; // Filtrar professores que atuam em uma arena específica
 }) {
   let whereClause = '';
   const params: any[] = [];
   let paramIndex = 1;
+
+  // Se há filtro por pointId, usar JOIN com ProfessorPoint
+  const hasPointFilter = filtros?.pointId !== undefined;
 
   if (filtros?.ativo !== undefined) {
     whereClause += `WHERE p.ativo = $${paramIndex++}`;
@@ -386,8 +390,19 @@ export async function listarProfessores(filtros?: {
     params.push(filtros.aceitaNovosAlunos);
   }
 
+  // Filtrar por pointId (arena principal OU arenas frequentes)
+  if (hasPointFilter) {
+    whereClause += whereClause ? ' AND ' : 'WHERE ';
+    whereClause += `(p."pointIdPrincipal" = $${paramIndex} OR EXISTS (
+      SELECT 1 FROM "ProfessorPoint" pp 
+      WHERE pp."professorId" = p.id AND pp."pointId" = $${paramIndex}
+    ))`;
+    params.push(filtros.pointId);
+    paramIndex++;
+  }
+
   const result = await query(
-    `SELECT p.*, 
+    `SELECT DISTINCT p.*, 
             u.id as "usuario_id",
             u.name as "usuario_name",
             u.email as "usuario_email",

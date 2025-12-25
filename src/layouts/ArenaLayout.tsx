@@ -93,6 +93,12 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         { to: '/app/arena/atletas', label: 'Lista de Atletas' },
       ],
     },
+    {
+      label: 'Professores',
+      items: [
+        { to: '/app/arena/professores', label: 'Lista de Professores' },
+      ],
+    },
   ];
 
   const isItemActive = (item: NavItem) => {
