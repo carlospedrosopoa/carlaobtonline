@@ -493,7 +493,7 @@ export async function POST(request: NextRequest) {
 
     // Validar se ehAula requer professorId
     // Garantir que ehAula seja boolean (true/false, não undefined)
-    const ehAulaFinal = ehAula === true || ehAula === 'true' || Boolean(ehAula);
+    const ehAulaFinal = ehAula === true || Boolean(ehAula);
     
     // Debug log (remover em produção se necessário)
     console.log('[POST /api/agendamento] Valores recebidos:', {
