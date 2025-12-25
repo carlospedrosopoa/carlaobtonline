@@ -9,7 +9,8 @@ import { useAuth } from '@/context/AuthContext';
 function getRedirectRoute(role: string): string {
   if (role === 'ADMIN') return '/app/admin';
   if (role === 'ORGANIZER') return '/app/arena';
-  return '/app/atleta';
+  // Se chegou aqui com outro role, redireciona para login (não deveria acontecer devido à validação na API)
+  return '/login';
 }
 
 export default function LoginPage() {

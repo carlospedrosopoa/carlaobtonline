@@ -76,11 +76,22 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
+    const role = (usuarioDb as any).role ?? "USER";
+    
+    // Restringir acesso: apenas ADMIN e ORGANIZER podem fazer login no carlaobtonline
+    if (role !== 'ADMIN' && role !== 'ORGANIZER') {
+      const errorResponse = NextResponse.json(
+        { mensagem: "Acesso negado. Apenas administradores e gestores de arena podem acessar esta plataforma." },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     const usuario = {
       id: usuarioDb.id,
       nome: (usuarioDb as any).name ?? (usuarioDb as any).nome ?? "",
       email: usuarioDb.email,
-      role: (usuarioDb as any).role ?? "USER",
+      role: role,
       atletaId: (usuarioDb as any).atletaId !== undefined ? (usuarioDb as any).atletaId : undefined,
       pointIdGestor: (usuarioDb as any).pointIdGestor !== undefined ? (usuarioDb as any).pointIdGestor : undefined,
     };
