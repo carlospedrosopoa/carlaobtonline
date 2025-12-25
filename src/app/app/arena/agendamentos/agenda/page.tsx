@@ -10,7 +10,7 @@ import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoReco
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw, Smartphone, UserCog } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw, Smartphone, UserCog, GraduationCap } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 
 export default function ArenaAgendaSemanalPage() {
