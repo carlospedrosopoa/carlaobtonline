@@ -49,6 +49,14 @@ export async function GET(
       return withCors(errorResponse, request);
     }
 
+    if (!professorId) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'ID do professor não encontrado' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     // Buscar professor com arenas
     const professorComArenas = await buscarProfessorComArenas(professorId);
 
