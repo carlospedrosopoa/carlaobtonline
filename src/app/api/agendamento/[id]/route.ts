@@ -119,7 +119,7 @@ export async function GET(
       valorNegociado: row.valorNegociado,
       status: row.status,
       observacoes: row.observacoes,
-      ehAula: row.ehAula === true || row.ehAula === 'true' || (row.ehAula !== null && row.ehAula !== undefined ? Boolean(row.ehAula) : false),
+      ehAula: row.ehAula === true || row.ehAula === 'true' || row.ehAula === 1 || (row.ehAula !== null && row.ehAula !== undefined ? Boolean(row.ehAula) : false),
       professorId: row.professorId || null,
       professor: row.professor_id ? {
         id: row.professor_id,
