@@ -730,6 +730,54 @@ export default function ArenaAgendaSemanalPage() {
     }
   };
 
+  const getTipoBadge = (agendamento: Agendamento) => {
+    // Se for aula, mostrar badge especial
+    if (agendamento.ehAula) {
+      return (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-100 text-green-700">
+          <GraduationCap className="w-2.5 h-2.5" />
+          Aula
+          {agendamento.professor?.usuario?.name && (
+            <span className="text-green-600 truncate max-w-[60px]">({agendamento.professor.usuario.name})</span>
+          )}
+        </span>
+      );
+    }
+    
+    if (agendamento.atletaId && agendamento.atleta) {
+      const criadoPeloAtleta = foiCriadoPeloAtleta(agendamento);
+      return (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-100 text-purple-700">
+          <Users className="w-2.5 h-2.5" />
+          Atleta
+          {criadoPeloAtleta ? (
+            <span title="Criado pelo atleta">
+              <Smartphone className="w-2.5 h-2.5" />
+            </span>
+          ) : (
+            <span title="Criado pelo organizer">
+              <UserCog className="w-2.5 h-2.5" />
+            </span>
+          )}
+        </span>
+      );
+    }
+    if (agendamento.nomeAvulso) {
+      return (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-orange-100 text-orange-700">
+          <UserPlus className="w-2.5 h-2.5" />
+          Avulso
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-100 text-blue-700">
+        <User className="w-2.5 h-2.5" />
+        Próprio
+      </span>
+    );
+  };
+
   const getInfoAgendamento = (agendamento: Agendamento) => {
     // Se for aula/professor, mostrar informações do professor primeiro
     if (agendamento.ehAula && agendamento.professor) {
@@ -1260,6 +1308,9 @@ export default function ArenaAgendaSemanalPage() {
                                         </div>
                                         <div className="text-xs font-bold truncate mb-0.5">
                                           {info.nome}
+                                        </div>
+                                        <div className="mb-1 flex items-center">
+                                          {getTipoBadge(agendamento)}
                                         </div>
                                         <div className="text-[10px] opacity-90 mb-0.5">
                                           {periodoTexto}
