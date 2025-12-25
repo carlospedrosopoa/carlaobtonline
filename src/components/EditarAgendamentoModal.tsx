@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useAuth } from '@/context/AuthContext';
 import { pointService, quadraService, agendamentoService, bloqueioAgendaService, tabelaPrecoService } from '@/services/agendamentoService';
+import { professorService } from '@/services/professorService';
 import { api } from '@/lib/api';
 import type { Agendamento, ModoAgendamento } from '@/types/agendamento';
+import type { ProfessorAdmin } from '@/services/professorService';
 import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat, CreditCard } from 'lucide-react';
 import type { RecorrenciaConfig, TipoRecorrencia } from '@/types/agendamento';
 import InputMonetario from './InputMonetario';
@@ -51,6 +53,8 @@ export default function EditarAgendamentoModal({
   const [points, setPoints] = useState<any[]>([]);
   const [quadras, setQuadras] = useState<any[]>([]);
   const [atletas, setAtletas] = useState<Atleta[]>([]);
+  const [professores, setProfessores] = useState<ProfessorAdmin[]>([]);
+  const [carregandoProfessores, setCarregandoProfessores] = useState(false);
   const [agendamentosExistentes, setAgendamentosExistentes] = useState<Agendamento[]>([]);
   const [bloqueiosExistentes, setBloqueiosExistentes] = useState<any[]>([]);
   const [carregandoAtletas, setCarregandoAtletas] = useState(false);
@@ -99,6 +103,9 @@ export default function EditarAgendamentoModal({
   const [atletasParticipantesIds, setAtletasParticipantesIds] = useState<string[]>([]);
   const [mostrarSelecaoAtletas, setMostrarSelecaoAtletas] = useState(false);
   const [buscaAtletasParticipantes, setBuscaAtletasParticipantes] = useState('');
+  // Campos de aula/professor
+  const [ehAula, setEhAula] = useState(false);
+  const [professorId, setProfessorId] = useState<string>('');
 
   // Campos de recorrência
   const [temRecorrencia, setTemRecorrencia] = useState(false);
@@ -201,7 +208,15 @@ export default function EditarAgendamentoModal({
           });
 
           if (precoAplicavel) {
-            const valorHoraCalculado = parseFloat(precoAplicavel.valorHora.toString());
+            // Se for aula, usar valorHoraAula se disponível, senão usar valorHora como fallback
+            let valorHoraCalculado: number;
+            if (ehAula) {
+              valorHoraCalculado = (precoAplicavel.valorHoraAula !== null && precoAplicavel.valorHoraAula !== undefined)
+                ? parseFloat(precoAplicavel.valorHoraAula.toString())
+                : parseFloat(precoAplicavel.valorHora.toString());
+            } else {
+              valorHoraCalculado = parseFloat(precoAplicavel.valorHora.toString());
+            }
             const valorCalculadoCalculado = (valorHoraCalculado * duracao) / 60;
             setValorHora(valorHoraCalculado);
             setValorCalculado(valorCalculadoCalculado);
@@ -223,7 +238,7 @@ export default function EditarAgendamentoModal({
     };
 
     calcularValores();
-  }, [quadraId, data, hora, duracao, restaurandoDados]);
+  }, [quadraId, data, hora, duracao, ehAula, restaurandoDados]);
 
 
   useEffect(() => {
@@ -254,7 +269,7 @@ export default function EditarAgendamentoModal({
 
   const carregarDados = async () => {
     try {
-      const [pointsData, atletasData, quadrasData] = await Promise.all([
+      const [pointsData, atletasData, quadrasData, professoresData] = await Promise.all([
         // USER e ADMIN podem ver todos os points
         (isAdmin || usuario?.role === 'USER') ? pointService.listar() : Promise.resolve([]),
         canGerenciarAgendamento
@@ -271,6 +286,21 @@ export default function EditarAgendamentoModal({
             })()
           : Promise.resolve([] as Atleta[]),
         isOrganizer ? quadraService.listar() : Promise.resolve([]),
+        // Carregar professores apenas para ADMIN e ORGANIZER
+        canGerenciarAgendamento
+          ? (async () => {
+              try {
+                setCarregandoProfessores(true);
+                const data = await professorService.listar({ ativo: true });
+                return data;
+              } catch (error) {
+                console.error('Erro ao carregar professores:', error);
+                return [];
+              } finally {
+                setCarregandoProfessores(false);
+              }
+            })()
+          : Promise.resolve([]),
       ]);
 
       setPoints(pointsData.filter((p: any) => p.ativo));
@@ -278,6 +308,7 @@ export default function EditarAgendamentoModal({
         setCarregandoAtletas(true);
         setAtletas(atletasData as Atleta[]);
         setCarregandoAtletas(false);
+        setProfessores(professoresData);
       }
       // Se for ORGANIZER, carregar quadras diretamente
       if (isOrganizer && quadrasData.length > 0) {
@@ -313,6 +344,8 @@ export default function EditarAgendamentoModal({
     setBuscaAtletasParticipantes('');
     setParticipantesCompletos([]);
     setManterNaTela(false); // Resetar flag ao resetar formulário
+    setEhAula(false);
+    setProfessorId('');
   };
 
   const selecionarQuadraInicial = async (quadraIdParaSelecionar: string) => {
@@ -369,6 +402,10 @@ export default function EditarAgendamentoModal({
     setValorCalculado(agendamentoParaUsar.valorCalculado ?? null);
     setValorNegociado(agendamentoParaUsar.valorNegociado ?? null);
 
+    // Preenche campos de aula/professor
+    setEhAula(agendamentoParaUsar.ehAula || false);
+    setProfessorId(agendamentoParaUsar.professorId || '');
+
     // Armazenar valores originais para comparação
     setValoresOriginais({
       quadraId: agendamentoParaUsar.quadraId,
@@ -382,6 +419,8 @@ export default function EditarAgendamentoModal({
       nomeAvulso: agendamentoParaUsar.nomeAvulso || '',
       telefoneAvulso: agendamentoParaUsar.telefoneAvulso || '',
       atletasParticipantesIds: agendamentoParaUsar.atletasParticipantes?.map((ap) => ap.atletaId).filter((id) => id) || [],
+      ehAula: agendamentoParaUsar.ehAula || false,
+      professorId: agendamentoParaUsar.professorId || null,
     });
 
     // Preenche quadra e point
@@ -711,8 +750,12 @@ export default function EditarAgendamentoModal({
     const participantesOriginais = [...(valoresOriginais.atletasParticipantesIds || [])].sort();
     const mudouParticipantes = JSON.stringify(participantesAtuais) !== JSON.stringify(participantesOriginais);
 
+    // Comparar campos de aula/professor
+    const mudouEhAula = ehAula !== (valoresOriginais.ehAula || false);
+    const mudouProfessorId = (professorId || '') !== (valoresOriginais.professorId || '');
+
     return mudouDataHora || mudouQuadra || mudouDuracao || mudouObservacoes || 
-           mudouValorNegociado || mudouModo || mudouParticipantes;
+           mudouValorNegociado || mudouModo || mudouParticipantes || mudouEhAula || mudouProfessorId;
   }, [
     agendamento,
     valoresOriginais,
@@ -727,6 +770,8 @@ export default function EditarAgendamentoModal({
     nomeAvulso,
     telefoneAvulso,
     atletasParticipantesIds,
+    ehAula,
+    professorId,
   ]);
 
   const validarFormulario = (): string | null => {
@@ -764,6 +809,11 @@ export default function EditarAgendamentoModal({
       if (tipoRecorrencia === 'SEMANAL' && diasSemanaRecorrencia.length === 0) {
         return 'Selecione pelo menos um dia da semana para recorrência semanal';
       }
+    }
+
+    // Validação de aula/professor
+    if (ehAula && !professorId) {
+      return 'Selecione um professor quando o agendamento for para aula';
     }
 
     return null;
@@ -1320,6 +1370,64 @@ export default function EditarAgendamentoModal({
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Campos de Aula/Professor */}
+            {canGerenciarAgendamento && (
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <div className="mb-4">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={ehAula}
+                      onChange={(e) => {
+                        setEhAula(e.target.checked);
+                        if (!e.target.checked) {
+                          setProfessorId(''); // Limpar professor quando desmarcar
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span>Este agendamento é para aula/professor</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                    Quando marcado, o sistema usará o valor de locação para aulas da tabela de preços
+                  </p>
+                </div>
+
+                {ehAula && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Professor *
+                    </label>
+                    {carregandoProfessores ? (
+                      <div className="text-sm text-gray-500 py-2">Carregando professores...</div>
+                    ) : (
+                      <select
+                        value={professorId}
+                        onChange={(e) => setProfessorId(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      >
+                        <option value="">Selecione um professor</option>
+                        {professores
+                          .filter((p) => p.ativo)
+                          .map((professor) => (
+                            <option key={professor.id} value={professor.id}>
+                              {professor.usuario?.name || 'Professor'} 
+                              {professor.especialidade && ` - ${professor.especialidade}`}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                    {professores.length === 0 && !carregandoProfessores && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Nenhum professor ativo encontrado
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

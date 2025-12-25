@@ -9,7 +9,7 @@ import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelam
 import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoRecorrenteModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search, Lock, Smartphone, UserCog } from 'lucide-react';
+import { Calendar, Clock, MapPin, X, CheckCircle, XCircle, CalendarCheck, User, Users, UserPlus, Edit, Plus, Search, Lock, Smartphone, UserCog, GraduationCap } from 'lucide-react';
 
 export default function ArenaAgendamentosPage() {
   const { usuario, isAdmin, isOrganizer } = useAuth();
@@ -195,6 +195,19 @@ export default function ArenaAgendamentosPage() {
   };
 
   const getTipoBadge = (agendamento: Agendamento) => {
+    // Se for aula, mostrar badge especial
+    if (agendamento.ehAula) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+          <GraduationCap className="w-3 h-3" />
+          Aula
+          {agendamento.professor?.usuario?.name && (
+            <span className="text-green-600">({agendamento.professor.usuario.name})</span>
+          )}
+        </span>
+      );
+    }
+    
     if (agendamento.atletaId && agendamento.atleta) {
       const criadoPeloAtleta = foiCriadoPeloAtleta(agendamento);
       return (
