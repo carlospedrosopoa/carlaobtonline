@@ -1271,9 +1271,14 @@ export default function ArenaAgendaSemanalPage() {
                                       }
                                     }}
                                   >
-                                    <div className="p-1.5 h-full flex flex-col justify-between">
+                                    <div className="p-1.5 h-full flex flex-col justify-between relative">
+                                      {/* Badge no canto superior direito */}
+                                      <div className="absolute top-1 right-1 z-10">
+                                        {getTipoBadge(agendamento)}
+                                      </div>
+                                      
                                       <div className="flex-1">
-                                        <div className="flex items-start justify-between gap-1 mb-0.5">
+                                        <div className="flex items-start justify-between gap-1 mb-0.5 pr-8">
                                           <div className="text-[10px] font-bold opacity-90 flex-1 flex items-center gap-1">
                                             {quadra?.nome || 'Quadra'}
                                             {/* Indicador visual: criado pelo atleta ou organizer */}
@@ -1306,11 +1311,8 @@ export default function ArenaAgendaSemanalPage() {
                                           <MoreVertical className="w-3 h-3" />
                                         </button>
                                         </div>
-                                        <div className="text-xs font-bold truncate mb-0.5">
+                                        <div className="text-xs font-bold truncate mb-0.5 pr-8">
                                           {info.nome}
-                                        </div>
-                                        <div className="mb-1 flex items-center">
-                                          {getTipoBadge(agendamento)}
                                         </div>
                                         <div className="text-[10px] opacity-90 mb-0.5">
                                           {periodoTexto}
