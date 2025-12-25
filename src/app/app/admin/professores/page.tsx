@@ -621,6 +621,79 @@ export default function AdminProfessoresPage() {
             </label>
           </div>
 
+          {/* Arenas */}
+          {!carregandoArenas && points.length > 0 && (
+            <>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Arena Principal (opcional)
+                </label>
+                <select
+                  value={form.pointIdPrincipal}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, pointIdPrincipal: e.target.value }));
+                    setErroForm('');
+                  }}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Selecione a arena principal</option>
+                  {points.map((point) => (
+                    <option key={point.id} value={point.id}>
+                      {point.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Arenas que atua (opcional)
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-2">
+                  {points.map((point) => (
+                    <label
+                      key={point.id}
+                      className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.pointIdsFrequentes.includes(point.id)}
+                        onChange={() => {
+                          const newIds = form.pointIdsFrequentes.includes(point.id)
+                            ? form.pointIdsFrequentes.filter(id => id !== point.id)
+                            : [...form.pointIdsFrequentes, point.id];
+                          // Se desmarcou a arena principal, não permitir
+                          if (form.pointIdPrincipal === point.id && !form.pointIdsFrequentes.includes(point.id)) {
+                            setErroForm('Não é possível remover a arena principal das arenas que atua.');
+                            return;
+                          }
+                          setForm((f) => ({ ...f, pointIdsFrequentes: newIds }));
+                          setErroForm('');
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <div className="flex items-center gap-2 flex-1">
+                        {point.logoUrl && (
+                          <img
+                            src={point.logoUrl}
+                            alt={`Logo ${point.nome}`}
+                            className="w-6 h-6 object-contain rounded"
+                          />
+                        )}
+                        <span className="text-sm">{point.nome}</span>
+                        {form.pointIdPrincipal === point.id && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                            Principal
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
           {erroForm && (
             <div className="sm:col-span-2">
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-sm text-red-700">
