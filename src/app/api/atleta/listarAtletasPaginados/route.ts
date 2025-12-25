@@ -1,8 +1,14 @@
 // app/api/atleta/listarAtletasPaginados/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { withCors } from '@/lib/cors';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import { listarAtletasPaginados } from '@/lib/atletaService';
+
+// OPTIONS /api/atleta/listarAtletasPaginados - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 export async function GET(request: NextRequest) {
   try {
