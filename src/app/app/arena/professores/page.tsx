@@ -167,11 +167,11 @@ export default function ArenaProfessoresPage() {
                     )}
                   </div>
                 </div>
-                <div className="ml-2">
+                <div className="ml-2" title={professor.ativo ? "Ativo" : "Inativo"}>
                   {professor.ativo ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" title="Ativo" />
+                    <CheckCircle className="w-5 h-5 text-green-500" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-gray-400" title="Inativo" />
+                    <XCircle className="w-5 h-5 text-gray-400" />
                   )}
                 </div>
               </div>
@@ -230,4 +230,5 @@ export default function ArenaProfessoresPage() {
     </div>
   );
 }
+
 
