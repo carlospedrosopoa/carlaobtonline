@@ -944,6 +944,24 @@ export default function EditarAgendamentoModal({
         payload.atletasParticipantesIds = [];
       }
 
+      // Campos de aula/professor
+      if (ehAula) {
+        payload.ehAula = true;
+        if (professorId) {
+          payload.professorId = professorId;
+        }
+      } else {
+        // Se não é aula, garantir que professorId seja null/undefined
+        payload.ehAula = false;
+        payload.professorId = null;
+      }
+
+      // Log do payload completo antes de enviar
+      console.log('[EditarAgendamentoModal] ============================================');
+      console.log('[EditarAgendamentoModal] Payload completo que será enviado:');
+      console.log(JSON.stringify(payload, null, 2));
+      console.log('[EditarAgendamentoModal] ============================================');
+
       let resultado;
       // Verificar se é edição: agendamento existe E tem ID válido (não vazio)
       if (agendamento && agendamento.id && agendamento.id.trim() !== '') {
