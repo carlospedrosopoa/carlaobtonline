@@ -200,7 +200,7 @@ export default function ArenaAgendamentosPage() {
     const ehAula = agendamento.ehAula;
     const ehAulaValue = ehAula === true || 
                        (typeof ehAula === 'string' && ehAula === 'true') || 
-                       ehAula === 1 ||
+                       (typeof ehAula === 'number' && ehAula === 1) ||
                        (agendamento.professorId !== null && agendamento.professorId !== undefined);
     
     // Se for aula, mostrar badge especial (prioridade máxima)
