@@ -100,6 +100,17 @@ export async function GET(
       // Buscar informações dos participantes
       // SEMPRE buscar como duplas, pois todos os jogos são de duplas (round-robin)
       
+      // Debug: log dos IDs salvos no jogo
+      console.log('[JOGOS] Buscando participantes do jogo:', {
+        jogoId: row.id,
+        rodada: row.rodada,
+        numeroJogo: row.numeroJogo,
+        atleta1ParceriaId: row.atleta1ParceriaId,
+        atleta2ParceriaId: row.atleta2ParceriaId,
+        atleta1Id: row.atleta1Id,
+        atleta2Id: row.atleta2Id,
+      });
+      
       // Buscar dupla 1
       if (row.atleta1ParceriaId) {
         // Buscar registros da parceria - pegar ambos os atletas
@@ -163,6 +174,13 @@ export async function GET(
           }
           
           const atletasArray = Array.from(atletasDaDupla.values());
+          console.log('[JOGOS] Dupla 1 encontrada:', {
+            parceriaId: row.atleta1ParceriaId,
+            quantidade: atletasArray.length,
+            atletas: atletasArray.map(a => ({ id: a.id, nome: a.nome })),
+            registrosEncontrados: dupla1Result.rows.length,
+          });
+          
           if (atletasArray.length === 2) {
             jogo.participante1 = {
               parceriaId: row.atleta1ParceriaId,
@@ -177,6 +195,7 @@ export async function GET(
               parceriaId: row.atleta1ParceriaId,
               quantidade: atletasArray.length,
               atletas: atletasArray,
+              registrosRaw: dupla1Result.rows,
             });
           }
         } else {
@@ -245,6 +264,13 @@ export async function GET(
           }
           
           const atletasArray = Array.from(atletasDaDupla.values());
+          console.log('[JOGOS] Dupla 2 encontrada:', {
+            parceriaId: row.atleta2ParceriaId,
+            quantidade: atletasArray.length,
+            atletas: atletasArray.map(a => ({ id: a.id, nome: a.nome })),
+            registrosEncontrados: dupla2Result.rows.length,
+          });
+          
           if (atletasArray.length === 2) {
             jogo.participante2 = {
               parceriaId: row.atleta2ParceriaId,
@@ -259,6 +285,7 @@ export async function GET(
               parceriaId: row.atleta2ParceriaId,
               quantidade: atletasArray.length,
               atletas: atletasArray,
+              registrosRaw: dupla2Result.rows,
             });
           }
         } else {
