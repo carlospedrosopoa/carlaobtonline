@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       a.status, a.observacoes, a."createdAt", a."updatedAt"`;
     
     // Tentar incluir campos de recorrência e professor
-    let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig", a."professorId",
+    let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig", a."ehAula", a."professorId",
       q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
       p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
         fone: row.atleta_fone,
         usuarioId: row.atleta_usuarioId || null,
       } : null,
-      ehAula: row.ehAula === true || row.ehAula === 'true' || false,
+      ehAula: row.ehAula === true || row.ehAula === 'true' || row.ehAula === 1,
       professorId: row.professorId || null,
       professor: row.professor_id ? {
         id: row.professor_id,

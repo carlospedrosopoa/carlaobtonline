@@ -731,8 +731,15 @@ export default function ArenaAgendaSemanalPage() {
   };
 
   const getTipoBadge = (agendamento: Agendamento) => {
-    // Se for aula, mostrar badge especial
-    if (agendamento.ehAula) {
+    // Verificar se é aula - tratar diferentes formatos que podem vir do backend
+    // Verifica ehAula explícito OU se tem professorId (que indica aula)
+    const ehAulaValue = agendamento.ehAula === true || 
+                       agendamento.ehAula === 'true' || 
+                       agendamento.ehAula === 1 ||
+                       (agendamento.professorId !== null && agendamento.professorId !== undefined);
+    
+    // Se for aula, mostrar badge especial (prioridade máxima)
+    if (ehAulaValue) {
       return (
         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-100 text-green-700">
           <GraduationCap className="w-2.5 h-2.5" />
