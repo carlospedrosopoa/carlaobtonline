@@ -8,7 +8,7 @@ import type { AtualizarCompeticaoPayload } from '@/types/competicao';
 // GET /api/competicao/[id] - Obter competição por ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -20,7 +20,7 @@ export async function GET(
       return withCors(errorResponse, request);
     }
 
-    const competicaoId = params.id;
+    const { id: competicaoId } = await params;
 
     // Buscar competição com atletas participantes
     const competicaoResult = await query(
@@ -144,7 +144,7 @@ export async function GET(
 // PUT /api/competicao/[id] - Atualizar competição
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -164,7 +164,7 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    const competicaoId = params.id;
+    const { id: competicaoId } = await params;
     const body: AtualizarCompeticaoPayload = await request.json();
 
     // Verificar se competição existe e se usuário tem acesso
@@ -319,7 +319,7 @@ export async function PUT(
 // DELETE /api/competicao/[id] - Deletar competição
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -339,7 +339,7 @@ export async function DELETE(
       return withCors(errorResponse, request);
     }
 
-    const competicaoId = params.id;
+    const { id: competicaoId } = await params;
 
     // Verificar se competição existe e se usuário tem acesso
     const competicaoCheck = await query(

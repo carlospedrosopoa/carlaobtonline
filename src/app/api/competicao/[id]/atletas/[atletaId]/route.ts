@@ -7,7 +7,7 @@ import { withCors } from '@/lib/cors';
 // DELETE /api/competicao/[id]/atletas/[atletaId] - Remover atleta da competição
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; atletaId: string } }
+  { params }: { params: Promise<{ id: string; atletaId: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -27,8 +27,7 @@ export async function DELETE(
       return withCors(errorResponse, request);
     }
 
-    const competicaoId = params.id;
-    const atletaId = params.atletaId;
+    const { id: competicaoId, atletaId } = await params;
 
     // Verificar se competição existe e se usuário tem acesso
     const competicaoCheck = await query(

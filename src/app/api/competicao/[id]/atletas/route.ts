@@ -8,7 +8,7 @@ import type { AdicionarAtletaCompeticaoPayload } from '@/types/competicao';
 // POST /api/competicao/[id]/atletas - Adicionar atleta à competição
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usuario = await getUsuarioFromRequest(request);
@@ -28,7 +28,7 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    const competicaoId = params.id;
+    const { id: competicaoId } = await params;
     const body: AdicionarAtletaCompeticaoPayload = await request.json();
     const { atletaId, parceiroAtletaId } = body;
 
