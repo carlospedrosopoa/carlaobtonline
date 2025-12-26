@@ -98,50 +98,24 @@ export async function GET(
       };
 
       // Buscar informações dos participantes
-      if (competicao.formato === 'INDIVIDUAL') {
-        // Buscar atleta 1
-        if (row.atleta1Id) {
-          const atleta1Result = await query(
-            `SELECT id, nome FROM "Atleta" WHERE id = $1`,
-            [row.atleta1Id]
-          );
-          if (atleta1Result.rows.length > 0) {
-            jogo.participante1 = {
-              atletaId: atleta1Result.rows[0].id,
-              nome: atleta1Result.rows[0].nome,
-            };
-          }
-        }
-
-        // Buscar atleta 2
-        if (row.atleta2Id) {
-          const atleta2Result = await query(
-            `SELECT id, nome FROM "Atleta" WHERE id = $1`,
-            [row.atleta2Id]
-          );
-          if (atleta2Result.rows.length > 0) {
-            jogo.participante2 = {
-              atletaId: atleta2Result.rows[0].id,
-              nome: atleta2Result.rows[0].nome,
-            };
-          }
-        }
-      } else {
-        // DUPLAS: buscar dupla 1
-        if (row.atleta1ParceriaId) {
-          const dupla1Result = await query(
-            `SELECT ac."atletaId", ac."parceiroAtletaId",
-             a1.id as "a1_id", a1.nome as "a1_nome",
-             a2.id as "a2_id", a2.nome as "a2_nome"
-            FROM "AtletaCompeticao" ac
-            LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
-            LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
-            WHERE ac."parceriaId" = $1 AND ac."competicaoId" = $2
-            LIMIT 1`,
-            [row.atleta1ParceriaId, competicaoId]
-          );
-          if (dupla1Result.rows.length > 0) {
-            const d = dupla1Result.rows[0];
+      // SEMPRE buscar como duplas, pois todos os jogos são de duplas (round-robin)
+      
+      // Buscar dupla 1
+      if (row.atleta1ParceriaId) {
+        const dupla1Result = await query(
+          `SELECT ac."atletaId", ac."parceiroAtletaId",
+           a1.id as "a1_id", a1.nome as "a1_nome",
+           a2.id as "a2_id", a2.nome as "a2_nome"
+          FROM "AtletaCompeticao" ac
+          LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
+          LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
+          WHERE ac."parceriaId" = $1 AND ac."competicaoId" = $2
+          LIMIT 1`,
+          [row.atleta1ParceriaId, competicaoId]
+        );
+        if (dupla1Result.rows.length > 0) {
+          const d = dupla1Result.rows[0];
+          if (d.a1_nome && d.a2_nome) {
             jogo.participante1 = {
               parceriaId: row.atleta1ParceriaId,
               nome: `${d.a1_nome} & ${d.a2_nome}`,
@@ -152,22 +126,24 @@ export async function GET(
             };
           }
         }
+      }
 
-        // Buscar dupla 2
-        if (row.atleta2ParceriaId) {
-          const dupla2Result = await query(
-            `SELECT ac."atletaId", ac."parceiroAtletaId",
-             a1.id as "a1_id", a1.nome as "a1_nome",
-             a2.id as "a2_id", a2.nome as "a2_nome"
-            FROM "AtletaCompeticao" ac
-            LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
-            LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
-            WHERE ac."parceriaId" = $1 AND ac."competicaoId" = $2
-            LIMIT 1`,
-            [row.atleta2ParceriaId, competicaoId]
-          );
-          if (dupla2Result.rows.length > 0) {
-            const d = dupla2Result.rows[0];
+      // Buscar dupla 2
+      if (row.atleta2ParceriaId) {
+        const dupla2Result = await query(
+          `SELECT ac."atletaId", ac."parceiroAtletaId",
+           a1.id as "a1_id", a1.nome as "a1_nome",
+           a2.id as "a2_id", a2.nome as "a2_nome"
+          FROM "AtletaCompeticao" ac
+          LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
+          LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
+          WHERE ac."parceriaId" = $1 AND ac."competicaoId" = $2
+          LIMIT 1`,
+          [row.atleta2ParceriaId, competicaoId]
+        );
+        if (dupla2Result.rows.length > 0) {
+          const d = dupla2Result.rows[0];
+          if (d.a1_nome && d.a2_nome) {
             jogo.participante2 = {
               parceriaId: row.atleta2ParceriaId,
               nome: `${d.a1_nome} & ${d.a2_nome}`,
@@ -177,6 +153,33 @@ export async function GET(
               },
             };
           }
+        }
+      }
+      
+      // Fallback: se não encontrou por parceria, tentar buscar por atletaId (caso algum jogo antigo)
+      if (!jogo.participante1 && row.atleta1Id) {
+        const atleta1Result = await query(
+          `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+          [row.atleta1Id]
+        );
+        if (atleta1Result.rows.length > 0) {
+          jogo.participante1 = {
+            atletaId: atleta1Result.rows[0].id,
+            nome: atleta1Result.rows[0].nome,
+          };
+        }
+      }
+
+      if (!jogo.participante2 && row.atleta2Id) {
+        const atleta2Result = await query(
+          `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+          [row.atleta2Id]
+        );
+        if (atleta2Result.rows.length > 0) {
+          jogo.participante2 = {
+            atletaId: atleta2Result.rows[0].id,
+            nome: atleta2Result.rows[0].nome,
+          };
         }
       }
 
