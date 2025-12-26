@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import { pointService } from '@/services/agendamentoService';
 import type { Competicao } from '@/types/competicao';
-import { Trophy, Plus, Edit, Trash2, Users, Calendar, MapPin } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Users, Calendar, MapPin, PlayCircle, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function CompeticoesPage() {
@@ -40,6 +40,14 @@ export default function CompeticoesPage() {
 
   const handleEditar = (competicao: Competicao) => {
     router.push(`/app/arena/competicoes/${competicao.id}`);
+  };
+
+  const handleVerJogos = (competicao: Competicao) => {
+    router.push(`/app/arena/competicoes/${competicao.id}/jogos`);
+  };
+
+  const handleVerClassificacao = (competicao: Competicao) => {
+    router.push(`/app/arena/competicoes/${competicao.id}/classificacao`);
   };
 
   const handleDeletar = async (competicao: Competicao) => {
@@ -219,12 +227,32 @@ export default function CompeticoesPage() {
                 <p className="mt-4 text-sm text-gray-700 line-clamp-2">{competicao.descricao}</p>
               )}
 
-              <button
-                onClick={() => handleEditar(competicao)}
-                className="mt-4 w-full py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors font-semibold text-sm"
-              >
-                Ver Detalhes
-              </button>
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => handleEditar(competicao)}
+                  className="w-full py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors font-semibold text-sm"
+                >
+                  Editar
+                </button>
+                {competicao.status === 'EM_ANDAMENTO' && (
+                  <>
+                    <button
+                      onClick={() => handleVerJogos(competicao)}
+                      className="w-full py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      Jogos
+                    </button>
+                    <button
+                      onClick={() => handleVerClassificacao(competicao)}
+                      className="w-full py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      Classificação
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           ))}
         </div>

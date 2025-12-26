@@ -78,5 +78,21 @@ export const competicaoService = {
     const res = await api.put(`/competicao/${competicaoId}/jogos/${jogoId}`, resultado);
     return res.data;
   },
+
+  finalizarCompeticao: async (
+    competicaoId: string,
+    classificacao: Array<{
+      atletaId: string;
+      nome: string;
+      vitorias: number;
+      derrotas: number;
+      gamesFeitos: number;
+      gamesSofridos: number;
+      saldoGames: number;
+    }>
+  ): Promise<any> => {
+    const res = await api.post(`/competicao/${competicaoId}/finalizar`, { classificacao });
+    return res.data;
+  },
 };
 
