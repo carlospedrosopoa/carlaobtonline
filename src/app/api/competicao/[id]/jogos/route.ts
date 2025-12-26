@@ -102,6 +102,7 @@ export async function GET(
       
       // Buscar dupla 1
       if (row.atleta1ParceriaId) {
+        // Buscar todos os registros dessa parceria
         const dupla1Result = await query(
           `SELECT ac."atletaId", ac."parceiroAtletaId",
            a1.id as "a1_id", a1.nome as "a1_nome",
@@ -109,27 +110,70 @@ export async function GET(
           FROM "AtletaCompeticao" ac
           LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
           LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
-          WHERE ac."parceriaId" = $1 AND ac."competicaoId" = $2
-          LIMIT 1`,
+          WHERE ac."parceriaId" = $1 
+            AND ac."competicaoId" = $2
+            AND ac."parceriaId" IS NOT NULL
+          ORDER BY ac."createdAt" ASC
+          LIMIT 2`,
           [row.atleta1ParceriaId, competicaoId]
         );
-        if (dupla1Result.rows.length > 0) {
-          const d = dupla1Result.rows[0];
-          if (d.a1_nome && d.a2_nome) {
+        
+        if (dupla1Result.rows.length >= 1) {
+          const primeiro = dupla1Result.rows[0];
+          let nomeAtleta1 = primeiro.a1_nome;
+          let nomeAtleta2 = primeiro.a2_nome;
+          let idAtleta1 = primeiro.a1_id;
+          let idAtleta2 = primeiro.a2_id;
+          
+          // Se não encontrou o parceiro no primeiro registro, buscar no segundo
+          if (!nomeAtleta2 && dupla1Result.rows.length > 1) {
+            const segundo = dupla1Result.rows[1];
+            nomeAtleta2 = segundo.a1_nome;
+            idAtleta2 = segundo.a1_id;
+          }
+          
+          // Se ainda não encontrou, buscar pelo parceiroAtletaId
+          if (!nomeAtleta2 && primeiro.parceiroAtletaId) {
+            const parceiroResult = await query(
+              `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+              [primeiro.parceiroAtletaId]
+            );
+            if (parceiroResult.rows.length > 0) {
+              nomeAtleta2 = parceiroResult.rows[0].nome;
+              idAtleta2 = parceiroResult.rows[0].id;
+            }
+          }
+          
+          if (nomeAtleta1 && nomeAtleta2) {
             jogo.participante1 = {
               parceriaId: row.atleta1ParceriaId,
-              nome: `${d.a1_nome} & ${d.a2_nome}`,
+              nome: `${nomeAtleta1} & ${nomeAtleta2}`,
               dupla: {
-                atleta1: { id: d.a1_id, nome: d.a1_nome },
-                atleta2: { id: d.a2_id, nome: d.a2_nome },
+                atleta1: { id: idAtleta1, nome: nomeAtleta1 },
+                atleta2: { id: idAtleta2, nome: nomeAtleta2 },
               },
             };
+          } else {
+            console.log('[JOGOS] Dupla 1 - nomes faltando:', {
+              parceriaId: row.atleta1ParceriaId,
+              nomeAtleta1,
+              nomeAtleta2,
+              primeiro,
+            });
           }
+        } else {
+          console.log('[JOGOS] Dupla 1 não encontrada:', {
+            parceriaId: row.atleta1ParceriaId,
+            competicaoId,
+            jogoId: row.id,
+            rodada: row.rodada,
+          });
         }
       }
 
       // Buscar dupla 2
       if (row.atleta2ParceriaId) {
+        // Buscar todos os registros dessa parceria
         const dupla2Result = await query(
           `SELECT ac."atletaId", ac."parceiroAtletaId",
            a1.id as "a1_id", a1.nome as "a1_nome",
@@ -137,22 +181,64 @@ export async function GET(
           FROM "AtletaCompeticao" ac
           LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
           LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
-          WHERE ac."parceriaId" = $1 AND ac."competicaoId" = $2
-          LIMIT 1`,
+          WHERE ac."parceriaId" = $1 
+            AND ac."competicaoId" = $2
+            AND ac."parceriaId" IS NOT NULL
+          ORDER BY ac."createdAt" ASC
+          LIMIT 2`,
           [row.atleta2ParceriaId, competicaoId]
         );
-        if (dupla2Result.rows.length > 0) {
-          const d = dupla2Result.rows[0];
-          if (d.a1_nome && d.a2_nome) {
+        
+        if (dupla2Result.rows.length >= 1) {
+          const primeiro = dupla2Result.rows[0];
+          let nomeAtleta1 = primeiro.a1_nome;
+          let nomeAtleta2 = primeiro.a2_nome;
+          let idAtleta1 = primeiro.a1_id;
+          let idAtleta2 = primeiro.a2_id;
+          
+          // Se não encontrou o parceiro no primeiro registro, buscar no segundo
+          if (!nomeAtleta2 && dupla2Result.rows.length > 1) {
+            const segundo = dupla2Result.rows[1];
+            nomeAtleta2 = segundo.a1_nome;
+            idAtleta2 = segundo.a1_id;
+          }
+          
+          // Se ainda não encontrou, buscar pelo parceiroAtletaId
+          if (!nomeAtleta2 && primeiro.parceiroAtletaId) {
+            const parceiroResult = await query(
+              `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+              [primeiro.parceiroAtletaId]
+            );
+            if (parceiroResult.rows.length > 0) {
+              nomeAtleta2 = parceiroResult.rows[0].nome;
+              idAtleta2 = parceiroResult.rows[0].id;
+            }
+          }
+          
+          if (nomeAtleta1 && nomeAtleta2) {
             jogo.participante2 = {
               parceriaId: row.atleta2ParceriaId,
-              nome: `${d.a1_nome} & ${d.a2_nome}`,
+              nome: `${nomeAtleta1} & ${nomeAtleta2}`,
               dupla: {
-                atleta1: { id: d.a1_id, nome: d.a1_nome },
-                atleta2: { id: d.a2_id, nome: d.a2_nome },
+                atleta1: { id: idAtleta1, nome: nomeAtleta1 },
+                atleta2: { id: idAtleta2, nome: nomeAtleta2 },
               },
             };
+          } else {
+            console.log('[JOGOS] Dupla 2 - nomes faltando:', {
+              parceriaId: row.atleta2ParceriaId,
+              nomeAtleta1,
+              nomeAtleta2,
+              primeiro,
+            });
           }
+        } else {
+          console.log('[JOGOS] Dupla 2 não encontrada:', {
+            parceriaId: row.atleta2ParceriaId,
+            competicaoId,
+            jogoId: row.id,
+            rodada: row.rodada,
+          });
         }
       }
       
