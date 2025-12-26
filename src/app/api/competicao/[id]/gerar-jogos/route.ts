@@ -100,8 +100,16 @@ export async function POST(
       } : null,
     }));
 
+    // Normalizar formato para garantir comparação correta
+    const formatoNormalizado = (competicao.formato || '').toUpperCase().trim();
+    
+    console.log('[GERAR JOGOS] Formato original:', competicao.formato);
+    console.log('[GERAR JOGOS] Formato normalizado:', formatoNormalizado);
+    console.log('[GERAR JOGOS] Número de participantes:', participantes.length);
+    console.log('[GERAR JOGOS] Participantes:', participantes.map(p => ({ atletaId: p.atletaId, nome: p.atleta?.nome })));
+
     // Validar quantidade de participantes
-    if (competicao.formato === 'INDIVIDUAL' && participantes.length !== 8) {
+    if (formatoNormalizado === 'INDIVIDUAL' && participantes.length !== 8) {
       const errorResponse = NextResponse.json(
         { mensagem: `Super 8 Individual requer exatamente 8 atletas, mas a competição tem ${participantes.length}` },
         { status: 400 }
@@ -109,7 +117,7 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    if (competicao.formato === 'DUPLAS') {
+    if (formatoNormalizado === 'DUPLAS') {
       // Para duplas round-robin, verificar se temos exatamente 8 atletas
       const atletasUnicos = new Set(participantes.filter(p => p.atletaId).map(p => p.atletaId));
       if (atletasUnicos.size !== 8 || participantes.length !== 8) {
@@ -125,14 +133,18 @@ export async function POST(
     let jogosSorteados: any[];
     let usarRoundRobin = false;
 
-    if (competicao.formato === 'DUPLAS') {
+    if (formatoNormalizado === 'DUPLAS') {
       // Usar round-robin para duplas (cada atleta joga 7 jogos com parceiros diferentes)
+      console.log('[GERAR JOGOS] Usando formato DUPLAS - Round-Robin');
       jogosSorteados = gerarSorteioSuper8DuplasRoundRobin(participantes);
       usarRoundRobin = true;
     } else {
       // Usar formato tradicional (quartas/semi/final) para individual
+      console.log('[GERAR JOGOS] Usando formato INDIVIDUAL');
       jogosSorteados = gerarSorteioSuper8(participantes, competicao.formato);
     }
+
+    console.log('[GERAR JOGOS] Jogos gerados:', jogosSorteados.length);
 
     // Inserir jogos no banco
     const jogosCriados: any[] = [];
@@ -186,7 +198,9 @@ export async function POST(
       let parceria1Id: string | null = null;
       let parceria2Id: string | null = null;
 
-      if (competicao.formato === 'INDIVIDUAL') {
+      const formatoNormalizadoJogo = (competicao.formato || '').toUpperCase().trim();
+      
+      if (formatoNormalizadoJogo === 'INDIVIDUAL') {
         atleta1Id = jogo.participante1.atletaId || null;
         atleta2Id = jogo.participante2.atletaId || null;
       } else if (usarRoundRobin && 'participante1Atletas' in jogo) {
