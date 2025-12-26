@@ -139,16 +139,18 @@ export async function POST(
     async function obterOuCriarParceria(atleta1Id: string, atleta2Id: string): Promise<string> {
       // Ordenar IDs para garantir consistência
       const idsOrdenados = [atleta1Id, atleta2Id].sort();
-      const parceriaKey = idsOrdenados.join('-');
       
       // Verificar se já existe uma parceria com esses atletas nesta competição
+      // Buscar por qualquer registro onde os dois atletas formem uma parceria
       const parceriaExistente = await query(
-        `SELECT DISTINCT "parceriaId" 
-         FROM "AtletaCompeticao" 
-         WHERE "competicaoId" = $1 
-           AND "atletaId" = $2 
-           AND "parceiroAtletaId" = $3
-           AND "parceriaId" IS NOT NULL
+        `SELECT DISTINCT ac1."parceriaId"
+         FROM "AtletaCompeticao" ac1
+         INNER JOIN "AtletaCompeticao" ac2 ON ac1."parceriaId" = ac2."parceriaId"
+         WHERE ac1."competicaoId" = $1
+           AND ac1."atletaId" = $2
+           AND ac2."atletaId" = $3
+           AND ac1."parceriaId" IS NOT NULL
+           AND ac2."parceriaId" IS NOT NULL
          LIMIT 1`,
         [competicaoId, idsOrdenados[0], idsOrdenados[1]]
       );
@@ -160,81 +162,113 @@ export async function POST(
       // Criar nova parceria (usar UUID)
       const novaParceriaId = randomUUID();
 
-      // Garantir que ambos os atletas tenham registro na competição com essa parceria
-      await query(
-        `UPDATE "AtletaCompeticao" 
-         SET "parceriaId" = $1, "parceiroAtletaId" = $2
-         WHERE "competicaoId" = $3 AND "atletaId" = $4`,
-        [novaParceriaId, idsOrdenados[1], competicaoId, idsOrdenados[0]]
+      // Verificar se os registros existem e atualizar ou criar
+      // Atleta 1
+      const atleta1Check = await query(
+        `SELECT id FROM "AtletaCompeticao" 
+         WHERE "competicaoId" = $1 AND "atletaId" = $2`,
+        [competicaoId, idsOrdenados[0]]
       );
 
-      await query(
-        `UPDATE "AtletaCompeticao" 
-         SET "parceriaId" = $1, "parceiroAtletaId" = $2
-         WHERE "competicaoId" = $3 AND "atletaId" = $4`,
-        [novaParceriaId, idsOrdenados[0], competicaoId, idsOrdenados[1]]
+      if (atleta1Check.rows.length > 0) {
+        await query(
+          `UPDATE "AtletaCompeticao" 
+           SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
+           WHERE "competicaoId" = $3 AND "atletaId" = $4`,
+          [novaParceriaId, idsOrdenados[1], competicaoId, idsOrdenados[0]]
+        );
+      }
+
+      // Atleta 2
+      const atleta2Check = await query(
+        `SELECT id FROM "AtletaCompeticao" 
+         WHERE "competicaoId" = $1 AND "atletaId" = $2`,
+        [competicaoId, idsOrdenados[1]]
       );
+
+      if (atleta2Check.rows.length > 0) {
+        await query(
+          `UPDATE "AtletaCompeticao" 
+           SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
+           WHERE "competicaoId" = $3 AND "atletaId" = $4`,
+          [novaParceriaId, idsOrdenados[0], competicaoId, idsOrdenados[1]]
+        );
+      }
 
       return novaParceriaId;
     }
     
     for (const jogo of jogosSorteados) {
-      // SEMPRE usar parcerias (jogos de duplas)
-      // As duplas são formadas dinamicamente no round-robin
-      let parceria1Id: string | null = null;
-      let parceria2Id: string | null = null;
+      try {
+        // SEMPRE usar parcerias (jogos de duplas)
+        // As duplas são formadas dinamicamente no round-robin
+        let parceria1Id: string | null = null;
+        let parceria2Id: string | null = null;
 
-      if (usarRoundRobin && 'participante1Atletas' in jogo) {
-        // Formato round-robin: criar/obter parcerias dinamicamente
-        const jogoRoundRobin = jogo as any;
-        parceria1Id = await obterOuCriarParceria(
-          jogoRoundRobin.participante1Atletas[0],
-          jogoRoundRobin.participante1Atletas[1]
+        if (usarRoundRobin && 'participante1Atletas' in jogo) {
+          // Formato round-robin: criar/obter parcerias dinamicamente
+          const jogoRoundRobin = jogo as any;
+          
+          if (!jogoRoundRobin.participante1Atletas || jogoRoundRobin.participante1Atletas.length !== 2) {
+            throw new Error(`Participante 1 não tem 2 atletas: ${JSON.stringify(jogoRoundRobin.participante1Atletas)}`);
+          }
+          
+          if (!jogoRoundRobin.participante2Atletas || jogoRoundRobin.participante2Atletas.length !== 2) {
+            throw new Error(`Participante 2 não tem 2 atletas: ${JSON.stringify(jogoRoundRobin.participante2Atletas)}`);
+          }
+
+          parceria1Id = await obterOuCriarParceria(
+            jogoRoundRobin.participante1Atletas[0],
+            jogoRoundRobin.participante1Atletas[1]
+          );
+          parceria2Id = await obterOuCriarParceria(
+            jogoRoundRobin.participante2Atletas[0],
+            jogoRoundRobin.participante2Atletas[1]
+          );
+        } else {
+          // Fallback (não deve acontecer, mas por segurança)
+          parceria1Id = jogo.participante1.parceriaId || null;
+          parceria2Id = jogo.participante2.parceriaId || null;
+        }
+
+        // Sempre null para atleta1Id e atleta2Id (jogos são sempre de duplas)
+        const atleta1Id: string | null = null;
+        const atleta2Id: string | null = null;
+
+        const result = await query(
+          `INSERT INTO "JogoCompeticao" (
+            id, "competicaoId", rodada, "numeroJogo",
+            "atleta1Id", "atleta2Id", "atleta1ParceriaId", "atleta2ParceriaId",
+            status, "createdAt", "updatedAt"
+          )
+          VALUES (
+            gen_random_uuid()::text, $1, $2, $3,
+            $4, $5, $6, $7,
+            'AGENDADO', NOW(), NOW()
+          )
+          RETURNING id`,
+          [
+            competicaoId,
+            jogo.rodada,
+            jogo.numeroJogo,
+            atleta1Id,
+            atleta2Id,
+            parceria1Id,
+            parceria2Id,
+          ]
         );
-        parceria2Id = await obterOuCriarParceria(
-          jogoRoundRobin.participante2Atletas[0],
-          jogoRoundRobin.participante2Atletas[1]
-        );
-      } else {
-        // Fallback (não deve acontecer, mas por segurança)
-        parceria1Id = jogo.participante1.parceriaId || null;
-        parceria2Id = jogo.participante2.parceriaId || null;
+
+        jogosCriados.push({
+          id: result.rows[0].id,
+          rodada: jogo.rodada,
+          numeroJogo: jogo.numeroJogo,
+          participante1: jogo.participante1,
+          participante2: jogo.participante2,
+        });
+      } catch (jogoError: any) {
+        console.error(`[GERAR JOGOS] Erro ao processar jogo ${jogo.numeroJogo} da rodada ${jogo.rodada}:`, jogoError);
+        throw new Error(`Erro ao processar jogo ${jogo.numeroJogo} da rodada ${jogo.rodada}: ${jogoError.message}`);
       }
-
-      // Sempre null para atleta1Id e atleta2Id (jogos são sempre de duplas)
-      const atleta1Id: string | null = null;
-      const atleta2Id: string | null = null;
-
-      const result = await query(
-        `INSERT INTO "JogoCompeticao" (
-          id, "competicaoId", rodada, "numeroJogo",
-          "atleta1Id", "atleta2Id", "atleta1ParceriaId", "atleta2ParceriaId",
-          status, "createdAt", "updatedAt"
-        )
-        VALUES (
-          gen_random_uuid()::text, $1, $2, $3,
-          $4, $5, $6, $7,
-          'AGENDADO', NOW(), NOW()
-        )
-        RETURNING id`,
-        [
-          competicaoId,
-          jogo.rodada,
-          jogo.numeroJogo,
-          atleta1Id,
-          atleta2Id,
-          parceria1Id,
-          parceria2Id,
-        ]
-      );
-
-      jogosCriados.push({
-        id: result.rows[0].id,
-        rodada: jogo.rodada,
-        numeroJogo: jogo.numeroJogo,
-        participante1: jogo.participante1,
-        participante2: jogo.participante2,
-      });
     }
 
     // Atualizar status da competição para EM_ANDAMENTO
