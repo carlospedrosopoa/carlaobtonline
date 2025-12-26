@@ -102,63 +102,81 @@ export async function GET(
       
       // Buscar dupla 1
       if (row.atleta1ParceriaId) {
-        // Buscar todos os registros dessa parceria
+        // Buscar registros da parceria - pegar ambos os atletas
         const dupla1Result = await query(
-          `SELECT ac."atletaId", ac."parceiroAtletaId",
-           a1.id as "a1_id", a1.nome as "a1_nome",
-           a2.id as "a2_id", a2.nome as "a2_nome"
+          `SELECT 
+            ac."atletaId", 
+            ac."parceiroAtletaId",
+            a_atleta.id as "atleta_id", 
+            a_atleta.nome as "atleta_nome",
+            a_parceiro.id as "parceiro_id", 
+            a_parceiro.nome as "parceiro_nome"
           FROM "AtletaCompeticao" ac
-          LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
-          LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
+          LEFT JOIN "Atleta" a_atleta ON ac."atletaId" = a_atleta.id
+          LEFT JOIN "Atleta" a_parceiro ON ac."parceiroAtletaId" = a_parceiro.id
           WHERE ac."parceriaId" = $1 
             AND ac."competicaoId" = $2
-            AND ac."parceriaId" IS NOT NULL
-          ORDER BY ac."createdAt" ASC
-          LIMIT 2`,
+          ORDER BY ac."createdAt" ASC`,
           [row.atleta1ParceriaId, competicaoId]
         );
         
-        if (dupla1Result.rows.length >= 1) {
-          const primeiro = dupla1Result.rows[0];
-          let nomeAtleta1 = primeiro.a1_nome;
-          let nomeAtleta2 = primeiro.a2_nome;
-          let idAtleta1 = primeiro.a1_id;
-          let idAtleta2 = primeiro.a2_id;
+        if (dupla1Result.rows.length > 0) {
+          // Coletar todos os atletas únicos dessa parceria
+          const atletasDaDupla = new Map<string, { id: string; nome: string }>();
           
-          // Se não encontrou o parceiro no primeiro registro, buscar no segundo
-          if (!nomeAtleta2 && dupla1Result.rows.length > 1) {
-            const segundo = dupla1Result.rows[1];
-            nomeAtleta2 = segundo.a1_nome;
-            idAtleta2 = segundo.a1_id;
-          }
+          dupla1Result.rows.forEach((r: any) => {
+            if (r.atleta_id && r.atleta_nome) {
+              atletasDaDupla.set(r.atleta_id, { id: r.atleta_id, nome: r.atleta_nome });
+            }
+            if (r.parceiro_id && r.parceiro_nome) {
+              atletasDaDupla.set(r.parceiro_id, { id: r.parceiro_id, nome: r.parceiro_nome });
+            }
+            // Se não encontrou pelo JOIN, buscar diretamente
+            if (r.atletaId && !atletasDaDupla.has(r.atletaId)) {
+              // Vai buscar depois
+            }
+            if (r.parceiroAtletaId && !atletasDaDupla.has(r.parceiroAtletaId)) {
+              // Vai buscar depois
+            }
+          });
           
-          // Se ainda não encontrou, buscar pelo parceiroAtletaId
-          if (!nomeAtleta2 && primeiro.parceiroAtletaId) {
-            const parceiroResult = await query(
-              `SELECT id, nome FROM "Atleta" WHERE id = $1`,
-              [primeiro.parceiroAtletaId]
-            );
-            if (parceiroResult.rows.length > 0) {
-              nomeAtleta2 = parceiroResult.rows[0].nome;
-              idAtleta2 = parceiroResult.rows[0].id;
+          // Buscar atletas que não foram encontrados no JOIN
+          for (const row of dupla1Result.rows) {
+            if (row.atletaId && !atletasDaDupla.has(row.atletaId)) {
+              const atletaResult = await query(`SELECT id, nome FROM "Atleta" WHERE id = $1`, [row.atletaId]);
+              if (atletaResult.rows.length > 0) {
+                atletasDaDupla.set(row.atletaId, {
+                  id: atletaResult.rows[0].id,
+                  nome: atletaResult.rows[0].nome,
+                });
+              }
+            }
+            if (row.parceiroAtletaId && !atletasDaDupla.has(row.parceiroAtletaId)) {
+              const parceiroResult = await query(`SELECT id, nome FROM "Atleta" WHERE id = $1`, [row.parceiroAtletaId]);
+              if (parceiroResult.rows.length > 0) {
+                atletasDaDupla.set(row.parceiroAtletaId, {
+                  id: parceiroResult.rows[0].id,
+                  nome: parceiroResult.rows[0].nome,
+                });
+              }
             }
           }
           
-          if (nomeAtleta1 && nomeAtleta2) {
+          const atletasArray = Array.from(atletasDaDupla.values());
+          if (atletasArray.length === 2) {
             jogo.participante1 = {
               parceriaId: row.atleta1ParceriaId,
-              nome: `${nomeAtleta1} & ${nomeAtleta2}`,
+              nome: `${atletasArray[0].nome} & ${atletasArray[1].nome}`,
               dupla: {
-                atleta1: { id: idAtleta1, nome: nomeAtleta1 },
-                atleta2: { id: idAtleta2, nome: nomeAtleta2 },
+                atleta1: { id: atletasArray[0].id, nome: atletasArray[0].nome },
+                atleta2: { id: atletasArray[1].id, nome: atletasArray[1].nome },
               },
             };
           } else {
-            console.log('[JOGOS] Dupla 1 - nomes faltando:', {
+            console.log('[JOGOS] Dupla 1 - quantidade incorreta de atletas:', {
               parceriaId: row.atleta1ParceriaId,
-              nomeAtleta1,
-              nomeAtleta2,
-              primeiro,
+              quantidade: atletasArray.length,
+              atletas: atletasArray,
             });
           }
         } else {
@@ -173,63 +191,74 @@ export async function GET(
 
       // Buscar dupla 2
       if (row.atleta2ParceriaId) {
-        // Buscar todos os registros dessa parceria
+        // Buscar registros da parceria - pegar ambos os atletas
         const dupla2Result = await query(
-          `SELECT ac."atletaId", ac."parceiroAtletaId",
-           a1.id as "a1_id", a1.nome as "a1_nome",
-           a2.id as "a2_id", a2.nome as "a2_nome"
+          `SELECT 
+            ac."atletaId", 
+            ac."parceiroAtletaId",
+            a_atleta.id as "atleta_id", 
+            a_atleta.nome as "atleta_nome",
+            a_parceiro.id as "parceiro_id", 
+            a_parceiro.nome as "parceiro_nome"
           FROM "AtletaCompeticao" ac
-          LEFT JOIN "Atleta" a1 ON ac."atletaId" = a1.id
-          LEFT JOIN "Atleta" a2 ON ac."parceiroAtletaId" = a2.id
+          LEFT JOIN "Atleta" a_atleta ON ac."atletaId" = a_atleta.id
+          LEFT JOIN "Atleta" a_parceiro ON ac."parceiroAtletaId" = a_parceiro.id
           WHERE ac."parceriaId" = $1 
             AND ac."competicaoId" = $2
-            AND ac."parceriaId" IS NOT NULL
-          ORDER BY ac."createdAt" ASC
-          LIMIT 2`,
+          ORDER BY ac."createdAt" ASC`,
           [row.atleta2ParceriaId, competicaoId]
         );
         
-        if (dupla2Result.rows.length >= 1) {
-          const primeiro = dupla2Result.rows[0];
-          let nomeAtleta1 = primeiro.a1_nome;
-          let nomeAtleta2 = primeiro.a2_nome;
-          let idAtleta1 = primeiro.a1_id;
-          let idAtleta2 = primeiro.a2_id;
+        if (dupla2Result.rows.length > 0) {
+          // Coletar todos os atletas únicos dessa parceria
+          const atletasDaDupla = new Map<string, { id: string; nome: string }>();
           
-          // Se não encontrou o parceiro no primeiro registro, buscar no segundo
-          if (!nomeAtleta2 && dupla2Result.rows.length > 1) {
-            const segundo = dupla2Result.rows[1];
-            nomeAtleta2 = segundo.a1_nome;
-            idAtleta2 = segundo.a1_id;
-          }
+          dupla2Result.rows.forEach((r: any) => {
+            if (r.atleta_id && r.atleta_nome) {
+              atletasDaDupla.set(r.atleta_id, { id: r.atleta_id, nome: r.atleta_nome });
+            }
+            if (r.parceiro_id && r.parceiro_nome) {
+              atletasDaDupla.set(r.parceiro_id, { id: r.parceiro_id, nome: r.parceiro_nome });
+            }
+          });
           
-          // Se ainda não encontrou, buscar pelo parceiroAtletaId
-          if (!nomeAtleta2 && primeiro.parceiroAtletaId) {
-            const parceiroResult = await query(
-              `SELECT id, nome FROM "Atleta" WHERE id = $1`,
-              [primeiro.parceiroAtletaId]
-            );
-            if (parceiroResult.rows.length > 0) {
-              nomeAtleta2 = parceiroResult.rows[0].nome;
-              idAtleta2 = parceiroResult.rows[0].id;
+          // Buscar atletas que não foram encontrados no JOIN
+          for (const row2 of dupla2Result.rows) {
+            if (row2.atletaId && !atletasDaDupla.has(row2.atletaId)) {
+              const atletaResult = await query(`SELECT id, nome FROM "Atleta" WHERE id = $1`, [row2.atletaId]);
+              if (atletaResult.rows.length > 0) {
+                atletasDaDupla.set(row2.atletaId, {
+                  id: atletaResult.rows[0].id,
+                  nome: atletaResult.rows[0].nome,
+                });
+              }
+            }
+            if (row2.parceiroAtletaId && !atletasDaDupla.has(row2.parceiroAtletaId)) {
+              const parceiroResult = await query(`SELECT id, nome FROM "Atleta" WHERE id = $1`, [row2.parceiroAtletaId]);
+              if (parceiroResult.rows.length > 0) {
+                atletasDaDupla.set(row2.parceiroAtletaId, {
+                  id: parceiroResult.rows[0].id,
+                  nome: parceiroResult.rows[0].nome,
+                });
+              }
             }
           }
           
-          if (nomeAtleta1 && nomeAtleta2) {
+          const atletasArray = Array.from(atletasDaDupla.values());
+          if (atletasArray.length === 2) {
             jogo.participante2 = {
               parceriaId: row.atleta2ParceriaId,
-              nome: `${nomeAtleta1} & ${nomeAtleta2}`,
+              nome: `${atletasArray[0].nome} & ${atletasArray[1].nome}`,
               dupla: {
-                atleta1: { id: idAtleta1, nome: nomeAtleta1 },
-                atleta2: { id: idAtleta2, nome: nomeAtleta2 },
+                atleta1: { id: atletasArray[0].id, nome: atletasArray[0].nome },
+                atleta2: { id: atletasArray[1].id, nome: atletasArray[1].nome },
               },
             };
           } else {
-            console.log('[JOGOS] Dupla 2 - nomes faltando:', {
+            console.log('[JOGOS] Dupla 2 - quantidade incorreta de atletas:', {
               parceriaId: row.atleta2ParceriaId,
-              nomeAtleta1,
-              nomeAtleta2,
-              primeiro,
+              quantidade: atletasArray.length,
+              atletas: atletasArray,
             });
           }
         } else {
