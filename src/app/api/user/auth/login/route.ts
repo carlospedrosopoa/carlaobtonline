@@ -75,10 +75,11 @@ export async function POST(request: NextRequest) {
 
     const role = (usuarioDb as any).role ?? "USER";
     
-    // Restringir acesso: apenas ADMIN e ORGANIZER podem fazer login no carlaobtonline
-    if (role !== 'ADMIN' && role !== 'ORGANIZER') {
+    // Esta rota é para atletas (USER) - permitir apenas USER fazerem login aqui
+    // ADMIN e ORGANIZER devem usar /api/auth/login (carlaobtonline)
+    if (role !== 'USER') {
       const errorResponse = NextResponse.json(
-        { mensagem: "Acesso negado. Apenas administradores e gestores de arena podem acessar esta plataforma." },
+        { mensagem: "Acesso negado. Esta rota é apenas para atletas. Administradores e gestores devem usar a plataforma de gestão." },
         { status: 403 }
       );
       return withCors(errorResponse, request);
