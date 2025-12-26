@@ -733,9 +733,10 @@ export default function ArenaAgendaSemanalPage() {
   const getTipoBadge = (agendamento: Agendamento) => {
     // Verificar se é aula - tratar diferentes formatos que podem vir do backend
     // Verifica ehAula explícito OU se tem professorId (que indica aula)
-    const ehAulaValue = agendamento.ehAula === true || 
-                       agendamento.ehAula === 'true' || 
-                       agendamento.ehAula === 1 ||
+    const ehAula = agendamento.ehAula;
+    const ehAulaValue = ehAula === true || 
+                       (typeof ehAula === 'string' && ehAula === 'true') || 
+                       ehAula === 1 ||
                        (agendamento.professorId !== null && agendamento.professorId !== undefined);
     
     // Se for aula, mostrar badge especial (prioridade máxima)
