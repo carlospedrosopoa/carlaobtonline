@@ -250,7 +250,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   const handleGerarJogos = async () => {
     if (!competicaoId) return;
     
-    if (!confirm('Tem certeza que deseja gerar o sorteio dos jogos? Esta ação não pode ser desfeita.')) {
+    if (!confirm('Tem certeza que deseja gerar o sorteio dos jogos de duplas? Serão gerados 14 jogos (7 rodadas) onde cada atleta joga com parceiros diferentes. Esta ação não pode ser desfeita.')) {
       return;
     }
 
@@ -542,9 +542,10 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                     onClick={handleGerarJogos}
                     disabled={saving}
                     className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50"
+                    title="Gerar jogos de duplas em formato round-robin (cada atleta joga 7 jogos com parceiros diferentes)"
                   >
                     <Trophy className="w-5 h-5" />
-                    Gerar Sorteio dos Jogos
+                    Gerar Sorteio dos Jogos (Duplas)
                   </button>
                 )}
                 {jogos.length > 0 && (competicao?.status === 'EM_ANDAMENTO' || competicao?.status === 'CRIADA') && (

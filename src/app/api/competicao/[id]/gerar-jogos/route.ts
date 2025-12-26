@@ -108,41 +108,27 @@ export async function POST(
     console.log('[GERAR JOGOS] Número de participantes:', participantes.length);
     console.log('[GERAR JOGOS] Participantes:', participantes.map(p => ({ atletaId: p.atletaId, nome: p.atleta?.nome })));
 
-    // Validar quantidade de participantes
-    if (formatoNormalizado === 'INDIVIDUAL' && participantes.length !== 8) {
+    // SEMPRE gerar jogos de duplas (round-robin)
+    // Independente do formato (INDIVIDUAL ou DUPLAS), sempre formar duplas dinamicamente
+    // onde cada atleta joga 7 jogos com parceiros diferentes
+    
+    // Verificar se temos exatamente 8 atletas únicos
+    const atletasUnicos = new Set(participantes.filter(p => p.atletaId).map(p => p.atletaId));
+    
+    if (atletasUnicos.size !== 8) {
       const errorResponse = NextResponse.json(
-        { mensagem: `Super 8 Individual requer exatamente 8 atletas, mas a competição tem ${participantes.length}` },
+        { mensagem: `Super 8 Round-Robin requer exatamente 8 atletas únicos, mas a competição tem ${atletasUnicos.size} (${participantes.length} registros). No formato Individual, as duplas serão formadas dinamicamente pelo sistema.` },
         { status: 400 }
       );
       return withCors(errorResponse, request);
     }
 
-    if (formatoNormalizado === 'DUPLAS') {
-      // Para duplas round-robin, verificar se temos exatamente 8 atletas
-      const atletasUnicos = new Set(participantes.filter(p => p.atletaId).map(p => p.atletaId));
-      if (atletasUnicos.size !== 8 || participantes.length !== 8) {
-        const errorResponse = NextResponse.json(
-          { mensagem: `Super 8 Duplas Round-Robin requer exatamente 8 atletas, mas a competição tem ${atletasUnicos.size} atletas únicos (${participantes.length} registros)` },
-          { status: 400 }
-        );
-        return withCors(errorResponse, request);
-      }
-    }
-
-    // Gerar sorteio
-    let jogosSorteados: any[];
-    let usarRoundRobin = false;
-
-    if (formatoNormalizado === 'DUPLAS') {
-      // Usar round-robin para duplas (cada atleta joga 7 jogos com parceiros diferentes)
-      console.log('[GERAR JOGOS] Usando formato DUPLAS - Round-Robin');
-      jogosSorteados = gerarSorteioSuper8DuplasRoundRobin(participantes);
-      usarRoundRobin = true;
-    } else {
-      // Usar formato tradicional (quartas/semi/final) para individual
-      console.log('[GERAR JOGOS] Usando formato INDIVIDUAL');
-      jogosSorteados = gerarSorteioSuper8(participantes, competicao.formato);
-    }
+    // Gerar sorteio - SEMPRE usar round-robin de duplas
+    // No formato INDIVIDUAL: atletas soltos, sistema forma duplas dinamicamente
+    // No formato DUPLAS: mesmo processo (formar duplas dinamicamente)
+    console.log('[GERAR JOGOS] Usando Round-Robin de Duplas (formato:', formatoNormalizado, ')');
+    const jogosSorteados = gerarSorteioSuper8DuplasRoundRobin(participantes);
+    const usarRoundRobin = true;
 
     console.log('[GERAR JOGOS] Jogos gerados:', jogosSorteados.length);
 
@@ -193,17 +179,12 @@ export async function POST(
     }
     
     for (const jogo of jogosSorteados) {
-      let atleta1Id: string | null = null;
-      let atleta2Id: string | null = null;
+      // SEMPRE usar parcerias (jogos de duplas)
+      // As duplas são formadas dinamicamente no round-robin
       let parceria1Id: string | null = null;
       let parceria2Id: string | null = null;
 
-      const formatoNormalizadoJogo = (competicao.formato || '').toUpperCase().trim();
-      
-      if (formatoNormalizadoJogo === 'INDIVIDUAL') {
-        atleta1Id = jogo.participante1.atletaId || null;
-        atleta2Id = jogo.participante2.atletaId || null;
-      } else if (usarRoundRobin && 'participante1Atletas' in jogo) {
+      if (usarRoundRobin && 'participante1Atletas' in jogo) {
         // Formato round-robin: criar/obter parcerias dinamicamente
         const jogoRoundRobin = jogo as any;
         parceria1Id = await obterOuCriarParceria(
@@ -215,10 +196,14 @@ export async function POST(
           jogoRoundRobin.participante2Atletas[1]
         );
       } else {
-        // Formato tradicional de duplas
+        // Fallback (não deve acontecer, mas por segurança)
         parceria1Id = jogo.participante1.parceriaId || null;
         parceria2Id = jogo.participante2.parceriaId || null;
       }
+
+      // Sempre null para atleta1Id e atleta2Id (jogos são sempre de duplas)
+      const atleta1Id: string | null = null;
+      const atleta2Id: string | null = null;
 
       const result = await query(
         `INSERT INTO "JogoCompeticao" (
