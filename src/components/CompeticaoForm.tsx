@@ -61,10 +61,23 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   }, [competicaoId]);
 
   useEffect(() => {
-    if (buscaAtleta.trim()) {
-      buscarAtletas();
+    if (mostrarBuscaAtleta) {
+      if (buscaAtleta.trim()) {
+        // Debounce simples - busca após 300ms sem digitar
+        const timeoutId = setTimeout(() => {
+          buscarAtletas();
+        }, 300);
+        
+        return () => clearTimeout(timeoutId);
+      } else if (atletasDisponiveis.length === 0 && !buscandoAtletas) {
+        // Se campo vazio e não há resultados, buscar todos
+        buscarAtletas('');
+      }
+    } else {
+      // Se fechar a busca, limpar resultados
+      setAtletasDisponiveis([]);
     }
-  }, [buscaAtleta]);
+  }, [buscaAtleta, mostrarBuscaAtleta]);
 
   const carregarDados = async () => {
     try {
@@ -113,49 +126,74 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
     }
   };
 
-  const buscarAtletas = async () => {
+  const buscarAtletas = async (busca: string = buscaAtleta) => {
     try {
       setBuscandoAtletas(true);
-      const { data } = await api.get(`/atleta/para-selecao?busca=${encodeURIComponent(buscaAtleta)}`);
+      const buscaTerm = busca.trim() || '';
+      const { data } = await api.get(`/atleta/para-selecao?busca=${encodeURIComponent(buscaTerm)}`);
       setAtletasDisponiveis(data || []);
     } catch (error: any) {
       console.error('Erro ao buscar atletas:', error);
+      setAtletasDisponiveis([]);
     } finally {
       setBuscandoAtletas(false);
     }
   };
 
-  const adicionarAtleta = async () => {
+  const adicionarAtletaDireto = async (atletaId: string) => {
     if (!competicaoId) {
       alert('Salve a competição primeiro antes de adicionar atletas');
       return;
     }
 
+    // Verificar se atleta já está adicionado
+    if (atletasParticipantes.some(ap => ap.atletaId === atletaId)) {
+      alert('Este atleta já está na competição');
+      return;
+    }
+
     try {
-      if (formato === 'DUPLAS') {
-        if (!atletaSelecionado || !parceiroSelecionado) {
-          alert('Selecione ambos os atletas para formar a dupla');
-          return;
-        }
-        if (atletaSelecionado === parceiroSelecionado) {
-          alert('Um atleta não pode ser parceiro de si mesmo');
-          return;
-        }
+      await competicaoService.adicionarAtleta(competicaoId, {
+        atletaId: atletaId,
+      });
 
-        await competicaoService.adicionarAtleta(competicaoId, {
-          atletaId: atletaSelecionado,
-          parceiroAtletaId: parceiroSelecionado,
-        });
-      } else {
-        if (!atletaSelecionado) {
-          alert('Selecione um atleta');
-          return;
-        }
+      // Recarregar competição
+      const competicaoData = await competicaoService.obter(competicaoId);
+      setCompeticao(competicaoData);
+      setAtletasParticipantes(competicaoData.atletasParticipantes || []);
 
-        await competicaoService.adicionarAtleta(competicaoId, {
-          atletaId: atletaSelecionado,
-        });
-      }
+      // Manter busca aberta para adicionar mais atletas
+      setBuscaAtleta('');
+      setAtletasDisponiveis([]);
+
+      // Não mostrar alerta para não interromper o fluxo
+    } catch (error: any) {
+      console.error('Erro ao adicionar atleta:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao adicionar atleta');
+    }
+  };
+
+  const adicionarDupla = async () => {
+    if (!competicaoId) {
+      alert('Salve a competição primeiro antes de adicionar atletas');
+      return;
+    }
+
+    if (!atletaSelecionado || !parceiroSelecionado) {
+      alert('Selecione ambos os atletas para formar a dupla');
+      return;
+    }
+
+    if (atletaSelecionado === parceiroSelecionado) {
+      alert('Um atleta não pode ser parceiro de si mesmo');
+      return;
+    }
+
+    try {
+      await competicaoService.adicionarAtleta(competicaoId, {
+        atletaId: atletaSelecionado,
+        parceiroAtletaId: parceiroSelecionado,
+      });
 
       // Recarregar competição
       const competicaoData = await competicaoService.obter(competicaoId);
@@ -166,13 +204,30 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
       setAtletaSelecionado('');
       setParceiroSelecionado('');
       setBuscaAtleta('');
-      setMostrarBuscaAtleta(false);
       setAtletasDisponiveis([]);
 
-      alert('Atleta adicionado com sucesso!');
+      alert('Dupla adicionada com sucesso!');
     } catch (error: any) {
-      console.error('Erro ao adicionar atleta:', error);
-      alert(error?.response?.data?.mensagem || 'Erro ao adicionar atleta');
+      console.error('Erro ao adicionar dupla:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao adicionar dupla');
+    }
+  };
+
+  // Função para selecionar atleta para dupla (toggle)
+  const selecionarAtletaParaDupla = (atletaId: string) => {
+    if (!atletaSelecionado) {
+      setAtletaSelecionado(atletaId);
+    } else if (atletaSelecionado === atletaId) {
+      // Desselecionar se clicar no mesmo
+      setAtletaSelecionado('');
+    } else if (!parceiroSelecionado) {
+      setParceiroSelecionado(atletaId);
+    } else if (parceiroSelecionado === atletaId) {
+      // Desselecionar parceiro se clicar no mesmo
+      setParceiroSelecionado('');
+    } else {
+      // Substituir parceiro
+      setParceiroSelecionado(atletaId);
     }
   };
 
@@ -466,7 +521,20 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                   </button>
                 )}
                 <button
-                  onClick={() => setMostrarBuscaAtleta(!mostrarBuscaAtleta)}
+                  onClick={() => {
+                    setMostrarBuscaAtleta(!mostrarBuscaAtleta);
+                    if (!mostrarBuscaAtleta) {
+                      // Quando abrir, fazer busca inicial vazia para mostrar todos os atletas
+                      setBuscaAtleta('');
+                      buscarAtletas();
+                    } else {
+                      // Quando fechar, limpar
+                      setBuscaAtleta('');
+                      setAtletasDisponiveis([]);
+                      setAtletaSelecionado('');
+                      setParceiroSelecionado('');
+                    }
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   <Plus className="w-5 h-5" />
@@ -478,63 +546,133 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
             {mostrarBuscaAtleta && (
               <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Atleta</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Buscar Atleta {formato === 'DUPLAS' && (atletaSelecionado || parceiroSelecionado) && (
+                      <span className="ml-2 text-xs text-blue-600">
+                        ({atletaSelecionado ? '1º selecionado' : ''} {parceiroSelecionado ? '2º selecionado' : ''})
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={buscaAtleta}
                     onChange={(e) => setBuscaAtleta(e.target.value)}
                     placeholder="Digite o nome do atleta..."
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                    autoFocus
                   />
                 </div>
 
-                {atletasDisponiveis.length > 0 && (
-                  <div className="space-y-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {formato === 'DUPLAS' ? 'Selecione o primeiro atleta:' : 'Selecione o atleta:'}
-                      </label>
-                      <select
-                        value={atletaSelecionado}
-                        onChange={(e) => setAtletaSelecionado(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                      >
-                        <option value="">Selecione...</option>
-                        {atletasDisponiveis
-                          .filter(a => !atletasParticipantes.some(ap => ap.atletaId === a.id))
-                          .map((atleta) => (
-                            <option key={atleta.id} value={atleta.id}>{atleta.nome}</option>
-                          ))}
-                      </select>
+                {buscandoAtletas && (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
+                    <p className="mt-2 text-sm text-gray-600">Buscando...</p>
+                  </div>
+                )}
+
+                {!buscandoAtletas && atletasDisponiveis.length === 0 && (
+                  <div className="text-center py-4 text-gray-500 text-sm">
+                    {buscaAtleta.trim() 
+                      ? 'Nenhum atleta encontrado' 
+                      : 'Digite o nome do atleta para buscar'}
+                  </div>
+                )}
+
+                {!buscandoAtletas && atletasDisponiveis.length > 0 && (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    <div className="text-sm font-medium text-gray-700 mb-2">
+                      {formato === 'DUPLAS' 
+                        ? 'Clique nos atletas para selecionar a dupla (2 atletas):' 
+                        : 'Clique no atleta para adicionar diretamente:'}
                     </div>
+                    {atletasDisponiveis
+                      .filter(a => {
+                        // Filtrar atletas já adicionados
+                        if (atletasParticipantes.some(ap => ap.atletaId === a.id)) {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map((atleta) => {
+                        const jaAdicionado = atletasParticipantes.some(ap => ap.atletaId === atleta.id);
+                        const selecionado1 = atletaSelecionado === atleta.id;
+                        const selecionado2 = parceiroSelecionado === atleta.id;
+                        const selecionado = selecionado1 || selecionado2;
 
-                    {formato === 'DUPLAS' && atletaSelecionado && (
+                        return (
+                          <div
+                            key={atleta.id}
+                            className={`p-3 border rounded-lg transition-all cursor-pointer ${
+                              selecionado
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50'
+                            } ${jaAdicionado ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={() => {
+                              if (jaAdicionado) return;
+                              if (formato === 'INDIVIDUAL') {
+                                adicionarAtletaDireto(atleta.id);
+                              } else {
+                                selecionarAtletaParaDupla(atleta.id);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <User className={`w-5 h-5 ${selecionado ? 'text-blue-600' : 'text-gray-400'}`} />
+                                <div>
+                                  <div className={`font-medium ${selecionado ? 'text-blue-900' : 'text-gray-900'}`}>
+                                    {atleta.nome}
+                                    {selecionado1 && <span className="ml-2 text-xs text-blue-600">(1º selecionado)</span>}
+                                    {selecionado2 && <span className="ml-2 text-xs text-blue-600">(2º selecionado)</span>}
+                                  </div>
+                                  {atleta.fone && (
+                                    <div className="text-xs text-gray-500">{atleta.fone}</div>
+                                  )}
+                                </div>
+                              </div>
+                              {formato === 'INDIVIDUAL' && !jaAdicionado && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    adicionarAtletaDireto(atleta.id);
+                                  }}
+                                  className="px-3 py-1 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors"
+                                >
+                                  Adicionar
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+
+                {formato === 'DUPLAS' && atletaSelecionado && parceiroSelecionado && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o parceiro:</label>
-                        <select
-                          value={parceiroSelecionado}
-                          onChange={(e) => setParceiroSelecionado(e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                        >
-                          <option value="">Selecione...</option>
-                          {atletasDisponiveis
-                            .filter(a => 
-                              a.id !== atletaSelecionado && 
-                              !atletasParticipantes.some(ap => ap.atletaId === a.id)
-                            )
-                            .map((atleta) => (
-                              <option key={atleta.id} value={atleta.id}>{atleta.nome}</option>
-                            ))}
-                        </select>
+                        <div className="text-sm font-medium text-blue-900">Dupla selecionada:</div>
+                        <div className="text-sm text-blue-700 mt-1">
+                          {atletasDisponiveis.find(a => a.id === atletaSelecionado)?.nome} & {' '}
+                          {atletasDisponiveis.find(a => a.id === parceiroSelecionado)?.nome}
+                        </div>
                       </div>
-                    )}
-
+                      <button
+                        onClick={adicionarDupla}
+                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                      >
+                        Adicionar Dupla
+                      </button>
+                    </div>
                     <button
-                      onClick={adicionarAtleta}
-                      disabled={!atletaSelecionado || (formato === 'DUPLAS' && !parceiroSelecionado)}
-                      className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => {
+                        setAtletaSelecionado('');
+                        setParceiroSelecionado('');
+                      }}
+                      className="mt-2 text-xs text-gray-600 hover:text-gray-800 underline"
                     >
-                      {formato === 'DUPLAS' ? 'Adicionar Dupla' : 'Adicionar Atleta'}
+                      Limpar seleção
                     </button>
                   </div>
                 )}
