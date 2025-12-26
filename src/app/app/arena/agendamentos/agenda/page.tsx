@@ -1324,14 +1324,14 @@ export default function ArenaAgendaSemanalPage() {
                                           {duracaoTexto}
                                         </div>
                                       </div>
-                                      <div className="flex items-end justify-between mt-1">
+                                      <div className="flex items-end justify-between mt-1 gap-1">
                                         {agendamento.status === 'CONFIRMADO' && (
-                                          <div className="text-[9px] font-semibold opacity-75">
+                                          <div className="text-[9px] font-semibold opacity-75 flex-1">
                                             Confirmado
                                           </div>
                                         )}
                                         {/* Badge no canto inferior direito */}
-                                        <div className="ml-auto">
+                                        <div className="flex-shrink-0">
                                           {getTipoBadge(agendamento)}
                                         </div>
                                       </div>
