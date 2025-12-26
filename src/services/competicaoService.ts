@@ -57,5 +57,10 @@ export const competicaoService = {
     const res = await api.get(`/competicao/${competicaoId}/jogos`);
     return res.data;
   },
+
+  excluirJogos: async (competicaoId: string): Promise<{ mensagem: string; jogosExcluidos: number }> => {
+    const res = await api.delete(`/competicao/${competicaoId}/jogos`);
+    return res.data;
+  },
 };
 

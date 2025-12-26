@@ -8,7 +8,7 @@ import { competicaoService } from '@/services/competicaoService';
 import { pointService, quadraService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
 import type { Competicao, FormatoCompeticao } from '@/types/competicao';
-import { Trophy, ArrowLeft, Save, Plus, X, Users, User, PlayCircle } from 'lucide-react';
+import { Trophy, ArrowLeft, Save, Plus, X, Users, User, PlayCircle, RotateCcw } from 'lucide-react';
 
 interface Atleta {
   id: string;
@@ -279,6 +279,33 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
     }
   };
 
+  const handleDesfazerSorteio = async () => {
+    if (!competicaoId) return;
+    
+    if (!confirm('Tem certeza que deseja desfazer o sorteio? Todos os jogos serão excluídos e o status da competição voltará para "Criada". Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const resultado = await competicaoService.excluirJogos(competicaoId);
+      alert(resultado.mensagem || 'Sorteio desfeito com sucesso!');
+      
+      // Recarregar competição
+      const competicaoData = await competicaoService.obter(competicaoId);
+      setCompeticao(competicaoData);
+      setAtletasParticipantes(competicaoData.atletasParticipantes || []);
+      
+      // Limpar jogos
+      setJogos([]);
+    } catch (error: any) {
+      console.error('Erro ao desfazer sorteio:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao desfazer sorteio');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSalvar = async () => {
     if (!nome.trim()) {
       alert('Informe o nome da competição');
@@ -518,6 +545,16 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                   >
                     <Trophy className="w-5 h-5" />
                     Gerar Sorteio dos Jogos
+                  </button>
+                )}
+                {jogos.length > 0 && (competicao?.status === 'EM_ANDAMENTO' || competicao?.status === 'CRIADA') && (
+                  <button
+                    onClick={handleDesfazerSorteio}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    Desfazer Sorteio
                   </button>
                 )}
                 <button

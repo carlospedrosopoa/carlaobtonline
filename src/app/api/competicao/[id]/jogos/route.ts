@@ -1,4 +1,4 @@
-// app/api/competicao/[id]/jogos/route.ts - Listar jogos da competição
+// app/api/competicao/[id]/jogos/route.ts - Listar e excluir jogos da competição
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
@@ -187,3 +187,96 @@ export async function GET(
   }
 }
 
+// DELETE /api/competicao/[id]/jogos - Excluir todos os jogos da competição
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Acesso negado' },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const { id: competicaoId } = await params;
+
+    // Verificar se competição existe e se usuário tem acesso
+    const competicaoCheck = await query(
+      `SELECT "pointId", status FROM "Competicao" WHERE id = $1`,
+      [competicaoId]
+    );
+
+    if (competicaoCheck.rows.length === 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Competição não encontrada' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const competicao = competicaoCheck.rows[0];
+
+    if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor !== competicao.pointId) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Acesso negado' },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Verificar se existem jogos
+    const jogosCheck = await query(
+      `SELECT COUNT(*) as total FROM "JogoCompeticao" WHERE "competicaoId" = $1`,
+      [competicaoId]
+    );
+
+    const totalJogos = parseInt(jogosCheck.rows[0].total);
+    
+    if (totalJogos === 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Não há jogos para excluir' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Excluir todos os jogos
+    await query(
+      `DELETE FROM "JogoCompeticao" WHERE "competicaoId" = $1`,
+      [competicaoId]
+    );
+
+    // Atualizar status da competição para CRIADA se estava EM_ANDAMENTO
+    if (competicao.status === 'EM_ANDAMENTO') {
+      await query(
+        `UPDATE "Competicao" SET status = 'CRIADA', "updatedAt" = NOW() WHERE id = $1`,
+        [competicaoId]
+      );
+    }
+
+    const response = NextResponse.json({
+      mensagem: `${totalJogos} jogo(s) excluído(s) com sucesso`,
+      jogosExcluidos: totalJogos,
+    });
+    return withCors(response, request);
+  } catch (error: any) {
+    console.error('Erro ao excluir jogos:', error);
+    const errorResponse = NextResponse.json(
+      { mensagem: 'Erro ao excluir jogos', error: error?.message },
+      { status: 500 }
+    );
+    return withCors(errorResponse, request);
+  }
+}
