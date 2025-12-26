@@ -165,34 +165,58 @@ export async function POST(
       // Verificar se os registros existem e atualizar ou criar
       // Atleta 1
       const atleta1Check = await query(
-        `SELECT id FROM "AtletaCompeticao" 
+        `SELECT id, "parceriaId" FROM "AtletaCompeticao" 
          WHERE "competicaoId" = $1 AND "atletaId" = $2`,
         [competicaoId, idsOrdenados[0]]
       );
 
       if (atleta1Check.rows.length > 0) {
-        await query(
+        const result1 = await query(
           `UPDATE "AtletaCompeticao" 
            SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
-           WHERE "competicaoId" = $3 AND "atletaId" = $4`,
+           WHERE "competicaoId" = $3 AND "atletaId" = $4
+           RETURNING id, "parceriaId", "parceiroAtletaId"`,
           [novaParceriaId, idsOrdenados[1], competicaoId, idsOrdenados[0]]
         );
+        console.log('[GERAR JOGOS] Atualizado atleta 1:', {
+          atletaId: idsOrdenados[0],
+          parceriaId: novaParceriaId,
+          parceiroAtletaId: idsOrdenados[1],
+          result: result1.rows[0],
+        });
+      } else {
+        console.log('[GERAR JOGOS] Atleta 1 não encontrado:', {
+          atletaId: idsOrdenados[0],
+          competicaoId,
+        });
       }
 
       // Atleta 2
       const atleta2Check = await query(
-        `SELECT id FROM "AtletaCompeticao" 
+        `SELECT id, "parceriaId" FROM "AtletaCompeticao" 
          WHERE "competicaoId" = $1 AND "atletaId" = $2`,
         [competicaoId, idsOrdenados[1]]
       );
 
       if (atleta2Check.rows.length > 0) {
-        await query(
+        const result2 = await query(
           `UPDATE "AtletaCompeticao" 
            SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
-           WHERE "competicaoId" = $3 AND "atletaId" = $4`,
+           WHERE "competicaoId" = $3 AND "atletaId" = $4
+           RETURNING id, "parceriaId", "parceiroAtletaId"`,
           [novaParceriaId, idsOrdenados[0], competicaoId, idsOrdenados[1]]
         );
+        console.log('[GERAR JOGOS] Atualizado atleta 2:', {
+          atletaId: idsOrdenados[1],
+          parceriaId: novaParceriaId,
+          parceiroAtletaId: idsOrdenados[0],
+          result: result2.rows[0],
+        });
+      } else {
+        console.log('[GERAR JOGOS] Atleta 2 não encontrado:', {
+          atletaId: idsOrdenados[1],
+          competicaoId,
+        });
       }
 
       return novaParceriaId;
