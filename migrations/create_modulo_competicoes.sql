@@ -66,3 +66,4 @@ BEFORE UPDATE ON "Competicao"
 FOR EACH ROW
 EXECUTE FUNCTION update_competicao_updated_at();
 
+

@@ -44,3 +44,4 @@ BEFORE UPDATE ON "JogoCompeticao"
 FOR EACH ROW
 EXECUTE FUNCTION update_competicao_updated_at();
 
+

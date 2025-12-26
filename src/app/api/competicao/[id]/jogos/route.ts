@@ -52,9 +52,17 @@ export async function GET(
       WHERE j."competicaoId" = $1
       ORDER BY 
         CASE j.rodada
-          WHEN 'QUARTAS_FINAL' THEN 1
-          WHEN 'SEMIFINAL' THEN 2
-          WHEN 'FINAL' THEN 3
+          WHEN 'RODADA_1' THEN 1
+          WHEN 'RODADA_2' THEN 2
+          WHEN 'RODADA_3' THEN 3
+          WHEN 'RODADA_4' THEN 4
+          WHEN 'RODADA_5' THEN 5
+          WHEN 'RODADA_6' THEN 6
+          WHEN 'RODADA_7' THEN 7
+          WHEN 'QUARTAS_FINAL' THEN 8
+          WHEN 'SEMIFINAL' THEN 9
+          WHEN 'FINAL' THEN 10
+          ELSE 99
         END,
         j."numeroJogo" ASC`,
       [competicaoId]

@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { gerarSorteioSuper8 } from '@/lib/sorteioCompeticao';
+import { gerarSorteioSuper8, gerarSorteioSuper8DuplasRoundRobin } from '@/lib/sorteioCompeticao';
+import { randomUUID } from 'crypto';
 
 // POST /api/competicao/[id]/gerar-jogos - Gerar jogos da competição
 export async function POST(
@@ -109,11 +110,11 @@ export async function POST(
     }
 
     if (competicao.formato === 'DUPLAS') {
-      // Para duplas, verificar se temos 4 duplas (8 atletas)
-      const duplasUnicas = new Set(participantes.filter(p => p.parceriaId).map(p => p.parceriaId));
-      if (duplasUnicas.size !== 4 || participantes.length !== 8) {
+      // Para duplas round-robin, verificar se temos exatamente 8 atletas
+      const atletasUnicos = new Set(participantes.filter(p => p.atletaId).map(p => p.atletaId));
+      if (atletasUnicos.size !== 8 || participantes.length !== 8) {
         const errorResponse = NextResponse.json(
-          { mensagem: `Super 8 Duplas requer exatamente 4 duplas (8 atletas), mas a competição tem ${duplasUnicas.size} duplas (${participantes.length} atletas)` },
+          { mensagem: `Super 8 Duplas Round-Robin requer exatamente 8 atletas, mas a competição tem ${atletasUnicos.size} atletas únicos (${participantes.length} registros)` },
           { status: 400 }
         );
         return withCors(errorResponse, request);
@@ -121,24 +122,89 @@ export async function POST(
     }
 
     // Gerar sorteio
-    const jogosSorteados = gerarSorteioSuper8(participantes, competicao.formato);
+    let jogosSorteados: any[];
+    let usarRoundRobin = false;
+
+    if (competicao.formato === 'DUPLAS') {
+      // Usar round-robin para duplas (cada atleta joga 7 jogos com parceiros diferentes)
+      jogosSorteados = gerarSorteioSuper8DuplasRoundRobin(participantes);
+      usarRoundRobin = true;
+    } else {
+      // Usar formato tradicional (quartas/semi/final) para individual
+      jogosSorteados = gerarSorteioSuper8(participantes, competicao.formato);
+    }
 
     // Inserir jogos no banco
     const jogosCriados: any[] = [];
     
+    // Função auxiliar para criar ou obter parceriaId baseado nos atletas
+    async function obterOuCriarParceria(atleta1Id: string, atleta2Id: string): Promise<string> {
+      // Ordenar IDs para garantir consistência
+      const idsOrdenados = [atleta1Id, atleta2Id].sort();
+      const parceriaKey = idsOrdenados.join('-');
+      
+      // Verificar se já existe uma parceria com esses atletas nesta competição
+      const parceriaExistente = await query(
+        `SELECT DISTINCT "parceriaId" 
+         FROM "AtletaCompeticao" 
+         WHERE "competicaoId" = $1 
+           AND "atletaId" = $2 
+           AND "parceiroAtletaId" = $3
+           AND "parceriaId" IS NOT NULL
+         LIMIT 1`,
+        [competicaoId, idsOrdenados[0], idsOrdenados[1]]
+      );
+
+      if (parceriaExistente.rows.length > 0 && parceriaExistente.rows[0].parceriaId) {
+        return parceriaExistente.rows[0].parceriaId;
+      }
+
+      // Criar nova parceria (usar UUID)
+      const novaParceriaId = randomUUID();
+
+      // Garantir que ambos os atletas tenham registro na competição com essa parceria
+      await query(
+        `UPDATE "AtletaCompeticao" 
+         SET "parceriaId" = $1, "parceiroAtletaId" = $2
+         WHERE "competicaoId" = $3 AND "atletaId" = $4`,
+        [novaParceriaId, idsOrdenados[1], competicaoId, idsOrdenados[0]]
+      );
+
+      await query(
+        `UPDATE "AtletaCompeticao" 
+         SET "parceriaId" = $1, "parceiroAtletaId" = $2
+         WHERE "competicaoId" = $3 AND "atletaId" = $4`,
+        [novaParceriaId, idsOrdenados[0], competicaoId, idsOrdenados[1]]
+      );
+
+      return novaParceriaId;
+    }
+    
     for (const jogo of jogosSorteados) {
-      const atleta1Id = competicao.formato === 'INDIVIDUAL' 
-        ? jogo.participante1.atletaId 
-        : null;
-      const atleta2Id = competicao.formato === 'INDIVIDUAL' 
-        ? jogo.participante2.atletaId 
-        : null;
-      const parceria1Id = competicao.formato === 'DUPLAS' 
-        ? jogo.participante1.parceriaId 
-        : null;
-      const parceria2Id = competicao.formato === 'DUPLAS' 
-        ? jogo.participante2.parceriaId 
-        : null;
+      let atleta1Id: string | null = null;
+      let atleta2Id: string | null = null;
+      let parceria1Id: string | null = null;
+      let parceria2Id: string | null = null;
+
+      if (competicao.formato === 'INDIVIDUAL') {
+        atleta1Id = jogo.participante1.atletaId || null;
+        atleta2Id = jogo.participante2.atletaId || null;
+      } else if (usarRoundRobin && 'participante1Atletas' in jogo) {
+        // Formato round-robin: criar/obter parcerias dinamicamente
+        const jogoRoundRobin = jogo as any;
+        parceria1Id = await obterOuCriarParceria(
+          jogoRoundRobin.participante1Atletas[0],
+          jogoRoundRobin.participante1Atletas[1]
+        );
+        parceria2Id = await obterOuCriarParceria(
+          jogoRoundRobin.participante2Atletas[0],
+          jogoRoundRobin.participante2Atletas[1]
+        );
+      } else {
+        // Formato tradicional de duplas
+        parceria1Id = jogo.participante1.parceriaId || null;
+        parceria2Id = jogo.participante2.parceriaId || null;
+      }
 
       const result = await query(
         `INSERT INTO "JogoCompeticao" (

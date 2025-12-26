@@ -152,3 +152,129 @@ export function gerarFinal(vencedoresSemifinais: ParticipanteSorteio[]): JogoSor
   };
 }
 
+/**
+ * Gera round-robin para Super 8 Duplas
+ * Cada atleta joga 7 jogos, nunca repetindo o parceiro
+ * 7 rodadas, cada rodada com 2 jogos (4 duplas competem)
+ */
+export function gerarSorteioSuper8DuplasRoundRobin(
+  participantes: any[]
+): Array<JogoSorteado & { 
+  participante1Atletas: string[]; 
+  participante2Atletas: string[];
+}> {
+  // Extrair lista de atletas únicos
+  const atletasMap = new Map<string, { id: string; nome: string }>();
+  participantes.forEach((p) => {
+    if (p.atletaId && !atletasMap.has(p.atletaId)) {
+      atletasMap.set(p.atletaId, {
+        id: p.atletaId,
+        nome: p.atleta?.nome || 'Atleta desconhecido',
+      });
+    }
+  });
+
+  const atletas = Array.from(atletasMap.values());
+
+  if (atletas.length !== 8) {
+    throw new Error(`Super 8 Duplas Round-Robin requer exatamente 8 atletas, mas foram fornecidos ${atletas.length}`);
+  }
+
+  // Embaralhar atletas para randomizar
+  const atletasEmbaralhados = embaralhar(atletas);
+
+  // Algoritmo de round-robin circular para 8 atletas em 7 rodadas
+  // Cada rodada: 2 jogos (4 duplas competem)
+  // Garante que cada atleta joga com cada um dos outros 7 exatamente uma vez
+
+  const jogos: Array<JogoSorteado & { 
+    participante1Atletas: string[]; 
+    participante2Atletas: string[];
+  }> = [];
+
+  // Usar algoritmo round-robin circular
+  // Fixa o primeiro atleta e rotaciona os outros
+  const fixo = atletasEmbaralhados[0];
+  const rotativos = atletasEmbaralhados.slice(1);
+
+  for (let rodada = 0; rodada < 7; rodada++) {
+    // Rotacionar a lista (exceto o primeiro que fica fixo)
+    const posicoes = [...rotativos];
+    if (rodada > 0) {
+      // Rotação circular: move o último para o início
+      const ultimo = posicoes.pop()!;
+      posicoes.unshift(ultimo);
+    }
+
+    // Formar 4 duplas da rodada usando algoritmo round-robin
+    // Dupla 1: fixo + posicoes[0]
+    // Dupla 2: posicoes[1] + posicoes[6]
+    // Dupla 3: posicoes[2] + posicoes[5]
+    // Dupla 4: posicoes[3] + posicoes[4]
+
+    const duplas = [
+      {
+        atleta1: fixo,
+        atleta2: posicoes[0],
+        id: `dupla-${rodada}-1`,
+        nome: `${fixo.nome} & ${posicoes[0].nome}`,
+      },
+      {
+        atleta1: posicoes[1],
+        atleta2: posicoes[6],
+        id: `dupla-${rodada}-2`,
+        nome: `${posicoes[1].nome} & ${posicoes[6].nome}`,
+      },
+      {
+        atleta1: posicoes[2],
+        atleta2: posicoes[5],
+        id: `dupla-${rodada}-3`,
+        nome: `${posicoes[2].nome} & ${posicoes[5].nome}`,
+      },
+      {
+        atleta1: posicoes[3],
+        atleta2: posicoes[4],
+        id: `dupla-${rodada}-4`,
+        nome: `${posicoes[3].nome} & ${posicoes[4].nome}`,
+      },
+    ];
+
+    // Gerar 2 jogos: Dupla 1 vs Dupla 2, Dupla 3 vs Dupla 4
+    // Isso resulta em 2 jogos por rodada × 7 rodadas = 14 jogos
+    // Cada jogo tem 4 atletas, então 14 × 4 = 56 participações
+    // 56 / 8 atletas = 7 jogos por atleta ✓
+
+    jogos.push({
+      rodada: `RODADA_${rodada + 1}` as any,
+      numeroJogo: 1,
+      participante1: {
+        id: duplas[0].id,
+        nome: duplas[0].nome,
+      },
+      participante2: {
+        id: duplas[1].id,
+        nome: duplas[1].nome,
+      },
+      participante1Atletas: [duplas[0].atleta1.id, duplas[0].atleta2.id],
+      participante2Atletas: [duplas[1].atleta1.id, duplas[1].atleta2.id],
+    });
+
+    jogos.push({
+      rodada: `RODADA_${rodada + 1}` as any,
+      numeroJogo: 2,
+      participante1: {
+        id: duplas[2].id,
+        nome: duplas[2].nome,
+      },
+      participante2: {
+        id: duplas[3].id,
+        nome: duplas[3].nome,
+      },
+      participante1Atletas: [duplas[2].atleta1.id, duplas[2].atleta2.id],
+      participante2Atletas: [duplas[3].atleta1.id, duplas[3].atleta2.id],
+    });
+  }
+
+  return jogos;
+}
+

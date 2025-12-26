@@ -9,3 +9,4 @@ export default function EditarCompeticaoPage({ params }: { params: Promise<{ id:
   return <CompeticaoForm competicaoId={id} />;
 }
 
+

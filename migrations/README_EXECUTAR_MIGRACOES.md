@@ -50,3 +50,4 @@ WHERE table_schema = 'public'
 
 Deve retornar 3 linhas com os nomes das tabelas.
 
+

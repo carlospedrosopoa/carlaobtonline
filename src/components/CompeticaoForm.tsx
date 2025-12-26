@@ -784,15 +784,39 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
               Jogos da Competição
             </h2>
             <div className="space-y-4">
-              {['QUARTAS_FINAL', 'SEMIFINAL', 'FINAL'].map((rodada) => {
-                const jogosRodada = jogos.filter(j => j.rodada === rodada);
-                if (jogosRodada.length === 0) return null;
+              {(() => {
+                // Agrupar jogos por rodada
+                const rodadasMap = new Map<string, typeof jogos>();
+                jogos.forEach(jogo => {
+                  if (!rodadasMap.has(jogo.rodada)) {
+                    rodadasMap.set(jogo.rodada, []);
+                  }
+                  rodadasMap.get(jogo.rodada)!.push(jogo);
+                });
 
-                const rodadaLabel: Record<string, string> = {
-                  QUARTAS_FINAL: 'Quartas de Final',
-                  SEMIFINAL: 'Semifinais',
-                  FINAL: 'Final',
-                };
+                // Ordenar rodadas
+                const ordemRodadas = [
+                  'RODADA_1', 'RODADA_2', 'RODADA_3', 'RODADA_4', 'RODADA_5', 'RODADA_6', 'RODADA_7',
+                  'QUARTAS_FINAL', 'SEMIFINAL', 'FINAL'
+                ];
+                const rodadasOrdenadas = ordemRodadas.filter(r => rodadasMap.has(r));
+
+                return rodadasOrdenadas.map((rodada) => {
+                  const jogosRodada = rodadasMap.get(rodada)!;
+                  if (jogosRodada.length === 0) return null;
+
+                  const rodadaLabel: Record<string, string> = {
+                    RODADA_1: 'Rodada 1',
+                    RODADA_2: 'Rodada 2',
+                    RODADA_3: 'Rodada 3',
+                    RODADA_4: 'Rodada 4',
+                    RODADA_5: 'Rodada 5',
+                    RODADA_6: 'Rodada 6',
+                    RODADA_7: 'Rodada 7',
+                    QUARTAS_FINAL: 'Quartas de Final',
+                    SEMIFINAL: 'Semifinais',
+                    FINAL: 'Final',
+                  };
 
                 return (
                   <div key={rodada} className="bg-gray-50 rounded-lg p-4">
@@ -829,7 +853,8 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                     </div>
                   </div>
                 );
-              })}
+                });
+              })()}
             </div>
           </div>
         )}

@@ -32,7 +32,7 @@ export interface AtletaCompeticao {
   createdAt: string;
 }
 
-export type RodadaCompeticao = "QUARTAS_FINAL" | "SEMIFINAL" | "FINAL";
+export type RodadaCompeticao = "QUARTAS_FINAL" | "SEMIFINAL" | "FINAL" | "RODADA_1" | "RODADA_2" | "RODADA_3" | "RODADA_4" | "RODADA_5" | "RODADA_6" | "RODADA_7";
 export type StatusJogoCompeticao = "AGENDADO" | "EM_ANDAMENTO" | "CONCLUIDO" | "CANCELADO";
 
 export interface JogoCompeticao {
