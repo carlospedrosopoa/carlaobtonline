@@ -62,5 +62,21 @@ export const competicaoService = {
     const res = await api.delete(`/competicao/${competicaoId}/jogos`);
     return res.data;
   },
+
+  atualizarResultadoJogo: async (
+    competicaoId: string,
+    jogoId: string,
+    resultado: {
+      gamesAtleta1?: number | null;
+      gamesAtleta2?: number | null;
+      dataHora?: string | null;
+      quadraId?: string | null;
+      observacoes?: string | null;
+      status?: string;
+    }
+  ): Promise<any> => {
+    const res = await api.put(`/competicao/${competicaoId}/jogos/${jogoId}`, resultado);
+    return res.data;
+  },
 };
 

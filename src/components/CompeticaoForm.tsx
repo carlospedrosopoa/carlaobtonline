@@ -55,6 +55,10 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
 
   // Jogos
   const [jogos, setJogos] = useState<any[]>([]);
+  const [jogoEditando, setJogoEditando] = useState<any | null>(null);
+  const [mostrarModalResultado, setMostrarModalResultado] = useState(false);
+  const [gamesAtleta1, setGamesAtleta1] = useState<string>('');
+  const [gamesAtleta2, setGamesAtleta2] = useState<string>('');
 
   useEffect(() => {
     carregarDados();
@@ -304,6 +308,130 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const abrirModalResultado = (jogo: any) => {
+    setJogoEditando(jogo);
+    setGamesAtleta1(jogo.gamesAtleta1 !== null && jogo.gamesAtleta1 !== undefined ? jogo.gamesAtleta1.toString() : '');
+    setGamesAtleta2(jogo.gamesAtleta2 !== null && jogo.gamesAtleta2 !== undefined ? jogo.gamesAtleta2.toString() : '');
+    setMostrarModalResultado(true);
+  };
+
+  const fecharModalResultado = () => {
+    setMostrarModalResultado(false);
+    setJogoEditando(null);
+    setGamesAtleta1('');
+    setGamesAtleta2('');
+  };
+
+  const salvarResultado = async () => {
+    if (!competicaoId || !jogoEditando) return;
+
+    try {
+      setSaving(true);
+      await competicaoService.atualizarResultadoJogo(competicaoId, jogoEditando.id, {
+        gamesAtleta1: gamesAtleta1 ? parseInt(gamesAtleta1) : null,
+        gamesAtleta2: gamesAtleta2 ? parseInt(gamesAtleta2) : null,
+      });
+      
+      // Recarregar jogos
+      const jogosData = await competicaoService.listarJogos(competicaoId);
+      setJogos(jogosData || []);
+      
+      fecharModalResultado();
+    } catch (error: any) {
+      console.error('Erro ao salvar resultado:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao salvar resultado');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Calcular classificação (vitórias e saldo de games)
+  const calcularClassificacao = () => {
+    if (!jogos || jogos.length === 0) return [];
+
+    // Mapear atletas e suas estatísticas
+    const estatisticas = new Map<string, {
+      atletaId: string;
+      nome: string;
+      vitorias: number;
+      derrotas: number;
+      gamesFeitos: number;
+      gamesSofridos: number;
+      saldoGames: number;
+    }>();
+
+    // Inicializar estatísticas de todos os atletas
+    atletasParticipantes.forEach((participante: any) => {
+      if (participante.atletaId) {
+        estatisticas.set(participante.atletaId, {
+          atletaId: participante.atletaId,
+          nome: participante.atleta?.nome || 'Atleta',
+          vitorias: 0,
+          derrotas: 0,
+          gamesFeitos: 0,
+          gamesSofridos: 0,
+          saldoGames: 0,
+        });
+      }
+    });
+
+    // Processar cada jogo concluído
+    jogos.forEach((jogo: any) => {
+      if (jogo.status === 'CONCLUIDO' && jogo.gamesAtleta1 !== null && jogo.gamesAtleta2 !== null) {
+        const games1 = jogo.gamesAtleta1 || 0;
+        const games2 = jogo.gamesAtleta2 || 0;
+
+        // Para duplas, precisamos dos atletas de cada parceria
+        if (jogo.participante1?.dupla && jogo.participante2?.dupla) {
+          const dupla1 = jogo.participante1.dupla;
+          const dupla2 = jogo.participante2.dupla;
+
+          // Atletas da dupla 1
+          [dupla1.atleta1.id, dupla1.atleta2.id].forEach((atletaId: string) => {
+            const stats = estatisticas.get(atletaId);
+            if (stats) {
+              stats.gamesFeitos += games1;
+              stats.gamesSofridos += games2;
+              if (games1 > games2) {
+                stats.vitorias++;
+              } else if (games2 > games1) {
+                stats.derrotas++;
+              }
+            }
+          });
+
+          // Atletas da dupla 2
+          [dupla2.atleta1.id, dupla2.atleta2.id].forEach((atletaId: string) => {
+            const stats = estatisticas.get(atletaId);
+            if (stats) {
+              stats.gamesFeitos += games2;
+              stats.gamesSofridos += games1;
+              if (games2 > games1) {
+                stats.vitorias++;
+              } else if (games1 > games2) {
+                stats.derrotas++;
+              }
+            }
+          });
+        }
+      }
+    });
+
+    // Calcular saldo de games e ordenar
+    const classificacao = Array.from(estatisticas.values()).map(stats => ({
+      ...stats,
+      saldoGames: stats.gamesFeitos - stats.gamesSofridos,
+    })).sort((a, b) => {
+      // Ordenar por: vitórias (desc), saldo de games (desc)
+      if (b.vitorias !== a.vitorias) {
+        return b.vitorias - a.vitorias;
+      }
+      return b.saldoGames - a.saldoGames;
+    });
+
+    return classificacao;
   };
 
   const handleSalvar = async () => {
@@ -824,7 +952,11 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                     <h3 className="font-semibold text-gray-900 mb-3">{rodadaLabel[rodada]}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {jogosRodada.map((jogo) => (
-                        <div key={jogo.id} className="bg-white rounded-lg p-3 border border-gray-200">
+                        <div 
+                          key={jogo.id} 
+                          onClick={() => abrirModalResultado(jogo)}
+                          className="bg-white rounded-lg p-3 border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+                        >
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-gray-600">Jogo {jogo.numeroJogo}</span>
                             {jogo.status && (
@@ -841,10 +973,12 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                           </div>
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-medium">{jogo.participante1?.nome || 'TBD'}</span>
-                            {jogo.gamesAtleta1 !== null && jogo.gamesAtleta2 !== null && (
+                            {jogo.gamesAtleta1 !== null && jogo.gamesAtleta2 !== null ? (
                               <span className="font-bold text-blue-600">
                                 {jogo.gamesAtleta1} - {jogo.gamesAtleta2}
                               </span>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">Clique para inserir resultado</span>
                             )}
                             <span className="text-gray-400">VS</span>
                             <span className="font-medium">{jogo.participante2?.nome || 'TBD'}</span>
@@ -856,6 +990,109 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 );
                 });
               })()}
+            </div>
+          </div>
+        )}
+
+        {/* Classificação */}
+        {jogos.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Trophy className="w-5 h-5" />
+              Classificação
+            </h2>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos.</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Atleta</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vitórias</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Derrotas</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Games Feitos</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Games Sofridos</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {calcularClassificacao().map((atleta, index) => (
+                    <tr key={atleta.atletaId} className={index === 0 ? 'bg-yellow-50' : ''}>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {index + 1}º
+                        {index === 0 && <span className="ml-2">🏆</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{atleta.nome}</td>
+                      <td className="px-4 py-3 text-sm text-center text-gray-900 font-semibold">{atleta.vitorias}</td>
+                      <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.derrotas}</td>
+                      <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.gamesFeitos}</td>
+                      <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.gamesSofridos}</td>
+                      <td className={`px-4 py-3 text-sm text-center font-semibold ${
+                        atleta.saldoGames > 0 ? 'text-green-600' : 
+                        atleta.saldoGames < 0 ? 'text-red-600' : 
+                        'text-gray-600'
+                      }`}>
+                        {atleta.saldoGames > 0 ? '+' : ''}{atleta.saldoGames}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Resultado */}
+        {mostrarModalResultado && jogoEditando && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Inserir Resultado</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {jogoEditando.participante1?.nome || 'Participante 1'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={gamesAtleta1}
+                    onChange={(e) => setGamesAtleta1(e.target.value)}
+                    placeholder="Games"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  />
+                </div>
+                <div className="text-center text-gray-400 font-bold">VS</div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {jogoEditando.participante2?.nome || 'Participante 2'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={gamesAtleta2}
+                    onChange={(e) => setGamesAtleta2(e.target.value)}
+                    placeholder="Games"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  />
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  Digite o placar de games (ex: 5x4, 3x3, 6x5). O vencedor será calculado automaticamente.
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={fecharModalResultado}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={salvarResultado}
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
             </div>
           </div>
         )}
