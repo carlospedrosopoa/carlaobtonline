@@ -1280,6 +1280,11 @@ export default function ArenaAgendaSemanalPage() {
                                     }}
                                   >
                                     <div className="p-1.5 h-full flex flex-col justify-between relative">
+                                      {/* Badge na primeira linha */}
+                                      <div className="mb-1">
+                                        {getTipoBadge(agendamento)}
+                                      </div>
+                                      
                                       <div className="flex-1">
                                         <div className="flex items-start justify-between gap-1 mb-0.5">
                                           <div className="text-[10px] font-bold opacity-90 flex-1 flex items-center gap-1">
@@ -1324,17 +1329,11 @@ export default function ArenaAgendaSemanalPage() {
                                           {duracaoTexto}
                                         </div>
                                       </div>
-                                      <div className="flex items-end justify-between mt-1 gap-1">
-                                        {agendamento.status === 'CONFIRMADO' && (
-                                          <div className="text-[9px] font-semibold opacity-75 flex-1">
-                                            Confirmado
-                                          </div>
-                                        )}
-                                        {/* Badge no canto inferior direito */}
-                                        <div className="flex-shrink-0">
-                                          {getTipoBadge(agendamento)}
+                                      {agendamento.status === 'CONFIRMADO' && (
+                                        <div className="text-[9px] font-semibold opacity-75 mt-1">
+                                          Confirmado
                                         </div>
-                                      </div>
+                                      )}
                                     </div>
 
                                     {/* Menu de ações */}
