@@ -50,3 +50,4 @@ COMMENT ON TABLE "ProfessorPoint" IS 'Relação muitos-para-muitos entre profess
 COMMENT ON COLUMN "ProfessorPoint"."professorId" IS 'ID do professor';
 COMMENT ON COLUMN "ProfessorPoint"."pointId" IS 'ID da arena';
 
+

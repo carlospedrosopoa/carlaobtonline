@@ -41,3 +41,4 @@ CREATE INDEX IF NOT EXISTS idx_agendamento_eh_aula ON "Agendamento"("ehAula");
 COMMENT ON COLUMN "Agendamento"."ehAula" IS 'Indica se o agendamento é para uma aula/professor (true) ou locação normal (false)';
 COMMENT ON COLUMN "Agendamento"."professorId" IS 'ID do professor vinculado ao agendamento (apenas quando ehAula = true)';
 
+

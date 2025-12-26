@@ -9,3 +9,4 @@ ADD COLUMN IF NOT EXISTS "valorHoraAula" NUMERIC(10, 2) DEFAULT NULL;
 -- Comentário na coluna
 COMMENT ON COLUMN "TabelaPreco"."valorHoraAula" IS 'Valor de locação por hora para aulas/professores. Se null, usa o mesmo valor de valorHora (atleta).';
 
+
