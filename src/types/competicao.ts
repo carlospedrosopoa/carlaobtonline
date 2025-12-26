@@ -32,6 +32,56 @@ export interface AtletaCompeticao {
   createdAt: string;
 }
 
+export type RodadaCompeticao = "QUARTAS_FINAL" | "SEMIFINAL" | "FINAL";
+export type StatusJogoCompeticao = "AGENDADO" | "EM_ANDAMENTO" | "CONCLUIDO" | "CANCELADO";
+
+export interface JogoCompeticao {
+  id: string;
+  competicaoId: string;
+  rodada: RodadaCompeticao;
+  numeroJogo: number;
+  atleta1Id?: string | null;
+  atleta2Id?: string | null;
+  atleta1ParceriaId?: string | null;
+  atleta2ParceriaId?: string | null;
+  vencedorId?: string | null;
+  pontosAtleta1?: number | null;
+  pontosAtleta2?: number | null;
+  gamesAtleta1?: number | null;
+  gamesAtleta2?: number | null;
+  tiebreakAtleta1?: number | null;
+  tiebreakAtleta2?: number | null;
+  dataHora?: string | null;
+  quadraId?: string | null;
+  quadra?: {
+    id: string;
+    nome: string;
+  } | null;
+  status: StatusJogoCompeticao;
+  observacoes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Dados dos participantes (preenchidos pela API)
+  participante1?: {
+    atletaId?: string;
+    parceriaId?: string;
+    nome: string;
+    dupla?: {
+      atleta1: { id: string; nome: string };
+      atleta2: { id: string; nome: string };
+    };
+  } | null;
+  participante2?: {
+    atletaId?: string;
+    parceriaId?: string;
+    nome: string;
+    dupla?: {
+      atleta1: { id: string; nome: string };
+      atleta2: { id: string; nome: string };
+    };
+  } | null;
+}
+
 export interface Competicao {
   id: string;
   pointId: string;
@@ -63,6 +113,7 @@ export interface Competicao {
   createdAt: string;
   updatedAt: string;
   atletasParticipantes?: AtletaCompeticao[];
+  jogos?: JogoCompeticao[];
 }
 
 export interface CriarCompeticaoPayload {

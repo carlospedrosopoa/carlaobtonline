@@ -8,7 +8,7 @@ import { competicaoService } from '@/services/competicaoService';
 import { pointService, quadraService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
 import type { Competicao, FormatoCompeticao } from '@/types/competicao';
-import { Trophy, ArrowLeft, Save, Plus, X, Users, User } from 'lucide-react';
+import { Trophy, ArrowLeft, Save, Plus, X, Users, User, PlayCircle } from 'lucide-react';
 
 interface Atleta {
   id: string;
@@ -53,6 +53,9 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   // Quadras
   const [quadras, setQuadras] = useState<any[]>([]);
 
+  // Jogos
+  const [jogos, setJogos] = useState<any[]>([]);
+
   useEffect(() => {
     carregarDados();
   }, [competicaoId]);
@@ -91,6 +94,15 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         setPremio(competicaoData.premio || '');
         setRegras(competicaoData.regras || '');
         setAtletasParticipantes(competicaoData.atletasParticipantes || []);
+        
+        // Carregar jogos se existirem
+        try {
+          const jogosData = await competicaoService.listarJogos(competicaoId);
+          setJogos(jogosData || []);
+        } catch (err) {
+          // Ignorar erro se não houver jogos
+          setJogos([]);
+        }
       }
     } catch (error: any) {
       console.error('Erro ao carregar dados:', error);
@@ -177,6 +189,38 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
     } catch (error: any) {
       console.error('Erro ao remover atleta:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao remover atleta');
+    }
+  };
+
+  const handleGerarJogos = async () => {
+    if (!competicaoId) return;
+    
+    if (!confirm('Tem certeza que deseja gerar o sorteio dos jogos? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const resultado = await competicaoService.gerarJogos(competicaoId);
+      alert(resultado.mensagem || 'Jogos gerados com sucesso!');
+      
+      // Recarregar competição
+      const competicaoData = await competicaoService.obter(competicaoId);
+      setCompeticao(competicaoData);
+      setAtletasParticipantes(competicaoData.atletasParticipantes || []);
+      
+      // Recarregar jogos
+      try {
+        const jogosData = await competicaoService.listarJogos(competicaoId);
+        setJogos(jogosData || []);
+      } catch (err) {
+        setJogos([]);
+      }
+    } catch (error: any) {
+      console.error('Erro ao gerar jogos:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao gerar jogos');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -406,14 +450,29 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">
                 Atletas Participantes ({atletasParticipantes.length})
+                {atletasParticipantes.length === 8 && (
+                  <span className="ml-2 text-sm font-normal text-green-600">✓ Pronto para gerar jogos</span>
+                )}
               </h2>
-              <button
-                onClick={() => setMostrarBuscaAtleta(!mostrarBuscaAtleta)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                Adicionar Atleta
-              </button>
+              <div className="flex gap-2">
+                {atletasParticipantes.length === 8 && competicao?.status === 'CRIADA' && (
+                  <button
+                    onClick={handleGerarJogos}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50"
+                  >
+                    <Trophy className="w-5 h-5" />
+                    Gerar Sorteio dos Jogos
+                  </button>
+                )}
+                <button
+                  onClick={() => setMostrarBuscaAtleta(!mostrarBuscaAtleta)}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Adicionar Atleta
+                </button>
+              </div>
             </div>
 
             {mostrarBuscaAtleta && (
@@ -539,6 +598,64 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Jogos da Competição */}
+        {competicaoId && jogos.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <PlayCircle className="w-6 h-6" />
+              Jogos da Competição
+            </h2>
+            <div className="space-y-4">
+              {['QUARTAS_FINAL', 'SEMIFINAL', 'FINAL'].map((rodada) => {
+                const jogosRodada = jogos.filter(j => j.rodada === rodada);
+                if (jogosRodada.length === 0) return null;
+
+                const rodadaLabel: Record<string, string> = {
+                  QUARTAS_FINAL: 'Quartas de Final',
+                  SEMIFINAL: 'Semifinais',
+                  FINAL: 'Final',
+                };
+
+                return (
+                  <div key={rodada} className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-gray-900 mb-3">{rodadaLabel[rodada]}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {jogosRodada.map((jogo) => (
+                        <div key={jogo.id} className="bg-white rounded-lg p-3 border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-600">Jogo {jogo.numeroJogo}</span>
+                            {jogo.status && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                jogo.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
+                                jogo.status === 'EM_ANDAMENTO' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {jogo.status === 'CONCLUIDO' ? 'Concluído' :
+                                 jogo.status === 'EM_ANDAMENTO' ? 'Em Andamento' :
+                                 'Agendado'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium">{jogo.participante1?.nome || 'TBD'}</span>
+                            {jogo.gamesAtleta1 !== null && jogo.gamesAtleta2 !== null && (
+                              <span className="font-bold text-blue-600">
+                                {jogo.gamesAtleta1} - {jogo.gamesAtleta2}
+                              </span>
+                            )}
+                            <span className="text-gray-400">VS</span>
+                            <span className="font-medium">{jogo.participante2?.nome || 'TBD'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

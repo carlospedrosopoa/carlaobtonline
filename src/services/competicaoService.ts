@@ -47,5 +47,15 @@ export const competicaoService = {
   removerAtleta: async (competicaoId: string, atletaId: string): Promise<void> => {
     await api.delete(`/competicao/${competicaoId}/atletas/${atletaId}`);
   },
+
+  gerarJogos: async (competicaoId: string): Promise<{ mensagem: string; jogos: any[] }> => {
+    const res = await api.post(`/competicao/${competicaoId}/gerar-jogos`);
+    return res.data;
+  },
+
+  listarJogos: async (competicaoId: string): Promise<any[]> => {
+    const res = await api.get(`/competicao/${competicaoId}/jogos`);
+    return res.data;
+  },
 };
 
