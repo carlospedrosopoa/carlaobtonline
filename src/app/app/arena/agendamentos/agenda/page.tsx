@@ -1280,31 +1280,8 @@ export default function ArenaAgendaSemanalPage() {
                                     }}
                                   >
                                     <div className="p-1.5 h-full flex flex-col justify-between relative">
-                                      {/* Badge no canto superior direito */}
-                                      <div className="absolute top-1 right-1 z-10">
-                                        {getTipoBadge(agendamento)}
-                                      </div>
-                                      
-                                      {/* Botão do menu no canto superior direito, ao lado do badge */}
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          e.preventDefault();
-                                          if (menuAberto === agendamento.id) {
-                                            setMenuAberto(null);
-                                          } else {
-                                            setMenuAberto(agendamento.id);
-                                          }
-                                        }}
-                                        className="absolute top-1 right-8 opacity-70 hover:opacity-100 transition-opacity z-20 bg-white/80 rounded p-0.5 hover:bg-white"
-                                        title="Menu de ações"
-                                      >
-                                        <MoreVertical className="w-3 h-3" />
-                                      </button>
-                                      
                                       <div className="flex-1">
-                                        <div className="flex items-start justify-between gap-1 mb-0.5 pr-12">
+                                        <div className="flex items-start justify-between gap-1 mb-0.5">
                                           <div className="text-[10px] font-bold opacity-90 flex-1 flex items-center gap-1">
                                             {quadra?.nome || 'Quadra'}
                                             {/* Indicador visual: criado pelo atleta ou organizer */}
@@ -1320,8 +1297,24 @@ export default function ArenaAgendaSemanalPage() {
                                               )
                                             )}
                                           </div>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              if (menuAberto === agendamento.id) {
+                                                setMenuAberto(null);
+                                              } else {
+                                                setMenuAberto(agendamento.id);
+                                              }
+                                            }}
+                                            className="opacity-70 hover:opacity-100 transition-opacity z-10 relative"
+                                            title="Menu de ações"
+                                          >
+                                            <MoreVertical className="w-3 h-3" />
+                                          </button>
                                         </div>
-                                        <div className="text-xs font-bold truncate mb-0.5 pr-8">
+                                        <div className="text-xs font-bold truncate mb-0.5">
                                           {info.nome}
                                         </div>
                                         <div className="text-[10px] opacity-90 mb-0.5">
@@ -1331,17 +1324,23 @@ export default function ArenaAgendaSemanalPage() {
                                           {duracaoTexto}
                                         </div>
                                       </div>
-                                      {agendamento.status === 'CONFIRMADO' && (
-                                        <div className="text-[9px] font-semibold opacity-75 mt-1">
-                                          Confirmado
+                                      <div className="flex items-end justify-between mt-1">
+                                        {agendamento.status === 'CONFIRMADO' && (
+                                          <div className="text-[9px] font-semibold opacity-75">
+                                            Confirmado
+                                          </div>
+                                        )}
+                                        {/* Badge no canto inferior direito */}
+                                        <div className="ml-auto">
+                                          {getTipoBadge(agendamento)}
                                         </div>
-                                      )}
+                                      </div>
                                     </div>
 
                                     {/* Menu de ações */}
                                     {menuAberto === agendamento.id && (
                                       <div 
-                                        className="absolute top-8 right-1 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 min-w-[160px]"
+                                        className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 min-w-[160px]"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <button
