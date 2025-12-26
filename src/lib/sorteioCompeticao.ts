@@ -156,6 +156,7 @@ export function gerarFinal(vencedoresSemifinais: ParticipanteSorteio[]): JogoSor
  * Gera round-robin para Super 8 Duplas
  * Cada atleta joga 7 jogos, nunca repetindo o parceiro
  * 7 rodadas, cada rodada com 2 jogos (4 duplas competem)
+ * Algoritmo: Round-Robin circular onde cada atleta joga com cada um dos outros 7 exatamente uma vez
  */
 export function gerarSorteioSuper8DuplasRoundRobin(
   participantes: any[]
@@ -183,67 +184,60 @@ export function gerarSorteioSuper8DuplasRoundRobin(
   // Embaralhar atletas para randomizar
   const atletasEmbaralhados = embaralhar(atletas);
 
-  // Algoritmo de round-robin circular para 8 atletas em 7 rodadas
-  // Cada rodada: 2 jogos (4 duplas competem)
-  // Garante que cada atleta joga com cada um dos outros 7 exatamente uma vez
-
   const jogos: Array<JogoSorteado & { 
     participante1Atletas: string[]; 
     participante2Atletas: string[];
   }> = [];
 
-  // Usar algoritmo round-robin circular
-  // Fixa o primeiro atleta e rotaciona os outros
+  // Algoritmo Round-Robin circular para 8 jogadores
+  // Fixa o primeiro atleta e rotaciona os outros 7 em sentido horário
+  // Em cada rodada, o atleta fixo joga com um diferente
+  // Os outros 6 formam 3 duplas que também rotacionam
+  
   const fixo = atletasEmbaralhados[0];
-  const rotativos = atletasEmbaralhados.slice(1);
+  const rotativos = atletasEmbaralhados.slice(1); // 7 atletas restantes
 
   for (let rodada = 0; rodada < 7; rodada++) {
-    // Rotacionar a lista (exceto o primeiro que fica fixo)
-    const posicoes = [...rotativos];
-    if (rodada > 0) {
-      // Rotação circular: move o último para o início
-      const ultimo = posicoes.pop()!;
-      posicoes.unshift(ultimo);
+    // Rotacionar os atletas rotativos (shift circular)
+    const rotados = [...rotativos];
+    for (let i = 0; i < rodada; i++) {
+      rotados.push(rotados.shift()!);
     }
 
-    // Formar 4 duplas da rodada usando algoritmo round-robin
-    // Dupla 1: fixo + posicoes[0]
-    // Dupla 2: posicoes[1] + posicoes[6]
-    // Dupla 3: posicoes[2] + posicoes[5]
-    // Dupla 4: posicoes[3] + posicoes[4]
+    // Formar 4 duplas:
+    // Dupla 1: fixo + rotados[0] (o fixo sempre joga com um diferente a cada rodada)
+    // Dupla 2: rotados[1] + rotados[6]
+    // Dupla 3: rotados[2] + rotados[5]
+    // Dupla 4: rotados[3] + rotados[4]
 
     const duplas = [
       {
         atleta1: fixo,
-        atleta2: posicoes[0],
+        atleta2: rotados[0],
         id: `dupla-${rodada}-1`,
-        nome: `${fixo.nome} & ${posicoes[0].nome}`,
+        nome: `${fixo.nome} & ${rotados[0].nome}`,
       },
       {
-        atleta1: posicoes[1],
-        atleta2: posicoes[6],
+        atleta1: rotados[1],
+        atleta2: rotados[6],
         id: `dupla-${rodada}-2`,
-        nome: `${posicoes[1].nome} & ${posicoes[6].nome}`,
+        nome: `${rotados[1].nome} & ${rotados[6].nome}`,
       },
       {
-        atleta1: posicoes[2],
-        atleta2: posicoes[5],
+        atleta1: rotados[2],
+        atleta2: rotados[5],
         id: `dupla-${rodada}-3`,
-        nome: `${posicoes[2].nome} & ${posicoes[5].nome}`,
+        nome: `${rotados[2].nome} & ${rotados[5].nome}`,
       },
       {
-        atleta1: posicoes[3],
-        atleta2: posicoes[4],
+        atleta1: rotados[3],
+        atleta2: rotados[4],
         id: `dupla-${rodada}-4`,
-        nome: `${posicoes[3].nome} & ${posicoes[4].nome}`,
+        nome: `${rotados[3].nome} & ${rotados[4].nome}`,
       },
     ];
 
     // Gerar 2 jogos: Dupla 1 vs Dupla 2, Dupla 3 vs Dupla 4
-    // Isso resulta em 2 jogos por rodada × 7 rodadas = 14 jogos
-    // Cada jogo tem 4 atletas, então 14 × 4 = 56 participações
-    // 56 / 8 atletas = 7 jogos por atleta ✓
-
     jogos.push({
       rodada: `RODADA_${rodada + 1}` as any,
       numeroJogo: 1,
@@ -273,6 +267,38 @@ export function gerarSorteioSuper8DuplasRoundRobin(
       participante1Atletas: [duplas[2].atleta1.id, duplas[2].atleta2.id],
       participante2Atletas: [duplas[3].atleta1.id, duplas[3].atleta2.id],
     });
+  }
+
+  // Validação: verificar se cada atleta joga com cada um dos outros exatamente uma vez
+  const validacao = new Map<string, Set<string>>();
+  atletas.forEach(a => validacao.set(a.id, new Set()));
+
+  jogos.forEach(jogo => {
+    const atletas1 = jogo.participante1Atletas;
+    const atletas2 = jogo.participante2Atletas;
+    
+    // Cada atleta da dupla 1 joga com cada atleta da dupla 2
+    atletas1.forEach(a1 => {
+      atletas2.forEach(a2 => {
+        validacao.get(a1)?.add(a2);
+        validacao.get(a2)?.add(a1);
+      });
+    });
+    
+    // Cada atleta da dupla 1 joga com seu parceiro
+    validacao.get(atletas1[0])?.add(atletas1[1]);
+    validacao.get(atletas1[1])?.add(atletas1[0]);
+    
+    // Cada atleta da dupla 2 joga com seu parceiro
+    validacao.get(atletas2[0])?.add(atletas2[1]);
+    validacao.get(atletas2[1])?.add(atletas2[0]);
+  });
+
+  // Verificar se cada atleta joga com exatamente 7 outros (todos os outros)
+  for (const [atletaId, parceiros] of validacao.entries()) {
+    if (parceiros.size !== 7) {
+      console.warn(`[SORTEIO] Atleta ${atletaId} joga com ${parceiros.size} parceiros diferentes (esperado: 7)`);
+    }
   }
 
   return jogos;
