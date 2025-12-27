@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     const {
       data,
       local,
+      pointId,
       atleta1Id,
       atleta2Id,
       atleta3Id,
@@ -29,6 +30,14 @@ export async function POST(request: NextRequest) {
     if (!atleta1Id || !atleta2Id) {
       const errorResponse = NextResponse.json(
         { error: "Atleta1Id e Atleta2Id são obrigatórios" },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    if (!pointId) {
+      const errorResponse = NextResponse.json(
+        { error: "Arena (pointId) é obrigatória para criar uma partida de treino" },
         { status: 400 }
       );
       return withCors(errorResponse, request);
