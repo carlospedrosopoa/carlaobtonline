@@ -471,7 +471,7 @@ export default function ModalAgendarQuadrasCompeticao({
 
             <button
               onClick={handleSalvarAgendamento}
-              disabled={loading || quadrasSelecionadas.length === 0 || !data || !hora || (editandoAgendamento && quadrasSelecionadas.length > 1)}
+              disabled={loading || quadrasSelecionadas.length === 0 || !data || !hora || (editandoAgendamento !== null && quadrasSelecionadas.length > 1)}
               className="mt-4 flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {editandoAgendamento ? (
