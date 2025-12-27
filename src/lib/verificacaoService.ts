@@ -49,3 +49,42 @@ export function removerCodigoVerificacao(telefone: string): void {
   codigosVerificacao.delete(telefoneNormalizado);
 }
 
+// Funções para códigos por email (para reset de senha)
+const codigosVerificacaoEmail = new Map<string, CodigoVerificacao>();
+
+// Limpar códigos expirados por email periodicamente
+setInterval(() => {
+  const agora = Date.now();
+  for (const [key, value] of codigosVerificacaoEmail.entries()) {
+    if (value.expiraEm < agora) {
+      codigosVerificacaoEmail.delete(key);
+    }
+  }
+}, 60000); // Limpar a cada minuto
+
+export function armazenarCodigoVerificacaoPorEmail(email: string, codigo: string, expiraEm: number): void {
+  const emailNormalizado = email.toLowerCase().trim();
+  codigosVerificacaoEmail.set(emailNormalizado, { codigo, expiraEm });
+}
+
+export function obterCodigoVerificacaoPorEmail(email: string): CodigoVerificacao | null {
+  const emailNormalizado = email.toLowerCase().trim();
+  const dados = codigosVerificacaoEmail.get(emailNormalizado);
+  
+  if (!dados) {
+    return null;
+  }
+  
+  if (dados.expiraEm < Date.now()) {
+    codigosVerificacaoEmail.delete(emailNormalizado);
+    return null;
+  }
+  
+  return dados;
+}
+
+export function removerCodigoVerificacaoPorEmail(email: string): void {
+  const emailNormalizado = email.toLowerCase().trim();
+  codigosVerificacaoEmail.delete(emailNormalizado);
+}
+
