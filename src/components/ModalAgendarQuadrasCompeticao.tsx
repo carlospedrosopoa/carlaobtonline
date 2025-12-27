@@ -58,23 +58,29 @@ export default function ModalAgendarQuadrasCompeticao({
 
   const carregarDados = async () => {
     try {
-      setLoading(true);
-      
-      // Carregar quadras da arena
+      // Carregar quadras e agendamentos em paralelo
       const pointId = usuario?.pointIdGestor;
+      
+      const [quadrasData, agendamentosData] = await Promise.all([
+        pointId ? quadraService.listar(pointId) : Promise.resolve([]),
+        api.get(`/competicao/${competicaoId}/agendamentos`).catch(err => {
+          console.error('Erro ao carregar agendamentos:', err);
+          return { data: { agendamentos: [] } };
+        }),
+      ]);
+
       if (pointId) {
-        const quadrasData = await quadraService.listar(pointId);
         setQuadras(quadrasData.filter((q: any) => q.ativo));
       }
 
-      // Carregar agendamentos existentes
-      const { data: agendamentosData } = await api.get(`/competicao/${competicaoId}/agendamentos`);
-      setAgendamentos(agendamentosData.agendamentos || []);
+      // Sempre carregar agendamentos, mesmo se houver erro
+      setAgendamentos(agendamentosData.data?.agendamentos || []);
     } catch (error: any) {
       console.error('Erro ao carregar dados:', error);
-      alert(error?.response?.data?.mensagem || 'Erro ao carregar dados');
-    } finally {
-      setLoading(false);
+      // Não mostrar alerta se for apenas erro ao carregar agendamentos (pode ser que não existam ainda)
+      if (!error?.response?.data?.mensagem?.includes('agendamento')) {
+        alert(error?.response?.data?.mensagem || 'Erro ao carregar dados');
+      }
     }
   };
 
@@ -134,21 +140,28 @@ export default function ModalAgendarQuadrasCompeticao({
   };
 
   const handleExcluirAgendamento = async (agendamentoId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este agendamento?')) {
+    if (!confirm('Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.')) {
       return;
     }
 
     try {
       setLoading(true);
       await api.delete(`/agendamento/${agendamentoId}`);
-      alert('Agendamento excluído com sucesso!');
+      
+      // Remover da lista localmente para feedback imediato
+      setAgendamentos(prev => prev.filter(a => a.id !== agendamentoId));
+      
+      // Recarregar dados para garantir sincronização
       await carregarDados();
+      
       if (onAgendamentoCriado) {
         onAgendamentoCriado();
       }
     } catch (error: any) {
       console.error('Erro ao excluir agendamento:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao excluir agendamento');
+      // Recarregar dados em caso de erro para garantir estado consistente
+      await carregarDados();
     } finally {
       setLoading(false);
     }
@@ -195,6 +208,76 @@ export default function ModalAgendarQuadrasCompeticao({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Lista de Agendamentos Existentes - Mostrar primeiro */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Agendamentos Existentes ({agendamentos.length})
+            </h3>
+
+            {loading && agendamentos.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Carregando agendamentos...</p>
+              </div>
+            ) : agendamentos.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-600 font-medium">Nenhum agendamento cadastrado</p>
+                <p className="text-sm text-gray-500 mt-1">Use o formulário abaixo para criar agendamentos</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {agendamentos.map((agendamento) => (
+                  <div
+                    key={agendamento.id}
+                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MapPin className="w-4 h-4 text-emerald-600" />
+                          <span className="font-semibold text-gray-900">
+                            {agendamento.quadra.nome}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            <span>{formatarDataHora(agendamento.dataHora)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{formatarDuracao(agendamento.duracao)}</span>
+                          </div>
+                          {agendamento.valorCalculado && (
+                            <div className="text-emerald-600 font-semibold">
+                              R$ {typeof agendamento.valorCalculado === 'number' 
+                                ? agendamento.valorCalculado.toFixed(2) 
+                                : parseFloat(String(agendamento.valorCalculado) || '0').toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                        {agendamento.observacoes && (
+                          <p className="mt-2 text-sm text-gray-700">
+                            {agendamento.observacoes}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleExcluirAgendamento(agendamento.id)}
+                        disabled={loading}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Excluir agendamento"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Formulário */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo Agendamento</h3>
@@ -302,73 +385,6 @@ export default function ModalAgendarQuadrasCompeticao({
             </button>
           </div>
 
-          {/* Lista de Agendamentos */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Agendamentos ({agendamentos.length})
-            </h3>
-
-            {loading && agendamentos.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Carregando agendamentos...</p>
-              </div>
-            ) : agendamentos.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">Nenhum agendamento cadastrado</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {agendamentos.map((agendamento) => (
-                  <div
-                    key={agendamento.id}
-                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <MapPin className="w-4 h-4 text-emerald-600" />
-                          <span className="font-semibold text-gray-900">
-                            {agendamento.quadra.nome}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>{formatarDataHora(agendamento.dataHora)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            <span>{formatarDuracao(agendamento.duracao)}</span>
-                          </div>
-                          {agendamento.valorCalculado && (
-                            <div className="text-emerald-600 font-semibold">
-                              R$ {typeof agendamento.valorCalculado === 'number' 
-                                ? agendamento.valorCalculado.toFixed(2) 
-                                : parseFloat(String(agendamento.valorCalculado) || '0').toFixed(2)}
-                            </div>
-                          )}
-                        </div>
-                        {agendamento.observacoes && (
-                          <p className="mt-2 text-sm text-gray-700">
-                            {agendamento.observacoes}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleExcluirAgendamento(agendamento.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir agendamento"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Footer */}
