@@ -263,8 +263,17 @@ export async function POST(
       return novaParceriaId;
     }
     
-    for (const jogo of jogosSorteados) {
+    console.log('[GERAR JOGOS] Iniciando criação de', jogosSorteados.length, 'jogos');
+    
+    for (let index = 0; index < jogosSorteados.length; index++) {
+      const jogo = jogosSorteados[index];
       try {
+        console.log(`[GERAR JOGOS] Processando jogo ${index + 1}/${jogosSorteados.length}:`, {
+          rodada: jogo.rodada,
+          numeroJogo: jogo.numeroJogo,
+          participante1Atletas: (jogo as any).participante1Atletas,
+          participante2Atletas: (jogo as any).participante2Atletas,
+        });
         // SEMPRE usar parcerias (jogos de duplas)
         // As duplas são formadas dinamicamente no round-robin
         let parceria1Id: string | null = null;
