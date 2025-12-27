@@ -56,9 +56,11 @@ export async function GET(
       return withCors(errorResponse, request);
     }
 
-    // Buscar atletas participantes
+    // Buscar atletas participantes (apenas registros únicos por atleta)
+    // No round-robin, pode haver múltiplos registros do mesmo atleta (um para cada parceria)
+    // Pegamos apenas o primeiro registro de cada atleta (o original, sem parceriaId)
     const atletasResult = await query(
-      `SELECT 
+      `SELECT DISTINCT ON (ac."atletaId")
         ac.id, ac."competicaoId", ac."atletaId", ac."parceriaId", ac."parceiroAtletaId",
         ac."posicaoFinal", ac.pontos, ac."createdAt",
         a.id as "atleta_id", a.nome as "atleta_nome", a."fotoUrl" as "atleta_fotoUrl", a.fone as "atleta_fone",
@@ -70,7 +72,9 @@ export async function GET(
       LEFT JOIN "User" u ON a."usuarioId" = u.id
       LEFT JOIN "Atleta" p_atleta ON ac."parceiroAtletaId" = p_atleta.id
       WHERE ac."competicaoId" = $1
-      ORDER BY ac."createdAt" ASC`,
+      ORDER BY ac."atletaId", 
+               CASE WHEN ac."parceriaId" IS NULL THEN 0 ELSE 1 END,
+               ac."createdAt" ASC`,
       [competicaoId]
     );
 

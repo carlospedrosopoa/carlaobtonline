@@ -65,8 +65,11 @@ export async function POST(
     }
 
     // Verificar se atleta já está na competição
+    // IMPORTANTE: No round-robin, pode haver múltiplos registros do mesmo atleta
+    // Mas quando adicionamos manualmente, verificamos se já existe um registro SEM parceriaId (o registro original)
     const atletaExistente = await query(
-      `SELECT id FROM "AtletaCompeticao" WHERE "competicaoId" = $1 AND "atletaId" = $2`,
+      `SELECT id FROM "AtletaCompeticao" 
+       WHERE "competicaoId" = $1 AND "atletaId" = $2 AND "parceriaId" IS NULL`,
       [competicaoId, atletaId]
     );
 
