@@ -240,14 +240,21 @@ export default function ModalAgendarQuadrasCompeticao({
   };
 
   const formatarDataHora = (dataHora: string) => {
+    // A data vem do banco como ISO string UTC
+    // O sistema salva o horário escolhido diretamente como UTC (sem conversão de timezone)
+    // Ex: usuário escolhe 10:00 -> salva como 10:00 UTC (não como 13:00 UTC)
+    // Então precisamos usar os valores UTC diretamente, sem aplicar conversão de timezone
     const date = new Date(dataHora);
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    
+    // Usar getUTC* methods para obter os valores UTC diretamente
+    // e formatá-los como se fossem locais
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
   const formatarDuracao = (minutos: number) => {

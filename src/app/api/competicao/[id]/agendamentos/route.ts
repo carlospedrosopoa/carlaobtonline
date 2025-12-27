@@ -170,7 +170,11 @@ export async function POST(
     // Verificar disponibilidade da quadra (verificar conflitos)
     // Permitir múltiplas quadras no mesmo horário para a mesma competição
     // Mas bloquear se houver outro agendamento (de outra competição ou normal) na MESMA QUADRA no mesmo horário
-    const dataHoraInicio = new Date(dataHora);
+    // Tratar dataHora como horário "naive" (sem timezone) - usar Date.UTC para manter consistência com agendamentos normais
+    const [dataPart, horaPart] = dataHora.split('T');
+    const [ano, mes, dia] = dataPart.split('-').map(Number);
+    const [hora, minuto] = horaPart.split(':').map(Number);
+    const dataHoraInicio = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
     const dataHoraFim = new Date(dataHoraInicio.getTime() + duracao * 60000);
 
     // Buscar agendamentos existentes desta mesma competição nesta mesma quadra e horário
