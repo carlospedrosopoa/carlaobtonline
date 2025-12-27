@@ -199,21 +199,39 @@ export default function ModalAgendarQuadrasCompeticao({
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo Agendamento</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Quadra *
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quadras * (selecione uma ou mais)
                 </label>
-                <select
-                  value={quadraId}
-                  onChange={(e) => setQuadraId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                  required
-                >
-                  <option value="">Selecione uma quadra</option>
-                  {quadras.map((q) => (
-                    <option key={q.id} value={q.id}>{q.nome}</option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  {quadras.map((q) => {
+                    const selecionada = quadrasSelecionadas.includes(q.id);
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => toggleQuadraSelecionada(q.id)}
+                        className={`p-3 rounded-lg border-2 transition-colors text-left ${
+                          selecionada
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
+                            : 'border-gray-200 bg-white hover:border-gray-300 text-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{q.nome}</span>
+                          {selecionada && (
+                            <span className="text-emerald-600">✓</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {quadrasSelecionadas.length > 0 && (
+                  <p className="text-xs text-emerald-600 mt-1">
+                    {quadrasSelecionadas.length} quadra(s) selecionada(s)
+                  </p>
+                )}
               </div>
 
               <div>
