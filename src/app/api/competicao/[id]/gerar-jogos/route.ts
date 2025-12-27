@@ -11,7 +11,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let competicaoId: string | undefined;
   try {
+    const { id } = await params;
+    competicaoId = id;
+    
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
       const errorResponse = NextResponse.json(
@@ -28,8 +32,6 @@ export async function POST(
       );
       return withCors(errorResponse, request);
     }
-
-    const { id: competicaoId } = await params;
 
     // Verificar se competição existe e se usuário tem acesso
     const competicaoCheck = await query(
