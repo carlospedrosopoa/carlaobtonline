@@ -104,6 +104,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         const competicaoData = await competicaoService.obter(competicaoId);
         setCompeticao(competicaoData);
         setNome(competicaoData.nome);
+        setTipo(competicaoData.tipo);
         setFormato(competicaoData.formato);
         setQuadraId(competicaoData.quadraId || '');
         setDataInicio(competicaoData.dataInicio ? competicaoData.dataInicio.split('T')[0] : '');
@@ -454,7 +455,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
       const payload = {
         pointId: usuario.pointIdGestor,
         nome: nome.trim(),
-        tipo: 'SUPER_8' as const,
+        tipo,
         formato,
         quadraId: quadraId || null,
         dataInicio: dataInicio ? new Date(dataInicio).toISOString() : null,
