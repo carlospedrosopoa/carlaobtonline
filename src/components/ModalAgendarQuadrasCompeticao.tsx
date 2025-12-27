@@ -118,9 +118,8 @@ export default function ModalAgendarQuadrasCompeticao({
       // Recarregar agendamentos
       await carregarDados();
       
-      if (onAgendamentoCriado) {
-        onAgendamentoCriado();
-      }
+      // Não fechar modal - apenas recarregar dados
+      // onAgendamentoCriado será chamado apenas quando o modal for fechado manualmente
     } catch (error: any) {
       console.error('Erro ao criar agendamento:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao criar agendamento(s)');
@@ -154,9 +153,8 @@ export default function ModalAgendarQuadrasCompeticao({
       // Recarregar dados para garantir sincronização
       await carregarDados();
       
-      if (onAgendamentoCriado) {
-        onAgendamentoCriado();
-      }
+      // Não fechar modal - apenas recarregar dados
+      // onAgendamentoCriado será chamado apenas quando o modal for fechado manualmente
     } catch (error: any) {
       console.error('Erro ao excluir agendamento:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao excluir agendamento');

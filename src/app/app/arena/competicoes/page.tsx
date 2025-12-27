@@ -61,7 +61,7 @@ export default function CompeticoesPage() {
   const handleFecharModalAgendamento = () => {
     setModalAgendamentoAberto(false);
     setCompeticaoSelecionada(null);
-    carregarCompeticoes(); // Recarregar para atualizar dados
+    carregarCompeticoes(); // Recarregar para atualizar dados apenas ao fechar o modal
   };
 
   const handleDeletar = async (competicao: Competicao) => {
