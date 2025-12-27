@@ -146,6 +146,12 @@ export async function POST(
     const gestorNome = agendamento.point_nome || 'Arena';
 
     // Criar mensagem de solicitação de cancelamento
+    const horasRestantes = Math.floor(diferencaHoras);
+    const minutosRestantes = Math.floor((diferencaHoras - horasRestantes) * 60);
+    const tempoRestante = horasRestantes > 0 
+      ? `${horasRestantes}h ${minutosRestantes > 0 ? minutosRestantes + 'min' : ''}`.trim()
+      : `${minutosRestantes}min`;
+
     const mensagem = `🏟️ *Solicitação de Cancelamento de Agendamento*
 
 Olá ${gestorNome},
@@ -157,7 +163,8 @@ O atleta *${clienteNome}*${clienteTelefone ? ` (${clienteTelefone})` : ''} está
 🏸 *Quadra:* ${agendamento.quadra_nome}
 🏢 *Arena:* ${agendamento.point_nome}
 
-⚠️ *Atenção:* Faltam menos de 12 horas para o início do agendamento.
+⚠️ *Motivo da Solicitação:*
+O cancelamento foi solicitado porque faltam menos de 12 horas para o início do agendamento (restam aproximadamente ${tempoRestante}).
 
 Por favor, entre em contato com o atleta para confirmar ou negar o cancelamento.`;
 
