@@ -168,17 +168,25 @@ export async function POST(
     }
 
     // Verificar disponibilidade da quadra (verificar conflitos)
+    // Permitir múltiplas quadras no mesmo horário para a mesma competição
+    // Mas bloquear se houver outro agendamento (de outra competição ou normal) no mesmo horário
     const dataHoraInicio = new Date(dataHora);
     const dataHoraFim = new Date(dataHoraInicio.getTime() + duracao * 60000);
 
     const conflitosResult = await query(
-      `SELECT id FROM "Agendamento"
+      `SELECT id, "competicaoId" FROM "Agendamento"
        WHERE "quadraId" = $1
          AND status != 'CANCELADO'
-         AND "competicaoId" IS DISTINCT FROM $2
          AND (
            ("dataHora" >= $3 AND "dataHora" < $4)
            OR ("dataHora" + INTERVAL '1 minute' * duracao > $3 AND "dataHora" < $4)
+         )
+         AND (
+           -- Bloquear se for outro agendamento (não da mesma competição)
+           ("competicaoId" IS NOT NULL AND "competicaoId" != $2)
+           OR 
+           -- Bloquear se for um agendamento normal (sem competição)
+           ("competicaoId" IS NULL)
          )`,
       [quadraId, competicaoId, dataHoraInicio.toISOString(), dataHoraFim.toISOString()]
     );

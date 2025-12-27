@@ -43,8 +43,8 @@ export default function ModalAgendarQuadrasCompeticao({
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [quadras, setQuadras] = useState<any[]>([]);
   
-  // Formulário
-  const [quadraId, setQuadraId] = useState('');
+  // Formulário - Agora permite múltiplas quadras
+  const [quadrasSelecionadas, setQuadrasSelecionadas] = useState<string[]>([]);
   const [data, setData] = useState('');
   const [hora, setHora] = useState('');
   const [duracao, setDuracao] = useState(120); // 2 horas padrão
@@ -79,8 +79,8 @@ export default function ModalAgendarQuadrasCompeticao({
   };
 
   const handleCriarAgendamento = async () => {
-    if (!quadraId || !data || !hora || !duracao) {
-      alert('Preencha todos os campos obrigatórios');
+    if (quadrasSelecionadas.length === 0 || !data || !hora || !duracao) {
+      alert('Selecione pelo menos uma quadra e preencha todos os campos obrigatórios');
       return;
     }
 
@@ -88,17 +88,22 @@ export default function ModalAgendarQuadrasCompeticao({
       setLoading(true);
       const dataHora = `${data}T${hora}:00`;
       
-      await api.post(`/competicao/${competicaoId}/agendamentos`, {
-        quadraId,
-        dataHora,
-        duracao,
-        observacoes: observacoes.trim() || null,
-      });
+      // Criar agendamento para cada quadra selecionada
+      const promessas = quadrasSelecionadas.map(quadraId =>
+        api.post(`/competicao/${competicaoId}/agendamentos`, {
+          quadraId,
+          dataHora,
+          duracao,
+          observacoes: observacoes.trim() || null,
+        })
+      );
 
-      alert('Agendamento criado com sucesso!');
+      await Promise.all(promessas);
+
+      alert(`${quadrasSelecionadas.length} agendamento(s) criado(s) com sucesso!`);
       
       // Limpar formulário
-      setQuadraId('');
+      setQuadrasSelecionadas([]);
       setData('');
       setHora('');
       setDuracao(120);
@@ -112,10 +117,20 @@ export default function ModalAgendarQuadrasCompeticao({
       }
     } catch (error: any) {
       console.error('Erro ao criar agendamento:', error);
-      alert(error?.response?.data?.mensagem || 'Erro ao criar agendamento');
+      alert(error?.response?.data?.mensagem || 'Erro ao criar agendamento(s)');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleQuadraSelecionada = (quadraId: string) => {
+    setQuadrasSelecionadas(prev => {
+      if (prev.includes(quadraId)) {
+        return prev.filter(id => id !== quadraId);
+      } else {
+        return [...prev, quadraId];
+      }
+    });
   };
 
   const handleExcluirAgendamento = async (agendamentoId: string) => {
@@ -261,11 +276,11 @@ export default function ModalAgendarQuadrasCompeticao({
 
             <button
               onClick={handleCriarAgendamento}
-              disabled={loading || !quadraId || !data || !hora}
+              disabled={loading || quadrasSelecionadas.length === 0 || !data || !hora}
               className="mt-4 flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5" />
-              Adicionar Agendamento
+              Adicionar Agendamento{quadrasSelecionadas.length > 0 ? ` (${quadrasSelecionadas.length} quadra${quadrasSelecionadas.length > 1 ? 's' : ''})` : ''}
             </button>
           </div>
 
@@ -311,7 +326,9 @@ export default function ModalAgendarQuadrasCompeticao({
                           </div>
                           {agendamento.valorCalculado && (
                             <div className="text-emerald-600 font-semibold">
-                              R$ {agendamento.valorCalculado.toFixed(2)}
+                              R$ {typeof agendamento.valorCalculado === 'number' 
+                                ? agendamento.valorCalculado.toFixed(2) 
+                                : parseFloat(agendamento.valorCalculado).toFixed(2)}
                             </div>
                           )}
                         </div>
