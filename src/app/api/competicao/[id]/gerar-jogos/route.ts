@@ -162,60 +162,101 @@ export async function POST(
       // Criar nova parceria (usar UUID)
       const novaParceriaId = randomUUID();
 
-      // Verificar se os registros existem e atualizar ou criar
+      // Verificar se os registros existem e atualizar
       // Atleta 1
       const atleta1Check = await query(
-        `SELECT id, "parceriaId" FROM "AtletaCompeticao" 
+        `SELECT id FROM "AtletaCompeticao" 
          WHERE "competicaoId" = $1 AND "atletaId" = $2`,
         [competicaoId, idsOrdenados[0]]
       );
 
-      if (atleta1Check.rows.length > 0) {
-        const result1 = await query(
-          `UPDATE "AtletaCompeticao" 
-           SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
-           WHERE "competicaoId" = $3 AND "atletaId" = $4
-           RETURNING id, "parceriaId", "parceiroAtletaId"`,
-          [novaParceriaId, idsOrdenados[1], competicaoId, idsOrdenados[0]]
-        );
-        console.log('[GERAR JOGOS] Atualizado atleta 1:', {
-          atletaId: idsOrdenados[0],
-          parceriaId: novaParceriaId,
-          parceiroAtletaId: idsOrdenados[1],
-          result: result1.rows[0],
-        });
-      } else {
-        console.log('[GERAR JOGOS] Atleta 1 não encontrado:', {
+      if (atleta1Check.rows.length === 0) {
+        console.error('[GERAR JOGOS] Atleta 1 não encontrado na competição:', {
           atletaId: idsOrdenados[0],
           competicaoId,
         });
+        throw new Error(`Atleta ${idsOrdenados[0]} não encontrado na competição ${competicaoId}`);
       }
+
+      const result1 = await query(
+        `UPDATE "AtletaCompeticao" 
+         SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
+         WHERE "competicaoId" = $3 AND "atletaId" = $4
+         RETURNING id, "parceriaId", "parceiroAtletaId"`,
+        [novaParceriaId, idsOrdenados[1], competicaoId, idsOrdenados[0]]
+      );
+      
+      if (result1.rows.length === 0) {
+        console.error('[GERAR JOGOS] Falha ao atualizar atleta 1:', {
+          atletaId: idsOrdenados[0],
+          competicaoId,
+        });
+        throw new Error(`Falha ao atualizar atleta ${idsOrdenados[0]}`);
+      }
+      
+      console.log('[GERAR JOGOS] ✅ Atualizado atleta 1:', {
+        atletaId: idsOrdenados[0],
+        parceriaId: novaParceriaId,
+        parceiroAtletaId: idsOrdenados[1],
+        result: result1.rows[0],
+      });
 
       // Atleta 2
       const atleta2Check = await query(
-        `SELECT id, "parceriaId" FROM "AtletaCompeticao" 
+        `SELECT id FROM "AtletaCompeticao" 
          WHERE "competicaoId" = $1 AND "atletaId" = $2`,
         [competicaoId, idsOrdenados[1]]
       );
 
-      if (atleta2Check.rows.length > 0) {
-        const result2 = await query(
-          `UPDATE "AtletaCompeticao" 
-           SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
-           WHERE "competicaoId" = $3 AND "atletaId" = $4
-           RETURNING id, "parceriaId", "parceiroAtletaId"`,
-          [novaParceriaId, idsOrdenados[0], competicaoId, idsOrdenados[1]]
-        );
-        console.log('[GERAR JOGOS] Atualizado atleta 2:', {
-          atletaId: idsOrdenados[1],
-          parceriaId: novaParceriaId,
-          parceiroAtletaId: idsOrdenados[0],
-          result: result2.rows[0],
-        });
-      } else {
-        console.log('[GERAR JOGOS] Atleta 2 não encontrado:', {
+      if (atleta2Check.rows.length === 0) {
+        console.error('[GERAR JOGOS] Atleta 2 não encontrado na competição:', {
           atletaId: idsOrdenados[1],
           competicaoId,
+        });
+        throw new Error(`Atleta ${idsOrdenados[1]} não encontrado na competição ${competicaoId}`);
+      }
+
+      const result2 = await query(
+        `UPDATE "AtletaCompeticao" 
+         SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
+         WHERE "competicaoId" = $3 AND "atletaId" = $4
+         RETURNING id, "parceriaId", "parceiroAtletaId"`,
+        [novaParceriaId, idsOrdenados[0], competicaoId, idsOrdenados[1]]
+      );
+      
+      if (result2.rows.length === 0) {
+        console.error('[GERAR JOGOS] Falha ao atualizar atleta 2:', {
+          atletaId: idsOrdenados[1],
+          competicaoId,
+        });
+        throw new Error(`Falha ao atualizar atleta ${idsOrdenados[1]}`);
+      }
+      
+      console.log('[GERAR JOGOS] ✅ Atualizado atleta 2:', {
+        atletaId: idsOrdenados[1],
+        parceriaId: novaParceriaId,
+        parceiroAtletaId: idsOrdenados[0],
+        result: result2.rows[0],
+      });
+
+      // Verificar se a atualização foi bem-sucedida
+      const verificacao = await query(
+        `SELECT COUNT(*) as total FROM "AtletaCompeticao"
+         WHERE "parceriaId" = $1 AND "competicaoId" = $2`,
+        [novaParceriaId, competicaoId]
+      );
+      
+      const totalRegistros = parseInt(verificacao.rows[0].total);
+      if (totalRegistros !== 2) {
+        console.error('[GERAR JOGOS] ⚠️ Parceria criada mas com número incorreto de registros:', {
+          parceriaId: novaParceriaId,
+          totalRegistros,
+          esperado: 2,
+        });
+      } else {
+        console.log('[GERAR JOGOS] ✅ Parceria criada com sucesso:', {
+          parceriaId: novaParceriaId,
+          totalRegistros,
         });
       }
 
