@@ -204,6 +204,17 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
       return;
     }
 
+    // Para Super 8, verificar se adicionando 2 atletas ultrapassa o limite de 8
+    if (tipo === 'SUPER_8') {
+      const atletasNovos = [atletaSelecionado, parceiroSelecionado].filter(
+        id => !atletasParticipantes.some(ap => ap.atletaId === id)
+      );
+      if (atletasParticipantes.length + atletasNovos.length > 8) {
+        alert('Super 8 permite no máximo 8 participantes. Não é possível adicionar esta dupla.');
+        return;
+      }
+    }
+
     try {
       await competicaoService.adicionarAtleta(competicaoId, {
         atletaId: atletaSelecionado,
