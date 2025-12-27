@@ -482,6 +482,7 @@ export async function notificarAtletaCancelamentoAgendamento(
     dataHora: string;
     telefone: string | null;
     nomeAtleta?: string;
+    nomeArena?: string;
   }
 ): Promise<boolean> {
   // Verificar se há telefone para enviar
@@ -518,12 +519,13 @@ export async function notificarAtletaCancelamentoAgendamento(
   }
 
   const nomeCliente = agendamento.nomeAtleta || 'Cliente';
+  const nomeArena = agendamento.nomeArena || 'Arena';
 
   const mensagem = `❌ *Agendamento Cancelado*
 
 Olá ${nomeCliente},
 
-Informamos que seu agendamento foi cancelado:
+Informamos que seu agendamento na *${nomeArena}* foi cancelado:
 
 🏸 Quadra: ${agendamento.quadra}
 📅 Data: ${dataFormatada}

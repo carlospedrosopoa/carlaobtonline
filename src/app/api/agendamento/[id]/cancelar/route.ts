@@ -206,6 +206,7 @@ export async function POST(
               dataHora: agendamentoRetorno.dataHora,
               telefone: telefoneAtleta,
               nomeAtleta: clienteNome,
+              nomeArena: agendamentoRetorno.quadra.point?.nome || 'Arena',
             }
           ).catch((err) => {
             console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);
