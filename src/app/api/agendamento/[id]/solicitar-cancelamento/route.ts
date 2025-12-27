@@ -77,8 +77,11 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
+    // Normalizar dataHora para string (pode vir como Date do PostgreSQL)
+    const dataHoraStr = normalizarDataHora(agendamento.dataHora);
+    
     // Verificar se faltam menos de 12 horas
-    const dataHoraAgendamento = new Date(agendamento.dataHora);
+    const dataHoraAgendamento = new Date(dataHoraStr);
     const agora = new Date();
     const diferencaMs = dataHoraAgendamento.getTime() - agora.getTime();
     const diferencaHoras = diferencaMs / (1000 * 60 * 60);
@@ -92,7 +95,7 @@ export async function POST(
     }
 
     // Extrair data e hora para formatação
-    const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    const matchDataHora = dataHoraStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
     let dataFormatada = '';
     let horaFormatada = '';
     
@@ -100,6 +103,22 @@ export async function POST(
       const [, ano, mes, dia, hora, minuto] = matchDataHora;
       dataFormatada = `${dia}/${mes}/${ano}`;
       horaFormatada = `${hora}:${minuto}`;
+    } else {
+      // Fallback: tentar formatar diretamente do Date
+      try {
+        const dataHoraDate = new Date(dataHoraStr);
+        if (!isNaN(dataHoraDate.getTime())) {
+          const dia = String(dataHoraDate.getDate()).padStart(2, '0');
+          const mes = String(dataHoraDate.getMonth() + 1).padStart(2, '0');
+          const ano = dataHoraDate.getFullYear();
+          const hora = String(dataHoraDate.getHours()).padStart(2, '0');
+          const minuto = String(dataHoraDate.getMinutes()).padStart(2, '0');
+          dataFormatada = `${dia}/${mes}/${ano}`;
+          horaFormatada = `${hora}:${minuto}`;
+        }
+      } catch (error) {
+        console.error('Erro ao formatar data/hora:', error);
+      }
     }
 
     // Obter nome do cliente
