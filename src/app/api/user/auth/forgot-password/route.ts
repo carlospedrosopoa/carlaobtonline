@@ -60,8 +60,7 @@ export async function POST(request: NextRequest) {
       await query(
         `UPDATE "User" 
          SET "resetToken" = $1, 
-             "resetTokenExpiry" = $2,
-             "updatedAt" = NOW()
+             "resetTokenExpiry" = $2
          WHERE email = $3`,
         [resetToken, resetTokenExpiry, email]
       );
@@ -80,8 +79,7 @@ export async function POST(request: NextRequest) {
           await query(
             `UPDATE "User" 
              SET "resetToken" = $1, 
-                 "resetTokenExpiry" = $2,
-                 "updatedAt" = NOW()
+                 "resetTokenExpiry" = $2
              WHERE email = $3`,
             [resetToken, resetTokenExpiry, email]
           );

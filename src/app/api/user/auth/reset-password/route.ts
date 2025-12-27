@@ -56,8 +56,7 @@ export async function POST(request: NextRequest) {
       `UPDATE "User" 
        SET password = $1,
            "resetToken" = NULL,
-           "resetTokenExpiry" = NULL,
-           "updatedAt" = NOW()
+           "resetTokenExpiry" = NULL
        WHERE id = $2`,
       [senhaHash, usuarioDb.id]
     );
