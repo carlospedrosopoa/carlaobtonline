@@ -378,7 +378,7 @@ export default function ModalAgendarQuadrasCompeticao({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quadras * (selecione uma ou mais)
+                  Quadras * {editandoAgendamento ? '(selecione uma quadra)' : '(selecione uma ou mais)'}
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
                   {quadras.map((q) => {
