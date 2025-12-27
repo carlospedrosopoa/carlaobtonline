@@ -665,6 +665,7 @@ export async function POST(request: NextRequest) {
           )
           RETURNING id`,
           [
+            competicaoId || null,
             valoresInsercao.quadraId,
             valoresInsercao.usuarioIdFinal,
             valoresInsercao.atletaIdFinal,
