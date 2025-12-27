@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { competicaoService } from '@/services/competicaoService';
 import { pointService, quadraService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
-import type { Competicao, FormatoCompeticao } from '@/types/competicao';
+import type { Competicao, FormatoCompeticao, TipoCompeticao } from '@/types/competicao';
 import { Trophy, ArrowLeft, Save, Plus, X, Users, User, PlayCircle, RotateCcw } from 'lucide-react';
 
 interface Atleta {
@@ -30,6 +30,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
 
   // Dados do formulário
   const [nome, setNome] = useState('');
+  const [tipo, setTipo] = useState<TipoCompeticao>('SUPER_8');
   const [formato, setFormato] = useState<FormatoCompeticao>('INDIVIDUAL');
   const [quadraId, setQuadraId] = useState<string>('');
   const [dataInicio, setDataInicio] = useState('');
@@ -541,6 +542,23 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Competição *</label>
+              <select
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as TipoCompeticao)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                required
+              >
+                <option value="SUPER_8">Super 8</option>
+                <option value="SUPER_12" disabled>Super 12 (Em breve)</option>
+                <option value="REI_DA_QUADRA" disabled>Rei da Quadra (Em breve)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Por enquanto, apenas Super 8 está disponível
+              </p>
             </div>
 
             <div>

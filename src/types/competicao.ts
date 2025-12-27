@@ -1,6 +1,6 @@
 // src/types/competicao.ts
 
-export type TipoCompeticao = "SUPER_8";
+export type TipoCompeticao = "SUPER_8" | "SUPER_12" | "REI_DA_QUADRA";
 export type FormatoCompeticao = "DUPLAS" | "INDIVIDUAL";
 export type StatusCompeticao = "CRIADA" | "EM_ANDAMENTO" | "CONCLUIDA" | "CANCELADA";
 
