@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     const novaPartida = await criarPartida({
       data,
       local,
+      pointId: pointId || null,
       atleta1Id,
       atleta2Id,
       atleta3Id: atleta3Id || null,
