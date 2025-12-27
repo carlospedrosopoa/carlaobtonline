@@ -1,12 +1,8 @@
-// app/api/user/auth/reset-password/route.ts - Resetar senha com código (para atletas - USER)
+// app/api/user/auth/reset-password/route.ts - Redefinir senha com token
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { withCors } from '@/lib/cors';
-import {
-  obterCodigoVerificacaoPorEmail,
-  removerCodigoVerificacaoPorEmail,
-} from '@/lib/verificacaoService';
 
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);
@@ -15,12 +11,12 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, codigo, novaSenha } = body;
+    const token = (body?.token ?? "") as string;
+    const novaSenha = (body?.password ?? body?.senha ?? "") as string;
 
-    // Validações
-    if (!email || !codigo || !novaSenha) {
+    if (!token || !novaSenha) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Email, código e nova senha são obrigatórios' },
+        { mensagem: "Token e nova senha são obrigatórios." },
         { status: 400 }
       );
       return withCors(errorResponse, request);
@@ -28,64 +24,63 @@ export async function POST(request: NextRequest) {
 
     if (novaSenha.length < 6) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'A senha deve ter pelo menos 6 caracteres' },
+        { mensagem: "A senha deve ter no mínimo 6 caracteres." },
         { status: 400 }
       );
       return withCors(errorResponse, request);
     }
 
-    // Normalizar email
-    const emailNormalizado = email.trim().toLowerCase();
-
-    // Verificar código
-    const codigoDados = obterCodigoVerificacaoPorEmail(emailNormalizado);
-    if (!codigoDados || codigoDados.codigo !== codigo) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Código inválido ou expirado' },
-        { status: 400 }
-      );
-      return withCors(errorResponse, request);
-    }
-
-    // Buscar usuário
-    const usuarioResult = await query(
-      `SELECT id, email, role FROM "User" WHERE email = $1 AND role = 'USER'`,
-      [emailNormalizado]
+    // Buscar usuário pelo token
+    const result = await query(
+      `SELECT * FROM "User" 
+       WHERE "resetToken" = $1 
+       AND "resetTokenExpiry" > NOW()`,
+      [token]
     );
 
-    if (usuarioResult.rows.length === 0) {
+    const usuarioDb = result.rows[0];
+
+    if (!usuarioDb) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Usuário não encontrado' },
-        { status: 404 }
+        { mensagem: "Token inválido ou expirado. Solicite uma nova recuperação de senha." },
+        { status: 400 }
       );
       return withCors(errorResponse, request);
     }
-
-    const usuario = usuarioResult.rows[0];
 
     // Hash da nova senha
     const senhaHash = await bcrypt.hash(novaSenha, 10);
 
-    // Atualizar senha no banco
+    // Atualizar senha e limpar token
     await query(
-      `UPDATE "User" SET password = $1, "updatedAt" = NOW() WHERE id = $2`,
-      [senhaHash, usuario.id]
+      `UPDATE "User" 
+       SET password = $1,
+           "resetToken" = NULL,
+           "resetTokenExpiry" = NULL,
+           "updatedAt" = NOW()
+       WHERE id = $2`,
+      [senhaHash, usuarioDb.id]
     );
 
-    // Remover código usado
-    removerCodigoVerificacaoPorEmail(emailNormalizado);
-
-    const response = NextResponse.json({
-      mensagem: 'Senha redefinida com sucesso',
-      sucesso: true,
-    });
+    const response = NextResponse.json(
+      { 
+        mensagem: "Senha redefinida com sucesso! Você já pode fazer login com a nova senha.",
+        sucesso: true
+      },
+      { status: 200 }
+    );
+    
     return withCors(response, request);
   } catch (error: any) {
-    console.error('Erro ao resetar senha:', error);
+    console.error("reset-password error:", error);
     const errorResponse = NextResponse.json(
-      { mensagem: 'Erro ao processar solicitação. Tente novamente.' },
+      { 
+        mensagem: "Erro ao redefinir senha",
+        error: error?.message || "Erro desconhecido"
+      },
       { status: 500 }
     );
     return withCors(errorResponse, request);
   }
 }
+
