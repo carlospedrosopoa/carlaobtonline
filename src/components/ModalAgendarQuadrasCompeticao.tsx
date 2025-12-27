@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
-import { X, Plus, Calendar, Clock, MapPin, Trash2, Edit, Save } from 'lucide-react';
+import { X, Plus, Calendar, Clock, MapPin, Trash2 } from 'lucide-react';
 
 interface Agendamento {
   id: string;
@@ -49,9 +49,6 @@ export default function ModalAgendarQuadrasCompeticao({
   const [hora, setHora] = useState('');
   const [duracao, setDuracao] = useState(120); // 2 horas padrão
   const [observacoes, setObservacoes] = useState('');
-  
-  // Edição
-  const [editandoAgendamento, setEditandoAgendamento] = useState<Agendamento | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -61,29 +58,23 @@ export default function ModalAgendarQuadrasCompeticao({
 
   const carregarDados = async () => {
     try {
-      // Carregar quadras e agendamentos em paralelo
-      const pointId = usuario?.pointIdGestor;
+      setLoading(true);
       
-      const [quadrasData, agendamentosData] = await Promise.all([
-        pointId ? quadraService.listar(pointId) : Promise.resolve([]),
-        api.get(`/competicao/${competicaoId}/agendamentos`).catch(err => {
-          console.error('Erro ao carregar agendamentos:', err);
-          return { data: { agendamentos: [] } };
-        }),
-      ]);
-
+      // Carregar quadras da arena
+      const pointId = usuario?.pointIdGestor;
       if (pointId) {
+        const quadrasData = await quadraService.listar(pointId);
         setQuadras(quadrasData.filter((q: any) => q.ativo));
       }
 
-      // Sempre carregar agendamentos, mesmo se houver erro
-      setAgendamentos(agendamentosData.data?.agendamentos || []);
+      // Carregar agendamentos existentes
+      const { data: agendamentosData } = await api.get(`/competicao/${competicaoId}/agendamentos`);
+      setAgendamentos(agendamentosData.agendamentos || []);
     } catch (error: any) {
       console.error('Erro ao carregar dados:', error);
-      // Não mostrar alerta se for apenas erro ao carregar agendamentos (pode ser que não existam ainda)
-      if (!error?.response?.data?.mensagem?.includes('agendamento')) {
-        alert(error?.response?.data?.mensagem || 'Erro ao carregar dados');
-      }
+      alert(error?.response?.data?.mensagem || 'Erro ao carregar dados');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -112,13 +103,18 @@ export default function ModalAgendarQuadrasCompeticao({
       alert(`${quadrasSelecionadas.length} agendamento(s) criado(s) com sucesso!`);
       
       // Limpar formulário
-      limparFormulario();
+      setQuadrasSelecionadas([]);
+      setData('');
+      setHora('');
+      setDuracao(120);
+      setObservacoes('');
 
       // Recarregar agendamentos
       await carregarDados();
       
-      // Não fechar modal - apenas recarregar dados
-      // onAgendamentoCriado será chamado apenas quando o modal for fechado manualmente
+      if (onAgendamentoCriado) {
+        onAgendamentoCriado();
+      }
     } catch (error: any) {
       console.error('Erro ao criar agendamento:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao criar agendamento(s)');
@@ -128,12 +124,6 @@ export default function ModalAgendarQuadrasCompeticao({
   };
 
   const toggleQuadraSelecionada = (quadraId: string) => {
-    // Se estiver editando, permitir apenas uma quadra
-    if (editandoAgendamento) {
-      setQuadrasSelecionadas([quadraId]);
-      return;
-    }
-    
     setQuadrasSelecionadas(prev => {
       if (prev.includes(quadraId)) {
         return prev.filter(id => id !== quadraId);
@@ -143,118 +133,36 @@ export default function ModalAgendarQuadrasCompeticao({
     });
   };
 
-  const limparFormulario = () => {
-    setQuadrasSelecionadas([]);
-    setData('');
-    setHora('');
-    setDuracao(120);
-    setObservacoes('');
-    setEditandoAgendamento(null);
-  };
-
-  const handleIniciarEdicao = (agendamento: Agendamento) => {
-    setEditandoAgendamento(agendamento);
-    
-    // Preencher formulário com dados do agendamento
-    setQuadrasSelecionadas([agendamento.quadraId]);
-    const dataHora = new Date(agendamento.dataHora);
-    setData(dataHora.toISOString().split('T')[0]);
-    setHora(dataHora.toTimeString().slice(0, 5));
-    setDuracao(agendamento.duracao);
-    setObservacoes(agendamento.observacoes || '');
-    
-    // Scroll para o formulário
-    setTimeout(() => {
-      const formulario = document.querySelector('[data-formulario-agendamento]');
-      formulario?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  };
-
-  const handleEditarAgendamento = async () => {
-    if (!editandoAgendamento || quadrasSelecionadas.length === 0 || !data || !hora || !duracao) {
-      alert('Preencha todos os campos obrigatórios');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const dataHora = `${data}T${hora}:00`;
-      
-      await api.put(`/agendamento/${editandoAgendamento.id}`, {
-        quadraId: quadrasSelecionadas[0], // Na edição, apenas uma quadra
-        dataHora,
-        duracao,
-        observacoes: observacoes.trim() || null,
-      });
-
-      alert('Agendamento atualizado com sucesso!');
-      
-      // Limpar formulário e sair do modo edição
-      limparFormulario();
-
-      // Recarregar agendamentos
-      await carregarDados();
-    } catch (error: any) {
-      console.error('Erro ao editar agendamento:', error);
-      alert(error?.response?.data?.mensagem || 'Erro ao editar agendamento');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSalvarAgendamento = async () => {
-    if (editandoAgendamento) {
-      // Modo edição - salvar alterações
-      await handleEditarAgendamento();
-    } else {
-      // Modo criação - criar novo(s)
-      await handleCriarAgendamento();
-    }
-  };
-
   const handleExcluirAgendamento = async (agendamentoId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.')) {
+    if (!confirm('Tem certeza que deseja excluir este agendamento?')) {
       return;
     }
 
     try {
       setLoading(true);
       await api.delete(`/agendamento/${agendamentoId}`);
-      
-      // Remover da lista localmente para feedback imediato
-      setAgendamentos(prev => prev.filter(a => a.id !== agendamentoId));
-      
-      // Recarregar dados para garantir sincronização
+      alert('Agendamento excluído com sucesso!');
       await carregarDados();
-      
-      // Não fechar modal - apenas recarregar dados
-      // onAgendamentoCriado será chamado apenas quando o modal for fechado manualmente
+      if (onAgendamentoCriado) {
+        onAgendamentoCriado();
+      }
     } catch (error: any) {
       console.error('Erro ao excluir agendamento:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao excluir agendamento');
-      // Recarregar dados em caso de erro para garantir estado consistente
-      await carregarDados();
     } finally {
       setLoading(false);
     }
   };
 
   const formatarDataHora = (dataHora: string) => {
-    // A data vem do banco como ISO string UTC
-    // O sistema salva o horário escolhido diretamente como UTC (sem conversão de timezone)
-    // Ex: usuário escolhe 10:00 -> salva como 10:00 UTC (não como 13:00 UTC)
-    // Então precisamos usar os valores UTC diretamente, sem aplicar conversão de timezone
     const date = new Date(dataHora);
-    
-    // Usar getUTC* methods para obter os valores UTC diretamente
-    // e formatá-los como se fossem locais
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-    
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const formatarDuracao = (minutos: number) => {
@@ -287,105 +195,13 @@ export default function ModalAgendarQuadrasCompeticao({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Lista de Agendamentos Existentes - Mostrar primeiro */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Agendamentos Existentes ({agendamentos.length})
-            </h3>
-
-            {loading && agendamentos.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Carregando agendamentos...</p>
-              </div>
-            ) : agendamentos.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600 font-medium">Nenhum agendamento cadastrado</p>
-                <p className="text-sm text-gray-500 mt-1">Use o formulário abaixo para criar agendamentos</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {agendamentos.map((agendamento) => (
-                  <div
-                    key={agendamento.id}
-                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <MapPin className="w-4 h-4 text-emerald-600" />
-                          <span className="font-semibold text-gray-900">
-                            {agendamento.quadra.nome}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>{formatarDataHora(agendamento.dataHora)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            <span>{formatarDuracao(agendamento.duracao)}</span>
-                          </div>
-                          {agendamento.valorCalculado && (
-                            <div className="text-emerald-600 font-semibold">
-                              R$ {typeof agendamento.valorCalculado === 'number' 
-                                ? agendamento.valorCalculado.toFixed(2) 
-                                : parseFloat(String(agendamento.valorCalculado) || '0').toFixed(2)}
-                            </div>
-                          )}
-                        </div>
-                        {agendamento.observacoes && (
-                          <p className="mt-2 text-sm text-gray-700">
-                            {agendamento.observacoes}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleIniciarEdicao(agendamento)}
-                          disabled={loading || editandoAgendamento !== null}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Editar agendamento"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleExcluirAgendamento(agendamento.id)}
-                          disabled={loading || editandoAgendamento !== null}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Excluir agendamento"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Formulário */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6" data-formulario-agendamento>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {editandoAgendamento ? 'Editar Agendamento' : 'Novo Agendamento'}
-              </h3>
-              {editandoAgendamento && (
-                <button
-                  onClick={limparFormulario}
-                  className="text-sm text-gray-600 hover:text-gray-900 underline"
-                >
-                  Cancelar edição
-                </button>
-              )}
-            </div>
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo Agendamento</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quadras * {editandoAgendamento ? '(selecione uma quadra)' : '(selecione uma ou mais)'}
+                  Quadras * (selecione uma ou mais)
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
                   {quadras.map((q) => {
@@ -477,29 +293,82 @@ export default function ModalAgendarQuadrasCompeticao({
             </div>
 
             <button
-              onClick={handleSalvarAgendamento}
-              disabled={loading || quadrasSelecionadas.length === 0 || !data || !hora || (editandoAgendamento !== null && quadrasSelecionadas.length > 1)}
+              onClick={handleCriarAgendamento}
+              disabled={loading || quadrasSelecionadas.length === 0 || !data || !hora}
               className="mt-4 flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {editandoAgendamento ? (
-                <>
-                  <Save className="w-5 h-5" />
-                  Salvar Alterações
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  Adicionar Agendamento{quadrasSelecionadas.length > 0 ? ` (${quadrasSelecionadas.length} quadra${quadrasSelecionadas.length > 1 ? 's' : ''})` : ''}
-                </>
-              )}
+              <Plus className="w-5 h-5" />
+              Adicionar Agendamento{quadrasSelecionadas.length > 0 ? ` (${quadrasSelecionadas.length} quadra${quadrasSelecionadas.length > 1 ? 's' : ''})` : ''}
             </button>
-            {editandoAgendamento && quadrasSelecionadas.length > 1 && (
-              <p className="text-xs text-amber-600 mt-2">
-                ⚠️ Ao editar, selecione apenas uma quadra
-              </p>
-            )}
           </div>
 
+          {/* Lista de Agendamentos */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Agendamentos ({agendamentos.length})
+            </h3>
+
+            {loading && agendamentos.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Carregando agendamentos...</p>
+              </div>
+            ) : agendamentos.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-600">Nenhum agendamento cadastrado</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {agendamentos.map((agendamento) => (
+                  <div
+                    key={agendamento.id}
+                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MapPin className="w-4 h-4 text-emerald-600" />
+                          <span className="font-semibold text-gray-900">
+                            {agendamento.quadra.nome}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            <span>{formatarDataHora(agendamento.dataHora)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{formatarDuracao(agendamento.duracao)}</span>
+                          </div>
+                          {agendamento.valorCalculado && (
+                            <div className="text-emerald-600 font-semibold">
+                              R$ {typeof agendamento.valorCalculado === 'number' 
+                                ? agendamento.valorCalculado.toFixed(2) 
+                                : parseFloat(String(agendamento.valorCalculado) || '0').toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                        {agendamento.observacoes && (
+                          <p className="mt-2 text-sm text-gray-700">
+                            {agendamento.observacoes}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleExcluirAgendamento(agendamento.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Excluir agendamento"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

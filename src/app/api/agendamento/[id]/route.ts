@@ -419,23 +419,6 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    // Buscar competicaoId do agendamento atual (se houver)
-    let competicaoIdAtual: string | null = null;
-    try {
-      const competicaoCheck = await query(
-        `SELECT "competicaoId" FROM "Agendamento" WHERE id = $1`,
-        [id]
-      );
-      if (competicaoCheck.rows.length > 0) {
-        competicaoIdAtual = competicaoCheck.rows[0].competicaoId;
-      }
-    } catch (error: any) {
-      // Se o campo competicaoId não existe, é null
-      if (error.message?.includes('competicaoId')) {
-        competicaoIdAtual = null;
-      }
-    }
-
     // Se dataHora ou quadraId foi alterado, verificar conflitos
     if (dataHora || (quadraId && quadraId !== agendamentoAtual.quadraId)) {
       // Tratar dataHora como horário local do usuário e converter para UTC
@@ -448,54 +431,16 @@ export async function PUT(
       const dataHoraUTC = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
       const duracaoFinal = duracao || agendamentoAtual.duracao || 60;
       const dataHoraFim = new Date(dataHoraUTC.getTime() + duracaoFinal * 60000);
-      const quadraIdFinal = quadraId || agendamentoAtual.quadraId;
 
-      // Se é agendamento de competição, aplicar validação específica
-      if (competicaoIdAtual) {
-        // Buscar agendamentos existentes desta mesma competição nesta mesma quadra e horário (exceto o atual)
-        const agendamentoMesmaCompeticao = await query(
-          `SELECT id FROM "Agendamento"
-           WHERE "quadraId" = $1
-             AND "competicaoId" = $2
-             AND status != 'CANCELADO'
-             AND id != $5
-             AND (
-               ("dataHora" >= $3 AND "dataHora" < $4)
-               OR ("dataHora" + INTERVAL '1 minute' * duracao > $3 AND "dataHora" < $4)
-             )`,
-          [quadraIdFinal, competicaoIdAtual, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), id]
-        );
-
-        // Se já existe outro agendamento da mesma competição na mesma quadra e horário, bloquear
-        if (agendamentoMesmaCompeticao.rows.length > 0) {
-          const errorResponse = NextResponse.json(
-            { mensagem: 'Já existe um agendamento desta competição para este horário nesta quadra' },
-            { status: 400 }
-          );
-          return withCors(errorResponse, request);
-        }
-      }
-
-      // Verificar conflitos com outros agendamentos (exceto o atual e da mesma competição se for agendamento de competição)
-      let conflitosQuery = `SELECT id FROM "Agendamento"
+      const conflitos = await query(
+        `SELECT id FROM "Agendamento"
          WHERE "quadraId" = $1
          AND id != $2
          AND status = 'CONFIRMADO'
          AND "dataHora" < $4
-         AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`;
-
-      const conflitosParams: any[] = [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal];
-
-      // Se é agendamento de competição, permitir outros agendamentos da mesma competição
-      if (competicaoIdAtual) {
-        conflitosQuery += ` AND (
-           ("competicaoId" IS NOT NULL AND "competicaoId" != $6)
-           OR ("competicaoId" IS NULL)
-         )`;
-        conflitosParams.push(competicaoIdAtual);
-      }
-
-      const conflitos = await query(conflitosQuery, conflitosParams);
+         AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
+        [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal]
+      );
 
       if (conflitos.rows.length > 0) {
         const errorResponse = NextResponse.json(
