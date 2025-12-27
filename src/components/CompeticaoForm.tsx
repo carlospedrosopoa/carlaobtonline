@@ -161,6 +161,12 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
       return;
     }
 
+    // Para Super 8, limitar a 8 participantes
+    if (tipo === 'SUPER_8' && atletasParticipantes.length >= 8) {
+      alert('Super 8 permite no máximo 8 participantes');
+      return;
+    }
+
     try {
       await competicaoService.adicionarAtleta(competicaoId, {
         atletaId: atletaId,
@@ -683,8 +689,10 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">
-                Atletas Participantes ({atletasParticipantes.length})
-                {atletasParticipantes.length === 8 && (
+                Atletas Participantes ({atletasParticipantes.length}
+                {tipo === 'SUPER_8' && '/8'}
+                )
+                {tipo === 'SUPER_8' && atletasParticipantes.length === 8 && (
                   <span className="ml-2 text-sm font-normal text-green-600">✓ Pronto para gerar jogos</span>
                 )}
               </h2>
