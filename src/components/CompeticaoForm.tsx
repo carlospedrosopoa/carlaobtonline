@@ -577,6 +577,39 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Critério de Classificação
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="VITORIAS"
+                    checked={criterioClassificacao === 'VITORIAS'}
+                    onChange={(e) => setCriterioClassificacao(e.target.value as 'VITORIAS' | 'SALDO_GAMES')}
+                    className="w-4 h-4 text-emerald-600"
+                  />
+                  <span>Por Vitórias</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="SALDO_GAMES"
+                    checked={criterioClassificacao === 'SALDO_GAMES'}
+                    onChange={(e) => setCriterioClassificacao(e.target.value as 'VITORIAS' | 'SALDO_GAMES')}
+                    className="w-4 h-4 text-emerald-600"
+                  />
+                  <span>Por Saldo de Games</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {criterioClassificacao === 'VITORIAS' 
+                  ? 'Classificação ordenada primeiro por vitórias, depois por saldo de games'
+                  : 'Classificação ordenada primeiro por saldo de games, depois por vitórias'}
+              </p>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quadra</label>
               <select
                 value={quadraId}
