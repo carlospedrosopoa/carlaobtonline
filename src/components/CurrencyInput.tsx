@@ -1,4 +1,4 @@
-// components/CurrencyInput.tsx - Componente de input de moeda que permite digitar e formata automaticamente
+// components/CurrencyInput.tsx - Componente de input de moeda que permite digitar em centavos
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -39,23 +39,14 @@ export default function CurrencyInput({
     }).format(num);
   };
 
-  // Converter formato brasileiro para número
-  const parseFromBrazilian = (str: string): number => {
-    // Remove tudo exceto números e vírgula/ponto
-    const cleaned = str.replace(/[^\d,.-]/g, '');
-    
-    // Substitui vírgula por ponto para parseFloat
-    const normalized = cleaned.replace(',', '.');
-    
-    // Remove múltiplos pontos/vírgulas, mantendo apenas o último
-    const parts = normalized.split(/[.,]/);
-    if (parts.length > 2) {
-      const integerPart = parts.slice(0, -1).join('');
-      const decimalPart = parts[parts.length - 1];
-      return parseFloat(integerPart + '.' + decimalPart) || 0;
-    }
-    
-    return parseFloat(normalized) || 0;
+  // Converter centavos (número inteiro) para reais (número decimal)
+  const centavosToReais = (centavos: number): number => {
+    return centavos / 100;
+  };
+
+  // Converter reais (número decimal) para centavos (número inteiro)
+  const reaisToCentavos = (reais: number): number => {
+    return Math.round(reais * 100);
   };
 
   // Atualizar displayValue quando value mudar externamente
@@ -75,21 +66,22 @@ export default function CurrencyInput({
       return;
     }
 
-    // Remover "R$" e espaços se o usuário digitar
-    let cleaned = inputValue.replace(/R\$\s*/g, '').trim();
+    // Remover tudo exceto números
+    const numbersOnly = inputValue.replace(/\D/g, '');
     
-    // Se ainda estiver vazio após limpar
-    if (cleaned === '') {
+    // Se não há números, limpar
+    if (numbersOnly === '') {
       setDisplayValue('');
       onChange(0);
       return;
     }
 
-    // Parsear o valor digitado
-    const numericValue = parseFromBrazilian(cleaned);
+    // Converter centavos para reais
+    const centavos = parseInt(numbersOnly, 10);
+    const reais = centavosToReais(centavos);
     
     // Validar min/max
-    let finalValue = numericValue;
+    let finalValue = reais;
     if (min !== undefined && finalValue < min) {
       finalValue = min;
     }
@@ -97,24 +89,34 @@ export default function CurrencyInput({
       finalValue = max;
     }
 
-    // Formatar para exibição
-    setDisplayValue(formatToBrazilian(finalValue));
+    // Durante a digitação, mostrar apenas os números (sem formatação)
+    // Mas formatar ao perder o foco
+    if (isFocused) {
+      // Mostrar apenas números enquanto digita
+      setDisplayValue(numbersOnly);
+    } else {
+      // Formatar quando não está focado
+      setDisplayValue(formatToBrazilian(finalValue));
+    }
     
-    // Chamar onChange com o valor numérico
+    // Chamar onChange com o valor em reais
     onChange(finalValue);
   };
 
   const handleFocus = () => {
     setIsFocused(true);
-    // Se o valor for 0, limpar o campo ao focar
-    if (value === 0) {
+    // Ao focar, mostrar apenas os centavos (sem formatação)
+    if (value > 0) {
+      const centavos = reaisToCentavos(value);
+      setDisplayValue(centavos.toString());
+    } else {
       setDisplayValue('');
     }
   };
 
   const handleBlur = () => {
     setIsFocused(false);
-    // Garantir que o valor está formatado corretamente
+    // Ao perder o foco, formatar o valor
     if (value > 0) {
       setDisplayValue(formatToBrazilian(value));
     } else {
@@ -139,8 +141,14 @@ export default function CurrencyInput({
         className={`${className} pl-10`}
         required={required}
         disabled={disabled}
-        inputMode="decimal"
+        inputMode="numeric"
+        pattern="[0-9]*"
       />
+      {isFocused && displayValue && (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
+          = {formatToBrazilian(centavosToReais(parseInt(displayValue.replace(/\D/g, '') || '0', 10)))}
+        </div>
+      )}
     </div>
   );
 }
