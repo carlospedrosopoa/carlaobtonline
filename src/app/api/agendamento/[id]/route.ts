@@ -476,15 +476,26 @@ export async function PUT(
         }
       }
 
-      const conflitos = await query(
-        `SELECT id FROM "Agendamento"
+      // Verificar conflitos com outros agendamentos (exceto o atual e da mesma competição se for agendamento de competição)
+      let conflitosQuery = `SELECT id FROM "Agendamento"
          WHERE "quadraId" = $1
          AND id != $2
          AND status = 'CONFIRMADO'
          AND "dataHora" < $4
-         AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
-        [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal]
-      );
+         AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`;
+
+      const conflitosParams: any[] = [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal];
+
+      // Se é agendamento de competição, permitir outros agendamentos da mesma competição
+      if (competicaoIdAtual) {
+        conflitosQuery += ` AND (
+           ("competicaoId" IS NOT NULL AND "competicaoId" != $6)
+           OR ("competicaoId" IS NULL)
+         )`;
+        conflitosParams.push(competicaoIdAtual);
+      }
+
+      const conflitos = await query(conflitosQuery, conflitosParams);
 
       if (conflitos.rows.length > 0) {
         const errorResponse = NextResponse.json(
