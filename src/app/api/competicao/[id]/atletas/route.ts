@@ -81,6 +81,35 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
+    // Para Super 8, limitar a 8 participantes únicos
+    if (competicao.tipo === 'SUPER_8') {
+      const contagemAtletas = await query(
+        `SELECT COUNT(DISTINCT "atletaId") as total
+         FROM "AtletaCompeticao"
+         WHERE "competicaoId" = $1 AND "parceriaId" IS NULL`,
+        [competicaoId]
+      );
+      const totalAtletas = parseInt(contagemAtletas.rows[0].total);
+      
+      // Verificar se adicionar este atleta ultrapassa o limite
+      const atletasNovos = parceiroAtletaId ? 2 : 1; // Se tiver parceiro, são 2 atletas
+      const parceiroJaExiste = parceiroAtletaId ? await query(
+        `SELECT id FROM "AtletaCompeticao" 
+         WHERE "competicaoId" = $1 AND "atletaId" = $2 AND "parceriaId" IS NULL`,
+        [competicaoId, parceiroAtletaId]
+      ).then(r => r.rows.length > 0) : false;
+      
+      const totalFinal = totalAtletas + (parceiroJaExiste ? 1 : atletasNovos);
+      
+      if (totalFinal > 8) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Super 8 permite no máximo 8 participantes. Não é possível adicionar mais atletas.' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+    }
+
     // Se for formato DUPLAS e tiver parceiro
     let parceriaId: string | null = null;
     if (competicao.formato === 'DUPLAS' && parceiroAtletaId) {
