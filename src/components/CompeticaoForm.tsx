@@ -38,6 +38,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   const [valorInscricao, setValorInscricao] = useState<string>('');
   const [premio, setPremio] = useState('');
   const [regras, setRegras] = useState('');
+  const [criterioClassificacao, setCriterioClassificacao] = useState<'VITORIAS' | 'SALDO_GAMES'>('VITORIAS');
 
   // Atletas
   const [atletasDisponiveis, setAtletasDisponiveis] = useState<Atleta[]>([]);
@@ -110,6 +111,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         setValorInscricao(competicaoData.valorInscricao?.toString() || '');
         setPremio(competicaoData.premio || '');
         setRegras(competicaoData.regras || '');
+        setCriterioClassificacao(competicaoData.configSuper8?.criterioClassificacao || 'VITORIAS');
         setAtletasParticipantes(competicaoData.atletasParticipantes || []);
         
         // Carregar jogos se existirem
@@ -460,7 +462,9 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         valorInscricao: valorInscricao ? parseFloat(valorInscricao) : null,
         premio: premio.trim() || null,
         regras: regras.trim() || null,
-        configSuper8: null,
+        configSuper8: {
+          criterioClassificacao: criterioClassificacao,
+        },
       };
 
       if (competicaoId) {

@@ -109,6 +109,7 @@ export interface Competicao {
     pontosPorVitoria?: number;
     pontosPorDerrota?: number;
     formatoPontuacao?: string;
+    criterioClassificacao?: 'VITORIAS' | 'SALDO_GAMES'; // Critério principal de desempate
   } | null;
   createdAt: string;
   updatedAt: string;
@@ -132,6 +133,7 @@ export interface CriarCompeticaoPayload {
     pontosPorVitoria?: number;
     pontosPorDerrota?: number;
     formatoPontuacao?: string;
+    criterioClassificacao?: 'VITORIAS' | 'SALDO_GAMES';
   } | null;
 }
 
@@ -149,6 +151,7 @@ export interface AtualizarCompeticaoPayload {
     pontosPorVitoria?: number;
     pontosPorDerrota?: number;
     formatoPontuacao?: string;
+    criterioClassificacao?: 'VITORIAS' | 'SALDO_GAMES';
   } | null;
 }
 

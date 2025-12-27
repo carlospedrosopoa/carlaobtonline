@@ -115,15 +115,24 @@ export default function ClassificacaoCompeticaoPage() {
     });
 
     // Calcular saldo de games e ordenar
+    const criterio = competicao?.configSuper8?.criterioClassificacao || 'VITORIAS';
     const classificacao = Array.from(estatisticas.values()).map(stats => ({
       ...stats,
       saldoGames: stats.gamesFeitos - stats.gamesSofridos,
     })).sort((a, b) => {
-      // Ordenar por: vitórias (desc), saldo de games (desc)
-      if (b.vitorias !== a.vitorias) {
+      if (criterio === 'SALDO_GAMES') {
+        // Ordenar por: saldo de games (desc), vitórias (desc)
+        if (b.saldoGames !== a.saldoGames) {
+          return b.saldoGames - a.saldoGames;
+        }
         return b.vitorias - a.vitorias;
+      } else {
+        // Ordenar por: vitórias (desc), saldo de games (desc)
+        if (b.vitorias !== a.vitorias) {
+          return b.vitorias - a.vitorias;
+        }
+        return b.saldoGames - a.saldoGames;
       }
-      return b.saldoGames - a.saldoGames;
     });
 
     return classificacao;
@@ -200,7 +209,11 @@ export default function ClassificacaoCompeticaoPage() {
             <div>
               <h3 className="text-lg font-bold text-yellow-900">🏆 Campeão</h3>
               <p className="text-yellow-800 font-semibold">{campeao.nome}</p>
-              <p className="text-sm text-yellow-700">{campeao.vitorias} vitória(s) • Saldo: +{campeao.saldoGames} games</p>
+              <p className="text-sm text-yellow-700">
+                {competicao.configSuper8?.criterioClassificacao === 'SALDO_GAMES'
+                  ? `Saldo: +${campeao.saldoGames} games • ${campeao.vitorias} vitória(s)`
+                  : `${campeao.vitorias} vitória(s) • Saldo: +${campeao.saldoGames} games`}
+              </p>
             </div>
           </div>
         </div>
@@ -212,11 +225,20 @@ export default function ClassificacaoCompeticaoPage() {
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos.</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Atleta</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vitórias</th>
+              {competicao?.configSuper8?.criterioClassificacao === 'SALDO_GAMES' ? (
+                <>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vitórias</th>
+                </>
+              ) : (
+                <>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vitórias</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                </>
+              )}
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Derrotas</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Games Feitos</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Games Sofridos</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Saldo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -227,17 +249,32 @@ export default function ClassificacaoCompeticaoPage() {
                   {index === 0 && <span className="ml-2">🏆</span>}
                 </td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{atleta.nome}</td>
-                <td className="px-4 py-3 text-sm text-center text-gray-900 font-semibold">{atleta.vitorias}</td>
+                {competicao?.configSuper8?.criterioClassificacao === 'SALDO_GAMES' ? (
+                  <>
+                    <td className={`px-4 py-3 text-sm text-center font-semibold ${
+                      atleta.saldoGames > 0 ? 'text-green-600' : 
+                      atleta.saldoGames < 0 ? 'text-red-600' : 
+                      'text-gray-600'
+                    }`}>
+                      {atleta.saldoGames > 0 ? '+' : ''}{atleta.saldoGames}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center text-gray-900 font-semibold">{atleta.vitorias}</td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-3 text-sm text-center text-gray-900 font-semibold">{atleta.vitorias}</td>
+                    <td className={`px-4 py-3 text-sm text-center font-semibold ${
+                      atleta.saldoGames > 0 ? 'text-green-600' : 
+                      atleta.saldoGames < 0 ? 'text-red-600' : 
+                      'text-gray-600'
+                    }`}>
+                      {atleta.saldoGames > 0 ? '+' : ''}{atleta.saldoGames}
+                    </td>
+                  </>
+                )}
                 <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.derrotas}</td>
                 <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.gamesFeitos}</td>
                 <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.gamesSofridos}</td>
-                <td className={`px-4 py-3 text-sm text-center font-semibold ${
-                  atleta.saldoGames > 0 ? 'text-green-600' : 
-                  atleta.saldoGames < 0 ? 'text-red-600' : 
-                  'text-gray-600'
-                }`}>
-                  {atleta.saldoGames > 0 ? '+' : ''}{atleta.saldoGames}
-                </td>
               </tr>
             ))}
           </tbody>
