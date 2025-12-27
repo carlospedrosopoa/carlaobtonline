@@ -472,3 +472,71 @@ O agendamento foi cancelado.`;
   }, pointId);
 }
 
+/**
+ * Envia notificação de cancelamento de agendamento para o atleta via Gzappy
+ */
+export async function notificarAtletaCancelamentoAgendamento(
+  pointId: string,
+  agendamento: {
+    quadra: string;
+    dataHora: string;
+    telefone: string | null;
+    nomeAtleta?: string;
+  }
+): Promise<boolean> {
+  // Verificar se há telefone para enviar
+  if (!agendamento.telefone) {
+    console.log('Atleta não possui telefone cadastrado para notificação de cancelamento');
+    return false;
+  }
+
+  // Formatar número para Gzappy
+  const telefoneFormatado = formatarNumeroGzappy(agendamento.telefone);
+
+  // Extrair data e hora diretamente da string ISO, igual a agenda faz
+  // A data é salva como UTC mas representa o horário local escolhido pelo usuário
+  // Usar regex para extrair diretamente sem conversão de timezone
+  let dataFormatada: string;
+  let horaFormatada: string;
+  
+  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    // Fallback se o formato não for o esperado
+    const dataHora = new Date(agendamento.dataHora);
+    const ano = dataHora.getFullYear();
+    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataHora.getDate()).padStart(2, '0');
+    const hora = String(dataHora.getHours()).padStart(2, '0');
+    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  } else {
+    // Extrair diretamente da string ISO (mesmo método usado na agenda)
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  }
+
+  const nomeCliente = agendamento.nomeAtleta || 'Cliente';
+
+  const mensagem = `❌ *Agendamento Cancelado*
+
+Olá ${nomeCliente},
+
+Informamos que seu agendamento foi cancelado:
+
+🏸 Quadra: ${agendamento.quadra}
+📅 Data: ${dataFormatada}
+🕐 Horário: ${horaFormatada}
+
+Em caso de dúvidas, entre em contato conosco.
+
+Obrigado!`;
+
+  return await enviarMensagemGzappy({
+    destinatario: telefoneFormatado,
+    mensagem,
+    tipo: 'texto',
+  }, pointId);
+}
+
