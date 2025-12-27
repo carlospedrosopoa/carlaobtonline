@@ -1,5 +1,6 @@
 // lib/gzappyService.ts - Serviço para envio de mensagens via Gzappy
 import { query } from './db';
+import { obterConfiguracoesGzappyPlataforma } from './platformConfig';
 
 export interface MensagemGzappy {
   destinatario: string; // Número no formato internacional (ex: 5511999999999)
@@ -106,7 +107,22 @@ export async function enviarMensagemGzappy(
     }
   }
 
-  // Se não encontrou credenciais do point, tentar variáveis de ambiente (fallback)
+  // Se não encontrou credenciais do point, tentar configuração da plataforma
+  if (!apiKey) {
+    try {
+      const configPlataforma = await obterConfiguracoesGzappyPlataforma();
+      
+      if (configPlataforma.ativo && configPlataforma.apiKey) {
+        apiKey = configPlataforma.apiKey;
+        instanceId = configPlataforma.instanceId || instanceId || null;
+        console.log('📱 Usando configuração Gzappy da plataforma');
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao buscar configuração Gzappy da plataforma:', error);
+    }
+  }
+
+  // Se ainda não encontrou, tentar variáveis de ambiente (fallback)
   if (!apiKey) {
     apiKey = process.env.GZAPPY_API_KEY || null;
     instanceId = process.env.GZAPPY_INSTANCE_ID || instanceId || null;
@@ -467,76 +483,6 @@ O agendamento foi cancelado.`;
 
   return await enviarMensagemGzappy({
     destinatario: whatsappGestor,
-    mensagem,
-    tipo: 'texto',
-  }, pointId);
-}
-
-/**
- * Envia notificação de cancelamento de agendamento para o atleta via Gzappy
- */
-export async function notificarAtletaCancelamentoAgendamento(
-  pointId: string,
-  agendamento: {
-    quadra: string;
-    dataHora: string;
-    telefone: string | null;
-    nomeAtleta?: string;
-    nomeArena?: string;
-  }
-): Promise<boolean> {
-  // Verificar se há telefone para enviar
-  if (!agendamento.telefone) {
-    console.log('Atleta não possui telefone cadastrado para notificação de cancelamento');
-    return false;
-  }
-
-  // Formatar número para Gzappy
-  const telefoneFormatado = formatarNumeroGzappy(agendamento.telefone);
-
-  // Extrair data e hora diretamente da string ISO, igual a agenda faz
-  // A data é salva como UTC mas representa o horário local escolhido pelo usuário
-  // Usar regex para extrair diretamente sem conversão de timezone
-  let dataFormatada: string;
-  let horaFormatada: string;
-  
-  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (!matchDataHora) {
-    // Fallback se o formato não for o esperado
-    const dataHora = new Date(agendamento.dataHora);
-    const ano = dataHora.getFullYear();
-    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
-    const dia = String(dataHora.getDate()).padStart(2, '0');
-    const hora = String(dataHora.getHours()).padStart(2, '0');
-    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
-    dataFormatada = `${dia}/${mes}/${ano}`;
-    horaFormatada = `${hora}:${minuto}`;
-  } else {
-    // Extrair diretamente da string ISO (mesmo método usado na agenda)
-    const [, ano, mes, dia, hora, minuto] = matchDataHora;
-    dataFormatada = `${dia}/${mes}/${ano}`;
-    horaFormatada = `${hora}:${minuto}`;
-  }
-
-  const nomeCliente = agendamento.nomeAtleta || 'Cliente';
-  const nomeArena = agendamento.nomeArena || 'Arena';
-
-  const mensagem = `❌ *Agendamento Cancelado*
-
-Olá ${nomeCliente},
-
-Informamos que seu agendamento na *${nomeArena}* foi cancelado:
-
-🏸 Quadra: ${agendamento.quadra}
-📅 Data: ${dataFormatada}
-🕐 Horário: ${horaFormatada}
-
-Em caso de dúvidas, entre em contato conosco.
-
-Obrigado!`;
-
-  return await enviarMensagemGzappy({
-    destinatario: telefoneFormatado,
     mensagem,
     tipo: 'texto',
   }, pointId);

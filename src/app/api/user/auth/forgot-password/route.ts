@@ -108,23 +108,9 @@ export async function POST(request: NextRequest) {
       try {
         const telefoneFormatado = formatarNumeroGzappy(telefoneAtleta);
         
-        // Buscar pointId do usuário ou usar variável de ambiente
-        // Se o usuário tiver pointIdGestor, usar ele, senão tentar buscar de algum card ou usar padrão
-        let pointIdParaGzappy: string | undefined = undefined;
-        
-        // Tentar obter pointId do usuário (se for ORGANIZER)
-        if ((usuarioDb as any).pointIdGestor) {
-          pointIdParaGzappy = (usuarioDb as any).pointIdGestor;
-        } else {
-          // Tentar buscar de algum card do usuário
-          const cardResult = await query(
-            `SELECT "pointId" FROM "CardCliente" WHERE "usuarioId" = $1 LIMIT 1`,
-            [usuarioDb.id]
-          );
-          if (cardResult.rows.length > 0) {
-            pointIdParaGzappy = cardResult.rows[0].pointId;
-          }
-        }
+        // Para recuperação de senha, usar configuração da plataforma (não de uma arena específica)
+        // Não passar pointId para usar a configuração global do Gzappy
+        const pointIdParaGzappy: string | undefined = undefined;
 
         const mensagem = `🔐 *Recuperação de Senha - Play Na Quadra*
 
