@@ -731,6 +731,11 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 )}
                 <button
                   onClick={() => {
+                    // Verificar limite antes de abrir
+                    if (tipo === 'SUPER_8' && atletasParticipantes.length >= 8) {
+                      alert('Super 8 permite no máximo 8 participantes');
+                      return;
+                    }
                     setMostrarBuscaAtleta(!mostrarBuscaAtleta);
                     if (!mostrarBuscaAtleta) {
                       // Quando abrir, fazer busca inicial vazia para mostrar todos os atletas
@@ -744,10 +749,20 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                       setParceiroSelecionado('');
                     }
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  disabled={tipo === 'SUPER_8' && atletasParticipantes.length >= 8}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    tipo === 'SUPER_8' && atletasParticipantes.length >= 8
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  }`}
                 >
                   <Plus className="w-5 h-5" />
                   Adicionar Atleta
+                  {tipo === 'SUPER_8' && (
+                    <span className="text-xs ml-1">
+                      ({atletasParticipantes.length}/8)
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
