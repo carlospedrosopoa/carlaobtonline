@@ -148,8 +148,8 @@ export async function POST(
         `SELECT DISTINCT ac1."parceriaId"
          FROM "AtletaCompeticao" ac1
          INNER JOIN "AtletaCompeticao" ac2 ON ac1."parceriaId" = ac2."parceriaId"
-           AND ac1."parceriaId" = ac2."parceriaId"
          WHERE ac1."competicaoId" = $1
+           AND ac2."competicaoId" = $1
            AND ac1."atletaId" = $2
            AND ac2."atletaId" = $3
            AND ac1."parceriaId" IS NOT NULL
@@ -428,7 +428,11 @@ export async function POST(
     });
     return withCors(response, request);
   } catch (error: any) {
-    console.error('Erro ao gerar jogos:', error);
+    console.error('[GERAR JOGOS] Erro geral ao gerar jogos:', {
+      message: error?.message,
+      stack: error?.stack,
+      competicaoId,
+    });
     const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao gerar jogos', error: error?.message },
       { status: 500 }
