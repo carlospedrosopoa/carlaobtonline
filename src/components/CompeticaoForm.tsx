@@ -31,7 +31,8 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   // Dados do formulário
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<TipoCompeticao>('SUPER_8');
-  const [formato, setFormato] = useState<FormatoCompeticao>('INDIVIDUAL');
+  // Formato sempre será 'DUPLAS' para Super 8 (round-robin de duplas)
+  const [formato] = useState<FormatoCompeticao>('DUPLAS');
   const [quadraId, setQuadraId] = useState<string>('');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
@@ -105,7 +106,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         setCompeticao(competicaoData);
         setNome(competicaoData.nome);
         setTipo(competicaoData.tipo);
-        setFormato(competicaoData.formato);
+        // Formato sempre será DUPLAS para Super 8
         setQuadraId(competicaoData.quadraId || '');
         setDataInicio(competicaoData.dataInicio ? competicaoData.dataInicio.split('T')[0] : '');
         setDataFim(competicaoData.dataFim ? competicaoData.dataFim.split('T')[0] : '');
@@ -456,7 +457,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         pointId: usuario.pointIdGestor,
         nome: nome.trim(),
         tipo,
-        formato,
+        formato: 'DUPLAS' as const, // Super 8 sempre usa formato duplas (round-robin)
         quadraId: quadraId || null,
         dataInicio: dataInicio ? new Date(dataInicio).toISOString() : null,
         dataFim: dataFim ? new Date(dataFim).toISOString() : null,
@@ -560,34 +561,6 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
               <p className="text-xs text-gray-500 mt-1">
                 Por enquanto, apenas Super 8 está disponível
               </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Formato *</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="INDIVIDUAL"
-                    checked={formato === 'INDIVIDUAL'}
-                    onChange={(e) => setFormato(e.target.value as FormatoCompeticao)}
-                    className="w-4 h-4 text-emerald-600"
-                  />
-                  <User className="w-5 h-5" />
-                  <span>Individual</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="DUPLAS"
-                    checked={formato === 'DUPLAS'}
-                    onChange={(e) => setFormato(e.target.value as FormatoCompeticao)}
-                    className="w-4 h-4 text-emerald-600"
-                  />
-                  <Users className="w-5 h-5" />
-                  <span>Duplas</span>
-                </label>
-              </div>
             </div>
 
             <div>
