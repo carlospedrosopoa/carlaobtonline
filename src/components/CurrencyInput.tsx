@@ -49,27 +49,24 @@ export default function CurrencyInput({
     return Math.round(reais * 100);
   };
 
-  // Atualizar displayValue quando value mudar externamente
+  // Atualizar displayValue quando value mudar externamente (apenas quando não está focado)
   useEffect(() => {
     if (!isFocused) {
-      setDisplayValue(formatToBrazilian(value));
+      if (value > 0) {
+        setDisplayValue(formatToBrazilian(value));
+      } else {
+        setDisplayValue('');
+      }
     }
   }, [value, isFocused]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     
-    // Se estiver vazio, limpar
-    if (inputValue === '' || inputValue.trim() === '') {
-      setDisplayValue('');
-      onChange(0);
-      return;
-    }
-
     // Remover tudo exceto números
     const numbersOnly = inputValue.replace(/\D/g, '');
     
-    // Se não há números, limpar
+    // Se estiver vazio, limpar
     if (numbersOnly === '') {
       setDisplayValue('');
       onChange(0);
@@ -91,15 +88,18 @@ export default function CurrencyInput({
     }
 
     // Durante a digitação, mostrar apenas os números (sem formatação)
-    setDisplayValue(numbersOnly);
-    
-    // Manter cursor no final após atualizar o valor
-    setTimeout(() => {
-      if (inputRef.current && isFocused) {
-        const length = numbersOnly.length;
-        inputRef.current.setSelectionRange(length, length);
-      }
-    }, 0);
+    // Usar requestAnimationFrame para garantir que o estado seja atualizado no próximo frame
+    requestAnimationFrame(() => {
+      setDisplayValue(numbersOnly);
+      
+      // Manter cursor no final após atualizar o valor
+      setTimeout(() => {
+        if (inputRef.current) {
+          const length = numbersOnly.length;
+          inputRef.current.setSelectionRange(length, length);
+        }
+      }, 0);
+    });
     
     // Chamar onChange com o valor em reais
     onChange(finalValue);
