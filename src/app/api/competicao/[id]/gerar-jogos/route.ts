@@ -309,6 +309,13 @@ export async function POST(
         const atleta1Id: string | null = null;
         const atleta2Id: string | null = null;
 
+        console.log(`[GERAR JOGOS] Criando jogo ${index + 1} no banco:`, {
+          rodada: jogo.rodada,
+          numeroJogo: jogo.numeroJogo,
+          parceria1Id,
+          parceria2Id,
+        });
+
         const result = await query(
           `INSERT INTO "JogoCompeticao" (
             id, "competicaoId", rodada, "numeroJogo",
@@ -331,6 +338,24 @@ export async function POST(
             parceria2Id,
           ]
         );
+
+        // Verificar se as parcerias ainda existem após criar o jogo
+        const verificarParceria1 = await query(
+          `SELECT COUNT(*) as total FROM "AtletaCompeticao" WHERE "parceriaId" = $1 AND "competicaoId" = $2`,
+          [parceria1Id, competicaoId]
+        );
+        const verificarParceria2 = await query(
+          `SELECT COUNT(*) as total FROM "AtletaCompeticao" WHERE "parceriaId" = $1 AND "competicaoId" = $2`,
+          [parceria2Id, competicaoId]
+        );
+
+        console.log(`[GERAR JOGOS] ✅ Jogo ${index + 1} criado:`, {
+          jogoId: result.rows[0].id,
+          parceria1Id,
+          parceria1Registros: parseInt(verificarParceria1.rows[0].total),
+          parceria2Id,
+          parceria2Registros: parseInt(verificarParceria2.rows[0].total),
+        });
 
         jogosCriados.push({
           id: result.rows[0].id,
