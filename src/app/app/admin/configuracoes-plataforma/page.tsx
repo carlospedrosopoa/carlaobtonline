@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Settings, Save, Eye, EyeOff, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface PlatformConfig {
   id: number;
@@ -32,11 +33,8 @@ export default function ConfiguracoesPlataformaPage() {
     try {
       setLoading(true);
       setErro('');
-      const response = await fetch('/api/admin/platform-config');
-      if (!response.ok) {
-        throw new Error('Erro ao carregar configurações');
-      }
-      const data = await response.json();
+      const response = await api.get('/admin/platform-config');
+      const data = response.data;
       setConfiguracoes(data.configuracoes || []);
       
       // Inicializar valores de edição
@@ -47,7 +45,8 @@ export default function ConfiguracoesPlataformaPage() {
       setValoresEditando(valoresIniciais);
     } catch (error: any) {
       console.error('Erro ao carregar configurações:', error);
-      setErro('Erro ao carregar configurações. Verifique se você tem permissão de ADMIN.');
+      const mensagem = error.response?.data?.mensagem || error.message || 'Erro ao carregar configurações';
+      setErro(mensagem);
     } finally {
       setLoading(false);
     }
@@ -62,25 +61,14 @@ export default function ConfiguracoesPlataformaPage() {
       const valor = valoresEditando[chave] || '';
       const config = configuracoes.find(c => c.chave === chave);
       
-      const response = await fetch(`/api/admin/platform-config/${chave}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          valor,
-          descricao: config?.descricao,
-          tipo: config?.tipo,
-          categoria: config?.categoria,
-        }),
+      const response = await api.put(`/admin/platform-config/${chave}`, {
+        valor,
+        descricao: config?.descricao,
+        tipo: config?.tipo,
+        categoria: config?.categoria,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.mensagem || 'Erro ao salvar configuração');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       
       // Atualizar a lista de configurações
       setConfiguracoes(prev => 
@@ -91,7 +79,8 @@ export default function ConfiguracoesPlataformaPage() {
       setTimeout(() => setSucesso(''), 3000);
     } catch (error: any) {
       console.error('Erro ao salvar configuração:', error);
-      setErro(error.message || 'Erro ao salvar configuração');
+      const mensagem = error.response?.data?.mensagem || error.message || 'Erro ao salvar configuração';
+      setErro(mensagem);
       setTimeout(() => setErro(''), 5000);
     } finally {
       setSalvando(null);
