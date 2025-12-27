@@ -69,6 +69,25 @@ export async function POST(
     } else {
       // USER comum pode cancelar apenas seus próprios agendamentos
       podeCancelar = agendamento.usuarioId === usuario.id;
+      
+      // Para USER, verificar se faltam menos de 12 horas
+      if (podeCancelar) {
+        const dataHoraAgendamento = new Date(agendamento.dataHora);
+        const agora = new Date();
+        const diferencaMs = dataHoraAgendamento.getTime() - agora.getTime();
+        const diferencaHoras = diferencaMs / (1000 * 60 * 60);
+        
+        if (diferencaHoras < 12) {
+          const errorResponse = NextResponse.json(
+            { 
+              mensagem: 'Não é possível cancelar agendamentos com menos de 12 horas de antecedência. Use a opção de solicitar cancelamento.',
+              codigo: 'MENOS_12_HORAS'
+            },
+            { status: 400 }
+          );
+          return withCors(errorResponse, request);
+        }
+      }
     }
 
     if (!podeCancelar) {
