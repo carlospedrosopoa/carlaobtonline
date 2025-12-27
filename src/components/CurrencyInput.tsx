@@ -60,7 +60,7 @@ export default function CurrencyInput({
     const inputValue = e.target.value;
     
     // Se estiver vazio, limpar
-    if (inputValue === '' || inputValue === 'R$' || inputValue.trim() === '') {
+    if (inputValue === '' || inputValue.trim() === '') {
       setDisplayValue('');
       onChange(0);
       return;
@@ -91,6 +91,7 @@ export default function CurrencyInput({
     }
 
     // Durante a digitação, mostrar apenas os números (sem formatação)
+    // Não formatar durante a digitação para evitar problemas de cursor
     setDisplayValue(numbersOnly);
     
     // Chamar onChange com o valor em reais
@@ -106,6 +107,13 @@ export default function CurrencyInput({
     } else {
       setDisplayValue('');
     }
+    // Manter o cursor no final do input
+    setTimeout(() => {
+      if (inputRef.current) {
+        const length = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    }, 0);
   };
 
   const handleBlur = () => {
