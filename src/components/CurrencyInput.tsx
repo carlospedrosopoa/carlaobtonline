@@ -91,8 +91,15 @@ export default function CurrencyInput({
     }
 
     // Durante a digitação, mostrar apenas os números (sem formatação)
-    // Não formatar durante a digitação para evitar problemas de cursor
     setDisplayValue(numbersOnly);
+    
+    // Manter cursor no final após atualizar o valor
+    setTimeout(() => {
+      if (inputRef.current && isFocused) {
+        const length = numbersOnly.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    }, 0);
     
     // Chamar onChange com o valor em reais
     onChange(finalValue);
