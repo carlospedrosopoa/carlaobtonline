@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService } from '@/services/agendamentoService';
 import { api } from '@/lib/api';
-import { X, Plus, Calendar, Clock, MapPin, Trash2 } from 'lucide-react';
+import { X, Plus, Calendar, Clock, MapPin, Trash2, Edit, Save } from 'lucide-react';
 
 interface Agendamento {
   id: string;
@@ -112,11 +112,7 @@ export default function ModalAgendarQuadrasCompeticao({
       alert(`${quadrasSelecionadas.length} agendamento(s) criado(s) com sucesso!`);
       
       // Limpar formulário
-      setQuadrasSelecionadas([]);
-      setData('');
-      setHora('');
-      setDuracao(120);
-      setObservacoes('');
+      limparFormulario();
 
       // Recarregar agendamentos
       await carregarDados();
@@ -132,6 +128,12 @@ export default function ModalAgendarQuadrasCompeticao({
   };
 
   const toggleQuadraSelecionada = (quadraId: string) => {
+    // Se estiver editando, permitir apenas uma quadra
+    if (editandoAgendamento) {
+      setQuadrasSelecionadas([quadraId]);
+      return;
+    }
+    
     setQuadrasSelecionadas(prev => {
       if (prev.includes(quadraId)) {
         return prev.filter(id => id !== quadraId);
@@ -139,6 +141,75 @@ export default function ModalAgendarQuadrasCompeticao({
         return [...prev, quadraId];
       }
     });
+  };
+
+  const limparFormulario = () => {
+    setQuadrasSelecionadas([]);
+    setData('');
+    setHora('');
+    setDuracao(120);
+    setObservacoes('');
+    setEditandoAgendamento(null);
+  };
+
+  const handleIniciarEdicao = (agendamento: Agendamento) => {
+    setEditandoAgendamento(agendamento);
+    
+    // Preencher formulário com dados do agendamento
+    setQuadrasSelecionadas([agendamento.quadraId]);
+    const dataHora = new Date(agendamento.dataHora);
+    setData(dataHora.toISOString().split('T')[0]);
+    setHora(dataHora.toTimeString().slice(0, 5));
+    setDuracao(agendamento.duracao);
+    setObservacoes(agendamento.observacoes || '');
+    
+    // Scroll para o formulário
+    setTimeout(() => {
+      const formulario = document.querySelector('[data-formulario-agendamento]');
+      formulario?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handleEditarAgendamento = async () => {
+    if (!editandoAgendamento || quadrasSelecionadas.length === 0 || !data || !hora || !duracao) {
+      alert('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const dataHora = `${data}T${hora}:00`;
+      
+      await api.put(`/agendamento/${editandoAgendamento.id}`, {
+        quadraId: quadrasSelecionadas[0], // Na edição, apenas uma quadra
+        dataHora,
+        duracao,
+        observacoes: observacoes.trim() || null,
+      });
+
+      alert('Agendamento atualizado com sucesso!');
+      
+      // Limpar formulário e sair do modo edição
+      limparFormulario();
+
+      // Recarregar agendamentos
+      await carregarDados();
+    } catch (error: any) {
+      console.error('Erro ao editar agendamento:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao editar agendamento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSalvarAgendamento = async () => {
+    if (editandoAgendamento) {
+      // Modo edição - salvar alterações
+      await handleEditarAgendamento();
+    } else {
+      // Modo criação - criar novo(s)
+      await handleCriarAgendamento();
+    }
   };
 
   const handleExcluirAgendamento = async (agendamentoId: string) => {
