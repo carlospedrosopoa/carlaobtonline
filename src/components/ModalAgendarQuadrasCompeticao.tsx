@@ -346,7 +346,7 @@ export default function ModalAgendarQuadrasCompeticao({
                             <div className="text-emerald-600 font-semibold">
                               R$ {typeof agendamento.valorCalculado === 'number' 
                                 ? agendamento.valorCalculado.toFixed(2) 
-                                : parseFloat(agendamento.valorCalculado).toFixed(2)}
+                                : parseFloat(String(agendamento.valorCalculado) || '0').toFixed(2)}
                             </div>
                           )}
                         </div>
