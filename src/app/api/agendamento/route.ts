@@ -421,6 +421,7 @@ export async function POST(request: NextRequest) {
       atletasParticipantesIds,
       ehAula,
       professorId,
+      competicaoId,
     } = body as {
       quadraId: string;
       dataHora: string;
@@ -434,6 +435,7 @@ export async function POST(request: NextRequest) {
       atletasParticipantesIds?: string[];
       ehAula?: boolean;
       professorId?: string | null;
+      competicaoId?: string | null;
     };
     
     // Log dos valores extraídos
@@ -653,13 +655,13 @@ export async function POST(request: NextRequest) {
         
         const result = await query(
           `INSERT INTO "Agendamento" (
-            id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+            id, "competicaoId", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
             "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
             status, observacoes, "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId",
             "createdAt", "updatedAt"
           )
           VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, $12, $13, $14, $15, NOW(), NOW()
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, $13, $14, $15, $16, NOW(), NOW()
           )
           RETURNING id`,
           [
@@ -689,15 +691,16 @@ export async function POST(request: NextRequest) {
           try {
             const result = await query(
               `INSERT INTO "Agendamento" (
-                id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                id, "competicaoId", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
                 "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
                 status, observacoes, "createdAt", "updatedAt"
               )
               VALUES (
-                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
+                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, NOW(), NOW()
               )
               RETURNING id`,
               [
+                competicaoId || null,
                 quadraId,
                 usuarioIdFinal,
                 atletaIdFinal || null,

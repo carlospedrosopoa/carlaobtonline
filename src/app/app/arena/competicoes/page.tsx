@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import { pointService } from '@/services/agendamentoService';
 import type { Competicao } from '@/types/competicao';
-import { Trophy, Plus, Edit, Trash2, Users, Calendar, MapPin, PlayCircle, BarChart3 } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Users, Calendar, MapPin, PlayCircle, BarChart3, CalendarCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import ModalAgendarQuadrasCompeticao from '@/components/ModalAgendarQuadrasCompeticao';
 
 export default function CompeticoesPage() {
   const { usuario } = useAuth();
@@ -15,6 +16,8 @@ export default function CompeticoesPage() {
   const [competicoes, setCompeticoes] = useState<Competicao[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<string>('');
+  const [modalAgendamentoAberto, setModalAgendamentoAberto] = useState(false);
+  const [competicaoSelecionada, setCompeticaoSelecionada] = useState<Competicao | null>(null);
 
   useEffect(() => {
     carregarCompeticoes();
@@ -48,6 +51,17 @@ export default function CompeticoesPage() {
 
   const handleVerClassificacao = (competicao: Competicao) => {
     router.push(`/app/arena/competicoes/${competicao.id}/classificacao`);
+  };
+
+  const handleAgendarQuadras = (competicao: Competicao) => {
+    setCompeticaoSelecionada(competicao);
+    setModalAgendamentoAberto(true);
+  };
+
+  const handleFecharModalAgendamento = () => {
+    setModalAgendamentoAberto(false);
+    setCompeticaoSelecionada(null);
+    carregarCompeticoes(); // Recarregar para atualizar dados
   };
 
   const handleDeletar = async (competicao: Competicao) => {
@@ -234,6 +248,13 @@ export default function CompeticoesPage() {
                 >
                   Editar
                 </button>
+                <button
+                  onClick={() => handleAgendarQuadras(competicao)}
+                  className="w-full py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  Agendar Quadras
+                </button>
                 {competicao.status === 'EM_ANDAMENTO' && (
                   <>
                     <button
@@ -256,6 +277,17 @@ export default function CompeticoesPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Modal de Agendamento */}
+      {modalAgendamentoAberto && competicaoSelecionada && (
+        <ModalAgendarQuadrasCompeticao
+          isOpen={modalAgendamentoAberto}
+          onClose={handleFecharModalAgendamento}
+          competicaoId={competicaoSelecionada.id}
+          competicaoNome={competicaoSelecionada.nome}
+          onAgendamentoCriado={handleFecharModalAgendamento}
+        />
       )}
     </div>
   );

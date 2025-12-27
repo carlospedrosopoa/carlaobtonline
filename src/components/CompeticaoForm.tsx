@@ -33,7 +33,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   const [tipo, setTipo] = useState<TipoCompeticao>('SUPER_8');
   // Formato sempre será 'DUPLAS' para Super 8 (round-robin de duplas)
   const [formato] = useState<FormatoCompeticao>('DUPLAS');
-  const [quadraId, setQuadraId] = useState<string>('');
+  // quadraId removido - agora será gerenciado via agendamentos
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -53,8 +53,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   const [atletaSelecionado, setAtletaSelecionado] = useState<string>('');
   const [parceiroSelecionado, setParceiroSelecionado] = useState<string>('');
 
-  // Quadras
-  const [quadras, setQuadras] = useState<any[]>([]);
+  // Quadras (removido - não mais necessário no formulário, será usado apenas no modal de agendamento)
 
   // Jogos
   const [jogos, setJogos] = useState<any[]>([]);
@@ -96,9 +95,8 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         return;
       }
 
-      // Carregar quadras
-      const quadrasData = await quadraService.listar(pointId);
-      setQuadras(quadrasData);
+      // Quadras serão carregadas no modal de agendamento
+      // Não precisamos mais carregar aqui
 
       // Se estiver editando, carregar competição
       if (competicaoId) {
@@ -107,7 +105,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         setNome(competicaoData.nome);
         setTipo(competicaoData.tipo);
         // Formato sempre será DUPLAS para Super 8
-        setQuadraId(competicaoData.quadraId || '');
+        // quadraId removido - agora será gerenciado via agendamentos
         setDataInicio(competicaoData.dataInicio ? competicaoData.dataInicio.split('T')[0] : '');
         setDataFim(competicaoData.dataFim ? competicaoData.dataFim.split('T')[0] : '');
         setDescricao(competicaoData.descricao || '');
@@ -475,7 +473,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         nome: nome.trim(),
         tipo,
         formato: 'DUPLAS' as const, // Super 8 sempre usa formato duplas (round-robin)
-        quadraId: quadraId || null,
+        // quadraId removido - agora será gerenciado via agendamentos
         dataInicio: dataInicio ? new Date(dataInicio).toISOString() : null,
         dataFim: dataFim ? new Date(dataFim).toISOString() : null,
         descricao: descricao.trim() || null,
@@ -614,17 +612,10 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Quadra</label>
-              <select
-                value={quadraId}
-                onChange={(e) => setQuadraId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              >
-                <option value="">Selecione uma quadra (opcional)</option>
-                {quadras.map((q) => (
-                  <option key={q.id} value={q.id}>{q.nome}</option>
-                ))}
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Quadras</label>
+              <p className="text-sm text-gray-600">
+                As quadras podem ser agendadas após a criação da competição através do botão "Agendar Quadras" no card da competição.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
