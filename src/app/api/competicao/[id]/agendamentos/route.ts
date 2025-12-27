@@ -169,10 +169,33 @@ export async function POST(
 
     // Verificar disponibilidade da quadra (verificar conflitos)
     // Permitir múltiplas quadras no mesmo horário para a mesma competição
-    // Mas bloquear se houver outro agendamento (de outra competição ou normal) no mesmo horário
+    // Mas bloquear se houver outro agendamento (de outra competição ou normal) na MESMA QUADRA no mesmo horário
     const dataHoraInicio = new Date(dataHora);
     const dataHoraFim = new Date(dataHoraInicio.getTime() + duracao * 60000);
 
+    // Buscar agendamentos existentes desta mesma competição nesta mesma quadra e horário
+    const agendamentoMesmaCompeticao = await query(
+      `SELECT id FROM "Agendamento"
+       WHERE "quadraId" = $1
+         AND "competicaoId" = $2
+         AND status != 'CANCELADO'
+         AND (
+           ("dataHora" >= $3 AND "dataHora" < $4)
+           OR ("dataHora" + INTERVAL '1 minute' * duracao > $3 AND "dataHora" < $4)
+         )`,
+      [quadraId, competicaoId, dataHoraInicio.toISOString(), dataHoraFim.toISOString()]
+    );
+
+    // Se já existe agendamento da mesma competição na mesma quadra e horário, bloquear
+    if (agendamentoMesmaCompeticao.rows.length > 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Já existe um agendamento desta competição para este horário nesta quadra' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Verificar conflitos com outros agendamentos (de outra competição ou normal) na mesma quadra
     const conflitosResult = await query(
       `SELECT id, "competicaoId" FROM "Agendamento"
        WHERE "quadraId" = $1

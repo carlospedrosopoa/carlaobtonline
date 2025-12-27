@@ -49,6 +49,9 @@ export default function ModalAgendarQuadrasCompeticao({
   const [hora, setHora] = useState('');
   const [duracao, setDuracao] = useState(120); // 2 horas padrão
   const [observacoes, setObservacoes] = useState('');
+  
+  // Edição
+  const [editandoAgendamento, setEditandoAgendamento] = useState<Agendamento | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -261,14 +264,24 @@ export default function ModalAgendarQuadrasCompeticao({
                           </p>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleExcluirAgendamento(agendamento.id)}
-                        disabled={loading}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Excluir agendamento"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleIniciarEdicao(agendamento)}
+                          disabled={loading || editandoAgendamento !== null}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Editar agendamento"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleExcluirAgendamento(agendamento.id)}
+                          disabled={loading || editandoAgendamento !== null}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Excluir agendamento"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -277,8 +290,20 @@ export default function ModalAgendarQuadrasCompeticao({
           </div>
 
           {/* Formulário */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo Agendamento</h3>
+          <div className="bg-gray-50 rounded-lg p-4 mb-6" data-formulario-agendamento>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editandoAgendamento ? 'Editar Agendamento' : 'Novo Agendamento'}
+              </h3>
+              {editandoAgendamento && (
+                <button
+                  onClick={limparFormulario}
+                  className="text-sm text-gray-600 hover:text-gray-900 underline"
+                >
+                  Cancelar edição
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -374,13 +399,27 @@ export default function ModalAgendarQuadrasCompeticao({
             </div>
 
             <button
-              onClick={handleCriarAgendamento}
-              disabled={loading || quadrasSelecionadas.length === 0 || !data || !hora}
+              onClick={handleSalvarAgendamento}
+              disabled={loading || quadrasSelecionadas.length === 0 || !data || !hora || (editandoAgendamento && quadrasSelecionadas.length > 1)}
               className="mt-4 flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Plus className="w-5 h-5" />
-              Adicionar Agendamento{quadrasSelecionadas.length > 0 ? ` (${quadrasSelecionadas.length} quadra${quadrasSelecionadas.length > 1 ? 's' : ''})` : ''}
+              {editandoAgendamento ? (
+                <>
+                  <Save className="w-5 h-5" />
+                  Salvar Alterações
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5" />
+                  Adicionar Agendamento{quadrasSelecionadas.length > 0 ? ` (${quadrasSelecionadas.length} quadra${quadrasSelecionadas.length > 1 ? 's' : ''})` : ''}
+                </>
+              )}
             </button>
+            {editandoAgendamento && quadrasSelecionadas.length > 1 && (
+              <p className="text-xs text-amber-600 mt-2">
+                ⚠️ Ao editar, selecione apenas uma quadra
+              </p>
+            )}
           </div>
 
         </div>
