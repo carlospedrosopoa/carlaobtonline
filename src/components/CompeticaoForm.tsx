@@ -470,18 +470,13 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
       if (competicaoId) {
         await competicaoService.atualizar(competicaoId, payload);
         alert('Competição atualizada com sucesso!');
+        router.push('/app/arena/competicoes');
+        return;
       } else {
         const novaCompeticao = await competicaoService.criar(payload);
         alert('Competição criada com sucesso!');
-        router.push(`/app/arena/competicoes/${novaCompeticao.id}`);
+        router.push('/app/arena/competicoes');
         return;
-      }
-
-      // Recarregar competição
-      if (competicaoId) {
-        const competicaoData = await competicaoService.obter(competicaoId);
-        setCompeticao(competicaoData);
-        setAtletasParticipantes(competicaoData.atletasParticipantes || []);
       }
     } catch (error: any) {
       console.error('Erro ao salvar competição:', error);
