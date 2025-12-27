@@ -136,16 +136,19 @@ export async function POST(
     const jogosCriados: any[] = [];
     
     // Função auxiliar para criar ou obter parceriaId baseado nos atletas
+    // IMPORTANTE: No round-robin, cada atleta tem múltiplas parcerias diferentes
+    // Então precisamos buscar/atualizar apenas registros que NÃO têm parceriaId ainda,
+    // ou que têm exatamente esta parceria
     async function obterOuCriarParceria(atleta1Id: string, atleta2Id: string): Promise<string> {
       // Ordenar IDs para garantir consistência
       const idsOrdenados = [atleta1Id, atleta2Id].sort();
       
-      // Verificar se já existe uma parceria com esses atletas nesta competição
-      // Buscar por qualquer registro onde os dois atletas formem uma parceria
+      // Verificar se já existe uma parceria com esses dois atletas específicos nesta competição
       const parceriaExistente = await query(
         `SELECT DISTINCT ac1."parceriaId"
          FROM "AtletaCompeticao" ac1
          INNER JOIN "AtletaCompeticao" ac2 ON ac1."parceriaId" = ac2."parceriaId"
+           AND ac1."parceriaId" = ac2."parceriaId"
          WHERE ac1."competicaoId" = $1
            AND ac1."atletaId" = $2
            AND ac2."atletaId" = $3
@@ -156,17 +159,32 @@ export async function POST(
       );
 
       if (parceriaExistente.rows.length > 0 && parceriaExistente.rows[0].parceriaId) {
+        console.log('[GERAR JOGOS] Parceria já existe:', {
+          parceriaId: parceriaExistente.rows[0].parceriaId,
+          atleta1: idsOrdenados[0],
+          atleta2: idsOrdenados[1],
+        });
         return parceriaExistente.rows[0].parceriaId;
       }
 
       // Criar nova parceria (usar UUID)
       const novaParceriaId = randomUUID();
+      console.log('[GERAR JOGOS] Criando nova parceria:', {
+        parceriaId: novaParceriaId,
+        atleta1: idsOrdenados[0],
+        atleta2: idsOrdenados[1],
+      });
 
-      // Verificar se os registros existem e atualizar
-      // Atleta 1
+      // Buscar registros existentes para ambos os atletas que ainda não têm parceriaId
+      // ou atualizar um registro existente que já tem essa parceria
+      // Para round-robin, vamos atualizar qualquer registro do atleta que não tenha parceriaId ainda
+      
+      // Atleta 1: Buscar registro sem parceriaId OU criar novo se necessário
       const atleta1Check = await query(
-        `SELECT id FROM "AtletaCompeticao" 
-         WHERE "competicaoId" = $1 AND "atletaId" = $2`,
+        `SELECT id, "parceriaId" FROM "AtletaCompeticao" 
+         WHERE "competicaoId" = $1 AND "atletaId" = $2
+         ORDER BY CASE WHEN "parceriaId" IS NULL THEN 0 ELSE 1 END, "createdAt" ASC
+         LIMIT 1`,
         [competicaoId, idsOrdenados[0]]
       );
 
@@ -178,33 +196,48 @@ export async function POST(
         throw new Error(`Atleta ${idsOrdenados[0]} não encontrado na competição ${competicaoId}`);
       }
 
-      const result1 = await query(
-        `UPDATE "AtletaCompeticao" 
-         SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
-         WHERE "competicaoId" = $3 AND "atletaId" = $4
-         RETURNING id, "parceriaId", "parceiroAtletaId"`,
-        [novaParceriaId, idsOrdenados[1], competicaoId, idsOrdenados[0]]
-      );
-      
-      if (result1.rows.length === 0) {
-        console.error('[GERAR JOGOS] Falha ao atualizar atleta 1:', {
+      // Se o registro não tem parceriaId, atualizar. Se já tem, criar um novo registro
+      const atleta1Registro = atleta1Check.rows[0];
+      if (!atleta1Registro.parceriaId) {
+        // Atualizar registro existente
+        const result1 = await query(
+          `UPDATE "AtletaCompeticao" 
+           SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
+           WHERE id = $3
+           RETURNING id, "parceriaId", "parceiroAtletaId"`,
+          [novaParceriaId, idsOrdenados[1], atleta1Registro.id]
+        );
+        
+        console.log('[GERAR JOGOS] ✅ Atualizado registro atleta 1:', {
+          registroId: result1.rows[0].id,
           atletaId: idsOrdenados[0],
-          competicaoId,
+          parceriaId: novaParceriaId,
+          parceiroAtletaId: idsOrdenados[1],
         });
-        throw new Error(`Falha ao atualizar atleta ${idsOrdenados[0]}`);
+      } else {
+        // Criar novo registro para esta parceria específica
+        await query(
+          `INSERT INTO "AtletaCompeticao" (
+            id, "competicaoId", "atletaId", "parceriaId", "parceiroAtletaId", pontos, "createdAt", "updatedAt"
+          )
+          VALUES (
+            gen_random_uuid()::text, $1, $2, $3, $4, 0, NOW(), NOW()
+          )`,
+          [competicaoId, idsOrdenados[0], novaParceriaId, idsOrdenados[1]]
+        );
+        console.log('[GERAR JOGOS] ✅ Criado novo registro para atleta 1:', {
+          atletaId: idsOrdenados[0],
+          parceriaId: novaParceriaId,
+          parceiroAtletaId: idsOrdenados[1],
+        });
       }
-      
-      console.log('[GERAR JOGOS] ✅ Atualizado atleta 1:', {
-        atletaId: idsOrdenados[0],
-        parceriaId: novaParceriaId,
-        parceiroAtletaId: idsOrdenados[1],
-        result: result1.rows[0],
-      });
 
-      // Atleta 2
+      // Atleta 2: Mesma lógica
       const atleta2Check = await query(
-        `SELECT id FROM "AtletaCompeticao" 
-         WHERE "competicaoId" = $1 AND "atletaId" = $2`,
+        `SELECT id, "parceriaId" FROM "AtletaCompeticao" 
+         WHERE "competicaoId" = $1 AND "atletaId" = $2
+         ORDER BY CASE WHEN "parceriaId" IS NULL THEN 0 ELSE 1 END, "createdAt" ASC
+         LIMIT 1`,
         [competicaoId, idsOrdenados[1]]
       );
 
@@ -216,30 +249,42 @@ export async function POST(
         throw new Error(`Atleta ${idsOrdenados[1]} não encontrado na competição ${competicaoId}`);
       }
 
-      const result2 = await query(
-        `UPDATE "AtletaCompeticao" 
-         SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
-         WHERE "competicaoId" = $3 AND "atletaId" = $4
-         RETURNING id, "parceriaId", "parceiroAtletaId"`,
-        [novaParceriaId, idsOrdenados[0], competicaoId, idsOrdenados[1]]
-      );
-      
-      if (result2.rows.length === 0) {
-        console.error('[GERAR JOGOS] Falha ao atualizar atleta 2:', {
+      const atleta2Registro = atleta2Check.rows[0];
+      if (!atleta2Registro.parceriaId) {
+        // Atualizar registro existente
+        const result2 = await query(
+          `UPDATE "AtletaCompeticao" 
+           SET "parceriaId" = $1, "parceiroAtletaId" = $2, "updatedAt" = NOW()
+           WHERE id = $3
+           RETURNING id, "parceriaId", "parceiroAtletaId"`,
+          [novaParceriaId, idsOrdenados[0], atleta2Registro.id]
+        );
+        
+        console.log('[GERAR JOGOS] ✅ Atualizado registro atleta 2:', {
+          registroId: result2.rows[0].id,
           atletaId: idsOrdenados[1],
-          competicaoId,
+          parceriaId: novaParceriaId,
+          parceiroAtletaId: idsOrdenados[0],
         });
-        throw new Error(`Falha ao atualizar atleta ${idsOrdenados[1]}`);
+      } else {
+        // Criar novo registro para esta parceria específica
+        await query(
+          `INSERT INTO "AtletaCompeticao" (
+            id, "competicaoId", "atletaId", "parceriaId", "parceiroAtletaId", pontos, "createdAt", "updatedAt"
+          )
+          VALUES (
+            gen_random_uuid()::text, $1, $2, $3, $4, 0, NOW(), NOW()
+          )`,
+          [competicaoId, idsOrdenados[1], novaParceriaId, idsOrdenados[0]]
+        );
+        console.log('[GERAR JOGOS] ✅ Criado novo registro para atleta 2:', {
+          atletaId: idsOrdenados[1],
+          parceriaId: novaParceriaId,
+          parceiroAtletaId: idsOrdenados[0],
+        });
       }
-      
-      console.log('[GERAR JOGOS] ✅ Atualizado atleta 2:', {
-        atletaId: idsOrdenados[1],
-        parceriaId: novaParceriaId,
-        parceiroAtletaId: idsOrdenados[0],
-        result: result2.rows[0],
-      });
 
-      // Verificar se a atualização foi bem-sucedida
+      // Verificar se a parceria foi criada corretamente
       const verificacao = await query(
         `SELECT COUNT(*) as total FROM "AtletaCompeticao"
          WHERE "parceriaId" = $1 AND "competicaoId" = $2`,
@@ -253,6 +298,7 @@ export async function POST(
           totalRegistros,
           esperado: 2,
         });
+        throw new Error(`Falha ao criar parceria: ${totalRegistros} registros encontrados ao invés de 2`);
       } else {
         console.log('[GERAR JOGOS] ✅ Parceria criada com sucesso:', {
           parceriaId: novaParceriaId,
