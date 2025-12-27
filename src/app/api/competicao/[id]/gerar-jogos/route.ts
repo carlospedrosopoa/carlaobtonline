@@ -411,7 +411,12 @@ export async function POST(
           participante2: jogo.participante2,
         });
       } catch (jogoError: any) {
-        console.error(`[GERAR JOGOS] Erro ao processar jogo ${jogo.numeroJogo} da rodada ${jogo.rodada}:`, jogoError);
+        console.error(`[GERAR JOGOS] Erro ao processar jogo ${index + 1}/${jogosSorteados.length}:`, {
+          rodada: jogo.rodada,
+          numeroJogo: jogo.numeroJogo,
+          error: jogoError.message,
+          stack: jogoError.stack,
+        });
         throw new Error(`Erro ao processar jogo ${jogo.numeroJogo} da rodada ${jogo.rodada}: ${jogoError.message}`);
       }
     }
