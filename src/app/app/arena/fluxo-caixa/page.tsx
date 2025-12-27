@@ -7,6 +7,7 @@ import { fluxoCaixaService, entradaCaixaService, saidaCaixaService, formaPagamen
 import type { LancamentoFluxoCaixa } from '@/types/gestaoArena';
 import type { FormaPagamento, CentroCusto, TipoDespesa, Fornecedor, CriarEntradaCaixaPayload, CriarSaidaCaixaPayload, AberturaCaixa, CriarAberturaCaixaPayload } from '@/types/gestaoArena';
 import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, X, Trash2 } from 'lucide-react';
+import CurrencyInput from '@/components/CurrencyInput';
 
 export default function FluxoCaixaPage() {
   const { usuario } = useAuth();
@@ -692,14 +693,14 @@ export default function FluxoCaixaPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Valor *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={formEntrada.valor || ''}
-                  onChange={(e) => setFormEntrada({ ...formEntrada, valor: parseFloat(e.target.value) || 0 })}
+                <CurrencyInput
+                  name="valor"
+                  value={formEntrada.valor}
+                  onChange={(value) => setFormEntrada({ ...formEntrada, valor: value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="0.00"
+                  required
+                  min={0.01}
+                  placeholder="0,00"
                 />
               </div>
 
@@ -789,14 +790,14 @@ export default function FluxoCaixaPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Valor *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={formSaida.valor || ''}
-                  onChange={(e) => setFormSaida({ ...formSaida, valor: parseFloat(e.target.value) || 0 })}
+                <CurrencyInput
+                  name="valor"
+                  value={formSaida.valor}
+                  onChange={(value) => setFormSaida({ ...formSaida, valor: value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="0.00"
+                  required
+                  min={0.01}
+                  placeholder="0,00"
                 />
               </div>
 
