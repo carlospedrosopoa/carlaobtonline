@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { enviarMensagemGzappy, obterWhatsAppGestor } from '@/lib/gzappyService';
+import { enviarMensagemGzappy } from '@/lib/gzappyService';
 
 // POST /api/agendamento/[id]/solicitar-cancelamento - Solicitar cancelamento de agendamento
 export async function POST(
@@ -26,7 +26,7 @@ export async function POST(
       `SELECT 
         a.id, a."usuarioId", a."atletaId", a."quadraId", a.status, a."dataHora",
         q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
-        p.nome as "point_nome",
+        p.nome as "point_nome", p.telefone as "point_telefone",
         at.nome as "atleta_nome", at.fone as "atleta_fone",
         u.name as "usuario_name", u.email as "usuario_email"
       FROM "Agendamento" a
@@ -125,36 +125,25 @@ export async function POST(
     const clienteNome = agendamento.atleta_nome || agendamento.usuario_name || 'Cliente';
     const clienteTelefone = agendamento.atleta_fone || '';
 
-    // Buscar WhatsApp do gestor da arena
-    const gestorWhatsapp = await obterWhatsAppGestor(agendamento.quadra_pointId);
+    // Usar telefone da arena (Point) como WhatsApp
+    const telefoneArena = agendamento.point_telefone;
     
-    if (!gestorWhatsapp) {
+    if (!telefoneArena) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'WhatsApp do gestor não está cadastrado' },
+        { mensagem: 'Telefone da arena não está cadastrado' },
         { status: 500 }
       );
       return withCors(errorResponse, request);
     }
-    
-    // Buscar nome do gestor para personalizar a mensagem
-    const gestorResult = await query(
-      `SELECT u.name as "gestor_nome", u.email as "gestor_email"
-       FROM "User" u 
-       WHERE u.role = 'ORGANIZER' 
-       AND u."pointIdGestor" = $1 
-       LIMIT 1`,
-      [agendamento.quadra_pointId]
-    );
-    
-    const gestorNome = gestorResult.rows.length > 0 
-      ? (gestorResult.rows[0].gestor_nome || gestorResult.rows[0].gestor_email || 'Gestor')
-      : 'Gestor';
 
     // Formatar número do WhatsApp (remover caracteres não numéricos e adicionar 55 se necessário)
-    let numeroFormatado = gestorWhatsapp.replace(/\D/g, '');
+    let numeroFormatado = telefoneArena.replace(/\D/g, '');
     if (!numeroFormatado.startsWith('55')) {
       numeroFormatado = '55' + numeroFormatado;
     }
+    
+    // Usar nome da arena como destinatário
+    const gestorNome = agendamento.point_nome || 'Arena';
 
     // Criar mensagem de solicitação de cancelamento
     const mensagem = `🏟️ *Solicitação de Cancelamento de Agendamento*
