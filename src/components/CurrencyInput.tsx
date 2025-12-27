@@ -76,7 +76,8 @@ export default function CurrencyInput({
       return;
     }
 
-    // Converter centavos para reais
+    // Os últimos 2 dígitos são sempre centavos
+    // Exemplo: 6000 → 60,00 | 15050 → 150,50 | 5 → 0,05
     const centavos = parseInt(numbersOnly, 10);
     const reais = centavosToReais(centavos);
     
@@ -90,14 +91,7 @@ export default function CurrencyInput({
     }
 
     // Durante a digitação, mostrar apenas os números (sem formatação)
-    // Mas formatar ao perder o foco
-    if (isFocused) {
-      // Mostrar apenas números enquanto digita
-      setDisplayValue(numbersOnly);
-    } else {
-      // Formatar quando não está focado
-      setDisplayValue(formatToBrazilian(finalValue));
-    }
+    setDisplayValue(numbersOnly);
     
     // Chamar onChange com o valor em reais
     onChange(finalValue);
@@ -145,7 +139,7 @@ export default function CurrencyInput({
         pattern="[0-9]*"
       />
       {isFocused && displayValue && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-medium">
           = {formatToBrazilian(centavosToReais(parseInt(displayValue.replace(/\D/g, '') || '0', 10)))}
         </div>
       )}
