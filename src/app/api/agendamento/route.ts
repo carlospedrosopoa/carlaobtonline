@@ -67,23 +67,49 @@ export async function GET(request: NextRequest) {
       paramCount++;
     }
 
-    // Por padrão, mostrar apenas agendamentos de hoje e futuros (a menos que incluirPassados seja true)
-    if (!incluirPassados && !dataInicio) {
-      // Filtrar apenas agendamentos >= início do dia de hoje (UTC)
+    // Filtro de data: lógica diferente para atletas (USER com apenasMeus) vs outros
+    if (apenasMeus && usuario.role === 'USER' && !dataInicio && !dataFim) {
+      // Para atletas: por padrão mostrar apenas próximos 10 dias (hoje até hoje+10 dias)
+      // Só incluir passados se incluirPassados=true (sem limite superior quando incluir passados)
+      const hoje = new Date();
+      hoje.setUTCHours(0, 0, 0, 0);
+      
+      if (incluirPassados) {
+        // Se pediu passados, mostrar todos (incluindo passados, sem limite de data fim)
+        // Não aplicar filtro de data mínima, apenas máximo de 10 dias no futuro
+        const dataFimLimite = new Date(hoje);
+        dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
+        dataFimLimite.setUTCHours(23, 59, 59, 999);
+        sql += ` AND a."dataHora" <= $${paramCount}`;
+        params.push(dataFimLimite.toISOString());
+        paramCount++;
+      } else {
+        // Por padrão: apenas próximos 10 dias (hoje até hoje+10 dias, sem passados)
+        const dataFimLimite = new Date(hoje);
+        dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
+        dataFimLimite.setUTCHours(23, 59, 59, 999);
+        sql += ` AND a."dataHora" >= $${paramCount} AND a."dataHora" <= $${paramCount + 1}`;
+        params.push(hoje.toISOString());
+        params.push(dataFimLimite.toISOString());
+        paramCount += 2;
+      }
+    } else if (!incluirPassados && !dataInicio) {
+      // Para ADMIN/ORGANIZER ou quando não for apenasMeus: comportamento padrão (hoje em diante)
       const hoje = new Date();
       hoje.setUTCHours(0, 0, 0, 0);
       sql += ` AND a."dataHora" >= $${paramCount}`;
       params.push(hoje.toISOString());
       paramCount++;
     } else if (dataInicio) {
-      // dataInicio vem como ISO string UTC (ex: "2024-01-15T00:00:00.000Z")
-      // Usar diretamente como UTC para comparação no banco
+      // Se dataInicio foi especificada, usar ela
       sql += ` AND a."dataHora" >= $${paramCount}`;
       params.push(dataInicio);
       paramCount++;
     }
 
-    if (dataFim) {
+    // dataFim só é aplicado se não aplicamos o limite de 10 dias acima
+    // (ou seja, se dataFim foi passado explicitamente ou se não for atleta com apenasMeus)
+    if (dataFim && !(apenasMeus && usuario.role === 'USER' && !dataInicio && !incluirPassados)) {
       // dataFim vem como ISO string UTC (ex: "2024-01-15T23:59:59.999Z")
       // Usar diretamente como UTC para comparação no banco
       sql += ` AND a."dataHora" <= $${paramCount}`;
@@ -104,7 +130,10 @@ export async function GET(request: NextRequest) {
       paramCount++;
     } else if (apenasMeus && usuario.role !== 'ADMIN') {
       // USER comum vê apenas seus próprios agendamentos
-      // Buscar agendamentos onde usuarioId = usuario.id OU onde atletaId corresponde ao atleta do usuário
+      // Buscar agendamentos onde:
+      // 1. usuarioId = usuario.id (agendamentos que o atleta criou)
+      // 2. atletaId = atleta do usuário (agendamentos onde a arena colocou o atleta como cliente principal)
+      // 3. atleta é participante do agendamento (na tabela AgendamentoAtleta)
       if (usuario.role === 'USER') {
         // Buscar o atletaId do usuário
         const atletaResult = await query(
@@ -114,8 +143,19 @@ export async function GET(request: NextRequest) {
         
         if (atletaResult.rows.length > 0) {
           const atletaId = atletaResult.rows[0].id;
-          // Incluir agendamentos onde usuarioId = usuario.id OU atletaId = atleta do usuário
-          sql += ` AND (a."usuarioId" = $${paramCount} OR a."atletaId" = $${paramCount + 1})`;
+          // Incluir agendamentos onde:
+          // - usuarioId = usuario.id OU
+          // - atletaId = atleta do usuário OU
+          // - atleta é participante (usando EXISTS para verificar na tabela AgendamentoAtleta)
+          sql += ` AND (
+            a."usuarioId" = $${paramCount} OR 
+            a."atletaId" = $${paramCount + 1} OR
+            EXISTS (
+              SELECT 1 FROM "AgendamentoAtleta" aa 
+              WHERE aa."agendamentoId" = a.id 
+              AND aa."atletaId" = $${paramCount + 1}
+            )
+          )`;
           params.push(usuario.id);
           params.push(atletaId);
           paramCount += 2;
@@ -173,21 +213,49 @@ export async function GET(request: NextRequest) {
           paramsFallback.push(pointId);
           paramCount++;
         }
-        // Por padrão, mostrar apenas agendamentos de hoje e futuros (a menos que incluirPassados seja true)
-        if (!incluirPassados && !dataInicio) {
-          // Filtrar apenas agendamentos >= início do dia de hoje (UTC)
+        // Filtro de data: lógica diferente para atletas (USER com apenasMeus) vs outros
+        if (apenasMeus && usuario.role === 'USER' && !dataInicio && !dataFim) {
+          // Para atletas: por padrão mostrar apenas próximos 10 dias (hoje até hoje+10 dias)
+          // Só incluir passados se incluirPassados=true (sem limite superior quando incluir passados)
+          const hoje = new Date();
+          hoje.setUTCHours(0, 0, 0, 0);
+          
+          if (incluirPassados) {
+            // Se pediu passados, mostrar todos (incluindo passados, sem limite de data fim)
+            // Não aplicar filtro de data mínima, apenas máximo de 10 dias no futuro
+            const dataFimLimite = new Date(hoje);
+            dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
+            dataFimLimite.setUTCHours(23, 59, 59, 999);
+            sql += ` AND a."dataHora" <= $${paramCount}`;
+            paramsFallback.push(dataFimLimite.toISOString());
+            paramCount++;
+          } else {
+            // Por padrão: apenas próximos 10 dias (hoje até hoje+10 dias, sem passados)
+            const dataFimLimite = new Date(hoje);
+            dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
+            dataFimLimite.setUTCHours(23, 59, 59, 999);
+            sql += ` AND a."dataHora" >= $${paramCount} AND a."dataHora" <= $${paramCount + 1}`;
+            paramsFallback.push(hoje.toISOString());
+            paramsFallback.push(dataFimLimite.toISOString());
+            paramCount += 2;
+          }
+        } else if (!incluirPassados && !dataInicio) {
+          // Para ADMIN/ORGANIZER ou quando não for apenasMeus: comportamento padrão (hoje em diante)
           const hoje = new Date();
           hoje.setUTCHours(0, 0, 0, 0);
           sql += ` AND a."dataHora" >= $${paramCount}`;
           paramsFallback.push(hoje.toISOString());
           paramCount++;
         } else if (dataInicio) {
-          // dataInicio vem como ISO string UTC
+          // Se dataInicio foi especificada, usar ela
           sql += ` AND a."dataHora" >= $${paramCount}`;
           paramsFallback.push(dataInicio);
           paramCount++;
         }
-        if (dataFim) {
+        
+        // dataFim só é aplicado se não aplicamos o limite de 10 dias acima
+        // (ou seja, se dataFim foi passado explicitamente ou se não for atleta com apenasMeus)
+        if (dataFim && !(apenasMeus && usuario.role === 'USER' && !dataInicio && !incluirPassados)) {
           // dataFim vem como ISO string UTC
           sql += ` AND a."dataHora" <= $${paramCount}`;
           paramsFallback.push(dataFim);
@@ -204,7 +272,10 @@ export async function GET(request: NextRequest) {
           paramCount++;
         } else if (apenasMeus && usuario.role !== 'ADMIN') {
           // USER comum vê apenas seus próprios agendamentos
-          // Buscar agendamentos onde usuarioId = usuario.id OU onde atletaId corresponde ao atleta do usuário
+          // Buscar agendamentos onde:
+          // 1. usuarioId = usuario.id (agendamentos que o atleta criou)
+          // 2. atletaId = atleta do usuário (agendamentos onde a arena colocou o atleta como cliente principal)
+          // 3. atleta é participante do agendamento (na tabela AgendamentoAtleta)
           if (usuario.role === 'USER') {
             // Buscar o atletaId do usuário
             const atletaResult = await query(
@@ -214,8 +285,19 @@ export async function GET(request: NextRequest) {
             
             if (atletaResult.rows.length > 0) {
               const atletaId = atletaResult.rows[0].id;
-              // Incluir agendamentos onde usuarioId = usuario.id OU atletaId = atleta do usuário
-              sql += ` AND (a."usuarioId" = $${paramCount} OR a."atletaId" = $${paramCount + 1})`;
+              // Incluir agendamentos onde:
+              // - usuarioId = usuario.id OU
+              // - atletaId = atleta do usuário OU
+              // - atleta é participante (usando EXISTS para verificar na tabela AgendamentoAtleta)
+              sql += ` AND (
+                a."usuarioId" = $${paramCount} OR 
+                a."atletaId" = $${paramCount + 1} OR
+                EXISTS (
+                  SELECT 1 FROM "AgendamentoAtleta" aa 
+                  WHERE aa."agendamentoId" = a.id 
+                  AND aa."atletaId" = $${paramCount + 1}
+                )
+              )`;
               paramsFallback.push(usuario.id);
               paramsFallback.push(atletaId);
               paramCount += 2;
