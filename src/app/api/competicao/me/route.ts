@@ -31,8 +31,9 @@ export async function GET(request: NextRequest) {
     const atletaId = atletaResult.rows[0].id;
 
     // Buscar competições que o atleta está participando
+    // Usar DISTINCT ON para evitar duplicatas quando o atleta tem múltiplos registros na mesma competição
     const result = await query(
-      `SELECT DISTINCT
+      `SELECT DISTINCT ON (c.id)
         c.id, c."pointId", c."quadraId", c.nome, c.tipo, c.formato, c.status,
         c."dataInicio", c."dataFim", c.descricao, c."valorInscricao", c.premio, 
         c.regras, c."configSuper8", c."createdAt", c."updatedAt",
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN "Quadra" q ON c."quadraId" = q.id
       LEFT JOIN "Atleta" p_atleta ON ac."parceiroAtletaId" = p_atleta.id
       WHERE ac."atletaId" = $1
-      ORDER BY c."createdAt" DESC`,
+      ORDER BY c.id, c."createdAt" DESC`,
       [atletaId]
     );
 
