@@ -311,7 +311,7 @@ export async function GET(request: NextRequest) {
           `SELECT 
             aa."agendamentoId", aa.id, aa."atletaId", aa."createdAt",
             at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
-            at."usuarioId" as "atleta_usuarioId",
+            at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",
             u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
           FROM "AgendamentoAtleta" aa
           LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
@@ -338,6 +338,7 @@ export async function GET(request: NextRequest) {
               nome: rowPart.atleta_nome,
               fone: rowPart.atleta_fone,
               usuarioId: rowPart.atleta_usuarioId || null,
+              fotoUrl: rowPart.atleta_fotoUrl || null,
               usuario: rowPart.usuario_id ? {
                 id: rowPart.usuario_id,
                 name: rowPart.usuario_name,
@@ -927,7 +928,7 @@ export async function POST(request: NextRequest) {
           `SELECT 
             aa.id, aa."atletaId", aa."createdAt",
             at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
-            at."usuarioId" as "atleta_usuarioId",
+            at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",
             u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
           FROM "AgendamentoAtleta" aa
           LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
@@ -945,6 +946,7 @@ export async function POST(request: NextRequest) {
             nome: rowPart.atleta_nome,
             fone: rowPart.atleta_fone,
             usuarioId: rowPart.atleta_usuarioId || null,
+            fotoUrl: rowPart.atleta_fotoUrl || null,
             usuario: rowPart.usuario_id ? {
               id: rowPart.usuario_id,
               name: rowPart.usuario_name,

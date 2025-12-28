@@ -72,6 +72,7 @@ export default function EditarAgendamentoModal({
       nome: string;
       fone?: string;
       usuarioId?: string | null;
+      fotoUrl?: string | null;
       usuario?: {
         id: string;
         name: string;
