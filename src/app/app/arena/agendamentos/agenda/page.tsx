@@ -1095,8 +1095,12 @@ export default function ArenaAgendaSemanalPage() {
                         // Calcular largura de cada agendamento quando há múltiplos
                         const quantidadeAgendamentos = agendamentosIniciando.length;
                         const totalItens = quantidadeAgendamentos + bloqueiosNoSlot.length;
+                        // Calcular largura considerando o gap entre os itens (gap-1 = 4px)
+                        // Se há N itens, há N-1 gaps de 4px entre eles
+                        const gapPx = 4; // gap-1 = 4px
+                        const totalGaps = totalItens > 1 ? (totalItens - 1) * gapPx : 0;
                         const larguraPorItem = totalItens > 0 
-                          ? `calc(${100 / totalItens}% - 4px)`
+                          ? `calc((100% - ${totalGaps}px) / ${totalItens})`
                           : '100%';
 
                         // Verificar se a célula está vazia (sem agendamentos nem bloqueios)
@@ -1114,7 +1118,7 @@ export default function ArenaAgendaSemanalPage() {
                             style={{ height: '30px' }}
                             title={celulaVazia ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}` : ''}
                           >
-                            <div className="absolute inset-1 flex gap-1">
+                            <div className="absolute inset-1 flex flex-nowrap gap-1">
                               {/* Renderizar bloqueios primeiro */}
                               {bloqueiosNoSlot.map((item, bloqueioIdx) => {
                                 const bloqueio = item.bloqueio;
