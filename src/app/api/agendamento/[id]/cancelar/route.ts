@@ -193,12 +193,16 @@ export async function POST(
       } : null,
     };
 
-    // Enviar notificação Gzappy para o gestor (em background, não bloqueia a resposta)
+    // Enviar notificações Gzappy (em background, não bloqueia a resposta)
     if (agendamentoRetorno.quadra?.point?.id) {
       const clienteNome = agendamentoRetorno.atleta?.nome || agendamentoRetorno.nomeAvulso || agendamentoRetorno.usuario?.name || 'Cliente';
       
       // Não aguardar a resposta do Gzappy para não bloquear a API
-      import('@/lib/gzappyService').then(({ notificarCancelamentoAgendamento }) => {
+      import('@/lib/gzappyService').then(({ 
+        notificarCancelamentoAgendamento, 
+        notificarAtletaCancelamentoAgendamento 
+      }) => {
+        // 1. Notificar o gestor (sempre)
         notificarCancelamentoAgendamento(
           agendamentoRetorno.quadra.point.id,
           {
@@ -207,8 +211,29 @@ export async function POST(
             cliente: clienteNome,
           }
         ).catch((err) => {
-          console.error('Erro ao enviar notificação Gzappy (não crítico):', err);
+          console.error('Erro ao enviar notificação Gzappy para gestor (não crítico):', err);
         });
+
+        // 2. Se quem cancelou foi a arena (ORGANIZER/ADMIN), notificar o atleta
+        if ((usuario.role === 'ORGANIZER' || usuario.role === 'ADMIN') && agendamentoRetorno.quadra?.point?.nome) {
+          const telefoneAtleta = agendamentoRetorno.atleta?.fone || agendamentoRetorno.telefoneAvulso;
+          
+          if (telefoneAtleta) {
+            notificarAtletaCancelamentoAgendamento(
+              telefoneAtleta,
+              agendamentoRetorno.quadra.point.id,
+              {
+                quadra: agendamentoRetorno.quadra.nome,
+                arena: agendamentoRetorno.quadra.point.nome,
+                dataHora: agendamentoRetorno.dataHora,
+              }
+            ).catch((err) => {
+              console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);
+            });
+          } else {
+            console.log('Atleta não possui telefone cadastrado para notificação de cancelamento');
+          }
+        }
       }).catch((err) => {
         console.error('Erro ao importar serviço Gzappy (não crítico):', err);
       });
