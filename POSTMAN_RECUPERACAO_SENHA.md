@@ -177,3 +177,4 @@ curl -X POST https://carlaobtonline.vercel.app/api/user/auth/reset-password \
    - Em desenvolvimento, o token aparece na resposta para facilitar testes
    - Em produção, o token não aparece na resposta
 
+

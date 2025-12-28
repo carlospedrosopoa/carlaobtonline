@@ -30,3 +30,4 @@ ON CONFLICT ("chave") DO NOTHING;
 -- As configurações são gerenciadas pelo admin e podem ser usadas por qualquer recurso da plataforma
 -- Exemplos: Gzappy para recuperação de senha, configurações de email, etc.
 
+

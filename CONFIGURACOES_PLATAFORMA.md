@@ -206,3 +206,4 @@ curl -X GET "https://carlaobtonline.vercel.app/api/admin/platform-config?categor
   -H "Authorization: Bearer seu_token_admin"
 ```
 
+
