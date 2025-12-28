@@ -440,6 +440,7 @@ export async function notificarCancelamentoAgendamento(
     quadra: string;
     dataHora: string;
     cliente: string;
+    atletaNotificado?: boolean; // Indica se o atleta foi notificado do cancelamento
   }
 ): Promise<boolean> {
   const whatsappGestor = await obterWhatsAppGestor(pointId);
@@ -472,7 +473,8 @@ export async function notificarCancelamentoAgendamento(
     horaFormatada = `${hora}:${minuto}`;
   }
 
-  const mensagem = `❌ *Agendamento Cancelado*
+  // Montar mensagem base
+  let mensagem = `❌ *Agendamento Cancelado*
 
 Quadra: ${agendamento.quadra}
 Data: ${dataFormatada}
@@ -480,6 +482,13 @@ Horário: ${horaFormatada}
 Cliente: ${agendamento.cliente}
 
 O agendamento foi cancelado.`;
+
+  // Adicionar informação sobre notificação do atleta se aplicável
+  if (agendamento.atletaNotificado === true) {
+    mensagem += `\n\n✅ *O atleta foi notificado do cancelamento via WhatsApp.*`;
+  } else if (agendamento.atletaNotificado === false) {
+    mensagem += `\n\n⚠️ *O atleta não foi notificado (telefone não cadastrado).*`;
+  }
 
   return await enviarMensagemGzappy({
     destinatario: whatsappGestor,
