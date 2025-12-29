@@ -1,14 +1,16 @@
 // app/app/arena/competicoes/page.tsx - Lista de Competições
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import { pointService } from '@/services/agendamentoService';
 import type { Competicao } from '@/types/competicao';
-import { Trophy, Plus, Edit, Trash2, Users, Calendar, MapPin, PlayCircle, BarChart3, CalendarCheck } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Users, Calendar, MapPin, PlayCircle, BarChart3, CalendarCheck, Image } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import ModalAgendarQuadrasCompeticao from '@/components/ModalAgendarQuadrasCompeticao';
+import { api } from '@/lib/api';
+import { useMemo, useEffect } from 'react';
 
 export default function CompeticoesPage() {
   const { usuario } = useAuth();
@@ -18,6 +20,19 @@ export default function CompeticoesPage() {
   const [filtroStatus, setFiltroStatus] = useState<string>('');
   const [modalAgendamentoAberto, setModalAgendamentoAberto] = useState(false);
   const [competicaoSelecionada, setCompeticaoSelecionada] = useState<Competicao | null>(null);
+  const [showCardId, setShowCardId] = useState<string | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardError, setCardError] = useState(false);
+  const [cardImageUrl, setCardImageUrl] = useState<string | null>(null);
+
+  // Limpa o blob URL quando o componente desmonta ou o card fecha
+  useEffect(() => {
+    return () => {
+      if (cardImageUrl) {
+        URL.revokeObjectURL(cardImageUrl);
+      }
+    };
+  }, [cardImageUrl]);
 
   useEffect(() => {
     carregarCompeticoes();
@@ -56,6 +71,32 @@ export default function CompeticoesPage() {
   const handleAgendarQuadras = (competicao: Competicao) => {
     setCompeticaoSelecionada(competicao);
     setModalAgendamentoAberto(true);
+  };
+
+  const handleVerCard = async (competicao: Competicao) => {
+    if (!competicao.cardDivulgacaoUrl) {
+      alert('Esta competição não possui card de divulgação cadastrado.');
+      return;
+    }
+
+    setShowCardId(competicao.id);
+    setCardLoading(true);
+    setCardError(false);
+    setCardImageUrl(null);
+
+    try {
+      const response = await api.get(`/card/competicao/${competicao.id}?refresh=true`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'image/png' });
+      const imageUrl = URL.createObjectURL(blob);
+      setCardImageUrl(imageUrl);
+      setCardLoading(false);
+    } catch (error: any) {
+      console.error('Erro ao carregar card:', error);
+      setCardError(true);
+      setCardLoading(false);
+    }
   };
 
   const handleFecharModalAgendamento = () => {
@@ -248,6 +289,15 @@ export default function CompeticoesPage() {
                 >
                   Editar
                 </button>
+                {competicao.cardDivulgacaoUrl && (
+                  <button
+                    onClick={() => handleVerCard(competicao)}
+                    className="w-full py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                  >
+                    <Image className="w-4 h-4" />
+                    Ver Card
+                  </button>
+                )}
                 <button
                   onClick={() => handleAgendarQuadras(competicao)}
                   className="w-full py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
@@ -288,6 +338,160 @@ export default function CompeticoesPage() {
           competicaoNome={competicaoSelecionada.nome}
           onAgendamentoCriado={handleFecharModalAgendamento}
         />
+      )}
+
+      {/* Modal do Card */}
+      {showCardId && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCardId(null);
+              setCardError(false);
+              setCardLoading(false);
+              if (cardImageUrl) {
+                URL.revokeObjectURL(cardImageUrl);
+                setCardImageUrl(null);
+              }
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative max-w-[95vw] max-h-[95vh] overflow-auto animate-in zoom-in-95 duration-200">
+            <button
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 text-3xl font-light w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all z-10"
+              onClick={() => {
+                setShowCardId(null);
+                setCardError(false);
+                setCardLoading(false);
+                if (cardImageUrl) {
+                  URL.revokeObjectURL(cardImageUrl);
+                  setCardImageUrl(null);
+                }
+              }}
+              aria-label="Fechar"
+            >
+              ×
+            </button>
+            
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                  <Trophy className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">Card da Competição</h3>
+                  <p className="text-sm text-gray-500">Compartilhe nas redes sociais</p>
+                </div>
+              </div>
+              
+              <div className="relative min-h-[400px] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border-2 border-dashed border-gray-200">
+                {cardLoading && !cardError && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-xl">
+                    <div className="text-center">
+                      <div className="relative">
+                        <div className="animate-spin rounded-full h-16 w-16 border-4 border-green-200 border-t-green-600 mx-auto mb-4"></div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Image className="w-8 h-8 text-green-600" />
+                        </div>
+                      </div>
+                      <p className="text-gray-700 font-medium">Gerando card...</p>
+                      <p className="text-sm text-gray-500 mt-1">Aguarde um momento</p>
+                    </div>
+                  </div>
+                )}
+                {cardImageUrl && (
+                  <img
+                    src={cardImageUrl}
+                    alt="Card da Competição"
+                    className="max-w-full max-h-[65vh] rounded-xl shadow-2xl mx-auto border-4 border-white opacity-100 scale-100 transition-all duration-300"
+                    onLoad={() => {
+                      setCardLoading(false);
+                      setCardError(false);
+                    }}
+                    onError={(e) => {
+                      setCardLoading(false);
+                      setCardError(true);
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                )}
+                {cardError && (
+                  <div className="text-center py-12 w-full">
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
+                      <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-800 font-semibold text-lg mb-2">Erro ao carregar o card</p>
+                    <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
+                      O backend pode estar tendo problemas para gerar o card. Verifique se a competição possui card de divulgação e atletas cadastrados.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        if (!showCardId) return;
+                        setCardError(false);
+                        setCardLoading(true);
+                        setCardImageUrl(null);
+                        
+                        try {
+                          const response = await api.get(`/card/competicao/${showCardId}?refresh=true`, {
+                            responseType: 'blob',
+                          });
+                          const blob = new Blob([response.data], { type: 'image/png' });
+                          const imageUrl = URL.createObjectURL(blob);
+                          setCardImageUrl(imageUrl);
+                          setCardLoading(false);
+                        } catch (error: any) {
+                          console.error('Erro ao carregar card:', error);
+                          setCardError(true);
+                          setCardLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                    >
+                      Tentar Novamente
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {cardImageUrl && (
+                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                  <a
+                    href={cardImageUrl}
+                    download={`card_competicao_${showCardId}.png`}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Baixar Card
+                  </a>
+                  <button
+                    onClick={() => {
+                      if (cardImageUrl) {
+                        const link = document.createElement('a');
+                        link.href = cardImageUrl;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.click();
+                      }
+                    }}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Abrir em Nova Aba
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
