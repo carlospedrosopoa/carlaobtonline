@@ -1036,16 +1036,12 @@ export default function ArenaAgendaSemanalPage() {
               </thead>
               <tbody>
                 {horariosFiltrados.map((slot) => {
-                  const mostrarHora = slot.minuto === 0; // Mostrar apenas nas horas cheias
-                  
                   return (
                     <tr key={`${slot.hora}-${slot.minuto}`} className="border-b border-gray-200">
                       <td className="sticky left-0 z-10 bg-white px-4 py-1 text-xs font-medium text-gray-600 border-r-2 border-gray-300 align-top">
-                        {mostrarHora && (
-                          <div className="font-semibold text-gray-700">
-                            {slot.hora.toString().padStart(2, '0')}:00
-                          </div>
-                        )}
+                        <div className="font-semibold text-gray-700">
+                          {slot.hora.toString().padStart(2, '0')}:{slot.minuto.toString().padStart(2, '0')}
+                        </div>
                       </td>
                       {diasSemana.map((dia, diaIdx) => {
                         const agendamentosDoDia = getAgendamentosPorDia(dia);
