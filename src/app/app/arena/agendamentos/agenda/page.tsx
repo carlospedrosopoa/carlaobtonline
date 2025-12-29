@@ -1036,12 +1036,16 @@ export default function ArenaAgendaSemanalPage() {
               </thead>
               <tbody>
                 {horariosFiltrados.map((slot) => {
+                  const mostrarHora = slot.minuto === 0; // Mostrar apenas nas horas cheias
+                  
                   return (
                     <tr key={`${slot.hora}-${slot.minuto}`} className="border-b border-gray-200">
                       <td className="sticky left-0 z-10 bg-white px-4 py-1 text-xs font-medium text-gray-600 border-r-2 border-gray-300 align-top">
-                        <div className="font-semibold text-gray-700">
-                          {slot.hora.toString().padStart(2, '0')}:{slot.minuto.toString().padStart(2, '0')}
-                        </div>
+                        {mostrarHora && (
+                          <div className="font-semibold text-gray-700">
+                            {slot.hora.toString().padStart(2, '0')}:00
+                          </div>
+                        )}
                       </td>
                       {diasSemana.map((dia, diaIdx) => {
                         const agendamentosDoDia = getAgendamentosPorDia(dia);
@@ -1130,7 +1134,7 @@ export default function ArenaAgendaSemanalPage() {
                               }
                             }}
                             className={`px-1 py-0.5 align-top relative ${celulaVazia ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
-                            style={{ height: '30px' }}
+                            style={{ height: '60px' }}
                             title={celulaVazia ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}` : ''}
                           >
                             <div className="absolute inset-1 flex flex-nowrap items-start gap-1">
@@ -1167,7 +1171,7 @@ export default function ArenaAgendaSemanalPage() {
                                     key={`bloqueio-${bloqueio.id}-${item.quadraId}-${bloqueioIdx}`}
                                     className="rounded-md shadow-sm overflow-visible relative bg-red-500 text-white border-2 border-red-600 opacity-80"
                                     style={{
-                                      height: `${linhasOcupadas * 30 - 2}px`,
+                                      height: `${linhasOcupadas * 60 - 2}px`,
                                       width: larguraPorItem,
                                       zIndex: 5,
                                     }}
@@ -1206,7 +1210,7 @@ export default function ArenaAgendaSemanalPage() {
                                 const dataHora = new Date(agendamento.dataHora); // Para cálculos de data
                                 
                                 // Calcular altura e posição baseado em quanto do agendamento está neste slot
-                                // Cada slot tem 30px de altura (representa 30 minutos)
+                                // Cada slot tem 60px de altura (representa 30 minutos)
                                 let alturaPx: number;
                                 let offsetTopPx: number = 0;
                                 
@@ -1219,24 +1223,24 @@ export default function ArenaAgendaSemanalPage() {
                                   if (minutosFim <= minutosSlotFim) {
                                     // Termina dentro deste slot - altura até onde termina
                                     const minutosNoSlot = minutosFim - minutosSlot;
-                                    alturaPx = Math.max(20, (minutosNoSlot / 30) * 30);
+                                    alturaPx = Math.max(40, (minutosNoSlot / 30) * 60);
                                   } else {
                                     // Termina depois deste slot - ocupa o slot inteiro
-                                    alturaPx = 30;
+                                    alturaPx = 60;
                                   }
                                 } else {
                                   // Agendamento começa neste slot
                                   const minutosOffset = minutosInicio - minutosSlot;
-                                  offsetTopPx = (minutosOffset / 30) * 30;
+                                  offsetTopPx = (minutosOffset / 30) * 60;
                                   
                                   if (minutosFim <= minutosSlotFim) {
                                     // Termina dentro deste slot - altura do início até o fim
                                     const minutosNoSlot = minutosFim - minutosInicio;
-                                    alturaPx = Math.max(20, (minutosNoSlot / 30) * 30);
+                                    alturaPx = Math.max(40, (minutosNoSlot / 30) * 60);
                                   } else {
                                     // Termina depois deste slot - ocupa do início até o fim do slot
                                     const minutosNoSlot = minutosSlotFim - minutosInicio;
-                                    alturaPx = Math.max(20, (minutosNoSlot / 30) * 30);
+                                    alturaPx = Math.max(40, (minutosNoSlot / 30) * 60);
                                   }
                                 }
                                 
@@ -1282,7 +1286,7 @@ export default function ArenaAgendaSemanalPage() {
                                         : 'bg-yellow-400 text-gray-900 border-2 border-yellow-500'
                                     } hover:shadow-md transition-all`}
                                     style={{
-                                      height: `${alturaPx - 2}px`,
+                                      height: `${alturaPx - 4}px`,
                                       marginTop: `${offsetTopPx}px`,
                                       width: larguraPorItem,
                                       flexShrink: 0,
