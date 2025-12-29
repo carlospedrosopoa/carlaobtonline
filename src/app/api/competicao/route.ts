@@ -78,6 +78,8 @@ export async function GET(request: NextRequest) {
       valorInscricao: row.valorInscricao ? parseFloat(row.valorInscricao) : null,
       premio: row.premio || null,
       regras: row.regras || null,
+      cardDivulgacaoUrl: row.cardDivulgacaoUrl || null,
+      fotoCompeticaoUrl: row.fotoCompeticaoUrl || null,
       configSuper8: row.configSuper8 || null,
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
