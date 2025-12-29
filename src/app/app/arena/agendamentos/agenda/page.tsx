@@ -1220,8 +1220,8 @@ export default function ArenaAgendaSemanalPage() {
                                   linhasOcupadas = Math.max(1, Math.ceil(minutosNoSlot / 30));
                                 } else {
                                   // Agendamento começa neste slot
-                                  // Verificar se há outros agendamentos que começam no próximo slot e se sobrepõem
-                                  // Se sim, ajustar altura para ocupar apenas a parte que não se sobrepõe
+                                  // Verificar se há outros agendamentos que começam no próximo slot (30 min depois) e se sobrepõem
+                                  // Se sim, ajustar altura para ocupar apenas a parte que não se sobrepõe (meia coluna)
                                   const proximoSlotMinutos = minutosSlot + 30;
                                   const haSobreposicaoNoProximoSlot = agendamentosDoDia.some((outroAg) => {
                                     if (outroAg.id === agendamento.id) return false;
@@ -1232,14 +1232,16 @@ export default function ArenaAgendaSemanalPage() {
                                     const outroMinutosInicio = outroHoraInicio * 60 + outroMinutoInicio;
                                     const outroMinutosFim = outroMinutosInicio + outroAg.duracao;
                                     
-                                    // Verifica se outro agendamento começa no próximo slot e se sobrepõe
-                                    return outroMinutosInicio >= proximoSlotMinutos && 
-                                           outroMinutosInicio < proximoSlotMinutos + 30 &&
-                                           outroMinutosInicio < minutosFim;
+                                    // Verifica se outro agendamento começa exatamente no próximo slot (30 min depois)
+                                    // e se se sobrepõe com o agendamento atual
+                                    const comecaNoProximoSlot = outroMinutosInicio === proximoSlotMinutos;
+                                    const seSobrepoe = outroMinutosInicio < minutosFim && outroMinutosFim > minutosInicio;
+                                    
+                                    return comecaNoProximoSlot && seSobrepoe;
                                   });
                                   
                                   if (haSobreposicaoNoProximoSlot) {
-                                    // Há sobreposição no próximo slot - ocupar apenas até o início do próximo slot
+                                    // Há sobreposição no próximo slot - ocupar apenas até o início do próximo slot (meia coluna)
                                     const minutosAteProximoSlot = proximoSlotMinutos - minutosInicio;
                                     linhasOcupadas = Math.max(1, Math.ceil(minutosAteProximoSlot / 30));
                                   } else {
