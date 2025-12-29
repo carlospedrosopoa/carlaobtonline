@@ -1071,27 +1071,23 @@ export default function ArenaAgendaSemanalPage() {
                           return minutosInicio >= minutosSlot && minutosInicio < proximoSlot;
                         });
                         
-                        // Buscar agendamentos que começaram antes mas estão ativos neste slot
-                        // Estes devem aparecer lado a lado quando há agendamentos iniciando neste slot
-                        const agendamentosAtivosQueComecaramAntes = agendamentosDoDia.filter((ag) => {
-                          // Pular se já está na lista de iniciando
-                          if (agendamentosIniciando.some(a => a.id === ag.id)) {
-                            return false;
-                          }
-                          
+                        // Buscar TODOS os agendamentos que estão ativos neste slot (para detectar sobreposições)
+                        const todosAgendamentosAtivosNoSlot = agendamentosDoDia.filter((ag) => {
                           const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
                           const horaInicio = match ? parseInt(match[1], 10) : 0;
                           const minutoInicio = match ? parseInt(match[2], 10) : 0;
                           const minutosInicio = horaInicio * 60 + minutoInicio;
                           const minutosFim = minutosInicio + ag.duracao;
                           
-                          // Começou antes E ainda está ativo no slot (se sobrepõe)
-                          // Só incluir se há agendamentos iniciando neste slot (para aparecerem lado a lado)
-                          return minutosInicio < minutosSlot && minutosFim > minutosSlot && agendamentosIniciando.length > 0;
+                          // Agendamento está ativo no slot se se sobrepõe ao slot
+                          return minutosInicio < minutosSlotFim && minutosFim > minutosSlot;
                         });
                         
-                        // Combinar: agendamentos que começam no slot + os que começaram antes mas estão ativos
-                        const agendamentosParaRenderizar = [...agendamentosIniciando, ...agendamentosAtivosQueComecaramAntes];
+                        // Se há múltiplos agendamentos ativos (sobreposição), renderizar todos lado a lado
+                        // Caso contrário, renderizar apenas os que começam neste slot
+                        const agendamentosParaRenderizar = todosAgendamentosAtivosNoSlot.length > 1 
+                          ? todosAgendamentosAtivosNoSlot // Múltiplos ativos = renderizar todos para aparecerem lado a lado
+                          : agendamentosIniciando; // Apenas um ou nenhum = renderizar apenas os que começam aqui
 
                         // Verificar bloqueios para cada quadra neste slot
                         const bloqueiosNoSlot: { quadraId: string; bloqueio: BloqueioAgenda }[] = [];
@@ -1204,8 +1200,22 @@ export default function ArenaAgendaSemanalPage() {
                                 const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
                                 const horaInicio = match ? parseInt(match[1], 10) : 0;
                                 const minutoInicio = match ? parseInt(match[2], 10) : 0;
+                                const minutosInicio = horaInicio * 60 + minutoInicio;
+                                const minutosFim = minutosInicio + agendamento.duracao;
                                 const dataHora = new Date(agendamento.dataHora); // Para cálculos de data
-                                const linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
+                                
+                                // Calcular altura baseado em quanto do agendamento está neste slot
+                                // Se o agendamento começou antes deste slot, calcular apenas a parte que está neste slot
+                                let linhasOcupadas: number;
+                                if (minutosInicio < minutosSlot) {
+                                  // Agendamento começou antes - calcular apenas a parte que está neste slot
+                                  const minutosNoSlot = Math.min(minutosFim - minutosSlot, 30);
+                                  linhasOcupadas = Math.max(1, Math.ceil(minutosNoSlot / 30));
+                                } else {
+                                  // Agendamento começa neste slot - usar duração completa
+                                  linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
+                                }
+                                
                                 const info = getInfoAgendamento(agendamento);
                                 const quadra = quadras.find(q => q.id === agendamento.quadraId);
                                 const corQuadra = getCorQuadra(agendamento.quadraId);
