@@ -171,3 +171,84 @@ export async function salvarCardUrl(partidaId: string, cardUrl: string): Promise
   console.log('[cardService] URL do card salva no banco:', cardUrl.substring(0, 50) + '...');
 }
 
+// ========== CARDS DE COMPETIÇÃO ==========
+
+export interface CompeticaoParaCard {
+  id: string;
+  nome: string;
+  cardDivulgacaoUrl: string | null; // URL do template de divulgação
+  atletas: Array<{
+    id: string;
+    nome: string;
+    fotoUrl: string | null;
+  }>;
+}
+
+/**
+ * Busca dados completos da competição para geração de card
+ */
+export async function buscarCompeticaoParaCard(competicaoId: string): Promise<CompeticaoParaCard | null> {
+  const result = await query(
+    `SELECT 
+      c.id,
+      c.nome,
+      c."cardDivulgacaoUrl"
+    FROM "Competicao" c
+    WHERE c.id = $1`,
+    [competicaoId]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+
+  // Buscar atletas participantes (apenas individuais, sem parceriaId)
+  const atletasResult = await query(
+    `SELECT DISTINCT ON (ac."atletaId")
+      ac."atletaId",
+      a.nome as "atleta_nome",
+      a."fotoUrl" as "atleta_fotoUrl"
+    FROM "AtletaCompeticao" ac
+    LEFT JOIN "Atleta" a ON ac."atletaId" = a.id
+    WHERE ac."competicaoId" = $1
+      AND ac."parceriaId" IS NULL
+    ORDER BY ac."atletaId", ac."createdAt" ASC
+    LIMIT 8`,
+    [competicaoId]
+  );
+
+  const atletas = atletasResult.rows.map((atletaRow) => ({
+    id: atletaRow.atletaId,
+    nome: atletaRow.atleta_nome,
+    fotoUrl: atletaRow.atleta_fotoUrl,
+  }));
+
+  return {
+    id: row.id,
+    nome: row.nome,
+    cardDivulgacaoUrl: row.cardDivulgacaoUrl || null,
+    atletas,
+  };
+}
+
+/**
+ * Salva a URL do card gerado no banco de dados da competição
+ */
+export async function salvarCardUrlCompeticao(competicaoId: string, cardUrl: string): Promise<void> {
+  // Nota: Pode ser necessário adicionar campo cardUrl na tabela Competicao se ainda não existir
+  await query(
+    `UPDATE "Competicao" SET "cardUrl" = $1, "updatedAt" = NOW() WHERE id = $2`,
+    [cardUrl, competicaoId]
+  ).catch(async (error: any) => {
+    // Se o campo não existir, tentar adicionar (apenas em desenvolvimento)
+    if (error.message?.includes('cardUrl') || error.code === '42703') {
+      console.warn('[cardService] Campo cardUrl não existe na tabela Competicao, ignorando...');
+    } else {
+      throw error;
+    }
+  });
+  console.log('[cardService] URL do card da competição salva no banco:', cardUrl.substring(0, 50) + '...');
+}
+

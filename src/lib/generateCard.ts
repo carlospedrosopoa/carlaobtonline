@@ -1,7 +1,7 @@
 // lib/generateCard.ts - Geração de card promocional de partida (baseado no modelo original)
 import sharp from 'sharp';
 import { createCanvas, loadImage, registerFont } from 'canvas';
-import { PartidaParaCard } from './cardService';
+import { PartidaParaCard, CompeticaoParaCard } from './cardService';
 import path from 'path';
 import fs from 'fs';
 import axios from 'axios';
@@ -728,5 +728,205 @@ export async function generateMatchCard(
   } catch (error: any) {
     console.error('[generateCard] Erro na geração:', error);
     throw new Error(`Erro ao gerar card: ${error.message}`);
+  }
+}
+
+/**
+ * Gera card promocional de competição usando o template de divulgação
+ * Substitui as 8 bolinhas pelas fotos dos atletas participantes
+ * @param competicao - Dados da competição incluindo cardDivulgacaoUrl e atletas
+ */
+export async function generateCompetitionCard(
+  competicao: CompeticaoParaCard
+): Promise<Buffer> {
+  try {
+    console.log('[generateCompetitionCard] Iniciando geração do card de competição...');
+    
+    // Função para normalizar URL do GCS
+    const normalizarUrlGCS = (url: string): string => {
+      if (url.includes('storage.cloud.google.com')) {
+        const urlNormalizada = url.replace('storage.cloud.google.com', 'storage.googleapis.com');
+        console.log('[generateCompetitionCard] URL normalizada');
+        return urlNormalizada;
+      }
+      return url;
+    };
+
+    // Função para carregar imagem remota
+    const carregarImagemRemota = async (url?: string | null): Promise<any> => {
+      if (!url) return null;
+      
+      const urlNormalizada = normalizarUrlGCS(url);
+      console.log('[generateCompetitionCard] Carregando imagem:', urlNormalizada.substring(0, 80) + '...');
+      
+      try {
+        if (urlNormalizada.startsWith('http://') || urlNormalizada.startsWith('https://')) {
+          const response = await axios.get(urlNormalizada, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            headers: { 'Accept': 'image/*' },
+            maxRedirects: 5,
+          });
+          
+          if (response.status !== 200) return null;
+          
+          const buffer = Buffer.from(response.data);
+          if (buffer.length === 0) return null;
+          
+          return await loadImage(buffer);
+        }
+        
+        if (url.startsWith('data:image/')) {
+          const base64Data = url.split(',')[1];
+          const buffer = Buffer.from(base64Data, 'base64');
+          return await loadImage(buffer);
+        }
+        
+        return null;
+      } catch (error: any) {
+        console.error('[generateCompetitionCard] Erro ao carregar imagem:', error.message);
+        return null;
+      }
+    };
+
+    // Carregar template de divulgação
+    if (!competicao.cardDivulgacaoUrl) {
+      throw new Error('Card de divulgação não encontrado. É necessário ter um card de divulgação cadastrado.');
+    }
+
+    console.log('[generateCompetitionCard] Carregando template...');
+    let template = await carregarImagemRemota(competicao.cardDivulgacaoUrl);
+    
+    // Tentar Signed URL se necessário
+    if (!template && competicao.cardDivulgacaoUrl.includes('storage.googleapis.com')) {
+      const fileName = extractFileNameFromUrl(competicao.cardDivulgacaoUrl);
+      if (fileName) {
+        const signedUrl = await getSignedUrl(fileName, 3600);
+        if (signedUrl) {
+          template = await carregarImagemRemota(signedUrl);
+        }
+      }
+    }
+
+    if (!template) {
+      throw new Error('Não foi possível carregar o template de divulgação.');
+    }
+
+    console.log('[generateCompetitionCard] Template carregado:', template.width, 'x', template.height);
+
+    // Criar canvas com as dimensões do template
+    const largura = template.width;
+    const altura = template.height;
+    const canvas = createCanvas(largura, altura);
+    const ctx = canvas.getContext('2d');
+
+    // Desenhar o template como fundo
+    ctx.drawImage(template, 0, 0, largura, altura);
+
+    if (competicao.atletas.length === 0) {
+      return canvas.toBuffer('image/png');
+    }
+
+    // Limitar a 8 atletas (Super 8)
+    const atletasParaCard = competicao.atletas.slice(0, 8);
+
+    // Carregar avatar padrão
+    let imgPadrao: any = null;
+    const avatarPath = path.join(process.cwd(), 'public', 'avatar.png');
+    try {
+      if (fs.existsSync(avatarPath)) {
+        imgPadrao = await loadImage(avatarPath);
+      } else {
+        const avatarSize = 150;
+        const avatarCanvas = createCanvas(avatarSize, avatarSize);
+        const avatarCtx = avatarCanvas.getContext('2d');
+        avatarCtx.fillStyle = '#475569';
+        avatarCtx.beginPath();
+        avatarCtx.arc(avatarSize / 2, avatarSize / 2, avatarSize / 2 - 10, 0, Math.PI * 2);
+        avatarCtx.fill();
+        avatarCtx.fillStyle = '#64748b';
+        avatarCtx.beginPath();
+        avatarCtx.arc(avatarSize / 2, avatarSize / 2 - 60, 60, 0, Math.PI * 2);
+        avatarCtx.fill();
+        avatarCtx.beginPath();
+        avatarCtx.arc(avatarSize / 2, avatarSize / 2 + 60, 100, 0, Math.PI, true);
+        avatarCtx.fill();
+        imgPadrao = await loadImage(avatarCanvas.toBuffer('image/png'));
+      }
+    } catch (error) {
+      console.error('[generateCompetitionCard] Erro ao carregar avatar padrão:', error);
+    }
+
+    // Carregar fotos dos atletas
+    const imagens = await Promise.all(
+      atletasParaCard.map(async (atleta) => {
+        if (!atleta.fotoUrl) return imgPadrao;
+        const img = await carregarImagemRemota(atleta.fotoUrl);
+        return img || imgPadrao;
+      })
+    );
+
+    // Calcular posições das 8 bolinhas (2 colunas de 4)
+    const tamanhoFoto = Math.min(largura, altura) * 0.12;
+    const colunaEsquerdaX = largura * 0.30;
+    const colunaDireitaX = largura * 0.70;
+    const inicioVertical = altura * 0.45;
+    const espacamentoVertical = (altura * 0.30) / 4;
+    
+    const posicoesFotos: Array<[number, number]> = [
+      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical],
+      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical],
+      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 2],
+      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 3],
+      [colunaDireitaX - tamanhoFoto / 2, inicioVertical],
+      [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical],
+      [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 2],
+      [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 3],
+    ];
+
+    // Desenhar fotos dos atletas (círculos)
+    imagens.forEach((img, i) => {
+      if (img && i < posicoesFotos.length) {
+        const x = posicoesFotos[i][0];
+        const y = posicoesFotos[i][1];
+        const centerX = x + tamanhoFoto / 2;
+        const centerY = y + tamanhoFoto / 2;
+        const radius = tamanhoFoto / 2 - 3;
+        
+        const imgAspect = img.width / img.height;
+        let drawWidth = tamanhoFoto;
+        let drawHeight = tamanhoFoto;
+        let drawX = x;
+        let drawY = y;
+        
+        if (imgAspect > 1) {
+          drawHeight = tamanhoFoto;
+          drawWidth = tamanhoFoto * imgAspect;
+          drawX = x - (drawWidth - tamanhoFoto) / 2;
+        } else {
+          drawWidth = tamanhoFoto;
+          drawHeight = tamanhoFoto / imgAspect;
+          drawY = y - (drawHeight - tamanhoFoto) / 2;
+        }
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+        ctx.restore();
+        
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius - 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    });
+    
+    return canvas.toBuffer('image/png');
+  } catch (error: any) {
+    console.error('[generateCompetitionCard] Erro:', error);
+    throw new Error(`Erro ao gerar card de competição: ${error.message}`);
   }
 }
