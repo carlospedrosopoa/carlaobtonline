@@ -122,6 +122,10 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         setRegras(competicaoData.regras || '');
         setCriterioClassificacao(competicaoData.configSuper8?.criterioClassificacao || 'VITORIAS');
         setAtletasParticipantes(competicaoData.atletasParticipantes || []);
+        setCardDivulgacaoUrl(competicaoData.cardDivulgacaoUrl || null);
+        setCardDivulgacaoPreview(competicaoData.cardDivulgacaoUrl || null);
+        setFotoCompeticaoUrl(competicaoData.fotoCompeticaoUrl || null);
+        setFotoCompeticaoPreview(competicaoData.fotoCompeticaoUrl || null);
         
         // Carregar jogos se existirem
         try {
