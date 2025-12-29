@@ -1,7 +1,7 @@
 // app/app/arena/competicoes/page.tsx - Lista de Competições
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import { pointService } from '@/services/agendamentoService';
@@ -10,7 +10,6 @@ import { Trophy, Plus, Edit, Trash2, Users, Calendar, MapPin, PlayCircle, BarCha
 import { useAuth } from '@/context/AuthContext';
 import ModalAgendarQuadrasCompeticao from '@/components/ModalAgendarQuadrasCompeticao';
 import { api } from '@/lib/api';
-import { useMemo, useEffect } from 'react';
 
 export default function CompeticoesPage() {
   const { usuario } = useAuth();
