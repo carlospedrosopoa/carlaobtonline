@@ -780,11 +780,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
               <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Buscar Atleta {formato === 'DUPLAS' && (atletaSelecionado || parceiroSelecionado) && (
-                      <span className="ml-2 text-xs text-blue-600">
-                        ({atletaSelecionado ? '1º selecionado' : ''} {parceiroSelecionado ? '2º selecionado' : ''})
-                      </span>
-                    )}
+                    Buscar Atleta
                   </label>
                   <input
                     type="text"
@@ -814,9 +810,7 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 {!buscandoAtletas && atletasDisponiveis.length > 0 && (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     <div className="text-sm font-medium text-gray-700 mb-2">
-                      {formato === 'DUPLAS' 
-                        ? 'Clique nos atletas para selecionar a dupla (2 atletas):' 
-                        : 'Clique no atleta para adicionar diretamente:'}
+                      Clique no atleta para adicionar individualmente:
                     </div>
                     {atletasDisponiveis
                       .filter(a => {
@@ -828,42 +822,31 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                       })
                       .map((atleta) => {
                         const jaAdicionado = atletasParticipantes.some(ap => ap.atletaId === atleta.id);
-                        const selecionado1 = atletaSelecionado === atleta.id;
-                        const selecionado2 = parceiroSelecionado === atleta.id;
-                        const selecionado = selecionado1 || selecionado2;
 
                         return (
                           <div
                             key={atleta.id}
                             className={`p-3 border rounded-lg transition-all cursor-pointer ${
-                              selecionado
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50'
+                              'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50'
                             } ${jaAdicionado ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={() => {
                               if (jaAdicionado) return;
-                              if (formato === 'INDIVIDUAL') {
-                                adicionarAtletaDireto(atleta.id);
-                              } else {
-                                selecionarAtletaParaDupla(atleta.id);
-                              }
+                              adicionarAtletaDireto(atleta.id);
                             }}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <User className={`w-5 h-5 ${selecionado ? 'text-blue-600' : 'text-gray-400'}`} />
+                                <User className="w-5 h-5 text-gray-400" />
                                 <div>
-                                  <div className={`font-medium ${selecionado ? 'text-blue-900' : 'text-gray-900'}`}>
+                                  <div className="font-medium text-gray-900">
                                     {atleta.nome}
-                                    {selecionado1 && <span className="ml-2 text-xs text-blue-600">(1º selecionado)</span>}
-                                    {selecionado2 && <span className="ml-2 text-xs text-blue-600">(2º selecionado)</span>}
                                   </div>
                                   {atleta.fone && (
                                     <div className="text-xs text-gray-500">{atleta.fone}</div>
                                   )}
                                 </div>
                               </div>
-                              {formato === 'INDIVIDUAL' && !jaAdicionado && (
+                              {!jaAdicionado && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -878,35 +861,6 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                           </div>
                         );
                       })}
-                  </div>
-                )}
-
-                {formato === 'DUPLAS' && atletaSelecionado && parceiroSelecionado && (
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-blue-900">Dupla selecionada:</div>
-                        <div className="text-sm text-blue-700 mt-1">
-                          {atletasDisponiveis.find(a => a.id === atletaSelecionado)?.nome} & {' '}
-                          {atletasDisponiveis.find(a => a.id === parceiroSelecionado)?.nome}
-                        </div>
-                      </div>
-                      <button
-                        onClick={adicionarDupla}
-                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                      >
-                        Adicionar Dupla
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setAtletaSelecionado('');
-                        setParceiroSelecionado('');
-                      }}
-                      className="mt-2 text-xs text-gray-600 hover:text-gray-800 underline"
-                    >
-                      Limpar seleção
-                    </button>
                   </div>
                 )}
               </div>
