@@ -1071,23 +1071,9 @@ export default function ArenaAgendaSemanalPage() {
                           return minutosInicio >= minutosSlot && minutosInicio < proximoSlot;
                         });
                         
-                        // Buscar TODOS os agendamentos que estão ativos neste slot (para detectar sobreposições)
-                        const todosAgendamentosAtivosNoSlot = agendamentosDoDia.filter((ag) => {
-                          const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
-                          const horaInicio = match ? parseInt(match[1], 10) : 0;
-                          const minutoInicio = match ? parseInt(match[2], 10) : 0;
-                          const minutosInicio = horaInicio * 60 + minutoInicio;
-                          const minutosFim = minutosInicio + ag.duracao;
-                          
-                          // Agendamento está ativo no slot se se sobrepõe ao slot
-                          return minutosInicio < minutosSlotFim && minutosFim > minutosSlot;
-                        });
-                        
-                        // Se há múltiplos agendamentos ativos (sobreposição), renderizar todos lado a lado
-                        // Caso contrário, renderizar apenas os que começam neste slot
-                        const agendamentosParaRenderizar = todosAgendamentosAtivosNoSlot.length > 1 
-                          ? todosAgendamentosAtivosNoSlot // Múltiplos ativos = renderizar todos para aparecerem lado a lado
-                          : agendamentosIniciando; // Apenas um ou nenhum = renderizar apenas os que começam aqui
+                        // Renderizar apenas os agendamentos que começam neste slot
+                        // Cada agendamento aparece apenas uma vez (no slot onde começa) com sua altura completa
+                        const agendamentosParaRenderizar = agendamentosIniciando;
 
                         // Verificar bloqueios para cada quadra neste slot
                         const bloqueiosNoSlot: { quadraId: string; bloqueio: BloqueioAgenda }[] = [];
@@ -1204,17 +1190,9 @@ export default function ArenaAgendaSemanalPage() {
                                 const minutosFim = minutosInicio + agendamento.duracao;
                                 const dataHora = new Date(agendamento.dataHora); // Para cálculos de data
                                 
-                                // Calcular altura baseado em quanto do agendamento está neste slot
-                                // Se o agendamento começou antes deste slot, calcular apenas a parte que está neste slot
-                                let linhasOcupadas: number;
-                                if (minutosInicio < minutosSlot) {
-                                  // Agendamento começou antes - calcular apenas a parte que está neste slot
-                                  const minutosNoSlot = Math.min(minutosFim - minutosSlot, 30);
-                                  linhasOcupadas = Math.max(1, Math.ceil(minutosNoSlot / 30));
-                                } else {
-                                  // Agendamento começa neste slot - usar duração completa
-                                  linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
-                                }
+                                // Calcular altura baseado na duração completa do agendamento
+                                // Cada agendamento aparece apenas uma vez (no slot onde começa) com sua altura completa
+                                const linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
                                 
                                 const info = getInfoAgendamento(agendamento);
                                 const quadra = quadras.find(q => q.id === agendamento.quadraId);
