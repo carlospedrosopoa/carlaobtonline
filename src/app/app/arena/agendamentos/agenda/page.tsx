@@ -1113,94 +1113,115 @@ export default function ArenaAgendaSemanalPage() {
                           }
                         });
 
-                        // Calcular largura de cada agendamento quando há múltiplos
-                        const quantidadeAgendamentos = agendamentosParaRenderizar.length;
-                        const totalItens = quantidadeAgendamentos + bloqueiosNoSlot.length;
-                        // Calcular largura considerando o gap entre os itens (gap-1 = 4px)
-                        const gapPx = 4; // gap-1 = 4px
-                        const totalGaps = totalItens > 1 ? (totalItens - 1) * gapPx : 0;
-                        const larguraPorItem = totalItens > 0 
-                          ? `calc((100% - ${totalGaps}px) / ${totalItens})`
-                          : '100%';
+                        // Calcular largura baseada no número de quadras (colunas fixas)
+                        // Cada quadra ocupa 1/número de quadras da largura disponível
+                        const numeroQuadras = quadras.length;
+                        const larguraPorQuadra = numeroQuadras > 0 ? `calc(100% / ${numeroQuadras})` : '100%';
 
+                        // Ordenar quadras para garantir ordem consistente (Quadra 1, Quadra 2, etc.)
+                        const quadrasOrdenadas = [...quadras].sort((a, b) => a.nome.localeCompare(b.nome));
+                        
                         // Verificar se a célula está vazia (sem agendamentos nem bloqueios)
                         const celulaVazia = agendamentosParaRenderizar.length === 0 && bloqueiosNoSlot.length === 0;
 
                         return (
                           <td
                             key={diaIdx}
-                            onClick={() => {
-                              if (celulaVazia) {
-                                handleClicarCelulaVazia(dia, slot);
-                              }
-                            }}
-                            className={`px-1 py-0.5 align-top relative ${celulaVazia ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
+                            className="px-1 py-0.5 align-top relative"
                             style={{ height: '60px' }}
-                            title={celulaVazia ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}` : ''}
                           >
+                            {/* Renderizar colunas fixas para cada quadra */}
                             <div className="absolute inset-1 flex flex-nowrap gap-1">
-                              {/* Renderizar bloqueios primeiro */}
-                              {bloqueiosNoSlot.map((item, bloqueioIdx) => {
-                                const bloqueio = item.bloqueio;
-                                const quadra = quadras.find(q => q.id === item.quadraId);
+                              {quadrasOrdenadas.map((quadra, quadraIdx) => {
+                                // Filtrar agendamentos desta quadra
+                                const agendamentosDaQuadra = agendamentosParaRenderizar.filter(
+                                  ag => ag.quadraId === quadra.id
+                                );
                                 
-                                // Calcular altura do bloqueio
-                                let linhasOcupadas = 1;
-                                if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
-                                  const duracaoMinutos = bloqueio.horaFim - bloqueio.horaInicio;
-                                  linhasOcupadas = Math.max(1, Math.ceil(duracaoMinutos / 30));
-                                } else {
-                                  // Dia inteiro - ocupar até o fim do dia (23:00)
-                                  const minutosRestantes = (23 * 60) - (slot.hora * 60 + slot.minuto);
-                                  linhasOcupadas = Math.max(1, Math.ceil(minutosRestantes / 30));
-                                }
-
-                                // Formatar horário do bloqueio
-                                let periodoTexto = '';
-                                if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
-                                  const horaInicio = Math.floor(bloqueio.horaInicio / 60);
-                                  const minutoInicio = bloqueio.horaInicio % 60;
-                                  const horaFim = Math.floor(bloqueio.horaFim / 60);
-                                  const minutoFim = bloqueio.horaFim % 60;
-                                  periodoTexto = `${horaInicio.toString().padStart(2, '0')}:${minutoInicio.toString().padStart(2, '0')} - ${horaFim.toString().padStart(2, '0')}:${minutoFim.toString().padStart(2, '0')}`;
-                                } else {
-                                  periodoTexto = 'Dia inteiro';
-                                }
-
+                                // Filtrar bloqueios desta quadra
+                                const bloqueiosDaQuadra = bloqueiosNoSlot.filter(
+                                  item => item.quadraId === quadra.id
+                                );
+                                
+                                const temConteudo = agendamentosDaQuadra.length > 0 || bloqueiosDaQuadra.length > 0;
+                                
                                 return (
                                   <div
-                                    key={`bloqueio-${bloqueio.id}-${item.quadraId}-${bloqueioIdx}`}
-                                    className="rounded-md shadow-sm overflow-visible relative bg-red-500 text-white border-2 border-red-600 opacity-80"
-                                    style={{
-                                      height: `${linhasOcupadas * 60 - 2}px`,
-                                      width: larguraPorItem,
-                                      zIndex: 5,
+                                    key={quadra.id}
+                                    className={`flex flex-col gap-1 ${temConteudo ? '' : 'cursor-pointer hover:bg-gray-50 transition-colors'}`}
+                                    style={{ width: larguraPorQuadra }}
+                                    onClick={() => {
+                                      if (!temConteudo) {
+                                        const dataHora = new Date(dia);
+                                        dataHora.setHours(slot.hora, slot.minuto, 0, 0);
+                                        setDataInicialModal(dataHora.toISOString());
+                                        setHoraInicialModal(`${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`);
+                                        setAgendamentoEditando(null);
+                                        setModalEditarAberto(true);
+                                      }
                                     }}
-                                    title={`Bloqueio: ${bloqueio.titulo}${quadra ? ` - ${quadra.nome}` : ''}`}
+                                    title={!temConteudo ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')} - ${quadra.nome}` : ''}
                                   >
-                                    <div className="p-1.5 h-full flex flex-col justify-between">
-                                      <div className="flex-1">
-                                        <div className="flex items-start gap-1 mb-0.5">
-                                          <Lock className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                                          <div className="text-[10px] font-bold flex-1 truncate">
-                                            {bloqueio.titulo}
+                                    {/* Renderizar bloqueios desta quadra */}
+                                    {bloqueiosDaQuadra.map((item, bloqueioIdx) => {
+                                      const bloqueio = item.bloqueio;
+                                      
+                                      // Calcular altura do bloqueio
+                                      let linhasOcupadas = 1;
+                                      if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
+                                        const duracaoMinutos = bloqueio.horaFim - bloqueio.horaInicio;
+                                        linhasOcupadas = Math.max(1, Math.ceil(duracaoMinutos / 30));
+                                      } else {
+                                        // Dia inteiro - ocupar até o fim do dia (23:00)
+                                        const minutosRestantes = (23 * 60) - (slot.hora * 60 + slot.minuto);
+                                        linhasOcupadas = Math.max(1, Math.ceil(minutosRestantes / 30));
+                                      }
+
+                                      // Formatar horário do bloqueio
+                                      let periodoTexto = '';
+                                      if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
+                                        const horaInicio = Math.floor(bloqueio.horaInicio / 60);
+                                        const minutoInicio = bloqueio.horaInicio % 60;
+                                        const horaFim = Math.floor(bloqueio.horaFim / 60);
+                                        const minutoFim = bloqueio.horaFim % 60;
+                                        periodoTexto = `${horaInicio.toString().padStart(2, '0')}:${minutoInicio.toString().padStart(2, '0')} - ${horaFim.toString().padStart(2, '0')}:${minutoFim.toString().padStart(2, '0')}`;
+                                      } else {
+                                        periodoTexto = 'Dia inteiro';
+                                      }
+
+                                      return (
+                                        <div
+                                          key={`bloqueio-${bloqueio.id}-${item.quadraId}-${bloqueioIdx}`}
+                                          className="rounded-md shadow-sm overflow-visible relative bg-red-500 text-white border-2 border-red-600 opacity-80"
+                                          style={{
+                                            height: `${linhasOcupadas * 60 - 2}px`,
+                                            width: '100%',
+                                            zIndex: 5,
+                                          }}
+                                          title={`Bloqueio: ${bloqueio.titulo} - ${quadra.nome}`}
+                                        >
+                                          <div className="p-1.5 h-full flex flex-col justify-between">
+                                            <div className="flex-1">
+                                              <div className="flex items-start gap-1 mb-0.5">
+                                                <Lock className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                                                <div className="text-[10px] font-bold flex-1 truncate">
+                                                  {bloqueio.titulo}
+                                                </div>
+                                              </div>
+                                              <div className="text-[10px] opacity-90 mb-0.5">
+                                                {quadra.nome}
+                                              </div>
+                                              <div className="text-[10px] opacity-90">
+                                                {periodoTexto}
+                                              </div>
+                                            </div>
                                           </div>
                                         </div>
-                                        {quadra && (
-                                          <div className="text-[10px] opacity-90 mb-0.5">
-                                            {quadra.nome}
-                                          </div>
-                                        )}
-                                        <div className="text-[10px] opacity-90">
-                                          {periodoTexto}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                              {agendamentosParaRenderizar.map((agendamento, agIdx) => {
-                                // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
+                                      );
+                                    })}
+                                    {/* Renderizar agendamentos desta quadra */}
+                                    {agendamentosDaQuadra.map((agendamento, agIdx) => {
+                                      // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                                 // Isso garante que 20h gravado = 20h exibido
                                 const dataHoraStr = agendamento.dataHora;
                                 const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
@@ -1209,95 +1230,94 @@ export default function ArenaAgendaSemanalPage() {
                                 const minutosInicio = horaInicio * 60 + minutoInicio;
                                 const minutosFim = minutosInicio + agendamento.duracao;
                                 const dataHora = new Date(agendamento.dataHora); // Para cálculos de data
-                                
-                                // Calcular altura baseado na duração completa do agendamento
-                                // Se o agendamento começou antes deste slot (está sendo renderizado aqui por causa de sobreposição),
-                                // calcular apenas a parte que está neste slot
-                                let linhasOcupadas: number;
-                                if (minutosInicio < minutosSlot) {
-                                  // Agendamento começou antes - calcular apenas a parte que está neste slot
-                                  const minutosNoSlot = Math.min(minutosFim - minutosSlot, 30);
-                                  linhasOcupadas = Math.max(1, Math.ceil(minutosNoSlot / 30));
-                                } else {
-                                  // Agendamento começa neste slot
-                                  // Verificar se há outros agendamentos que começam no próximo slot (30 min depois) e se sobrepõem
-                                  // Se sim, ajustar altura para ocupar apenas a parte que não se sobrepõe (meia coluna)
-                                  const proximoSlotMinutos = minutosSlot + 30;
-                                  const haSobreposicaoNoProximoSlot = agendamentosDoDia.some((outroAg) => {
-                                    if (outroAg.id === agendamento.id) return false;
-                                    
-                                    const outroMatch = outroAg.dataHora.match(/T(\d{2}):(\d{2})/);
-                                    const outroHoraInicio = outroMatch ? parseInt(outroMatch[1], 10) : 0;
-                                    const outroMinutoInicio = outroMatch ? parseInt(outroMatch[2], 10) : 0;
-                                    const outroMinutosInicio = outroHoraInicio * 60 + outroMinutoInicio;
-                                    const outroMinutosFim = outroMinutosInicio + outroAg.duracao;
-                                    
-                                    // Verifica se outro agendamento começa exatamente no próximo slot (30 min depois)
-                                    // e se se sobrepõe com o agendamento atual
-                                    const comecaNoProximoSlot = outroMinutosInicio === proximoSlotMinutos;
-                                    const seSobrepoe = outroMinutosInicio < minutosFim && outroMinutosFim > minutosInicio;
-                                    
-                                    return comecaNoProximoSlot && seSobrepoe;
-                                  });
-                                  
-                                  if (haSobreposicaoNoProximoSlot && minutosInicio === minutosSlot) {
-                                    // Há sobreposição no próximo slot E o agendamento começa exatamente neste slot
-                                    // Ocupar apenas até o início do próximo slot (meia coluna = 1 linha)
-                                    linhasOcupadas = 1; // Meia coluna = 30 minutos = 1 linha
-                                  } else {
-                                    // Sem sobreposição ou não começa exatamente no slot - usar duração completa
-                                    linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
-                                  }
-                                }
-                                
-                                const info = getInfoAgendamento(agendamento);
-                                const quadra = quadras.find(q => q.id === agendamento.quadraId);
-                                const corQuadra = getCorQuadra(agendamento.quadraId);
-                                
-                                // Formatar duração
-                                const horas = Math.floor(agendamento.duracao / 60);
-                                const minutos = agendamento.duracao % 60;
-                                let duracaoTexto = '';
-                                if (horas > 0 && minutos > 0) {
-                                  duracaoTexto = `${horas} hora${horas > 1 ? 's' : ''} e ${minutos} min.`;
-                                } else if (horas > 0) {
-                                  duracaoTexto = `${horas} hora${horas > 1 ? 's' : ''}`;
-                                } else {
-                                  duracaoTexto = `${minutos} min.`;
-                                }
-
-                                // Calcular horário de fim (usar UTC diretamente)
-                                const minutosTotais = horaInicio * 60 + minutoInicio + agendamento.duracao;
-                                const horaFim = Math.floor(minutosTotais / 60) % 24;
-                                const minutoFim = minutosTotais % 60;
-                                const periodoTexto = `${horaInicio.toString().padStart(2, '0')}:${minutoInicio.toString().padStart(2, '0')} - ${horaFim.toString().padStart(2, '0')}:${minutoFim.toString().padStart(2, '0')}`;
-
-                                return (
-                                  <div
-                                    key={agendamento.id}
-                                    ref={(el) => {
-                                      if (el) {
-                                        menuRefs.current[agendamento.id] = el;
+                                      
+                                      // Calcular altura baseado na duração completa do agendamento
+                                      // Se o agendamento começou antes deste slot (está sendo renderizado aqui por causa de sobreposição),
+                                      // calcular apenas a parte que está neste slot
+                                      let linhasOcupadas: number;
+                                      if (minutosInicio < minutosSlot) {
+                                        // Agendamento começou antes - calcular apenas a parte que está neste slot
+                                        const minutosNoSlot = Math.min(minutosFim - minutosSlot, 30);
+                                        linhasOcupadas = Math.max(1, Math.ceil(minutosNoSlot / 30));
+                                      } else {
+                                        // Agendamento começa neste slot
+                                        // Verificar se há outros agendamentos que começam no próximo slot (30 min depois) e se sobrepõem
+                                        // Se sim, ajustar altura para ocupar apenas a parte que não se sobrepõe (meia coluna)
+                                        const proximoSlotMinutos = minutosSlot + 30;
+                                        const haSobreposicaoNoProximoSlot = agendamentosDoDia.some((outroAg) => {
+                                          if (outroAg.id === agendamento.id) return false;
+                                          
+                                          const outroMatch = outroAg.dataHora.match(/T(\d{2}):(\d{2})/);
+                                          const outroHoraInicio = outroMatch ? parseInt(outroMatch[1], 10) : 0;
+                                          const outroMinutoInicio = outroMatch ? parseInt(outroMatch[2], 10) : 0;
+                                          const outroMinutosInicio = outroHoraInicio * 60 + outroMinutoInicio;
+                                          const outroMinutosFim = outroMinutosInicio + outroAg.duracao;
+                                          
+                                          // Verifica se outro agendamento começa exatamente no próximo slot (30 min depois)
+                                          // e se se sobrepõe com o agendamento atual
+                                          const comecaNoProximoSlot = outroMinutosInicio === proximoSlotMinutos;
+                                          const seSobrepoe = outroMinutosInicio < minutosFim && outroMinutosFim > minutosInicio;
+                                          
+                                          return comecaNoProximoSlot && seSobrepoe;
+                                        });
+                                        
+                                        if (haSobreposicaoNoProximoSlot && minutosInicio === minutosSlot) {
+                                          // Há sobreposição no próximo slot E o agendamento começa exatamente neste slot
+                                          // Ocupar apenas até o início do próximo slot (meia coluna = 1 linha)
+                                          linhasOcupadas = 1; // Meia coluna = 30 minutos = 1 linha
+                                        } else {
+                                          // Sem sobreposição ou não começa exatamente no slot - usar duração completa
+                                          linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
+                                        }
                                       }
-                                    }}
-                                    onClick={() => {
-                                      // Só permite editar se o status for CONFIRMADO e o menu não estiver aberto
-                                      if (agendamento.status === 'CONFIRMADO' && menuAberto !== agendamento.id) {
-                                        handleEditar(agendamento);
+                                      
+                                      const info = getInfoAgendamento(agendamento);
+                                      const corQuadra = getCorQuadra(agendamento.quadraId);
+                                      
+                                      // Formatar duração
+                                      const horas = Math.floor(agendamento.duracao / 60);
+                                      const minutos = agendamento.duracao % 60;
+                                      let duracaoTexto = '';
+                                      if (horas > 0 && minutos > 0) {
+                                        duracaoTexto = `${horas} hora${horas > 1 ? 's' : ''} e ${minutos} min.`;
+                                      } else if (horas > 0) {
+                                        duracaoTexto = `${horas} hora${horas > 1 ? 's' : ''}`;
+                                      } else {
+                                        duracaoTexto = `${minutos} min.`;
                                       }
-                                    }}
-                                    className={`rounded-md shadow-sm cursor-pointer group overflow-visible relative ${
-                                      agendamento.status === 'CONFIRMADO'
-                                        ? `${corQuadra.bg} ${corQuadra.text} border-2 ${corQuadra.border}`
-                                        : 'bg-yellow-400 text-gray-900 border-2 border-yellow-500'
-                                    } hover:shadow-md transition-all`}
-                                    style={{
-                                      height: `${linhasOcupadas * 60 - 2}px`,
-                                      width: larguraPorItem,
-                                      zIndex: menuAberto === agendamento.id ? 20 : 10,
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      if (agendamento.observacoes) {
+
+                                      // Calcular horário de fim (usar UTC diretamente)
+                                      const minutosTotais = horaInicio * 60 + minutoInicio + agendamento.duracao;
+                                      const horaFim = Math.floor(minutosTotais / 60) % 24;
+                                      const minutoFim = minutosTotais % 60;
+                                      const periodoTexto = `${horaInicio.toString().padStart(2, '0')}:${minutoInicio.toString().padStart(2, '0')} - ${horaFim.toString().padStart(2, '0')}:${minutoFim.toString().padStart(2, '0')}`;
+
+                                      return (
+                                        <div
+                                          key={agendamento.id}
+                                          ref={(el) => {
+                                            if (el) {
+                                              menuRefs.current[agendamento.id] = el;
+                                            }
+                                          }}
+                                          onClick={() => {
+                                            // Só permite editar se o status for CONFIRMADO e o menu não estiver aberto
+                                            if (agendamento.status === 'CONFIRMADO' && menuAberto !== agendamento.id) {
+                                              handleEditar(agendamento);
+                                            }
+                                          }}
+                                          className={`rounded-md shadow-sm cursor-pointer group overflow-visible relative ${
+                                            agendamento.status === 'CONFIRMADO'
+                                              ? `${corQuadra.bg} ${corQuadra.text} border-2 ${corQuadra.border}`
+                                              : 'bg-yellow-400 text-gray-900 border-2 border-yellow-500'
+                                          } hover:shadow-md transition-all`}
+                                          style={{
+                                            height: `${linhasOcupadas * 60 - 2}px`,
+                                            width: '100%',
+                                            zIndex: menuAberto === agendamento.id ? 20 : 10,
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            if (agendamento.observacoes) {
                                         // Usar a posição do mouse diretamente
                                         let x = e.clientX;
                                         let y = e.clientY - 10; // 10px acima do cursor
@@ -1315,153 +1335,156 @@ export default function ArenaAgendaSemanalPage() {
                                           y = e.clientY + 20; // Mostrar abaixo do cursor se não couber acima
                                         }
                                         
-                                        setTooltipAgendamento(agendamento.observacoes);
-                                        setTooltipPosicao({ x, y });
-                                      }
-                                    }}
-                                    onMouseLeave={() => {
-                                      setTooltipAgendamento(null);
-                                      setTooltipPosicao(null);
-                                    }}
-                                    onMouseMove={(e) => {
-                                      if (agendamento.observacoes && tooltipAgendamento) {
-                                        // Usar a posição do mouse diretamente
-                                        let x = e.clientX;
-                                        let y = e.clientY - 10; // 10px acima do cursor
-                                        
-                                        const tooltipWidth = 200;
-                                        if (x - tooltipWidth / 2 < 10) {
-                                          x = tooltipWidth / 2 + 10;
-                                        } else if (x + tooltipWidth / 2 > window.innerWidth - 10) {
-                                          x = window.innerWidth - tooltipWidth / 2 - 10;
-                                        }
-                                        
-                                        // Ajustar se sair da tela acima
-                                        if (y < 10) {
-                                          y = e.clientY + 20; // Mostrar abaixo do cursor se não couber acima
-                                        }
-                                        
-                                        setTooltipPosicao({ x, y });
-                                      }
-                                    }}
-                                  >
-                                    <div className="p-1.5 h-full flex flex-col justify-between relative">
-                                      {/* Badge na primeira linha */}
-                                      <div className="mb-1">
-                                        {getTipoBadge(agendamento)}
-                                      </div>
-                                      
-                                      <div className="flex-1">
-                                        <div className="flex items-start justify-between gap-1 mb-0.5">
-                                          <div className="text-[10px] font-bold opacity-90 flex-1 flex items-center gap-1">
-                                            {quadra?.nome || 'Quadra'}
-                                            {/* Indicador visual: criado pelo atleta ou organizer */}
-                                            {agendamento.atletaId && (
-                                              foiCriadoPeloAtleta(agendamento) ? (
-                                                <span title="Criado pelo atleta">
-                                                  <Smartphone className="w-3 h-3" />
-                                                </span>
-                                              ) : (
-                                                <span title="Criado pelo organizer">
-                                                  <UserCog className="w-3 h-3" />
-                                                </span>
-                                              )
+                                              setTooltipAgendamento(agendamento.observacoes);
+                                              setTooltipPosicao({ x, y });
+                                            }
+                                          }}
+                                          onMouseLeave={() => {
+                                            setTooltipAgendamento(null);
+                                            setTooltipPosicao(null);
+                                          }}
+                                          onMouseMove={(e) => {
+                                            if (agendamento.observacoes && tooltipAgendamento) {
+                                              // Usar a posição do mouse diretamente
+                                              let x = e.clientX;
+                                              let y = e.clientY - 10; // 10px acima do cursor
+                                              
+                                              const tooltipWidth = 200;
+                                              if (x - tooltipWidth / 2 < 10) {
+                                                x = tooltipWidth / 2 + 10;
+                                              } else if (x + tooltipWidth / 2 > window.innerWidth - 10) {
+                                                x = window.innerWidth - tooltipWidth / 2 - 10;
+                                              }
+                                              
+                                              // Ajustar se sair da tela acima
+                                              if (y < 10) {
+                                                y = e.clientY + 20; // Mostrar abaixo do cursor se não couber acima
+                                              }
+                                              
+                                              setTooltipPosicao({ x, y });
+                                            }
+                                          }}
+                                        >
+                                          <div className="p-1.5 h-full flex flex-col justify-between relative">
+                                            {/* Badge na primeira linha */}
+                                            <div className="mb-1">
+                                              {getTipoBadge(agendamento)}
+                                            </div>
+                                            
+                                            <div className="flex-1">
+                                              <div className="flex items-start justify-between gap-1 mb-0.5">
+                                                <div className="text-[10px] font-bold opacity-90 flex-1 flex items-center gap-1">
+                                                  {quadra.nome}
+                                                  {/* Indicador visual: criado pelo atleta ou organizer */}
+                                                  {agendamento.atletaId && (
+                                                    foiCriadoPeloAtleta(agendamento) ? (
+                                                      <span title="Criado pelo atleta">
+                                                        <Smartphone className="w-3 h-3" />
+                                                      </span>
+                                                    ) : (
+                                                      <span title="Criado pelo organizer">
+                                                        <UserCog className="w-3 h-3" />
+                                                      </span>
+                                                    )
+                                                  )}
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    if (menuAberto === agendamento.id) {
+                                                      setMenuAberto(null);
+                                                    } else {
+                                                      setMenuAberto(agendamento.id);
+                                                    }
+                                                  }}
+                                                  className="opacity-70 hover:opacity-100 transition-opacity z-10 relative"
+                                                  title="Menu de ações"
+                                                >
+                                                  <MoreVertical className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                              <div className="text-xs font-bold truncate mb-0.5">
+                                                {info.nome}
+                                              </div>
+                                              <div className="text-[10px] opacity-90 mb-0.5">
+                                                {periodoTexto}
+                                              </div>
+                                              <div className="text-[10px] opacity-90">
+                                                {duracaoTexto}
+                                              </div>
+                                            </div>
+                                            {agendamento.status === 'CONFIRMADO' && (
+                                              <div className="text-[9px] font-semibold opacity-75 mt-1">
+                                                Confirmado
+                                              </div>
                                             )}
                                           </div>
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              if (menuAberto === agendamento.id) {
-                                                setMenuAberto(null);
-                                              } else {
-                                                setMenuAberto(agendamento.id);
-                                              }
-                                            }}
-                                            className="opacity-70 hover:opacity-100 transition-opacity z-10 relative"
-                                            title="Menu de ações"
-                                          >
-                                            <MoreVertical className="w-3 h-3" />
-                                          </button>
-                                        </div>
-                                        <div className="text-xs font-bold truncate mb-0.5">
-                                          {info.nome}
-                                        </div>
-                                        <div className="text-[10px] opacity-90 mb-0.5">
-                                          {periodoTexto}
-                                        </div>
-                                        <div className="text-[10px] opacity-90">
-                                          {duracaoTexto}
-                                        </div>
-                                      </div>
-                                      {agendamento.status === 'CONFIRMADO' && (
-                                        <div className="text-[9px] font-semibold opacity-75 mt-1">
-                                          Confirmado
-                                        </div>
-                                      )}
-                                    </div>
 
-                                    {/* Menu de ações */}
-                                    {menuAberto === agendamento.id && (
-                                      <div 
-                                        className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 min-w-[160px]"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            e.preventDefault();
-                                            handleEditar(agendamento);
-                                          }}
-                                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                        >
-                                          <Edit className="w-4 h-4" />
-                                          Editar
-                                        </button>
-                                        {agendamento.status === 'CONFIRMADO' && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              handleEnviarConfirmacao(agendamento);
-                                            }}
-                                            className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
-                                          >
-                                            <MessageCircle className="w-4 h-4" />
-                                            Enviar Confirmação
-                                          </button>
-                                        )}
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            e.preventDefault();
-                                            handleCancelar(agendamento);
-                                          }}
-                                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                        >
-                                          <X className="w-4 h-4" />
-                                          Cancelar
-                                        </button>
-                                        {(isAdmin || isOrganizer) && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              handleDeletar(agendamento);
-                                            }}
-                                            className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-100 flex items-center gap-2 font-semibold border-t border-gray-200 mt-1 pt-2"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                            Excluir Permanentemente
-                                          </button>
-                                        )}
-                                      </div>
-                                    )}
+                                          {/* Menu de ações */}
+                                          {menuAberto === agendamento.id && (
+                                            <div 
+                                              className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 min-w-[160px]"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  e.preventDefault();
+                                                  handleEditar(agendamento);
+                                                }}
+                                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                              >
+                                                <Edit className="w-4 h-4" />
+                                                Editar
+                                              </button>
+                                              {agendamento.status === 'CONFIRMADO' && (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    handleEnviarConfirmacao(agendamento);
+                                                  }}
+                                                  className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                                                >
+                                                  <MessageCircle className="w-4 h-4" />
+                                                  Enviar Confirmação
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  e.preventDefault();
+                                                  handleCancelar(agendamento);
+                                                }}
+                                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                              >
+                                                <X className="w-4 h-4" />
+                                                Cancelar
+                                              </button>
+                                              {(isAdmin || isOrganizer) && (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    handleDeletar(agendamento);
+                                                  }}
+                                                  className="w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-100 flex items-center gap-2 font-semibold border-t border-gray-200 mt-1 pt-2"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                  Excluir Permanentemente
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 );
                               })}
