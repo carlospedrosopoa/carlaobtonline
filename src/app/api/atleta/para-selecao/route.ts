@@ -40,9 +40,14 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
     let paramCount = 1;
 
-    // Adicionar filtro de busca se fornecido
+    // Adicionar filtro de busca se fornecido (ignorando acentuação)
     if (busca) {
-      sql += ` WHERE a.nome ILIKE $${paramCount}`;
+      // Normalizar a busca removendo acentos (usando translate para remover acentos comuns)
+      // Aplica a mesma normalização no campo do banco para comparação case-insensitive e sem acentos
+      sql += ` WHERE 
+        LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC')) 
+        ILIKE 
+        LOWER(TRANSLATE($${paramCount}, 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC'))`;
       params.push(`%${busca}%`);
       paramCount++;
     }
