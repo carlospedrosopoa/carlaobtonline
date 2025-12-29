@@ -1051,9 +1051,11 @@ export default function ArenaAgendaSemanalPage() {
                         const agendamentosDoDia = getAgendamentosPorDia(dia);
                         
                         // Encontrar agendamentos que aparecem neste slot
-                        // Mostra agendamentos que começam exatamente no slot OU no slot mais próximo (arredondando para baixo)
+                        const minutosSlot = slot.hora * 60 + slot.minuto;
+                        const minutosSlotFim = minutosSlot + 30;
+                        
+                        // Agendamentos que começam neste slot (ou no slot mais próximo arredondando para baixo)
                         const agendamentosIniciando = agendamentosDoDia.filter((ag) => {
-                          // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                           const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
                           const horaInicio = match ? parseInt(match[1], 10) : 0;
                           const minutoInicio = match ? parseInt(match[2], 10) : 0;
@@ -1064,15 +1066,32 @@ export default function ArenaAgendaSemanalPage() {
                             return true;
                           }
                           
-                          // Para horários intermediários (ex: 6h15), mostrar no slot mais próximo (arredondando para baixo)
-                          // Exemplo: 6h15 aparece no slot de 6h00, 6h45 aparece no slot de 6h30
-                          const minutosSlot = slot.hora * 60 + slot.minuto;
+                          // Para horários intermediários, mostrar no slot mais próximo (arredondando para baixo)
                           const proximoSlot = minutosSlot + 30;
-                          
-                          // Mostrar se o agendamento começa entre este slot e o próximo (exclusivo do próximo)
-                          // Isso garante que 6h15 aparece em 6h00, não em 6h30
                           return minutosInicio >= minutosSlot && minutosInicio < proximoSlot;
                         });
+                        
+                        // Buscar agendamentos que começaram antes mas estão ativos neste slot
+                        // Estes devem aparecer lado a lado quando há agendamentos iniciando neste slot
+                        const agendamentosAtivosQueComecaramAntes = agendamentosDoDia.filter((ag) => {
+                          // Pular se já está na lista de iniciando
+                          if (agendamentosIniciando.some(a => a.id === ag.id)) {
+                            return false;
+                          }
+                          
+                          const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+                          const horaInicio = match ? parseInt(match[1], 10) : 0;
+                          const minutoInicio = match ? parseInt(match[2], 10) : 0;
+                          const minutosInicio = horaInicio * 60 + minutoInicio;
+                          const minutosFim = minutosInicio + ag.duracao;
+                          
+                          // Começou antes E ainda está ativo no slot (se sobrepõe)
+                          // Só incluir se há agendamentos iniciando neste slot (para aparecerem lado a lado)
+                          return minutosInicio < minutosSlot && minutosFim > minutosSlot && agendamentosIniciando.length > 0;
+                        });
+                        
+                        // Combinar: agendamentos que começam no slot + os que começaram antes mas estão ativos
+                        const agendamentosParaRenderizar = [...agendamentosIniciando, ...agendamentosAtivosQueComecaramAntes];
 
                         // Verificar bloqueios para cada quadra neste slot
                         const bloqueiosNoSlot: { quadraId: string; bloqueio: BloqueioAgenda }[] = [];
@@ -1093,7 +1112,7 @@ export default function ArenaAgendaSemanalPage() {
                         });
 
                         // Calcular largura de cada agendamento quando há múltiplos
-                        const quantidadeAgendamentos = agendamentosIniciando.length;
+                        const quantidadeAgendamentos = agendamentosParaRenderizar.length;
                         const totalItens = quantidadeAgendamentos + bloqueiosNoSlot.length;
                         // Calcular largura considerando o gap entre os itens (gap-1 = 4px)
                         const gapPx = 4; // gap-1 = 4px
@@ -1103,7 +1122,7 @@ export default function ArenaAgendaSemanalPage() {
                           : '100%';
 
                         // Verificar se a célula está vazia (sem agendamentos nem bloqueios)
-                        const celulaVazia = agendamentosIniciando.length === 0 && bloqueiosNoSlot.length === 0;
+                        const celulaVazia = agendamentosParaRenderizar.length === 0 && bloqueiosNoSlot.length === 0;
 
                         return (
                           <td
@@ -1117,7 +1136,7 @@ export default function ArenaAgendaSemanalPage() {
                             style={{ height: '60px' }}
                             title={celulaVazia ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}` : ''}
                           >
-                            <div className="absolute inset-1 flex flex-wrap gap-1">
+                            <div className="absolute inset-1 flex flex-nowrap gap-1">
                               {/* Renderizar bloqueios primeiro */}
                               {bloqueiosNoSlot.map((item, bloqueioIdx) => {
                                 const bloqueio = item.bloqueio;
@@ -1178,7 +1197,7 @@ export default function ArenaAgendaSemanalPage() {
                                   </div>
                                 );
                               })}
-                              {agendamentosIniciando.map((agendamento, agIdx) => {
+                              {agendamentosParaRenderizar.map((agendamento, agIdx) => {
                                 // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                                 // Isso garante que 20h gravado = 20h exibido
                                 const dataHoraStr = agendamento.dataHora;
