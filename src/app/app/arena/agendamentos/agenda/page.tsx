@@ -1052,6 +1052,9 @@ export default function ArenaAgendaSemanalPage() {
                         
                         // Encontrar agendamentos que aparecem neste slot
                         // Mostra agendamentos que começam exatamente no slot OU no slot mais próximo (arredondando para baixo)
+                        const minutosSlot = slot.hora * 60 + slot.minuto;
+                        const minutosSlotFim = minutosSlot + 30;
+                        
                         const agendamentosIniciando = agendamentosDoDia.filter((ag) => {
                           // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                           const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
@@ -1066,13 +1069,34 @@ export default function ArenaAgendaSemanalPage() {
                           
                           // Para horários intermediários (ex: 6h15), mostrar no slot mais próximo (arredondando para baixo)
                           // Exemplo: 6h15 aparece no slot de 6h00, 6h45 aparece no slot de 6h30
-                          const minutosSlot = slot.hora * 60 + slot.minuto;
                           const proximoSlot = minutosSlot + 30;
                           
                           // Mostrar se o agendamento começa entre este slot e o próximo (exclusivo do próximo)
                           // Isso garante que 6h15 aparece em 6h00, não em 6h30
                           return minutosInicio >= minutosSlot && minutosInicio < proximoSlot;
                         });
+                        
+                        // Buscar agendamentos que estão ativos neste slot mas começaram antes
+                        // Estes devem aparecer lado a lado com os que começam neste slot quando se sobrepõem
+                        const agendamentosAtivosNoSlot = agendamentosDoDia.filter((ag) => {
+                          // Pular se já está na lista de iniciando
+                          if (agendamentosIniciando.some(a => a.id === ag.id)) {
+                            return false;
+                          }
+                          
+                          const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+                          const horaInicio = match ? parseInt(match[1], 10) : 0;
+                          const minutoInicio = match ? parseInt(match[2], 10) : 0;
+                          const minutosInicio = horaInicio * 60 + minutoInicio;
+                          const minutosFim = minutosInicio + ag.duracao;
+                          
+                          // Se começou antes deste slot E ainda está ativo no slot (se sobrepõe)
+                          // E há agendamentos iniciando neste slot (para aparecerem lado a lado)
+                          return minutosInicio < minutosSlot && minutosFim > minutosSlot && agendamentosIniciando.length > 0;
+                        });
+                        
+                        // Combinar agendamentos que começam no slot com os que estão ativos e se sobrepõem
+                        const agendamentosParaRenderizar = [...agendamentosIniciando, ...agendamentosAtivosNoSlot];
 
                         // Verificar bloqueios para cada quadra neste slot
                         const bloqueiosNoSlot: { quadraId: string; bloqueio: BloqueioAgenda }[] = [];
@@ -1104,7 +1128,7 @@ export default function ArenaAgendaSemanalPage() {
                           : '100%';
 
                         // Verificar se a célula está vazia (sem agendamentos nem bloqueios)
-                        const celulaVazia = agendamentosIniciando.length === 0 && bloqueiosNoSlot.length === 0;
+                        const celulaVazia = agendamentosParaRenderizar.length === 0 && bloqueiosNoSlot.length === 0;
 
                         return (
                           <td
@@ -1179,15 +1203,53 @@ export default function ArenaAgendaSemanalPage() {
                                   </div>
                                 );
                               })}
-                              {agendamentosIniciando.map((agendamento, agIdx) => {
+                              {agendamentosParaRenderizar.map((agendamento, agIdx) => {
                                 // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                                 // Isso garante que 20h gravado = 20h exibido
                                 const dataHoraStr = agendamento.dataHora;
                                 const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
                                 const horaInicio = match ? parseInt(match[1], 10) : 0;
                                 const minutoInicio = match ? parseInt(match[2], 10) : 0;
+                                const minutosInicio = horaInicio * 60 + minutoInicio;
+                                const minutosFim = minutosInicio + agendamento.duracao;
                                 const dataHora = new Date(agendamento.dataHora); // Para cálculos de data
-                                const linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
+                                
+                                // Calcular altura e posição baseado em quanto do agendamento está neste slot
+                                // Cada slot tem 30px de altura (representa 30 minutos)
+                                let alturaPx: number;
+                                let offsetTopPx: number = 0;
+                                
+                                if (minutosInicio < minutosSlot) {
+                                  // Agendamento começou antes deste slot - começa no topo deste slot
+                                  offsetTopPx = 0;
+                                  
+                                  if (minutosFim <= minutosSlotFim) {
+                                    // Termina dentro deste slot - altura até onde termina
+                                    const minutosNoSlot = minutosFim - minutosSlot;
+                                    alturaPx = (minutosNoSlot / 30) * 30;
+                                  } else {
+                                    // Termina depois deste slot - ocupa o slot inteiro
+                                    alturaPx = 30;
+                                  }
+                                } else {
+                                  // Agendamento começa neste slot
+                                  const minutosOffset = minutosInicio - minutosSlot;
+                                  offsetTopPx = (minutosOffset / 30) * 30;
+                                  
+                                  if (minutosFim <= minutosSlotFim) {
+                                    // Termina dentro deste slot - altura do início até o fim
+                                    const minutosNoSlot = minutosFim - minutosInicio;
+                                    alturaPx = (minutosNoSlot / 30) * 30;
+                                  } else {
+                                    // Termina depois deste slot - ocupa do início até o fim do slot
+                                    const minutosNoSlot = minutosSlotFim - minutosInicio;
+                                    alturaPx = (minutosNoSlot / 30) * 30;
+                                  }
+                                }
+                                
+                                // Garantir altura mínima de pelo menos 20px para legibilidade
+                                alturaPx = Math.max(20, alturaPx);
+                                
                                 const info = getInfoAgendamento(agendamento);
                                 const quadra = quadras.find(q => q.id === agendamento.quadraId);
                                 const corQuadra = getCorQuadra(agendamento.quadraId);
@@ -1230,9 +1292,11 @@ export default function ArenaAgendaSemanalPage() {
                                         : 'bg-yellow-400 text-gray-900 border-2 border-yellow-500'
                                     } hover:shadow-md transition-all`}
                                     style={{
-                                      height: `${linhasOcupadas * 30 - 2}px`,
+                                      height: `${alturaPx - 2}px`,
+                                      top: `${offsetTopPx}px`,
                                       width: larguraPorItem,
                                       zIndex: menuAberto === agendamento.id ? 20 : 10,
+                                      position: 'absolute',
                                     }}
                                     onMouseEnter={(e) => {
                                       if (agendamento.observacoes) {
