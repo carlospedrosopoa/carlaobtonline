@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       `SELECT DISTINCT ON (c.id)
         c.id, c."pointId", c."quadraId", c.nome, c.tipo, c.formato, c.status,
         c."dataInicio", c."dataFim", c.descricao, c."valorInscricao", c.premio, 
-        c.regras, c."configSuper8", c."createdAt", c."updatedAt",
+        c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt",
         p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
         q.id as "quadra_id", q.nome as "quadra_nome",
         ac."parceriaId", ac."parceiroAtletaId",
@@ -65,6 +65,8 @@ export async function GET(request: NextRequest) {
       valorInscricao: row.valorInscricao ? parseFloat(row.valorInscricao) : null,
       premio: row.premio || null,
       regras: row.regras || null,
+      cardDivulgacaoUrl: row.cardDivulgacaoUrl || null,
+      fotoCompeticaoUrl: row.fotoCompeticaoUrl || null,
       configSuper8: row.configSuper8 || null,
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
