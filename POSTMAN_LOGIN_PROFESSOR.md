@@ -239,3 +239,5 @@ Para importar esta coleção no Postman:
 5. Configure as variáveis de ambiente conforme descrito acima
 6. Execute a requisição e copie o `token` da resposta para a variável `token_professor`
 
+
+

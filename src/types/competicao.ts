@@ -104,6 +104,8 @@ export interface Competicao {
   valorInscricao?: number | null;
   premio?: string | null;
   regras?: string | null;
+  cardDivulgacaoUrl?: string | null;
+  fotoCompeticaoUrl?: string | null;
   // Configurações específicas do Super 8
   configSuper8?: {
     pontosPorVitoria?: number;
@@ -129,6 +131,8 @@ export interface CriarCompeticaoPayload {
   valorInscricao?: number | null;
   premio?: string | null;
   regras?: string | null;
+  cardDivulgacaoUrl?: string | null;
+  fotoCompeticaoUrl?: string | null;
   configSuper8?: {
     pontosPorVitoria?: number;
     pontosPorDerrota?: number;
@@ -147,6 +151,8 @@ export interface AtualizarCompeticaoPayload {
   valorInscricao?: number | null;
   premio?: string | null;
   regras?: string | null;
+  cardDivulgacaoUrl?: string | null;
+  fotoCompeticaoUrl?: string | null;
   configSuper8?: {
     pontosPorVitoria?: number;
     pontosPorDerrota?: number;

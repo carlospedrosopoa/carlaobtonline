@@ -217,10 +217,10 @@ export async function POST(
             competicaoId,
             jogo.rodada,
             jogo.numeroJogo,
-            atleta1Id,
-            atleta2Id,
-            parceria1Id,
-            parceria2Id,
+            atleta1Id, // Primeiro atleta da primeira dupla
+            atleta2Id, // Segundo atleta da primeira dupla (ou null se não houver campo para segundo)
+            parceria1Id, // ID da parceria (contém info dos dois atletas)
+            parceria2Id, // ID da segunda parceria
           ]
         );
 

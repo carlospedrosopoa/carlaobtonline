@@ -31,3 +31,5 @@ ON CONFLICT ("chave") DO NOTHING;
 -- Exemplos: Gzappy para recuperação de senha, configurações de email, etc.
 
 
+
+

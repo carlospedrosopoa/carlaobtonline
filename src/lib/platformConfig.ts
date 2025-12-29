@@ -142,3 +142,5 @@ export async function obterConfiguracoesGzappyPlataforma(): Promise<{
 }
 
 
+
+

@@ -41,6 +41,14 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   const [premio, setPremio] = useState('');
   const [regras, setRegras] = useState('');
   const [criterioClassificacao, setCriterioClassificacao] = useState<'VITORIAS' | 'SALDO_GAMES'>('VITORIAS');
+  
+  // Imagens
+  const [cardDivulgacaoUrl, setCardDivulgacaoUrl] = useState<string | null>(null);
+  const [cardDivulgacaoPreview, setCardDivulgacaoPreview] = useState<string | null>(null);
+  const [fotoCompeticaoUrl, setFotoCompeticaoUrl] = useState<string | null>(null);
+  const [fotoCompeticaoPreview, setFotoCompeticaoPreview] = useState<string | null>(null);
+  const [uploadingCard, setUploadingCard] = useState(false);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   // Atletas
   const [atletasDisponiveis, setAtletasDisponiveis] = useState<Atleta[]>([]);
@@ -499,6 +507,8 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
         valorInscricao: valorInscricao ? parseFloat(valorInscricao) : null,
         premio: premio.trim() || null,
         regras: regras.trim() || null,
+        cardDivulgacaoUrl: cardDivulgacaoUrl || null,
+        fotoCompeticaoUrl: fotoCompeticaoUrl || null,
         configSuper8: {
           criterioClassificacao: criterioClassificacao,
         },
@@ -670,6 +680,106 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 placeholder="Ex: Troféu + R$ 500,00&#10;ou&#10;1º lugar: R$ 500,00&#10;2º lugar: R$ 300,00"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-y"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Card de Divulgação</label>
+              <div className="space-y-2">
+                {cardDivulgacaoPreview && (
+                  <div className="relative inline-block">
+                    <img
+                      src={cardDivulgacaoPreview}
+                      alt="Card de divulgação"
+                      className="max-w-xs max-h-48 object-contain rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCardDivulgacaoUrl(null);
+                        setCardDivulgacaoPreview(null);
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (!file.type.startsWith('image/')) {
+                        alert('Por favor, selecione apenas arquivos de imagem.');
+                        return;
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert('A imagem deve ter no máximo 5MB.');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        const base64String = reader.result as string;
+                        setCardDivulgacaoUrl(base64String);
+                        setCardDivulgacaoPreview(base64String);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Foto da Competição</label>
+              <div className="space-y-2">
+                {fotoCompeticaoPreview && (
+                  <div className="relative inline-block">
+                    <img
+                      src={fotoCompeticaoPreview}
+                      alt="Foto da competição"
+                      className="max-w-xs max-h-48 object-contain rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFotoCompeticaoUrl(null);
+                        setFotoCompeticaoPreview(null);
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (!file.type.startsWith('image/')) {
+                        alert('Por favor, selecione apenas arquivos de imagem.');
+                        return;
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert('A imagem deve ter no máximo 5MB.');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        const base64String = reader.result as string;
+                        setFotoCompeticaoUrl(base64String);
+                        setFotoCompeticaoPreview(base64String);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                />
+              </div>
             </div>
 
             <div>

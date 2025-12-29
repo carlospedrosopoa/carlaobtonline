@@ -98,7 +98,7 @@ export async function GET(
       };
 
       // Buscar informações dos participantes
-      // SEMPRE buscar como duplas, pois todos os jogos são de duplas (round-robin)
+      // As duplas são formadas dinamicamente - buscar atletas diretamente pelos IDs salvos no jogo
       
       // Debug: log dos IDs salvos no jogo
       console.log('[JOGOS] Buscando participantes do jogo:', {
@@ -111,9 +111,33 @@ export async function GET(
         atleta2Id: row.atleta2Id,
       });
       
-      // Buscar dupla 1
-      if (row.atleta1ParceriaId) {
-        // Buscar registros da parceria - pegar ambos os atletas
+      // Buscar dupla 1 - usar IDs diretamente do jogo (atleta1Id e atleta2Id armazenam os IDs dos atletas da primeira dupla)
+      if (row.atleta1Id && row.atleta2Id) {
+        // Buscar atletas diretamente pelos IDs
+        const atleta1Result = await query(
+          `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+          [row.atleta1Id]
+        );
+        const atleta2Result = await query(
+          `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+          [row.atleta2Id]
+        );
+        
+        if (atleta1Result.rows.length > 0 && atleta2Result.rows.length > 0) {
+          const atleta1 = atleta1Result.rows[0];
+          const atleta2 = atleta2Result.rows[0];
+          
+          jogo.participante1 = {
+            parceriaId: row.atleta1ParceriaId,
+            nome: `${atleta1.nome} & ${atleta2.nome}`,
+            dupla: {
+              atleta1: { id: atleta1.id, nome: atleta1.nome },
+              atleta2: { id: atleta2.id, nome: atleta2.nome },
+            },
+          };
+        }
+      } else if (row.atleta1ParceriaId) {
+        // Fallback: se ainda houver parceriaId mas não IDs diretos, tentar buscar na tabela (para jogos antigos)
         const dupla1Result = await query(
           `SELECT 
             ac."atletaId", 

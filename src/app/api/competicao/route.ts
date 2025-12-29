@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
+import { uploadImage, base64ToBuffer } from '@/lib/googleCloudStorage';
 import type { CriarCompeticaoPayload } from '@/types/competicao';
 
 // GET /api/competicao - Listar competições
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     let sql = `SELECT 
       c.id, c."pointId", c."quadraId", c.nome, c.tipo, c.formato, c.status,
       c."dataInicio", c."dataFim", c.descricao, c."valorInscricao", c.premio, 
-      c.regras, c."configSuper8", c."createdAt", c."updatedAt",
+      c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt",
       p.id as "point_id", p.nome as "point_nome",
       q.id as "quadra_id", q.nome as "quadra_nome"
     FROM "Competicao" c
@@ -124,7 +125,55 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CriarCompeticaoPayload = await request.json();
-    const { pointId, quadraId, nome, tipo, formato, dataInicio, dataFim, descricao, valorInscricao, premio, regras, configSuper8 } = body;
+    const { pointId, quadraId, nome, tipo, formato, dataInicio, dataFim, descricao, valorInscricao, premio, regras, cardDivulgacaoUrl, fotoCompeticaoUrl, configSuper8 } = body;
+
+    // Processar cardDivulgacaoUrl: se for base64, fazer upload para GCS
+    let cardDivulgacaoUrlProcessada: string | null = null;
+    if (cardDivulgacaoUrl) {
+      if (cardDivulgacaoUrl.startsWith('data:image/')) {
+        try {
+          const buffer = base64ToBuffer(cardDivulgacaoUrl);
+          const mimeMatch = cardDivulgacaoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `competicao-card-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'competicoes');
+          cardDivulgacaoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload do card de divulgação:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload do card de divulgação' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (cardDivulgacaoUrl.startsWith('http://') || cardDivulgacaoUrl.startsWith('https://')) {
+        cardDivulgacaoUrlProcessada = cardDivulgacaoUrl;
+      }
+    }
+
+    // Processar fotoCompeticaoUrl: se for base64, fazer upload para GCS
+    let fotoCompeticaoUrlProcessada: string | null = null;
+    if (fotoCompeticaoUrl) {
+      if (fotoCompeticaoUrl.startsWith('data:image/')) {
+        try {
+          const buffer = base64ToBuffer(fotoCompeticaoUrl);
+          const mimeMatch = fotoCompeticaoUrl.match(/data:image\/(\w+);base64,/);
+          const extension = mimeMatch ? mimeMatch[1] : 'jpg';
+          const fileName = `competicao-foto-${Date.now()}.${extension}`;
+          const result = await uploadImage(buffer, fileName, 'competicoes');
+          fotoCompeticaoUrlProcessada = result.url;
+        } catch (error) {
+          console.error('Erro ao fazer upload da foto da competição:', error);
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Erro ao fazer upload da foto da competição' },
+            { status: 500 }
+          );
+          return withCors(errorResponse, request);
+        }
+      } else if (fotoCompeticaoUrl.startsWith('http://') || fotoCompeticaoUrl.startsWith('https://')) {
+        fotoCompeticaoUrlProcessada = fotoCompeticaoUrl;
+      }
+    }
 
     if (!pointId || !nome || !tipo || !formato) {
       const errorResponse = NextResponse.json(
@@ -146,12 +195,12 @@ export async function POST(request: NextRequest) {
     const result = await query(
       `INSERT INTO "Competicao" (
         id, "pointId", "quadraId", nome, tipo, formato, status,
-        "dataInicio", "dataFim", descricao, "valorInscricao", premio, regras, "configSuper8",
+        "dataInicio", "dataFim", descricao, "valorInscricao", premio, regras, "cardDivulgacaoUrl", "fotoCompeticaoUrl", "configSuper8",
         "createdAt", "updatedAt"
       )
       VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4, $5, 'CRIADA',
-        $6, $7, $8, $9, $10, $11, $12,
+        $6, $7, $8, $9, $10, $11, $12, $13, $14,
         NOW(), NOW()
       )
       RETURNING id`,
@@ -167,6 +216,8 @@ export async function POST(request: NextRequest) {
         valorInscricao || null,
         premio || null,
         regras || null,
+        cardDivulgacaoUrlProcessada,
+        fotoCompeticaoUrlProcessada,
         configSuper8 ? JSON.stringify(configSuper8) : null,
       ]
     );
@@ -174,11 +225,11 @@ export async function POST(request: NextRequest) {
     const competicaoId = result.rows[0].id;
 
     // Buscar competição criada
-    const competicaoResult = await query(
+      const competicaoResult = await query(
       `SELECT 
         c.id, c."pointId", c."quadraId", c.nome, c.tipo, c.formato, c.status,
         c."dataInicio", c."dataFim", c.descricao, c."valorInscricao", c.premio, 
-        c.regras, c."configSuper8", c."createdAt", c."updatedAt",
+        c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt",
         p.id as "point_id", p.nome as "point_nome",
         q.id as "quadra_id", q.nome as "quadra_nome"
       FROM "Competicao" c
@@ -203,6 +254,8 @@ export async function POST(request: NextRequest) {
       valorInscricao: row.valorInscricao ? parseFloat(row.valorInscricao) : null,
       premio: row.premio || null,
       regras: row.regras || null,
+      cardDivulgacaoUrl: row.cardDivulgacaoUrl || null,
+      fotoCompeticaoUrl: row.fotoCompeticaoUrl || null,
       configSuper8: row.configSuper8 || null,
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
