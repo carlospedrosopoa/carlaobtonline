@@ -56,25 +56,21 @@ export async function GET(
       return withCors(errorResponse, request);
     }
 
-    // Buscar atletas participantes (apenas registros únicos por atleta)
-    // No round-robin, pode haver múltiplos registros do mesmo atleta (um para cada parceria)
-    // Pegamos apenas o primeiro registro de cada atleta (o original, sem parceriaId)
+    // Buscar atletas participantes (APENAS registros sem parceriaId - atletas individuais)
+    // As duplas só existem nos jogos, não nos registros de atletas
     const atletasResult = await query(
       `SELECT DISTINCT ON (ac."atletaId")
         ac.id, ac."competicaoId", ac."atletaId", ac."parceriaId", ac."parceiroAtletaId",
         ac."posicaoFinal", ac.pontos, ac."createdAt",
         a.id as "atleta_id", a.nome as "atleta_nome", a."fotoUrl" as "atleta_fotoUrl", a.fone as "atleta_fone",
         a."usuarioId" as "atleta_usuarioId",
-        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
-        p_atleta.id as "parceiro_id", p_atleta.nome as "parceiro_nome", p_atleta."fotoUrl" as "parceiro_fotoUrl"
+        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
       FROM "AtletaCompeticao" ac
       LEFT JOIN "Atleta" a ON ac."atletaId" = a.id
       LEFT JOIN "User" u ON a."usuarioId" = u.id
-      LEFT JOIN "Atleta" p_atleta ON ac."parceiroAtletaId" = p_atleta.id
       WHERE ac."competicaoId" = $1
-      ORDER BY ac."atletaId", 
-               CASE WHEN ac."parceriaId" IS NULL THEN 0 ELSE 1 END,
-               ac."createdAt" ASC`,
+        AND ac."parceriaId" IS NULL
+      ORDER BY ac."atletaId", ac."createdAt" ASC`,
       [competicaoId]
     );
 
@@ -82,8 +78,8 @@ export async function GET(
       id: atletaRow.id,
       competicaoId: atletaRow.competicaoId,
       atletaId: atletaRow.atletaId,
-      parceriaId: atletaRow.parceriaId || null,
-      parceiroAtletaId: atletaRow.parceiroAtletaId || null,
+      parceriaId: null, // Atletas individuais não têm parceriaId
+      parceiroAtletaId: null, // Atletas individuais não têm parceiroAtletaId
       posicaoFinal: atletaRow.posicaoFinal || null,
       pontos: atletaRow.pontos ? parseFloat(atletaRow.pontos) : null,
       createdAt: new Date(atletaRow.createdAt).toISOString(),
@@ -98,11 +94,7 @@ export async function GET(
           email: atletaRow.usuario_email,
         } : null,
       } : null,
-      parceiro: atletaRow.parceiro_id ? {
-        id: atletaRow.parceiro_id,
-        nome: atletaRow.parceiro_nome,
-        fotoUrl: atletaRow.parceiro_fotoUrl || null,
-      } : null,
+      parceiro: null, // Atletas individuais não têm parceiro
     }));
 
     const competicao = {

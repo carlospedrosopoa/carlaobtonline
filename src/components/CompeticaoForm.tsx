@@ -534,18 +534,9 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
     );
   }
 
-  // Agrupar duplas
-  const duplasAgrupadas = formato === 'DUPLAS' && atletasParticipantes.length > 0
-    ? atletasParticipantes.reduce((acc: any, item: any) => {
-        if (item.parceriaId) {
-          if (!acc[item.parceriaId]) {
-            acc[item.parceriaId] = [];
-          }
-          acc[item.parceriaId].push(item);
-        }
-        return acc;
-      }, {})
-    : {};
+  // Não agrupar mais em duplas - atletas são sempre individuais
+  // As duplas só existem nos jogos, não na lista de participantes
+  const duplasAgrupadas = {};
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -921,73 +912,38 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
               </div>
             )}
 
-            {formato === 'DUPLAS' ? (
-              <div className="space-y-4">
-                {Object.keys(duplasAgrupadas).length > 0 ? (
-                  Object.entries(duplasAgrupadas).map(([parceriaId, dupla]: [string, any]) => (
-                    <div key={parceriaId} className="p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Users className="w-5 h-5 text-emerald-600" />
-                          <div>
-                            <div className="font-semibold text-gray-900">
-                              {dupla[0]?.atleta?.nome} & {dupla[1]?.atleta?.nome}
-                            </div>
-                            <div className="text-sm text-gray-500">Dupla</div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => removerAtleta(dupla[0].atletaId)}
-                          disabled={jogos.length > 0}
-                          className={`p-2 rounded-lg transition-colors ${
-                            jogos.length > 0
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : 'text-red-600 hover:bg-red-50'
-                          }`}
-                          title={jogos.length > 0 ? 'Não é possível remover atletas após os jogos serem gerados' : 'Remover dupla'}
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
+            {/* Sempre mostrar atletas individuais - as duplas só existem nos jogos */}
+            <div className="space-y-2">
+              {atletasParticipantes.length > 0 ? (
+                atletasParticipantes.map((participante) => (
+                  <div key={participante.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <User className="w-5 h-5 text-emerald-600" />
+                      <div>
+                        <div className="font-semibold text-gray-900">{participante.atleta?.nome}</div>
+                        {participante.atleta?.fone && (
+                          <div className="text-sm text-gray-500">{participante.atleta.fone}</div>
+                        )}
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-4">Nenhuma dupla adicionada ainda</p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {atletasParticipantes.length > 0 ? (
-                  atletasParticipantes.map((participante) => (
-                    <div key={participante.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <User className="w-5 h-5 text-emerald-600" />
-                        <div>
-                          <div className="font-semibold text-gray-900">{participante.atleta?.nome}</div>
-                          {participante.atleta?.fone && (
-                            <div className="text-sm text-gray-500">{participante.atleta.fone}</div>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removerAtleta(participante.atletaId)}
-                        disabled={jogos.length > 0}
-                        className={`p-2 rounded-lg transition-colors ${
-                          jogos.length > 0
-                            ? 'text-gray-400 cursor-not-allowed'
-                            : 'text-red-600 hover:bg-red-50'
-                        }`}
-                        title={jogos.length > 0 ? 'Não é possível remover atletas após os jogos serem gerados' : 'Remover atleta'}
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-4">Nenhum atleta adicionado ainda</p>
-                )}
-              </div>
-            )}
+                    <button
+                      onClick={() => removerAtleta(participante.atletaId)}
+                      disabled={jogos.length > 0}
+                      className={`p-2 rounded-lg transition-colors ${
+                        jogos.length > 0
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-red-600 hover:bg-red-50'
+                      }`}
+                      title={jogos.length > 0 ? 'Não é possível remover atletas após os jogos serem gerados' : 'Remover atleta'}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">Nenhum atleta adicionado ainda</p>
+              )}
+            </div>
           </div>
         )}
 
