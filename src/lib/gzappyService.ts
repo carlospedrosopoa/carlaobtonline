@@ -346,6 +346,7 @@ export async function notificarCancelamentoAgendamento(
     quadra: string;
     dataHora: string;
     cliente: string;
+    atletaNotificado?: boolean; // Indica se o atleta foi notificado do cancelamento
   }
 ): Promise<boolean> {
   const whatsappGestor = await obterWhatsAppGestor(pointId);
@@ -354,18 +355,30 @@ export async function notificarCancelamentoAgendamento(
     return false;
   }
 
-  const dataHora = new Date(agendamento.dataHora);
-  const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-  const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  // Extrair data e hora diretamente da string ISO, igual a agenda faz
+  let dataFormatada: string;
+  let horaFormatada: string;
+  
+  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    // Fallback se o formato não for o esperado
+    const dataHora = new Date(agendamento.dataHora);
+    const ano = dataHora.getFullYear();
+    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataHora.getDate()).padStart(2, '0');
+    const hora = String(dataHora.getHours()).padStart(2, '0');
+    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  } else {
+    // Extrair diretamente da string ISO (mesmo método usado na agenda)
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  }
 
-  const mensagem = `❌ *Agendamento Cancelado*
+  // Montar mensagem base
+  let mensagem = `❌ *Agendamento Cancelado*
 
 Quadra: ${agendamento.quadra}
 Data: ${dataFormatada}
@@ -374,8 +387,76 @@ Cliente: ${agendamento.cliente}
 
 O agendamento foi cancelado.`;
 
+  // Adicionar informação sobre notificação do atleta se aplicável
+  if (agendamento.atletaNotificado === true) {
+    mensagem += `\n\n✅ *O atleta foi notificado do cancelamento via WhatsApp.*`;
+  } else if (agendamento.atletaNotificado === false) {
+    mensagem += `\n\n⚠️ *O atleta não foi notificado (telefone não cadastrado).*`;
+  }
+
   return await enviarMensagemGzappy({
     destinatario: whatsappGestor,
+    mensagem,
+    tipo: 'texto',
+  }, pointId);
+}
+
+/**
+ * Envia notificação de cancelamento de agendamento para o atleta via Gzappy
+ * Usado quando a arena (ORGANIZER/ADMIN) cancela um agendamento
+ */
+export async function notificarAtletaCancelamentoAgendamento(
+  telefoneAtleta: string,
+  pointId: string,
+  agendamento: {
+    quadra: string;
+    arena: string;
+    dataHora: string;
+  }
+): Promise<boolean> {
+  if (!telefoneAtleta || telefoneAtleta.trim() === '') {
+    console.log('Atleta não possui telefone cadastrado para notificação');
+    return false;
+  }
+
+  // Formatar número para formato internacional
+  const telefoneFormatado = formatarNumeroGzappy(telefoneAtleta);
+
+  // Extrair data e hora diretamente da string ISO, igual a agenda faz
+  let dataFormatada: string;
+  let horaFormatada: string;
+  
+  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    // Fallback se o formato não for o esperado
+    const dataHora = new Date(agendamento.dataHora);
+    const ano = dataHora.getFullYear();
+    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataHora.getDate()).padStart(2, '0');
+    const hora = String(dataHora.getHours()).padStart(2, '0');
+    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  } else {
+    // Extrair diretamente da string ISO (mesmo método usado na agenda)
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  }
+
+  const mensagem = `❌ *Agendamento Cancelado pela Arena*
+
+Olá! Infelizmente seu agendamento foi cancelado pela arena.
+
+🏸 *Quadra:* ${agendamento.quadra}
+🏢 *Arena:* ${agendamento.arena}
+📅 *Data:* ${dataFormatada}
+🕐 *Horário:* ${horaFormatada}
+
+Entre em contato com a arena para mais informações ou reagendar.`;
+
+  return await enviarMensagemGzappy({
+    destinatario: telefoneFormatado,
     mensagem,
     tipo: 'texto',
   }, pointId);
