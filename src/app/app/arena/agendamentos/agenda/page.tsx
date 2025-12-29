@@ -1051,11 +1051,9 @@ export default function ArenaAgendaSemanalPage() {
                         const agendamentosDoDia = getAgendamentosPorDia(dia);
                         
                         // Encontrar agendamentos que aparecem neste slot
-                        const minutosSlot = slot.hora * 60 + slot.minuto;
-                        const minutosSlotFim = minutosSlot + 30;
-                        
-                        // Agendamentos que começam neste slot (ou no slot mais próximo arredondando para baixo)
+                        // Mostra agendamentos que começam exatamente no slot OU no slot mais próximo (arredondando para baixo)
                         const agendamentosIniciando = agendamentosDoDia.filter((ag) => {
+                          // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                           const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
                           const horaInicio = match ? parseInt(match[1], 10) : 0;
                           const minutoInicio = match ? parseInt(match[2], 10) : 0;
@@ -1066,32 +1064,15 @@ export default function ArenaAgendaSemanalPage() {
                             return true;
                           }
                           
-                          // Para horários intermediários, mostrar no slot mais próximo (arredondando para baixo)
+                          // Para horários intermediários (ex: 6h15), mostrar no slot mais próximo (arredondando para baixo)
+                          // Exemplo: 6h15 aparece no slot de 6h00, 6h45 aparece no slot de 6h30
+                          const minutosSlot = slot.hora * 60 + slot.minuto;
                           const proximoSlot = minutosSlot + 30;
+                          
+                          // Mostrar se o agendamento começa entre este slot e o próximo (exclusivo do próximo)
+                          // Isso garante que 6h15 aparece em 6h00, não em 6h30
                           return minutosInicio >= minutosSlot && minutosInicio < proximoSlot;
                         });
-                        
-                        // Buscar agendamentos que começaram antes mas estão ativos neste slot
-                        // Estes devem aparecer lado a lado quando há agendamentos iniciando neste slot
-                        const agendamentosAtivosQueComecaramAntes = agendamentosDoDia.filter((ag) => {
-                          // Pular se já está na lista de iniciando
-                          if (agendamentosIniciando.some(a => a.id === ag.id)) {
-                            return false;
-                          }
-                          
-                          const match = ag.dataHora.match(/T(\d{2}):(\d{2})/);
-                          const horaInicio = match ? parseInt(match[1], 10) : 0;
-                          const minutoInicio = match ? parseInt(match[2], 10) : 0;
-                          const minutosInicio = horaInicio * 60 + minutoInicio;
-                          const minutosFim = minutosInicio + ag.duracao;
-                          
-                          // Começou antes E ainda está ativo no slot (se sobrepõe)
-                          // Só incluir se há agendamentos iniciando neste slot (para aparecerem lado a lado)
-                          return minutosInicio < minutosSlot && minutosFim > minutosSlot && agendamentosIniciando.length > 0;
-                        });
-                        
-                        // Combinar: agendamentos que começam no slot + os que começaram antes mas estão ativos
-                        const agendamentosParaRenderizar = [...agendamentosIniciando, ...agendamentosAtivosQueComecaramAntes];
 
                         // Verificar bloqueios para cada quadra neste slot
                         const bloqueiosNoSlot: { quadraId: string; bloqueio: BloqueioAgenda }[] = [];
@@ -1115,7 +1096,6 @@ export default function ArenaAgendaSemanalPage() {
                         const quantidadeAgendamentos = agendamentosIniciando.length;
                         const totalItens = quantidadeAgendamentos + bloqueiosNoSlot.length;
                         // Calcular largura considerando o gap entre os itens (gap-1 = 4px)
-                        // Se há N itens, há N-1 gaps de 4px entre eles
                         const gapPx = 4; // gap-1 = 4px
                         const totalGaps = totalItens > 1 ? (totalItens - 1) * gapPx : 0;
                         const larguraPorItem = totalItens > 0 
@@ -1123,7 +1103,7 @@ export default function ArenaAgendaSemanalPage() {
                           : '100%';
 
                         // Verificar se a célula está vazia (sem agendamentos nem bloqueios)
-                        const celulaVazia = agendamentosParaRenderizar.length === 0 && bloqueiosNoSlot.length === 0;
+                        const celulaVazia = agendamentosIniciando.length === 0 && bloqueiosNoSlot.length === 0;
 
                         return (
                           <td
@@ -1137,7 +1117,7 @@ export default function ArenaAgendaSemanalPage() {
                             style={{ height: '60px' }}
                             title={celulaVazia ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}` : ''}
                           >
-                            <div className="absolute inset-1 flex flex-nowrap items-start gap-1">
+                            <div className="absolute inset-1 flex flex-wrap gap-1">
                               {/* Renderizar bloqueios primeiro */}
                               {bloqueiosNoSlot.map((item, bloqueioIdx) => {
                                 const bloqueio = item.bloqueio;
@@ -1198,52 +1178,15 @@ export default function ArenaAgendaSemanalPage() {
                                   </div>
                                 );
                               })}
-                              {agendamentosParaRenderizar.map((agendamento, agIdx) => {
+                              {agendamentosIniciando.map((agendamento, agIdx) => {
                                 // Extrair hora/minuto diretamente da string UTC sem conversão de timezone
                                 // Isso garante que 20h gravado = 20h exibido
                                 const dataHoraStr = agendamento.dataHora;
                                 const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
                                 const horaInicio = match ? parseInt(match[1], 10) : 0;
                                 const minutoInicio = match ? parseInt(match[2], 10) : 0;
-                                const minutosInicio = horaInicio * 60 + minutoInicio;
-                                const minutosFim = minutosInicio + agendamento.duracao;
                                 const dataHora = new Date(agendamento.dataHora); // Para cálculos de data
-                                
-                                // Calcular altura e posição baseado em quanto do agendamento está neste slot
-                                // Cada slot tem 60px de altura (representa 30 minutos)
-                                let alturaPx: number;
-                                let offsetTopPx: number = 0;
-                                
-                                // Se o agendamento começou antes deste slot, ele já está sendo renderizado no slot anterior
-                                // Neste slot, ele deve aparecer apenas na parte que está ativa aqui
-                                if (minutosInicio < minutosSlot) {
-                                  // Agendamento começou antes - neste slot, começa no topo (offset 0)
-                                  offsetTopPx = 0;
-                                  
-                                  if (minutosFim <= minutosSlotFim) {
-                                    // Termina dentro deste slot - altura até onde termina
-                                    const minutosNoSlot = minutosFim - minutosSlot;
-                                    alturaPx = Math.max(40, (minutosNoSlot / 30) * 60);
-                                  } else {
-                                    // Termina depois deste slot - ocupa o slot inteiro
-                                    alturaPx = 60;
-                                  }
-                                } else {
-                                  // Agendamento começa neste slot
-                                  const minutosOffset = minutosInicio - minutosSlot;
-                                  offsetTopPx = (minutosOffset / 30) * 60;
-                                  
-                                  if (minutosFim <= minutosSlotFim) {
-                                    // Termina dentro deste slot - altura do início até o fim
-                                    const minutosNoSlot = minutosFim - minutosInicio;
-                                    alturaPx = Math.max(40, (minutosNoSlot / 30) * 60);
-                                  } else {
-                                    // Termina depois deste slot - ocupa do início até o fim do slot
-                                    const minutosNoSlot = minutosSlotFim - minutosInicio;
-                                    alturaPx = Math.max(40, (minutosNoSlot / 30) * 60);
-                                  }
-                                }
-                                
+                                const linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
                                 const info = getInfoAgendamento(agendamento);
                                 const quadra = quadras.find(q => q.id === agendamento.quadraId);
                                 const corQuadra = getCorQuadra(agendamento.quadraId);
@@ -1286,11 +1229,8 @@ export default function ArenaAgendaSemanalPage() {
                                         : 'bg-yellow-400 text-gray-900 border-2 border-yellow-500'
                                     } hover:shadow-md transition-all`}
                                     style={{
-                                      height: `${alturaPx - 4}px`,
-                                      marginTop: `${offsetTopPx}px`,
+                                      height: `${linhasOcupadas * 60 - 2}px`,
                                       width: larguraPorItem,
-                                      flexShrink: 0,
-                                      alignSelf: 'flex-start',
                                       zIndex: menuAberto === agendamento.id ? 20 : 10,
                                     }}
                                     onMouseEnter={(e) => {
