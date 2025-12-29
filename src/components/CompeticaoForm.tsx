@@ -663,12 +663,12 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Prêmio</label>
-              <input
-                type="text"
+              <textarea
                 value={premio}
                 onChange={(e) => setPremio(e.target.value)}
-                placeholder="Ex: Troféu + R$ 500,00"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                rows={4}
+                placeholder="Ex: Troféu + R$ 500,00&#10;ou&#10;1º lugar: R$ 500,00&#10;2º lugar: R$ 300,00"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-y"
               />
             </div>
 
