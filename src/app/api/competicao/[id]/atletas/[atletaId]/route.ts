@@ -53,6 +53,21 @@ export async function DELETE(
       return withCors(errorResponse, request);
     }
 
+    // Verificar se há jogos gerados - se houver, não permite remover atletas
+    const jogosCheck = await query(
+      `SELECT COUNT(*) as total FROM "JogoCompeticao" WHERE "competicaoId" = $1`,
+      [competicaoId]
+    );
+    const totalJogos = parseInt(jogosCheck.rows[0].total);
+    
+    if (totalJogos > 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Não é possível remover atletas após os jogos serem gerados. Desfaça o sorteio primeiro.' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     // Se for formato DUPLAS, pode ter parceiro para remover também
     if (competicao.formato === 'DUPLAS') {
       // Buscar informação do atleta na competição

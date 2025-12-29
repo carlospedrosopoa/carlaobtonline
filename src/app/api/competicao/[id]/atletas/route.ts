@@ -64,6 +64,21 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
+    // Verificar se há jogos gerados - se houver, não permite adicionar atletas
+    const jogosCheck = await query(
+      `SELECT COUNT(*) as total FROM "JogoCompeticao" WHERE "competicaoId" = $1`,
+      [competicaoId]
+    );
+    const totalJogos = parseInt(jogosCheck.rows[0].total);
+    
+    if (totalJogos > 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Não é possível adicionar atletas após os jogos serem gerados. Desfaça o sorteio primeiro.' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     // Verificar se atleta já está na competição
     // IMPORTANTE: No round-robin, pode haver múltiplos registros do mesmo atleta
     // Mas quando adicionamos manualmente, verificamos se já existe um registro SEM parceriaId (o registro original)

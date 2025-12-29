@@ -153,6 +153,12 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
       return;
     }
 
+    // Verificar se há jogos gerados
+    if (jogos.length > 0) {
+      alert('Não é possível adicionar atletas após os jogos serem gerados. Desfaça o sorteio primeiro.');
+      return;
+    }
+
     // Verificar se atleta já está adicionado
     if (atletasParticipantes.some(ap => ap.atletaId === atletaId)) {
       alert('Este atleta já está na competição');
@@ -189,6 +195,12 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
   const adicionarDupla = async () => {
     if (!competicaoId) {
       alert('Salve a competição primeiro antes de adicionar atletas');
+      return;
+    }
+
+    // Verificar se há jogos gerados
+    if (jogos.length > 0) {
+      alert('Não é possível adicionar atletas após os jogos serem gerados. Desfaça o sorteio primeiro.');
       return;
     }
 
@@ -257,6 +269,13 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
 
   const removerAtleta = async (atletaId: string) => {
     if (!competicaoId) return;
+    
+    // Verificar se há jogos gerados
+    if (jogos.length > 0) {
+      alert('Não é possível remover atletas após os jogos serem gerados. Desfaça o sorteio primeiro.');
+      return;
+    }
+    
     if (!confirm('Tem certeza que deseja remover este atleta da competição?')) return;
 
     try {
@@ -694,8 +713,11 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 Atletas Participantes ({atletasParticipantes.length}
                 {tipo === 'SUPER_8' && '/8'}
                 )
-                {tipo === 'SUPER_8' && atletasParticipantes.length === 8 && (
+                {tipo === 'SUPER_8' && atletasParticipantes.length === 8 && jogos.length === 0 && (
                   <span className="ml-2 text-sm font-normal text-green-600">✓ Pronto para gerar jogos</span>
+                )}
+                {jogos.length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-orange-600">⚠ Não é possível editar atletas após os jogos serem gerados</span>
                 )}
               </h2>
               <div className="flex gap-2">
@@ -722,6 +744,11 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                 )}
                 <button
                   onClick={() => {
+                    // Verificar se há jogos gerados
+                    if (jogos.length > 0) {
+                      alert('Não é possível adicionar atletas após os jogos serem gerados. Desfaça o sorteio primeiro.');
+                      return;
+                    }
                     // Verificar limite antes de abrir
                     if (tipo === 'SUPER_8' && atletasParticipantes.length >= 8) {
                       alert('Super 8 permite no máximo 8 participantes');
@@ -740,9 +767,9 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                       setParceiroSelecionado('');
                     }
                   }}
-                  disabled={tipo === 'SUPER_8' && atletasParticipantes.length >= 8}
+                  disabled={(tipo === 'SUPER_8' && atletasParticipantes.length >= 8) || jogos.length > 0}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    tipo === 'SUPER_8' && atletasParticipantes.length >= 8
+                    (tipo === 'SUPER_8' && atletasParticipantes.length >= 8) || jogos.length > 0
                       ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                       : 'bg-emerald-600 text-white hover:bg-emerald-700'
                   }`}
@@ -911,8 +938,13 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                         </div>
                         <button
                           onClick={() => removerAtleta(dupla[0].atletaId)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Remover dupla"
+                          disabled={jogos.length > 0}
+                          className={`p-2 rounded-lg transition-colors ${
+                            jogos.length > 0
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-red-600 hover:bg-red-50'
+                          }`}
+                          title={jogos.length > 0 ? 'Não é possível remover atletas após os jogos serem gerados' : 'Remover dupla'}
                         >
                           <X className="w-5 h-5" />
                         </button>
@@ -939,8 +971,13 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
                       </div>
                       <button
                         onClick={() => removerAtleta(participante.atletaId)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remover atleta"
+                        disabled={jogos.length > 0}
+                        className={`p-2 rounded-lg transition-colors ${
+                          jogos.length > 0
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-red-600 hover:bg-red-50'
+                        }`}
+                        title={jogos.length > 0 ? 'Não é possível remover atletas após os jogos serem gerados' : 'Remover atleta'}
                       >
                         <X className="w-5 h-5" />
                       </button>
