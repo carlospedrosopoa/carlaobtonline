@@ -1240,12 +1240,12 @@ export default function ArenaAgendaSemanalPage() {
                                     return comecaNoProximoSlot && seSobrepoe;
                                   });
                                   
-                                  if (haSobreposicaoNoProximoSlot) {
-                                    // Há sobreposição no próximo slot - ocupar apenas até o início do próximo slot (meia coluna)
-                                    const minutosAteProximoSlot = proximoSlotMinutos - minutosInicio;
-                                    linhasOcupadas = Math.max(1, Math.ceil(minutosAteProximoSlot / 30));
+                                  if (haSobreposicaoNoProximoSlot && minutosInicio === minutosSlot) {
+                                    // Há sobreposição no próximo slot E o agendamento começa exatamente neste slot
+                                    // Ocupar apenas até o início do próximo slot (meia coluna = 1 linha)
+                                    linhasOcupadas = 1; // Meia coluna = 30 minutos = 1 linha
                                   } else {
-                                    // Sem sobreposição - usar duração completa
+                                    // Sem sobreposição ou não começa exatamente no slot - usar duração completa
                                     linhasOcupadas = calcularLinhasAgendamento(agendamento.duracao);
                                   }
                                 }
