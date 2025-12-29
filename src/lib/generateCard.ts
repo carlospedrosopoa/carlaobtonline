@@ -867,17 +867,23 @@ export async function generateCompetitionCard(
     );
 
     // Calcular posições das 8 bolinhas (2 colunas de 4)
-    const tamanhoFoto = Math.min(largura, altura) * 0.12;
-    const colunaEsquerdaX = largura * 0.30;
-    const colunaDireitaX = largura * 0.70;
-    const inicioVertical = altura * 0.45;
-    const espacamentoVertical = (altura * 0.30) / 4;
+    // Aumentado o tamanho para preencher melhor os círculos
+    const tamanhoFoto = Math.min(largura, altura) * 0.14;
+    // Ajustadas as colunas para ficarem mais próximas do centro e melhor alinhadas
+    const colunaEsquerdaX = largura * 0.33;
+    const colunaDireitaX = largura * 0.67;
+    // Ajustado início vertical para melhor posicionamento na área da quadra
+    const inicioVertical = altura * 0.48;
+    // Espaçamento ajustado para melhor distribuição vertical
+    const espacamentoVertical = (altura * 0.28) / 4;
     
     const posicoesFotos: Array<[number, number]> = [
+      // Coluna esquerda (topo para baixo)
       [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical],
       [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical],
       [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 2],
       [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 3],
+      // Coluna direita (topo para baixo)
       [colunaDireitaX - tamanhoFoto / 2, inicioVertical],
       [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical],
       [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 2],
@@ -891,24 +897,32 @@ export async function generateCompetitionCard(
         const y = posicoesFotos[i][1];
         const centerX = x + tamanhoFoto / 2;
         const centerY = y + tamanhoFoto / 2;
-        const radius = tamanhoFoto / 2 - 3;
+        // Reduzida a margem da borda para aumentar o preenchimento do círculo
+        const radius = tamanhoFoto / 2 - 2;
         
         const imgAspect = img.width / img.height;
-        let drawWidth = tamanhoFoto;
-        let drawHeight = tamanhoFoto;
-        let drawX = x;
-        let drawY = y;
+        // Aumentado o tamanho da imagem desenhada para preencher melhor o círculo
+        const tamanhoDesenho = tamanhoFoto * 1.05; // 5% maior para preencher melhor
+        let drawWidth = tamanhoDesenho;
+        let drawHeight = tamanhoDesenho;
+        let drawX = x - (tamanhoDesenho - tamanhoFoto) / 2;
+        let drawY = y - (tamanhoDesenho - tamanhoFoto) / 2;
         
         if (imgAspect > 1) {
-          drawHeight = tamanhoFoto;
-          drawWidth = tamanhoFoto * imgAspect;
-          drawX = x - (drawWidth - tamanhoFoto) / 2;
+          // Imagem mais larga que alta
+          drawHeight = tamanhoDesenho;
+          drawWidth = tamanhoDesenho * imgAspect;
+          drawX = centerX - drawWidth / 2;
+          drawY = centerY - drawHeight / 2;
         } else {
-          drawWidth = tamanhoFoto;
-          drawHeight = tamanhoFoto / imgAspect;
-          drawY = y - (drawHeight - tamanhoFoto) / 2;
+          // Imagem mais alta que larga
+          drawWidth = tamanhoDesenho;
+          drawHeight = tamanhoDesenho / imgAspect;
+          drawX = centerX - drawWidth / 2;
+          drawY = centerY - drawHeight / 2;
         }
         
+        // Desenhar a foto com crop centralizado
         ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -916,10 +930,11 @@ export async function generateCompetitionCard(
         ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
         ctx.restore();
         
+        // Borda branca mais fina para não reduzir o espaço da foto
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius - 2, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, radius - 1.5, 0, Math.PI * 2);
         ctx.stroke();
       }
     });
