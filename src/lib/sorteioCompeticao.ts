@@ -426,7 +426,6 @@ export function gerarSorteioSuper8DuplasRoundRobin(
 
   return jogos;
 }
-          if (outroAtletaDupla2) {
             const idxA2 = atletas1.indexOf(atleta2);
             const idxOutro = atletas2.indexOf(outroAtletaDupla2);
             // Validar que a troca não cria parceiros repetidos
