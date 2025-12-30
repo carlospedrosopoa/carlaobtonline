@@ -349,7 +349,7 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     }
   }
 
-  // Se houver pares faltando, ajustar os jogos
+  // Se houver pares faltando, ajustar os jogos de forma mais agressiva
   if (paresFaltando.length > 0) {
     console.log(`[SORTEIO] Encontrados ${paresFaltando.length} pares de atletas que não se enfrentaram. Ajustando...`);
     
@@ -357,7 +357,7 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     for (const [atleta1, atleta2] of paresFaltando) {
       let ajustado = false;
       
-      // Procurar um jogo onde podemos fazer o ajuste
+      // Primeiro, tentar encontrar um jogo onde ambos estão na mesma dupla (mais fácil de ajustar)
       for (let idx = 0; idx < jogos.length && !ajustado; idx++) {
         const jogo = jogos[idx];
         const atletas1 = [...jogo.participante1Atletas];
@@ -440,8 +440,176 @@ export function gerarSorteioSuper8DuplasRoundRobin(
         }
       }
       
+      // Se não conseguiu ajustar (ambos em duplas diferentes ou não estão no mesmo jogo),
+      // tentar uma estratégia mais agressiva: trocar atletas entre jogos diferentes
       if (!ajustado) {
-        console.warn(`[SORTEIO] Não foi possível ajustar para que ${atleta1} e ${atleta2} se enfrentem`);
+        // Procurar dois jogos onde podemos fazer uma troca cruzada
+        for (let idx1 = 0; idx1 < jogos.length && !ajustado; idx1++) {
+          for (let idx2 = idx1 + 1; idx2 < jogos.length && !ajustado; idx2++) {
+            const jogo1 = jogos[idx1];
+            const jogo2 = jogos[idx2];
+            
+            const atletas1_j1 = [...jogo1.participante1Atletas];
+            const atletas2_j1 = [...jogo1.participante2Atletas];
+            const atletas1_j2 = [...jogo2.participante1Atletas];
+            const atletas2_j2 = [...jogo2.participante2Atletas];
+            
+            // Verificar se atleta1 está em jogo1 e atleta2 está em jogo2 (ou vice-versa)
+            const a1NoJogo1 = atletas1_j1.includes(atleta1) || atletas2_j1.includes(atleta1);
+            const a2NoJogo2 = atletas1_j2.includes(atleta2) || atletas2_j2.includes(atleta2);
+            const a1NoJogo2 = atletas1_j2.includes(atleta1) || atletas2_j2.includes(atleta1);
+            const a2NoJogo1 = atletas1_j1.includes(atleta2) || atletas2_j1.includes(atleta2);
+            
+            // Se estão em jogos diferentes, tentar trocar para colocá-los no mesmo jogo em duplas opostas
+            if (a1NoJogo1 && a2NoJogo2 && !a1NoJogo2 && !a2NoJogo1) {
+              // Trocar atleta2 do jogo2 para o jogo1 (na dupla oposta de atleta1)
+              const a1NaDupla1_j1 = atletas1_j1.includes(atleta1);
+              const a1NaDupla2_j1 = atletas2_j1.includes(atleta1);
+              
+              // Encontrar um atleta do jogo1 que podemos trocar com atleta2
+              let atletaParaTrocar: string | null = null;
+              let duplaParaTrocar: number[] | null = null;
+              
+              if (a1NaDupla1_j1) {
+                // atleta1 está na dupla1 do jogo1, então atleta2 deve ir para dupla2
+                atletaParaTrocar = atletas2_j1.find(a => a !== atleta1) || null;
+                duplaParaTrocar = atletas2_j1;
+              } else if (a1NaDupla2_j1) {
+                // atleta1 está na dupla2 do jogo1, então atleta2 deve ir para dupla1
+                atletaParaTrocar = atletas1_j1.find(a => a !== atleta1) || null;
+                duplaParaTrocar = atletas1_j1;
+              }
+              
+              if (atletaParaTrocar && duplaParaTrocar) {
+                // Encontrar onde atleta2 está no jogo2
+                const a2NaDupla1_j2 = atletas1_j2.includes(atleta2);
+                const a2NaDupla2_j2 = atletas2_j2.includes(atleta2);
+                
+                if (a2NaDupla1_j2) {
+                  const idxA2 = atletas1_j2.indexOf(atleta2);
+                  const idxTroca = duplaParaTrocar.indexOf(atletaParaTrocar);
+                  
+                  // Trocar: atleta2 vai para jogo1, atletaParaTrocar vai para jogo2
+                  duplaParaTrocar[idxTroca] = atleta2;
+                  atletas1_j2[idxA2] = atletaParaTrocar;
+                  
+                  // Atualizar jogos
+                  if (a1NaDupla1_j1) {
+                    jogos[idx1] = {
+                      ...jogo1,
+                      participante1Atletas: atletas1_j1,
+                      participante2Atletas: duplaParaTrocar,
+                      participante1: {
+                        id: jogo1.participante1.id,
+                        nome: `${atletas.find(a => a.id === atletas1_j1[0])?.nome || ''} & ${atletas.find(a => a.id === atletas1_j1[1])?.nome || ''}`,
+                      },
+                      participante2: {
+                        id: jogo1.participante2.id,
+                        nome: `${atletas.find(a => a.id === duplaParaTrocar[0])?.nome || ''} & ${atletas.find(a => a.id === duplaParaTrocar[1])?.nome || ''}`,
+                      },
+                    };
+                  } else {
+                    jogos[idx1] = {
+                      ...jogo1,
+                      participante1Atletas: duplaParaTrocar,
+                      participante2Atletas: atletas2_j1,
+                      participante1: {
+                        id: jogo1.participante1.id,
+                        nome: `${atletas.find(a => a.id === duplaParaTrocar[0])?.nome || ''} & ${atletas.find(a => a.id === duplaParaTrocar[1])?.nome || ''}`,
+                      },
+                      participante2: {
+                        id: jogo1.participante2.id,
+                        nome: `${atletas.find(a => a.id === atletas2_j1[0])?.nome || ''} & ${atletas.find(a => a.id === atletas2_j1[1])?.nome || ''}`,
+                      },
+                    };
+                  }
+                  
+                  jogos[idx2] = {
+                    ...jogo2,
+                    participante1Atletas: atletas1_j2,
+                    participante2Atletas: atletas2_j2,
+                    participante1: {
+                      id: jogo2.participante1.id,
+                      nome: `${atletas.find(a => a.id === atletas1_j2[0])?.nome || ''} & ${atletas.find(a => a.id === atletas1_j2[1])?.nome || ''}`,
+                    },
+                    participante2: {
+                      id: jogo2.participante2.id,
+                      nome: `${atletas.find(a => a.id === atletas2_j2[0])?.nome || ''} & ${atletas.find(a => a.id === atletas2_j2[1])?.nome || ''}`,
+                    },
+                  };
+                  
+                  enfrentamentos.get(atleta1)?.add(atleta2);
+                  enfrentamentos.get(atleta2)?.add(atleta1);
+                  ajustado = true;
+                  console.log(`[SORTEIO] Ajustado via troca entre jogos: ${atleta1} e ${atleta2} agora se enfrentam`);
+                  break;
+                } else if (a2NaDupla2_j2) {
+                  const idxA2 = atletas2_j2.indexOf(atleta2);
+                  const idxTroca = duplaParaTrocar.indexOf(atletaParaTrocar);
+                  
+                  // Trocar: atleta2 vai para jogo1, atletaParaTrocar vai para jogo2
+                  duplaParaTrocar[idxTroca] = atleta2;
+                  atletas2_j2[idxA2] = atletaParaTrocar;
+                  
+                  // Atualizar jogos (similar ao acima)
+                  if (a1NaDupla1_j1) {
+                    jogos[idx1] = {
+                      ...jogo1,
+                      participante1Atletas: atletas1_j1,
+                      participante2Atletas: duplaParaTrocar,
+                      participante1: {
+                        id: jogo1.participante1.id,
+                        nome: `${atletas.find(a => a.id === atletas1_j1[0])?.nome || ''} & ${atletas.find(a => a.id === atletas1_j1[1])?.nome || ''}`,
+                      },
+                      participante2: {
+                        id: jogo1.participante2.id,
+                        nome: `${atletas.find(a => a.id === duplaParaTrocar[0])?.nome || ''} & ${atletas.find(a => a.id === duplaParaTrocar[1])?.nome || ''}`,
+                      },
+                    };
+                  } else {
+                    jogos[idx1] = {
+                      ...jogo1,
+                      participante1Atletas: duplaParaTrocar,
+                      participante2Atletas: atletas2_j1,
+                      participante1: {
+                        id: jogo1.participante1.id,
+                        nome: `${atletas.find(a => a.id === duplaParaTrocar[0])?.nome || ''} & ${atletas.find(a => a.id === duplaParaTrocar[1])?.nome || ''}`,
+                      },
+                      participante2: {
+                        id: jogo1.participante2.id,
+                        nome: `${atletas.find(a => a.id === atletas2_j1[0])?.nome || ''} & ${atletas.find(a => a.id === atletas2_j1[1])?.nome || ''}`,
+                      },
+                    };
+                  }
+                  
+                  jogos[idx2] = {
+                    ...jogo2,
+                    participante1Atletas: atletas1_j2,
+                    participante2Atletas: atletas2_j2,
+                    participante1: {
+                      id: jogo2.participante1.id,
+                      nome: `${atletas.find(a => a.id === atletas1_j2[0])?.nome || ''} & ${atletas.find(a => a.id === atletas1_j2[1])?.nome || ''}`,
+                    },
+                    participante2: {
+                      id: jogo2.participante2.id,
+                      nome: `${atletas.find(a => a.id === atletas2_j2[0])?.nome || ''} & ${atletas.find(a => a.id === atletas2_j2[1])?.nome || ''}`,
+                    },
+                  };
+                  
+                  enfrentamentos.get(atleta1)?.add(atleta2);
+                  enfrentamentos.get(atleta2)?.add(atleta1);
+                  ajustado = true;
+                  console.log(`[SORTEIO] Ajustado via troca entre jogos: ${atleta1} e ${atleta2} agora se enfrentam`);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      if (!ajustado) {
+        console.warn(`[SORTEIO] ⚠️ Não foi possível ajustar para que ${atleta1} e ${atleta2} se enfrentem`);
       }
     }
     
