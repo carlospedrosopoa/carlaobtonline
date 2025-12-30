@@ -421,7 +421,6 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     // A matriz determinística já garante a maioria dos enfrentamentos
     // Código de ajuste removido para evitar criar parceiros repetidos
   } else {
-        const atletas1 = [...jogo.participante1Atletas];
         const atletas2 = [...jogo.participante2Atletas];
         
         const a1NaDupla1 = atletas1.includes(atleta1);
