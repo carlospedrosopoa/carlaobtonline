@@ -421,10 +421,10 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     // A matriz determinística já garante a maioria dos enfrentamentos
     // Código de ajuste removido para evitar criar parceiros repetidos
   } else {
-        const atletas2 = [...jogo.participante2Atletas];
-        
-        const a1NaDupla1 = atletas1.includes(atleta1);
-        const a1NaDupla2 = atletas2.includes(atleta1);
+    console.log(`[SORTEIO] ✅ Todos os pares de atletas já se enfrentam!`);
+  }
+
+  return jogos;
         const a2NaDupla1 = atletas1.includes(atleta2);
         const a2NaDupla2 = atletas2.includes(atleta2);
         
