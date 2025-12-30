@@ -269,36 +269,171 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     });
   }
 
-  // Validação: verificar se cada atleta joga com cada um dos outros exatamente uma vez
-  const validacao = new Map<string, Set<string>>();
-  atletas.forEach(a => validacao.set(a.id, new Set()));
+  // Validação e ajuste: garantir que cada atleta enfrente todos os outros pelo menos uma vez
+  const enfrentamentos = new Map<string, Set<string>>();
+  atletas.forEach(a => enfrentamentos.set(a.id, new Set()));
 
+  // Registrar enfrentamentos atuais (quando atletas estão em duplas opostas)
   jogos.forEach(jogo => {
     const atletas1 = jogo.participante1Atletas;
     const atletas2 = jogo.participante2Atletas;
     
-    // Cada atleta da dupla 1 joga com cada atleta da dupla 2
+    // Cada atleta da dupla 1 enfrenta cada atleta da dupla 2 (como oponentes)
     atletas1.forEach(a1 => {
       atletas2.forEach(a2 => {
-        validacao.get(a1)?.add(a2);
-        validacao.get(a2)?.add(a1);
+        enfrentamentos.get(a1)?.add(a2);
+        enfrentamentos.get(a2)?.add(a1);
+      });
+    });
+  });
+
+  // Verificar se algum par de atletas não se enfrentou
+  const paresFaltando: Array<[string, string]> = [];
+  for (let i = 0; i < atletas.length; i++) {
+    for (let j = i + 1; j < atletas.length; j++) {
+      const a1 = atletas[i].id;
+      const a2 = atletas[j].id;
+      if (!enfrentamentos.get(a1)?.has(a2)) {
+        paresFaltando.push([a1, a2]);
+      }
+    }
+  }
+
+  // Se houver pares faltando, ajustar os jogos
+  if (paresFaltando.length > 0) {
+    console.log(`[SORTEIO] Encontrados ${paresFaltando.length} pares de atletas que não se enfrentaram. Ajustando...`);
+    
+    // Para cada par faltando, tentar encontrar um jogo onde podemos ajustar
+    for (const [atleta1, atleta2] of paresFaltando) {
+      let ajustado = false;
+      
+      // Procurar um jogo onde podemos fazer o ajuste
+      for (let idx = 0; idx < jogos.length && !ajustado; idx++) {
+        const jogo = jogos[idx];
+        const atletas1 = [...jogo.participante1Atletas];
+        const atletas2 = [...jogo.participante2Atletas];
+        
+        const a1NaDupla1 = atletas1.includes(atleta1);
+        const a1NaDupla2 = atletas2.includes(atleta1);
+        const a2NaDupla1 = atletas1.includes(atleta2);
+        const a2NaDupla2 = atletas2.includes(atleta2);
+        
+        // Se ambos estão na mesma dupla, trocar um deles para a dupla oposta
+        if (a1NaDupla1 && a2NaDupla1) {
+          // Trocar atleta2 para a dupla 2
+          const outroAtletaDupla2 = atletas2.find(a => a !== atleta1 && a !== atleta2);
+          if (outroAtletaDupla2) {
+            const idxA2 = atletas1.indexOf(atleta2);
+            const idxOutro = atletas2.indexOf(outroAtletaDupla2);
+            atletas1[idxA2] = outroAtletaDupla2;
+            atletas2[idxOutro] = atleta2;
+            
+            // Buscar nomes dos atletas para atualizar o nome da dupla
+            const nomeA1 = atletas.find(a => a.id === atletas1[0])?.nome || '';
+            const nomeA2 = atletas.find(a => a.id === atletas1[1])?.nome || '';
+            const nomeA3 = atletas.find(a => a.id === atletas2[0])?.nome || '';
+            const nomeA4 = atletas.find(a => a.id === atletas2[1])?.nome || '';
+            
+            jogos[idx] = {
+              ...jogo,
+              participante1Atletas: atletas1,
+              participante2Atletas: atletas2,
+              participante1: {
+                id: jogo.participante1.id,
+                nome: `${nomeA1} & ${nomeA2}`,
+              },
+              participante2: {
+                id: jogo.participante2.id,
+                nome: `${nomeA3} & ${nomeA4}`,
+              },
+            };
+            
+            enfrentamentos.get(atleta1)?.add(atleta2);
+            enfrentamentos.get(atleta2)?.add(atleta1);
+            ajustado = true;
+            console.log(`[SORTEIO] Ajustado jogo ${idx + 1}: ${atleta1} e ${atleta2} agora se enfrentam`);
+          }
+        } else if (a1NaDupla2 && a2NaDupla2) {
+          // Trocar atleta2 para a dupla 1
+          const outroAtletaDupla1 = atletas1.find(a => a !== atleta1 && a !== atleta2);
+          if (outroAtletaDupla1) {
+            const idxA2 = atletas2.indexOf(atleta2);
+            const idxOutro = atletas1.indexOf(outroAtletaDupla1);
+            atletas2[idxA2] = outroAtletaDupla1;
+            atletas1[idxOutro] = atleta2;
+            
+            // Buscar nomes dos atletas para atualizar o nome da dupla
+            const nomeA1 = atletas.find(a => a.id === atletas1[0])?.nome || '';
+            const nomeA2 = atletas.find(a => a.id === atletas1[1])?.nome || '';
+            const nomeA3 = atletas.find(a => a.id === atletas2[0])?.nome || '';
+            const nomeA4 = atletas.find(a => a.id === atletas2[1])?.nome || '';
+            
+            jogos[idx] = {
+              ...jogo,
+              participante1Atletas: atletas1,
+              participante2Atletas: atletas2,
+              participante1: {
+                id: jogo.participante1.id,
+                nome: `${nomeA1} & ${nomeA2}`,
+              },
+              participante2: {
+                id: jogo.participante2.id,
+                nome: `${nomeA3} & ${nomeA4}`,
+              },
+            };
+            
+            enfrentamentos.get(atleta1)?.add(atleta2);
+            enfrentamentos.get(atleta2)?.add(atleta1);
+            ajustado = true;
+            console.log(`[SORTEIO] Ajustado jogo ${idx + 1}: ${atleta1} e ${atleta2} agora se enfrentam`);
+          }
+        }
+      }
+      
+      if (!ajustado) {
+        console.warn(`[SORTEIO] Não foi possível ajustar para que ${atleta1} e ${atleta2} se enfrentem`);
+      }
+    }
+    
+    // Re-validar após ajustes
+    enfrentamentos.clear();
+    atletas.forEach(a => enfrentamentos.set(a.id, new Set()));
+    jogos.forEach(jogo => {
+      const atletas1 = jogo.participante1Atletas;
+      const atletas2 = jogo.participante2Atletas;
+      atletas1.forEach(a1 => {
+        atletas2.forEach(a2 => {
+          enfrentamentos.get(a1)?.add(a2);
+          enfrentamentos.get(a2)?.add(a1);
+        });
       });
     });
     
-    // Cada atleta da dupla 1 joga com seu parceiro
-    validacao.get(atletas1[0])?.add(atletas1[1]);
-    validacao.get(atletas1[1])?.add(atletas1[0]);
-    
-    // Cada atleta da dupla 2 joga com seu parceiro
-    validacao.get(atletas2[0])?.add(atletas2[1]);
-    validacao.get(atletas2[1])?.add(atletas2[0]);
-  });
-
-  // Verificar se cada atleta joga com exatamente 7 outros (todos os outros)
-  for (const [atletaId, parceiros] of validacao.entries()) {
-    if (parceiros.size !== 7) {
-      console.warn(`[SORTEIO] Atleta ${atletaId} joga com ${parceiros.size} parceiros diferentes (esperado: 7)`);
+    // Verificar se ainda há pares faltando
+    const paresFaltandoApos: Array<[string, string]> = [];
+    for (let i = 0; i < atletas.length; i++) {
+      for (let j = i + 1; j < atletas.length; j++) {
+        const a1 = atletas[i].id;
+        const a2 = atletas[j].id;
+        if (!enfrentamentos.get(a1)?.has(a2)) {
+          paresFaltandoApos.push([a1, a2]);
+        }
+      }
     }
+    
+    if (paresFaltandoApos.length > 0) {
+      console.warn(`[SORTEIO] ⚠️ Ainda há ${paresFaltandoApos.length} pares que não se enfrentaram após ajustes:`, 
+        paresFaltandoApos.map(([a1, a2]) => {
+          const nome1 = atletas.find(a => a.id === a1)?.nome || a1;
+          const nome2 = atletas.find(a => a.id === a2)?.nome || a2;
+          return `${nome1} vs ${nome2}`;
+        })
+      );
+    } else {
+      console.log(`[SORTEIO] ✅ Todos os pares de atletas se enfrentam pelo menos uma vez!`);
+    }
+  } else {
+    console.log(`[SORTEIO] ✅ Todos os pares de atletas já se enfrentam!`);
   }
 
   return jogos;
