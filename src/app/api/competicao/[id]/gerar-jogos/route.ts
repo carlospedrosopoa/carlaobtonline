@@ -204,12 +204,14 @@ export async function POST(
         const result = await query(
           `INSERT INTO "JogoCompeticao" (
             id, "competicaoId", rodada, "numeroJogo",
-            "atleta1Id", "atleta2Id", "atleta1ParceriaId", "atleta2ParceriaId",
+            "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id",
+            "atleta1ParceriaId", "atleta2ParceriaId",
             status, "createdAt", "updatedAt"
           )
           VALUES (
             gen_random_uuid()::text, $1, $2, $3,
             $4, $5, $6, $7,
+            $8, $9,
             'AGENDADO', NOW(), NOW()
           )
           RETURNING id`,
@@ -218,7 +220,9 @@ export async function POST(
             jogo.rodada,
             jogo.numeroJogo,
             atleta1Id, // Primeiro atleta da primeira dupla
-            atleta2Id, // Segundo atleta da primeira dupla (ou null se não houver campo para segundo)
+            atleta2Id, // Segundo atleta da primeira dupla
+            atleta3Id, // Primeiro atleta da segunda dupla
+            atleta4Id, // Segundo atleta da segunda dupla
             parceria1Id, // ID da parceria (contém info dos dois atletas)
             parceria2Id, // ID da segunda parceria
           ]

@@ -383,6 +383,15 @@ export async function GET(
     return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar jogos:', error);
+    // Verificar se o erro é devido a campos não existentes
+    if (error?.message?.includes('atleta3Id') || error?.message?.includes('atleta4Id') || error?.code === '42703') {
+      console.error('Erro: Campos atleta3Id/atleta4Id não existem na tabela. Execute a migration add_atleta3_atleta4_jogo_competicao.sql');
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Erro: É necessário executar a migration add_atleta3_atleta4_jogo_competicao.sql no banco de dados', error: error?.message },
+        { status: 500 }
+      );
+      return withCors(errorResponse, request);
+    }
     const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar jogos', error: error?.message },
       { status: 500 }
