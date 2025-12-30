@@ -44,7 +44,13 @@ export default function ClassificacaoCompeticaoPage() {
 
   // Calcular classificação (vitórias e saldo de games)
   const calcularClassificacao = () => {
-    if (!jogos || jogos.length === 0) return [];
+    if (!jogos || jogos.length === 0) {
+      console.log('[CLASSIFICACAO] Nenhum jogo encontrado');
+      return [];
+    }
+
+    console.log('[CLASSIFICACAO] Total de jogos:', jogos.length);
+    console.log('[CLASSIFICACAO] Total de atletas participantes:', atletasParticipantes.length);
 
     // Mapear atletas e suas estatísticas
     const estatisticas = new Map<string, {
@@ -72,6 +78,8 @@ export default function ClassificacaoCompeticaoPage() {
       }
     });
 
+    console.log('[CLASSIFICACAO] Estatísticas inicializadas para', estatisticas.size, 'atletas');
+
     // Processar cada jogo concluído
     jogos.forEach((jogo: any) => {
       if (jogo.status === 'CONCLUIDO' && 
@@ -85,32 +93,50 @@ export default function ClassificacaoCompeticaoPage() {
           const dupla1 = jogo.participante1.dupla;
           const dupla2 = jogo.participante2.dupla;
 
-          // Atletas da dupla 1
-          [dupla1.atleta1.id, dupla1.atleta2.id].forEach((atletaId: string) => {
-            const stats = estatisticas.get(atletaId);
-            if (stats) {
-              stats.gamesFeitos += games1;
-              stats.gamesSofridos += games2;
-              if (games1 > games2) {
-                stats.vitorias++;
-              } else if (games2 > games1) {
-                stats.derrotas++;
+          // Verificar se a estrutura da dupla está correta
+          if (dupla1.atleta1?.id && dupla1.atleta2?.id && dupla2.atleta1?.id && dupla2.atleta2?.id) {
+            // Atletas da dupla 1
+            [dupla1.atleta1.id, dupla1.atleta2.id].forEach((atletaId: string) => {
+              const stats = estatisticas.get(atletaId);
+              if (stats) {
+                stats.gamesFeitos += games1;
+                stats.gamesSofridos += games2;
+                if (games1 > games2) {
+                  stats.vitorias++;
+                } else if (games2 > games1) {
+                  stats.derrotas++;
+                }
               }
-            }
-          });
+            });
 
-          // Atletas da dupla 2
-          [dupla2.atleta1.id, dupla2.atleta2.id].forEach((atletaId: string) => {
-            const stats = estatisticas.get(atletaId);
-            if (stats) {
-              stats.gamesFeitos += games2;
-              stats.gamesSofridos += games1;
-              if (games2 > games1) {
-                stats.vitorias++;
-              } else if (games1 > games2) {
-                stats.derrotas++;
+            // Atletas da dupla 2
+            [dupla2.atleta1.id, dupla2.atleta2.id].forEach((atletaId: string) => {
+              const stats = estatisticas.get(atletaId);
+              if (stats) {
+                stats.gamesFeitos += games2;
+                stats.gamesSofridos += games1;
+                if (games2 > games1) {
+                  stats.vitorias++;
+                } else if (games1 > games2) {
+                  stats.derrotas++;
+                }
               }
-            }
+            });
+          } else {
+            console.warn('[CLASSIFICACAO] Estrutura de dupla inválida no jogo:', {
+              jogoId: jogo.id,
+              participante1: jogo.participante1,
+              participante2: jogo.participante2,
+            });
+          }
+        } else {
+          console.warn('[CLASSIFICACAO] Jogo sem duplas válidas:', {
+            jogoId: jogo.id,
+            status: jogo.status,
+            gamesAtleta1: jogo.gamesAtleta1,
+            gamesAtleta2: jogo.gamesAtleta2,
+            participante1: jogo.participante1,
+            participante2: jogo.participante2,
           });
         }
       }
