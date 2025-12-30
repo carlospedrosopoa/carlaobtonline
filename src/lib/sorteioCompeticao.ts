@@ -191,9 +191,9 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     throw new Error(`Super 8 Duplas Round-Robin requer exatamente 8 atletas, mas foram fornecidos ${atletas.length}`);
   }
 
-  // NÃO embaralhar - usar ordem fixa para garantir que a matriz seja aplicada corretamente
-  // O embaralhamento estava causando problemas na aplicação da matriz determinística
-  const atletasOrdenados = [...atletas]; // Manter ordem original
+  // Embaralhar atletas para randomizar a ordem inicial
+  // A matriz determinística será aplicada após o embaralhamento
+  const atletasEmbaralhados = embaralhar(atletas);
 
   const jogos: Array<JogoSorteado & { 
     participante1Atletas: string[]; 
@@ -208,56 +208,51 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     enfrentamentos.set(a.id, new Set());
   });
 
-  // ALGORITMO DETERMINÍSTICO: Round-robin para garantir que cada atleta jogue com cada um dos outros 7 exatamente uma vez
-  // 1. Cada atleta joga exatamente 7 jogos (um por rodada)
-  // 2. Cada atleta joga com 7 parceiros diferentes (cada um dos outros 7 exatamente uma vez)
-  // 3. Se possível, cada atleta enfrenta todos os outros pelo menos uma vez
+  // MATRIZ DETERMINÍSTICA: Round-robin para garantir que cada atleta jogue com cada um dos outros 7 exatamente uma vez
+  // Matriz baseada na escala fornecida pelo usuário
+  // Os índices são baseados em 0 (0-7), mas a matriz original usa índices baseados em 1 (1-8)
+  // Rodada 1: (1,2) vs (3,4) e (5,6) vs (7,8)  -> índices: (0,1) vs (2,3) e (4,5) vs (6,7)
+  // Rodada 2: (1,3) vs (5,7) e (2,4) vs (6,8)  -> índices: (0,2) vs (4,6) e (1,3) vs (5,7)
+  // Rodada 3: (1,4) vs (6,7) e (2,3) vs (5,8)  -> índices: (0,3) vs (5,6) e (1,2) vs (4,7)
+  // Rodada 4: (1,5) vs (2,6) e (3,7) vs (4,8)  -> índices: (0,4) vs (1,5) e (2,6) vs (3,7)
+  // Rodada 5: (1,6) vs (3,8) e (2,5) vs (4,7)  -> índices: (0,5) vs (2,7) e (1,4) vs (3,6)
+  // Rodada 6: (1,7) vs (2,8) e (3,5) vs (4,6)  -> índices: (0,6) vs (1,7) e (2,4) vs (3,5)
+  // Rodada 7: (1,8) vs (2,7) e (3,6) vs (4,5)  -> índices: (0,7) vs (1,6) e (2,5) vs (3,4)
   
-  // Algoritmo: Round-robin circular clássico para 8 jogadores (7 rodadas)
-  // Estrutura: fixo + rotação dos outros 7
-  // O fixo joga com cada rotativo uma vez (7 rodadas)
-  // Os 7 rotativos formam duplas entre si usando rotação circular
-  
-  // Usar ordem fixa (sem embaralhamento) para garantir aplicação correta da matriz
-  const fixo = atletasOrdenados[0];
-  const rotativos = atletasOrdenados.slice(1); // 7 atletas restantes
-
-  // Matriz determinística que garante cada par de rotativos jogue junto exatamente uma vez
-  // Para 7 rotativos, temos C(7,2) = 21 pares possíveis
-  // Em 7 rodadas com 3 duplas de rotativos cada = 21 pares totais (exatamente o necessário!)
-  // Matriz baseada em round-robin circular onde cada rotativo joga com cada um dos outros 6 exatamente uma vez
-  
-  // Matriz de pares para cada rodada (índices dos rotativos, excluindo o que está com o fixo)
-  // Cada linha representa uma rodada, com o primeiro elemento sendo o parceiro do fixo
-  // Esta matriz garante que cada par de rotativos jogue junto exatamente uma vez
-  const matrizPares = [
-    // Rodada 0: fixo+0, 1+6, 2+5, 3+4
-    [0, [1, 6], [2, 5], [3, 4]],
-    // Rodada 1: fixo+1, 2+0, 3+6, 4+5
-    [1, [2, 0], [3, 6], [4, 5]],
-    // Rodada 2: fixo+2, 3+1, 4+0, 5+6
-    [2, [3, 1], [4, 0], [5, 6]],
-    // Rodada 3: fixo+3, 4+2, 5+1, 6+0
-    [3, [4, 2], [5, 1], [6, 0]],
-    // Rodada 4: fixo+4, 5+3, 6+2, 0+1
-    [4, [5, 3], [6, 2], [0, 1]],
-    // Rodada 5: fixo+5, 6+4, 0+3, 1+2
-    [5, [6, 4], [0, 3], [1, 2]],
-    // Rodada 6: fixo+6, 0+5, 1+4, 2+3
-    [6, [0, 5], [1, 4], [2, 3]],
+  const matrizRodadas = [
+    // Rodada 1: (0,1) vs (2,3) e (4,5) vs (6,7)
+    { jogo1: { dupla1: [0, 1], dupla2: [2, 3] }, jogo2: { dupla1: [4, 5], dupla2: [6, 7] } },
+    // Rodada 2: (0,2) vs (4,6) e (1,3) vs (5,7)
+    { jogo1: { dupla1: [0, 2], dupla2: [4, 6] }, jogo2: { dupla1: [1, 3], dupla2: [5, 7] } },
+    // Rodada 3: (0,3) vs (5,6) e (1,2) vs (4,7)
+    { jogo1: { dupla1: [0, 3], dupla2: [5, 6] }, jogo2: { dupla1: [1, 2], dupla2: [4, 7] } },
+    // Rodada 4: (0,4) vs (1,5) e (2,6) vs (3,7)
+    { jogo1: { dupla1: [0, 4], dupla2: [1, 5] }, jogo2: { dupla1: [2, 6], dupla2: [3, 7] } },
+    // Rodada 5: (0,5) vs (2,7) e (1,4) vs (3,6)
+    { jogo1: { dupla1: [0, 5], dupla2: [2, 7] }, jogo2: { dupla1: [1, 4], dupla2: [3, 6] } },
+    // Rodada 6: (0,6) vs (1,7) e (2,4) vs (3,5)
+    { jogo1: { dupla1: [0, 6], dupla2: [1, 7] }, jogo2: { dupla1: [2, 4], dupla2: [3, 5] } },
+    // Rodada 7: (0,7) vs (1,6) e (2,5) vs (3,4)
+    { jogo1: { dupla1: [0, 7], dupla2: [1, 6] }, jogo2: { dupla1: [2, 5], dupla2: [3, 4] } },
   ];
 
   for (let rodada = 0; rodada < 7; rodada++) {
-    const configRodada = matrizPares[rodada];
-    const parceiroFixoIdx = configRodada[0] as number;
-    const parceiroFixo = rotativos[parceiroFixoIdx];
+    const configRodada = matrizRodadas[rodada];
     
-    // Formar 4 duplas usando a matriz determinística
-    let duplas = [
-      { atleta1: fixo, atleta2: parceiroFixo },
-      { atleta1: rotativos[(configRodada[1] as number[])[0]], atleta2: rotativos[(configRodada[1] as number[])[1]] },
-      { atleta1: rotativos[(configRodada[2] as number[])[0]], atleta2: rotativos[(configRodada[2] as number[])[1]] },
-      { atleta1: rotativos[(configRodada[3] as number[])[0]], atleta2: rotativos[(configRodada[3] as number[])[1]] },
+    // Jogo 1 da rodada
+    const dupla1Jogo1 = [atletasEmbaralhados[configRodada.jogo1.dupla1[0]], atletasEmbaralhados[configRodada.jogo1.dupla1[1]]];
+    const dupla2Jogo1 = [atletasEmbaralhados[configRodada.jogo1.dupla2[0]], atletasEmbaralhados[configRodada.jogo1.dupla2[1]]];
+    
+    // Jogo 2 da rodada
+    const dupla1Jogo2 = [atletasEmbaralhados[configRodada.jogo2.dupla1[0]], atletasEmbaralhados[configRodada.jogo2.dupla1[1]]];
+    const dupla2Jogo2 = [atletasEmbaralhados[configRodada.jogo2.dupla2[0]], atletasEmbaralhados[configRodada.jogo2.dupla2[1]]];
+    
+    // Formar duplas para validação
+    const duplas = [
+      { atleta1: dupla1Jogo1[0], atleta2: dupla1Jogo1[1] },
+      { atleta1: dupla2Jogo1[0], atleta2: dupla2Jogo1[1] },
+      { atleta1: dupla1Jogo2[0], atleta2: dupla1Jogo2[1] },
+      { atleta1: dupla2Jogo2[0], atleta2: dupla2Jogo2[1] },
     ];
     
     // Validar que não há parceiros repetidos ANTES de registrar
