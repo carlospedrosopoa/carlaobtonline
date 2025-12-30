@@ -259,15 +259,29 @@ export function gerarSorteioSuper8DuplasRoundRobin(
               (enfrentamentos.get(a2_1)?.has(a1_2) ? 0 : 1)
           };
           
-          // Se a troca melhora, fazer
+          // Se a troca melhora, fazer (mas validar que não cria duplicatas)
           if (configTroca1.enfrentamentosNovos > configAtual.enfrentamentosNovos &&
               !parceiros.get(a1_1)?.has(a2_1) && !parceiros.get(a2_1)?.has(a1_1) &&
               !parceiros.get(a1_2)?.has(a2_2) && !parceiros.get(a2_2)?.has(a1_2)) {
+            // Validar que a troca não cria duplicatas
             const temp = dupla1.atleta2;
-            dupla1.atleta2 = dupla2.atleta1;
-            dupla2.atleta1 = temp;
-            melhorou = true;
-            break;
+            const novaDupla1 = [dupla1.atleta1.id, dupla2.atleta1.id];
+            const novaDupla2 = [temp.id, dupla2.atleta2.id];
+            
+            // Verificar se há duplicatas após a troca
+            const todosIdsAposTroca = [
+              ...novaDupla1, ...novaDupla2,
+              duplas[2].atleta1.id, duplas[2].atleta2.id,
+              duplas[3].atleta1.id, duplas[3].atleta2.id,
+            ];
+            const idsUnicosAposTroca = new Set(todosIdsAposTroca);
+            
+            if (idsUnicosAposTroca.size === 8) {
+              dupla1.atleta2 = dupla2.atleta1;
+              dupla2.atleta1 = temp;
+              melhorou = true;
+              break;
+            }
           }
         }
         if (melhorou) break;
@@ -280,6 +294,19 @@ export function gerarSorteioSuper8DuplasRoundRobin(
       parceiros.get(dupla.atleta1.id)?.add(dupla.atleta2.id);
       parceiros.get(dupla.atleta2.id)?.add(dupla.atleta1.id);
     });
+
+    // Validar que não há atletas duplicados nas duplas
+    const todosIds = [
+      duplas[0].atleta1.id, duplas[0].atleta2.id,
+      duplas[1].atleta1.id, duplas[1].atleta2.id,
+      duplas[2].atleta1.id, duplas[2].atleta2.id,
+      duplas[3].atleta1.id, duplas[3].atleta2.id,
+    ];
+    const idsUnicos = new Set(todosIds);
+    if (idsUnicos.size !== 8) {
+      const duplicados = todosIds.filter((id, idx) => todosIds.indexOf(id) !== idx);
+      throw new Error(`Erro na geração: atletas duplicados na rodada ${rodada + 1}: ${duplicados.join(', ')}`);
+    }
 
     // Gerar 2 jogos: Dupla 1 vs Dupla 2, Dupla 3 vs Dupla 4
     const dupla1Ids = [duplas[0].atleta1.id, duplas[0].atleta2.id];
@@ -407,30 +434,41 @@ export function gerarSorteioSuper8DuplasRoundRobin(
           // Trocar atleta2 para a dupla 1
           const outroAtletaDupla1 = atletas1.find(a => a !== atleta1 && a !== atleta2);
           if (outroAtletaDupla1) {
-            const idxA2 = atletas2.indexOf(atleta2);
-            const idxOutro = atletas1.indexOf(outroAtletaDupla1);
-            atletas2[idxA2] = outroAtletaDupla1;
-            atletas1[idxOutro] = atleta2;
+            // Validar que não há duplicatas após a troca
+            const todosIdsAposTroca = [...atletas1, ...atletas2];
+            todosIdsAposTroca[atletas2.indexOf(atleta2)] = outroAtletaDupla1;
+            todosIdsAposTroca[atletas1.indexOf(outroAtletaDupla1)] = atleta2;
+            const idsUnicos = new Set(todosIdsAposTroca);
             
-            // Buscar nomes dos atletas para atualizar o nome da dupla
-            const nomeA1 = atletas.find(a => a.id === atletas1[0])?.nome || '';
-            const nomeA2 = atletas.find(a => a.id === atletas1[1])?.nome || '';
-            const nomeA3 = atletas.find(a => a.id === atletas2[0])?.nome || '';
-            const nomeA4 = atletas.find(a => a.id === atletas2[1])?.nome || '';
-            
-            jogos[idx] = {
-              ...jogo,
-              participante1Atletas: atletas1,
-              participante2Atletas: atletas2,
-              participante1: {
-                id: jogo.participante1.id,
-                nome: `${nomeA1} & ${nomeA2}`,
-              },
-              participante2: {
-                id: jogo.participante2.id,
-                nome: `${nomeA3} & ${nomeA4}`,
-              },
-            };
+            if (idsUnicos.size === 4) {
+              const idxA2 = atletas2.indexOf(atleta2);
+              const idxOutro = atletas1.indexOf(outroAtletaDupla1);
+              atletas2[idxA2] = outroAtletaDupla1;
+              atletas1[idxOutro] = atleta2;
+              
+              // Buscar nomes dos atletas para atualizar o nome da dupla
+              const nomeA1 = atletas.find(a => a.id === atletas1[0])?.nome || '';
+              const nomeA2 = atletas.find(a => a.id === atletas1[1])?.nome || '';
+              const nomeA3 = atletas.find(a => a.id === atletas2[0])?.nome || '';
+              const nomeA4 = atletas.find(a => a.id === atletas2[1])?.nome || '';
+              
+              jogos[idx] = {
+                ...jogo,
+                participante1Atletas: atletas1,
+                participante2Atletas: atletas2,
+                participante1: {
+                  id: jogo.participante1.id,
+                  nome: `${nomeA1} & ${nomeA2}`,
+                },
+                participante2: {
+                  id: jogo.participante2.id,
+                  nome: `${nomeA3} & ${nomeA4}`,
+                },
+              };
+            } else {
+              console.warn(`[SORTEIO] Troca rejeitada: criaria duplicatas no jogo ${idx + 1}`);
+              continue;
+            }
             
             enfrentamentos.get(atleta1)?.add(atleta2);
             enfrentamentos.get(atleta2)?.add(atleta1);
