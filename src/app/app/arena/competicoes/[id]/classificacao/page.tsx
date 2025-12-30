@@ -297,7 +297,88 @@ export default function ClassificacaoCompeticaoPage() {
     );
   }
 
+  // Carregar classificação final se a competição estiver concluída
+  const carregarClassificacaoFinal = () => {
+    if (competicao?.status !== 'CONCLUIDA') {
+      return null;
+    }
+
+    // Criar um mapa com as posições finais salvas
+    const classificacaoPorPosicao = new Map<number, any>();
+    
+    atletasParticipantes.forEach((participante: any) => {
+      if (participante.posicaoFinal && participante.atletaId) {
+        // Calcular estatísticas do atleta para exibição
+        const stats = calcularEstatisticasAtleta(participante.atletaId);
+        classificacaoPorPosicao.set(participante.posicaoFinal, {
+          atletaId: participante.atletaId,
+          nome: participante.atleta?.nome || 'Atleta',
+          vitorias: stats.vitorias,
+          derrotas: stats.derrotas,
+          gamesFeitos: stats.gamesFeitos,
+          gamesSofridos: stats.gamesSofridos,
+          saldoGames: stats.saldoGames,
+        });
+      }
+    });
+
+    // Converter para array ordenado por posição
+    const classificacao = Array.from(classificacaoPorPosicao.entries())
+      .sort(([posA], [posB]) => posA - posB)
+      .map(([, atleta]) => atleta);
+
+    return classificacao.length > 0 ? classificacao : null;
+  };
+
+  // Calcular estatísticas de um atleta específico
+  const calcularEstatisticasAtleta = (atletaId: string) => {
+    let vitorias = 0;
+    let derrotas = 0;
+    let gamesFeitos = 0;
+    let gamesSofridos = 0;
+
+    jogos.forEach((jogo: any) => {
+      if (jogo.status === 'CONCLUIDO' && 
+          jogo.gamesAtleta1 !== null && jogo.gamesAtleta1 !== undefined &&
+          jogo.gamesAtleta2 !== null && jogo.gamesAtleta2 !== undefined) {
+        const games1 = jogo.gamesAtleta1;
+        const games2 = jogo.gamesAtleta2;
+
+        if (jogo.participante1?.dupla && jogo.participante2?.dupla) {
+          const dupla1 = jogo.participante1.dupla;
+          const dupla2 = jogo.participante2.dupla;
+
+          if (dupla1.atleta1?.id && dupla1.atleta2?.id && dupla2.atleta1?.id && dupla2.atleta2?.id) {
+            const dupla1Ids = [dupla1.atleta1.id, dupla1.atleta2.id];
+            const dupla2Ids = [dupla2.atleta1.id, dupla2.atleta2.id];
+
+            if (dupla1Ids.includes(atletaId)) {
+              gamesFeitos += games1;
+              gamesSofridos += games2;
+              if (games1 > games2) vitorias++;
+              else if (games2 > games1) derrotas++;
+            } else if (dupla2Ids.includes(atletaId)) {
+              gamesFeitos += games2;
+              gamesSofridos += games1;
+              if (games2 > games1) vitorias++;
+              else if (games1 > games2) derrotas++;
+            }
+          }
+        }
+      }
+    });
+
+    return {
+      vitorias,
+      derrotas,
+      gamesFeitos,
+      gamesSofridos,
+      saldoGames: gamesFeitos - gamesSofridos,
+    };
+  };
+
   const classificacaoCalculada = calcularClassificacao();
+  const classificacaoFinalSalva = carregarClassificacaoFinal();
   
   // Verificar se há empate total nos primeiros colocados
   const verificarEmpateTotal = (classif: any[]) => {
@@ -330,7 +411,10 @@ export default function ClassificacaoCompeticaoPage() {
   };
 
   const atletasEmpatados = verificarEmpateTotal(classificacaoCalculada);
-  const classificacao = classificacaoAjustada || classificacaoCalculada;
+  // Se a competição estiver concluída, usar a classificação final salva; caso contrário, usar a calculada ou ajustada
+  const classificacao = competicao?.status === 'CONCLUIDA' 
+    ? (classificacaoFinalSalva || classificacaoCalculada)
+    : (classificacaoAjustada || classificacaoCalculada);
   const campeao = classificacao[0];
 
   return (
@@ -349,7 +433,7 @@ export default function ClassificacaoCompeticaoPage() {
         </h1>
       </div>
 
-      {atletasEmpatados && atletasEmpatados.length > 1 && !classificacaoAjustada && (
+      {competicao.status === 'EM_ANDAMENTO' && atletasEmpatados && atletasEmpatados.length > 1 && !classificacaoAjustada && (
         <div className="mb-6 bg-orange-50 border-2 border-orange-300 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
