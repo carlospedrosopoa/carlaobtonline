@@ -158,8 +158,13 @@ export function gerarFinal(vencedoresSemifinais: ParticipanteSorteio[]): JogoSor
  * 7 rodadas, cada rodada com 2 jogos (4 duplas competem)
  * 
  * Algoritmo determinístico baseado em round-robin circular:
- * - Garante que cada atleta joga COM cada um dos outros 7 exatamente uma vez (como parceiro)
- * - Garante que cada atleta enfrenta CONTRA cada um dos outros 7 pelo menos uma vez (como oponente)
+ * - Garante que cada atleta joga 7 jogos (um por rodada)
+ * - Garante que cada atleta joga COM 7 parceiros diferentes (um por rodada, sem repetir)
+ * - Garante que cada atleta enfrenta CONTRA todos os outros 7 pelo menos uma vez (como oponente)
+ * 
+ * NOTA: É matematicamente impossível que cada atleta jogue COM todos os outros 7 como parceiro
+ * em apenas 7 rodadas (seriam necessárias 14 rodadas). O algoritmo garante o requisito principal:
+ * que todos os atletas se enfrentem pelo menos uma vez.
  * 
  * O algoritmo usa uma matriz de rotação fixa que garante matematicamente todos os enfrentamentos.
  */
