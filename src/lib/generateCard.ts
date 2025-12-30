@@ -885,8 +885,8 @@ export async function generateCompetitionCard(
     );
 
     // Calcular posições das 8 bolinhas (2 colunas de 4)
-    // Aumentado o tamanho para preencher melhor os círculos
-    const tamanhoFoto = Math.min(largura, altura) * 0.14;
+    // Tamanho dobrado das fotos
+    const tamanhoFoto = Math.min(largura, altura) * 0.28;
     // Ajustadas as colunas para ficarem mais próximas do centro e melhor alinhadas
     const colunaEsquerdaX = largura * 0.33;
     const colunaDireitaX = largura * 0.67;
