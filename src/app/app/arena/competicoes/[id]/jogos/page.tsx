@@ -63,9 +63,19 @@ export default function JogosCompeticaoPage() {
 
     try {
       setSaving(true);
+      
+      // Converter strings para números, tratando strings vazias e valores inválidos
+      const converterParaNumero = (valor: string): number | null => {
+        if (!valor || valor.trim() === '') {
+          return null;
+        }
+        const num = parseInt(valor, 10);
+        return isNaN(num) ? null : num;
+      };
+
       await competicaoService.atualizarResultadoJogo(competicaoId, jogoEditando.id, {
-        gamesAtleta1: gamesAtleta1 ? parseInt(gamesAtleta1) : null,
-        gamesAtleta2: gamesAtleta2 ? parseInt(gamesAtleta2) : null,
+        gamesAtleta1: converterParaNumero(gamesAtleta1),
+        gamesAtleta2: converterParaNumero(gamesAtleta2),
       });
       
       await carregarDados();
@@ -174,7 +184,8 @@ export default function JogosCompeticaoPage() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">{jogo.participante1?.nome || 'TBD'}</span>
-                      {jogo.gamesAtleta1 !== null && jogo.gamesAtleta2 !== null ? (
+                      {jogo.gamesAtleta1 !== null && jogo.gamesAtleta1 !== undefined && 
+                       jogo.gamesAtleta2 !== null && jogo.gamesAtleta2 !== undefined ? (
                         <span className="font-bold text-blue-600">
                           {jogo.gamesAtleta1} - {jogo.gamesAtleta2}
                         </span>

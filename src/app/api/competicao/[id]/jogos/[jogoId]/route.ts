@@ -74,10 +74,25 @@ export async function PUT(
     // Extrair dados do body
     const { gamesAtleta1, gamesAtleta2, dataHora, quadraId, observacoes, status } = body;
 
-    // Validar placar (aceitar qualquer número positivo)
-    const games1 = gamesAtleta1 !== null && gamesAtleta1 !== undefined ? parseInt(gamesAtleta1) : null;
-    const games2 = gamesAtleta2 !== null && gamesAtleta2 !== undefined ? parseInt(gamesAtleta2) : null;
+    // Converter placar para número, tratando strings vazias e valores inválidos
+    const converterParaNumero = (valor: any): number | null => {
+      if (valor === null || valor === undefined || valor === '') {
+        return null;
+      }
+      if (typeof valor === 'number') {
+        return isNaN(valor) ? null : valor;
+      }
+      if (typeof valor === 'string') {
+        const num = parseInt(valor, 10);
+        return isNaN(num) ? null : num;
+      }
+      return null;
+    };
 
+    const games1 = converterParaNumero(gamesAtleta1);
+    const games2 = converterParaNumero(gamesAtleta2);
+
+    // Validar placar (aceitar qualquer número positivo ou zero)
     if (games1 !== null && games1 < 0) {
       const errorResponse = NextResponse.json(
         { mensagem: 'Placar de games do participante 1 deve ser um número positivo ou zero' },
@@ -94,7 +109,7 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    // Determinar vencedor baseado no placar
+    // Determinar vencedor baseado no placar (apenas se ambos os valores estiverem preenchidos)
     let vencedorId: string | null = null;
     if (games1 !== null && games2 !== null) {
       if (games1 > games2) {
@@ -110,18 +125,37 @@ export async function PUT(
     const updateValues: any[] = [];
     let paramCount = 1;
 
-    if (games1 !== null && games2 !== null) {
-      updateFields.push(`"gamesAtleta1" = $${paramCount++}`);
-      updateValues.push(games1);
-      updateFields.push(`"gamesAtleta2" = $${paramCount++}`);
-      updateValues.push(games2);
-      updateFields.push(`"vencedorId" = $${paramCount++}`);
-      updateValues.push(vencedorId);
-      
-      // Se tem placar, considerar concluído
-      if (status === undefined || status === null) {
-        updateFields.push(`status = $${paramCount++}`);
-        updateValues.push('CONCLUIDO');
+    // Atualizar placar se pelo menos um dos valores foi fornecido
+    if (gamesAtleta1 !== undefined || gamesAtleta2 !== undefined) {
+      if (games1 !== null) {
+        updateFields.push(`"gamesAtleta1" = $${paramCount++}`);
+        updateValues.push(games1);
+      } else if (gamesAtleta1 === null || gamesAtleta1 === '') {
+        // Permitir limpar o placar explicitamente
+        updateFields.push(`"gamesAtleta1" = NULL`);
+      }
+
+      if (games2 !== null) {
+        updateFields.push(`"gamesAtleta2" = $${paramCount++}`);
+        updateValues.push(games2);
+      } else if (gamesAtleta2 === null || gamesAtleta2 === '') {
+        // Permitir limpar o placar explicitamente
+        updateFields.push(`"gamesAtleta2" = NULL`);
+      }
+
+      // Atualizar vencedor apenas se ambos os placares estiverem preenchidos
+      if (games1 !== null && games2 !== null) {
+        updateFields.push(`"vencedorId" = $${paramCount++}`);
+        updateValues.push(vencedorId);
+        
+        // Se tem placar completo, considerar concluído
+        if (status === undefined || status === null) {
+          updateFields.push(`status = $${paramCount++}`);
+          updateValues.push('CONCLUIDO');
+        }
+      } else {
+        // Se o placar foi limpo parcialmente, limpar também o vencedor
+        updateFields.push(`"vencedorId" = NULL`);
       }
     }
 
