@@ -260,20 +260,26 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     
     // Validar que não há parceiros repetidos ANTES de registrar
     // Esta validação é crítica para garantir que cada atleta jogue com cada um dos outros 7 exatamente uma vez
-    duplas.forEach((dupla) => {
+    for (const dupla of duplas) {
       const parceiroAtual1 = parceiros.get(dupla.atleta1.id);
       const parceiroAtual2 = parceiros.get(dupla.atleta2.id);
       
       if (parceiroAtual1?.has(dupla.atleta2.id)) {
-        console.error(`[SORTEIO] ERRO: ${dupla.atleta1.id} já jogou com ${dupla.atleta2.id} antes da rodada ${rodada + 1}`);
-        throw new Error(`Erro na rodada ${rodada + 1}: ${dupla.atleta1.id} já jogou com ${dupla.atleta2.id}`);
+        const nomeAtleta1 = dupla.atleta1.nome;
+        const nomeAtleta2 = dupla.atleta2.nome;
+        console.error(`[SORTEIO] ERRO CRÍTICO na rodada ${rodada + 1}: ${nomeAtleta1} (${dupla.atleta1.id}) já jogou com ${nomeAtleta2} (${dupla.atleta2.id})`);
+        console.error(`[SORTEIO] Parceiros atuais de ${nomeAtleta1}:`, Array.from(parceiroAtual1 || []).map(id => atletas.find(a => a.id === id)?.nome || id));
+        throw new Error(`Erro na rodada ${rodada + 1}: ${nomeAtleta1} já jogou com ${nomeAtleta2}. Isso viola a regra de que cada atleta deve jogar com cada um dos outros 7 exatamente uma vez.`);
       }
       
       if (parceiroAtual2?.has(dupla.atleta1.id)) {
-        console.error(`[SORTEIO] ERRO: ${dupla.atleta2.id} já jogou com ${dupla.atleta1.id} antes da rodada ${rodada + 1}`);
-        throw new Error(`Erro na rodada ${rodada + 1}: ${dupla.atleta2.id} já jogou com ${dupla.atleta1.id}`);
+        const nomeAtleta1 = dupla.atleta1.nome;
+        const nomeAtleta2 = dupla.atleta2.nome;
+        console.error(`[SORTEIO] ERRO CRÍTICO na rodada ${rodada + 1}: ${nomeAtleta2} (${dupla.atleta2.id}) já jogou com ${nomeAtleta1} (${dupla.atleta1.id})`);
+        console.error(`[SORTEIO] Parceiros atuais de ${nomeAtleta2}:`, Array.from(parceiroAtual2 || []).map(id => atletas.find(a => a.id === id)?.nome || id));
+        throw new Error(`Erro na rodada ${rodada + 1}: ${nomeAtleta2} já jogou com ${nomeAtleta1}. Isso viola a regra de que cada atleta deve jogar com cada um dos outros 7 exatamente uma vez.`);
       }
-    });
+    }
 
     // Registrar parceiros desta rodada
     duplas.forEach(dupla => {
