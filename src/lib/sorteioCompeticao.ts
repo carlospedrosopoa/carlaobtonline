@@ -413,10 +413,16 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     }
   }
 
-  // Se houver pares faltando, ajustar os jogos de forma mais agressiva
+  // Se houver pares faltando, NÃO ajustar os jogos para evitar criar parceiros repetidos
+  // A regra principal é mais importante: cada atleta deve jogar com cada um dos outros 7 exatamente uma vez
+  // Se alguns enfrentamentos faltarem, é aceitável, mas NUNCA podemos ter parceiros repetidos
   if (paresFaltando.length > 0) {
-    console.log(`[SORTEIO] Encontrados ${paresFaltando.length} pares de atletas que não se enfrentaram. Ajustando...`);
+    console.warn(`[SORTEIO] ⚠️ Encontrados ${paresFaltando.length} pares de atletas que não se enfrentaram, mas NÃO vamos ajustar para evitar criar parceiros repetidos.`);
+    console.warn(`[SORTEIO] A regra principal (cada atleta joga com cada um dos outros 7 exatamente uma vez) é mais importante que garantir todos os enfrentamentos.`);
     
+    // NÃO fazer ajustes - isso violaria a regra de parceiros únicos
+    // A matriz determinística já garante a maioria dos enfrentamentos
+    /*
     // Para cada par faltando, tentar encontrar um jogo onde podemos ajustar
     for (const [atleta1, atleta2] of paresFaltando) {
       let ajustado = false;
