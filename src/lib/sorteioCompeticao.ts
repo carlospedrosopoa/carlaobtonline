@@ -425,12 +425,7 @@ export function gerarSorteioSuper8DuplasRoundRobin(
   }
 
   return jogos;
-        const a2NaDupla1 = atletas1.includes(atleta2);
-        const a2NaDupla2 = atletas2.includes(atleta2);
-        
-        // Se ambos estão na mesma dupla, trocar um deles para a dupla oposta
-        if (a1NaDupla1 && a2NaDupla1) {
-          // Trocar atleta2 para a dupla 2
+}
           const outroAtletaDupla2 = atletas2.find(a => a !== atleta1 && a !== atleta2);
           if (outroAtletaDupla2) {
             const idxA2 = atletas1.indexOf(atleta2);
