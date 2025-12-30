@@ -227,6 +227,7 @@ export function gerarSorteioSuper8DuplasRoundRobin(
   
   // Matriz de pares para cada rodada (índices dos rotativos, excluindo o que está com o fixo)
   // Cada linha representa uma rodada, com o primeiro elemento sendo o parceiro do fixo
+  // Esta matriz garante que cada par de rotativos jogue junto exatamente uma vez
   const matrizPares = [
     // Rodada 0: fixo+0, 1+6, 2+5, 3+4
     [0, [1, 6], [2, 5], [3, 4]],
@@ -258,10 +259,19 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     ];
     
     // Validar que não há parceiros repetidos ANTES de registrar
+    // Esta validação é crítica para garantir que cada atleta jogue com cada um dos outros 7 exatamente uma vez
     duplas.forEach((dupla) => {
-      const parceiroAtual = parceiros.get(dupla.atleta1.id);
-      if (parceiroAtual?.has(dupla.atleta2.id)) {
+      const parceiroAtual1 = parceiros.get(dupla.atleta1.id);
+      const parceiroAtual2 = parceiros.get(dupla.atleta2.id);
+      
+      if (parceiroAtual1?.has(dupla.atleta2.id)) {
+        console.error(`[SORTEIO] ERRO: ${dupla.atleta1.id} já jogou com ${dupla.atleta2.id} antes da rodada ${rodada + 1}`);
         throw new Error(`Erro na rodada ${rodada + 1}: ${dupla.atleta1.id} já jogou com ${dupla.atleta2.id}`);
+      }
+      
+      if (parceiroAtual2?.has(dupla.atleta1.id)) {
+        console.error(`[SORTEIO] ERRO: ${dupla.atleta2.id} já jogou com ${dupla.atleta1.id} antes da rodada ${rodada + 1}`);
+        throw new Error(`Erro na rodada ${rodada + 1}: ${dupla.atleta2.id} já jogou com ${dupla.atleta1.id}`);
       }
     });
 
