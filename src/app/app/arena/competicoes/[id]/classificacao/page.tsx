@@ -61,6 +61,7 @@ export default function ClassificacaoCompeticaoPage() {
       atletaId: string;
       nome: string;
       vitorias: number;
+      empates: number;
       derrotas: number;
       gamesFeitos: number;
       gamesSofridos: number;
@@ -74,6 +75,7 @@ export default function ClassificacaoCompeticaoPage() {
           atletaId: participante.atletaId,
           nome: participante.atleta?.nome || 'Atleta',
           vitorias: 0,
+          empates: 0,
           derrotas: 0,
           gamesFeitos: 0,
           gamesSofridos: 0,
@@ -109,6 +111,8 @@ export default function ClassificacaoCompeticaoPage() {
                   stats.vitorias++;
                 } else if (games2 > games1) {
                   stats.derrotas++;
+                } else {
+                  stats.empates++;
                 }
               }
             });
@@ -123,6 +127,8 @@ export default function ClassificacaoCompeticaoPage() {
                   stats.vitorias++;
                 } else if (games1 > games2) {
                   stats.derrotas++;
+                } else {
+                  stats.empates++;
                 }
               }
             });
@@ -314,6 +320,7 @@ export default function ClassificacaoCompeticaoPage() {
           atletaId: participante.atletaId,
           nome: participante.atleta?.nome || 'Atleta',
           vitorias: stats.vitorias,
+          empates: stats.empates,
           derrotas: stats.derrotas,
           gamesFeitos: stats.gamesFeitos,
           gamesSofridos: stats.gamesSofridos,
@@ -333,6 +340,7 @@ export default function ClassificacaoCompeticaoPage() {
   // Calcular estatísticas de um atleta específico
   const calcularEstatisticasAtleta = (atletaId: string) => {
     let vitorias = 0;
+    let empates = 0;
     let derrotas = 0;
     let gamesFeitos = 0;
     let gamesSofridos = 0;
@@ -357,11 +365,13 @@ export default function ClassificacaoCompeticaoPage() {
               gamesSofridos += games2;
               if (games1 > games2) vitorias++;
               else if (games2 > games1) derrotas++;
+              else empates++;
             } else if (dupla2Ids.includes(atletaId)) {
               gamesFeitos += games2;
               gamesSofridos += games1;
               if (games2 > games1) vitorias++;
               else if (games1 > games2) derrotas++;
+              else empates++;
             }
           }
         }
@@ -370,6 +380,7 @@ export default function ClassificacaoCompeticaoPage() {
 
     return {
       vitorias,
+      empates,
       derrotas,
       gamesFeitos,
       gamesSofridos,
@@ -611,6 +622,7 @@ export default function ClassificacaoCompeticaoPage() {
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Saldo</th>
                 </>
               )}
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Empates</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Derrotas</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Games Feitos</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Games Sofridos</th>
@@ -647,6 +659,7 @@ export default function ClassificacaoCompeticaoPage() {
                     </td>
                   </>
                 )}
+                <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.empates || 0}</td>
                 <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.derrotas}</td>
                 <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.gamesFeitos}</td>
                 <td className="px-4 py-3 text-sm text-center text-gray-600">{atleta.gamesSofridos}</td>
