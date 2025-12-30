@@ -189,10 +189,17 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     participante2Atletas: string[];
   }> = [];
 
-  // Algoritmo Round-Robin circular para 8 jogadores
-  // Fixa o primeiro atleta e rotaciona os outros 7 em sentido horário
-  // Em cada rodada, o atleta fixo joga com um diferente
-  // Os outros 6 formam 3 duplas que também rotacionam
+  // Rastrear parceiros e enfrentamentos
+  const parceiros = new Map<string, Set<string>>(); // Quem jogou COM cada atleta
+  const enfrentamentos = new Map<string, Set<string>>(); // Quem enfrentou CONTRA cada atleta
+  atletas.forEach(a => {
+    parceiros.set(a.id, new Set());
+    enfrentamentos.set(a.id, new Set());
+  });
+
+  // Algoritmo Round-Robin circular para garantir:
+  // 1. Cada atleta joga COM cada um dos outros 7 exatamente uma vez (como parceiro)
+  // 2. Cada atleta enfrenta CONTRA cada um dos outros 7 pelo menos uma vez (como oponente)
   
   const fixo = atletasEmbaralhados[0];
   const rotativos = atletasEmbaralhados.slice(1); // 7 atletas restantes
@@ -204,88 +211,131 @@ export function gerarSorteioSuper8DuplasRoundRobin(
       rotados.push(rotados.shift()!);
     }
 
-    // Formar 4 duplas:
+    // Formar 4 duplas iniciais (round-robin padrão):
     // Dupla 1: fixo + rotados[0] (o fixo sempre joga com um diferente a cada rodada)
     // Dupla 2: rotados[1] + rotados[6]
     // Dupla 3: rotados[2] + rotados[5]
     // Dupla 4: rotados[3] + rotados[4]
 
-    const duplas = [
-      {
-        atleta1: fixo,
-        atleta2: rotados[0],
-        id: `dupla-${rodada}-1`,
-        nome: `${fixo.nome} & ${rotados[0].nome}`,
-      },
-      {
-        atleta1: rotados[1],
-        atleta2: rotados[6],
-        id: `dupla-${rodada}-2`,
-        nome: `${rotados[1].nome} & ${rotados[6].nome}`,
-      },
-      {
-        atleta1: rotados[2],
-        atleta2: rotados[5],
-        id: `dupla-${rodada}-3`,
-        nome: `${rotados[2].nome} & ${rotados[5].nome}`,
-      },
-      {
-        atleta1: rotados[3],
-        atleta2: rotados[4],
-        id: `dupla-${rodada}-4`,
-        nome: `${rotados[3].nome} & ${rotados[4].nome}`,
-      },
+    let duplas = [
+      { atleta1: fixo, atleta2: rotados[0] },
+      { atleta1: rotados[1], atleta2: rotados[6] },
+      { atleta1: rotados[2], atleta2: rotados[5] },
+      { atleta1: rotados[3], atleta2: rotados[4] },
     ];
 
+    // Ajustar duplas para maximizar enfrentamentos faltantes
+    // Se dois atletas que ainda não se enfrentaram estão na mesma dupla,
+    // tentar trocar para colocá-los em duplas opostas
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      let melhorou = false;
+      
+      for (let i = 0; i < duplas.length; i++) {
+        for (let j = i + 1; j < duplas.length; j++) {
+          const dupla1 = duplas[i];
+          const dupla2 = duplas[j];
+          
+          // Verificar se podemos melhorar os enfrentamentos trocando atletas
+          const a1_1 = dupla1.atleta1.id;
+          const a1_2 = dupla1.atleta2.id;
+          const a2_1 = dupla2.atleta1.id;
+          const a2_2 = dupla2.atleta2.id;
+          
+          // Contar quantos enfrentamentos novos seriam criados com diferentes configurações
+          const configAtual = {
+            enfrentamentosNovos: 
+              (enfrentamentos.get(a1_1)?.has(a2_1) ? 0 : 1) +
+              (enfrentamentos.get(a1_1)?.has(a2_2) ? 0 : 1) +
+              (enfrentamentos.get(a1_2)?.has(a2_1) ? 0 : 1) +
+              (enfrentamentos.get(a1_2)?.has(a2_2) ? 0 : 1)
+          };
+          
+          // Tentar trocar a1_2 com a2_1
+          const configTroca1 = {
+            enfrentamentosNovos:
+              (enfrentamentos.get(a1_1)?.has(a2_2) ? 0 : 1) +
+              (enfrentamentos.get(a1_1)?.has(a1_2) ? 0 : 1) +
+              (enfrentamentos.get(a2_1)?.has(a2_2) ? 0 : 1) +
+              (enfrentamentos.get(a2_1)?.has(a1_2) ? 0 : 1)
+          };
+          
+          // Se a troca melhora, fazer
+          if (configTroca1.enfrentamentosNovos > configAtual.enfrentamentosNovos &&
+              !parceiros.get(a1_1)?.has(a2_1) && !parceiros.get(a2_1)?.has(a1_1) &&
+              !parceiros.get(a1_2)?.has(a2_2) && !parceiros.get(a2_2)?.has(a1_2)) {
+            const temp = dupla1.atleta2;
+            dupla1.atleta2 = dupla2.atleta1;
+            dupla2.atleta1 = temp;
+            melhorou = true;
+            break;
+          }
+        }
+        if (melhorou) break;
+      }
+      if (!melhorou) break;
+    }
+
+    // Registrar parceiros desta rodada
+    duplas.forEach(dupla => {
+      parceiros.get(dupla.atleta1.id)?.add(dupla.atleta2.id);
+      parceiros.get(dupla.atleta2.id)?.add(dupla.atleta1.id);
+    });
+
     // Gerar 2 jogos: Dupla 1 vs Dupla 2, Dupla 3 vs Dupla 4
+    const dupla1Ids = [duplas[0].atleta1.id, duplas[0].atleta2.id];
+    const dupla2Ids = [duplas[1].atleta1.id, duplas[1].atleta2.id];
+    const dupla3Ids = [duplas[2].atleta1.id, duplas[2].atleta2.id];
+    const dupla4Ids = [duplas[3].atleta1.id, duplas[3].atleta2.id];
+    
+    // Registrar enfrentamentos do Jogo 1: Dupla 1 vs Dupla 2
+    dupla1Ids.forEach(a1 => {
+      dupla2Ids.forEach(a2 => {
+        enfrentamentos.get(a1)?.add(a2);
+        enfrentamentos.get(a2)?.add(a1);
+      });
+    });
+    
+    // Registrar enfrentamentos do Jogo 2: Dupla 3 vs Dupla 4
+    dupla3Ids.forEach(a1 => {
+      dupla4Ids.forEach(a2 => {
+        enfrentamentos.get(a1)?.add(a2);
+        enfrentamentos.get(a2)?.add(a1);
+      });
+    });
+
     jogos.push({
       rodada: `RODADA_${rodada + 1}` as any,
       numeroJogo: 1,
       participante1: {
-        id: duplas[0].id,
-        nome: duplas[0].nome,
+        id: `dupla-${rodada}-1`,
+        nome: `${duplas[0].atleta1.nome} & ${duplas[0].atleta2.nome}`,
       },
       participante2: {
-        id: duplas[1].id,
-        nome: duplas[1].nome,
+        id: `dupla-${rodada}-2`,
+        nome: `${duplas[1].atleta1.nome} & ${duplas[1].atleta2.nome}`,
       },
-      participante1Atletas: [duplas[0].atleta1.id, duplas[0].atleta2.id],
-      participante2Atletas: [duplas[1].atleta1.id, duplas[1].atleta2.id],
+      participante1Atletas: dupla1Ids,
+      participante2Atletas: dupla2Ids,
     });
 
     jogos.push({
       rodada: `RODADA_${rodada + 1}` as any,
       numeroJogo: 2,
       participante1: {
-        id: duplas[2].id,
-        nome: duplas[2].nome,
+        id: `dupla-${rodada}-3`,
+        nome: `${duplas[2].atleta1.nome} & ${duplas[2].atleta2.nome}`,
       },
       participante2: {
-        id: duplas[3].id,
-        nome: duplas[3].nome,
+        id: `dupla-${rodada}-4`,
+        nome: `${duplas[3].atleta1.nome} & ${duplas[3].atleta2.nome}`,
       },
-      participante1Atletas: [duplas[2].atleta1.id, duplas[2].atleta2.id],
-      participante2Atletas: [duplas[3].atleta1.id, duplas[3].atleta2.id],
+      participante1Atletas: dupla3Ids,
+      participante2Atletas: dupla4Ids,
     });
   }
 
-  // Validação e ajuste: garantir que cada atleta enfrente todos os outros pelo menos uma vez
-  const enfrentamentos = new Map<string, Set<string>>();
-  atletas.forEach(a => enfrentamentos.set(a.id, new Set()));
-
-  // Registrar enfrentamentos atuais (quando atletas estão em duplas opostas)
-  jogos.forEach(jogo => {
-    const atletas1 = jogo.participante1Atletas;
-    const atletas2 = jogo.participante2Atletas;
-    
-    // Cada atleta da dupla 1 enfrenta cada atleta da dupla 2 (como oponentes)
-    atletas1.forEach(a1 => {
-      atletas2.forEach(a2 => {
-        enfrentamentos.get(a1)?.add(a2);
-        enfrentamentos.get(a2)?.add(a1);
-      });
-    });
-  });
+  // Validação final: verificar se cada atleta enfrente todos os outros pelo menos uma vez
+  // (os enfrentamentos já foram registrados durante a geração)
 
   // Verificar se algum par de atletas não se enfrentou
   const paresFaltando: Array<[string, string]> = [];
