@@ -207,43 +207,49 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     enfrentamentos.set(a.id, new Set());
   });
 
-  // ALGORITMO DETERMINÍSTICO: Matriz de rotação fixa que garante todos os enfrentamentos
-  // Baseado em round-robin circular com ajustes matemáticos para garantir confrontos
+  // ALGORITMO DETERMINÍSTICO: Round-robin circular que garante:
+  // 1. Cada atleta joga exatamente 7 jogos (um por rodada)
+  // 2. Cada atleta joga com 7 parceiros diferentes (um por rodada, sem repetir)
+  // 3. Se possível, cada atleta enfrenta todos os outros pelo menos uma vez
   
   const fixo = atletasEmbaralhados[0];
   const rotativos = atletasEmbaralhados.slice(1); // 7 atletas restantes
 
-  // Matriz determinística de pares para cada rodada
-  // Cada linha representa uma rodada, com índices dos atletas rotativos
-  // A estrutura garante que todos se enfrentem
-  const matrizRodadas = [
-    // Rodada 1: fixo+0, 1+6, 2+5, 3+4
-    [0, [1, 6], [2, 5], [3, 4]],
-    // Rodada 2: fixo+1, 2+0, 3+6, 4+5
-    [1, [2, 0], [3, 6], [4, 5]],
-    // Rodada 3: fixo+2, 3+1, 4+0, 5+6
-    [2, [3, 1], [4, 0], [5, 6]],
-    // Rodada 4: fixo+3, 4+2, 5+1, 6+0
-    [3, [4, 2], [5, 1], [6, 0]],
-    // Rodada 5: fixo+4, 5+3, 6+2, 0+1
-    [4, [5, 3], [6, 2], [0, 1]],
-    // Rodada 6: fixo+5, 6+4, 0+3, 1+2
-    [5, [6, 4], [0, 3], [1, 2]],
-    // Rodada 7: fixo+6, 0+5, 1+4, 2+3
-    [6, [0, 5], [1, 4], [2, 3]],
-  ];
-
+  // Algoritmo round-robin circular:
+  // - O atleta fixo joga com cada um dos 7 rotativos (um por rodada)
+  // - Os 7 rotativos formam duplas entre si usando rotação circular
+  // - Isso garante que cada atleta jogue com 7 parceiros diferentes
+  
   for (let rodada = 0; rodada < 7; rodada++) {
-    const configRodada = matrizRodadas[rodada];
-    const parceiroFixo = rotativos[configRodada[0] as number];
+    // O fixo joga com rotativos[rodada] (garante 7 parceiros diferentes para o fixo)
+    const parceiroFixo = rotativos[rodada];
     
-    // Formar 4 duplas usando a matriz determinística
+    // Para os rotativos, usar rotação circular para formar 3 duplas
+    // Rotacionar os índices para garantir que cada rotativo jogue com 7 parceiros diferentes
+    const indicesRotativos = [];
+    for (let i = 0; i < 7; i++) {
+      indicesRotativos.push((rodada + i) % 7);
+    }
+    
+    // Formar 3 duplas dos rotativos (excluindo o que está com o fixo)
+    // Dupla 1: indicesRotativos[1] + indicesRotativos[6]
+    // Dupla 2: indicesRotativos[2] + indicesRotativos[5]
+    // Dupla 3: indicesRotativos[3] + indicesRotativos[4]
+    
     let duplas = [
       { atleta1: fixo, atleta2: parceiroFixo },
-      { atleta1: rotativos[(configRodada[1] as number[])[0]], atleta2: rotativos[(configRodada[1] as number[])[1]] },
-      { atleta1: rotativos[(configRodada[2] as number[])[0]], atleta2: rotativos[(configRodada[2] as number[])[1]] },
-      { atleta1: rotativos[(configRodada[3] as number[])[0]], atleta2: rotativos[(configRodada[3] as number[])[1]] },
+      { atleta1: rotativos[indicesRotativos[1]], atleta2: rotativos[indicesRotativos[6]] },
+      { atleta1: rotativos[indicesRotativos[2]], atleta2: rotativos[indicesRotativos[5]] },
+      { atleta1: rotativos[indicesRotativos[3]], atleta2: rotativos[indicesRotativos[4]] },
     ];
+    
+    // Validar que não há parceiros repetidos
+    duplas.forEach((dupla, idx) => {
+      const parceiroAtual = parceiros.get(dupla.atleta1.id);
+      if (parceiroAtual?.has(dupla.atleta2.id)) {
+        throw new Error(`Erro na rodada ${rodada + 1}: ${dupla.atleta1.id} já jogou com ${dupla.atleta2.id}`);
+      }
+    });
 
     // Registrar parceiros desta rodada
     duplas.forEach(dupla => {
