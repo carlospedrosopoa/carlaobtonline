@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import type { Competicao } from '@/types/competicao';
-import { BarChart3, ArrowLeft, Trophy, CheckCircle, Users } from 'lucide-react';
+import { BarChart3, ArrowLeft, Trophy, CheckCircle, Users, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function ClassificacaoCompeticaoPage() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function ClassificacaoCompeticaoPage() {
   const [mostrarHeadToHead, setMostrarHeadToHead] = useState(false);
   const [atleta1Selecionado, setAtleta1Selecionado] = useState<string>('');
   const [atleta2Selecionado, setAtleta2Selecionado] = useState<string>('');
+  const [classificacaoAjustada, setClassificacaoAjustada] = useState<any[] | null>(null);
 
   useEffect(() => {
     if (competicaoId) {
@@ -234,8 +235,8 @@ export default function ClassificacaoCompeticaoPage() {
   const handleFinalizarCompeticao = async () => {
     if (!competicao) return;
 
-    const classificacao = calcularClassificacao();
-    const campeao = classificacao[0];
+    const classificacaoFinal = classificacaoAjustada || calcularClassificacao();
+    const campeao = classificacaoFinal[0];
 
     if (!confirm(`Finalizar competição "${competicao.nome}"?\n\n🏆 Campeão: ${campeao.nome}\n📊 ${campeao.vitorias} vitória(s)\n\nEsta ação não pode ser desfeita.`)) {
       return;
@@ -243,7 +244,7 @@ export default function ClassificacaoCompeticaoPage() {
 
     try {
       setSaving(true);
-      await competicaoService.finalizarCompeticao(competicaoId, classificacao);
+      await competicaoService.finalizarCompeticao(competicaoId, classificacaoFinal);
       alert('Competição finalizada com sucesso!');
       await carregarDados();
       router.push('/app/arena/competicoes');
@@ -276,7 +277,40 @@ export default function ClassificacaoCompeticaoPage() {
     );
   }
 
-  const classificacao = calcularClassificacao();
+  const classificacaoCalculada = calcularClassificacao();
+  
+  // Verificar se há empate total nos primeiros colocados
+  const verificarEmpateTotal = (classif: any[]) => {
+    if (classif.length < 2) return null;
+    
+    const primeiro = classif[0];
+    const segundo = classif[1];
+    
+    // Verificar se empataram em tudo
+    if (
+      primeiro.vitorias === segundo.vitorias &&
+      primeiro.saldoGames === segundo.saldoGames &&
+      primeiro.derrotas === segundo.derrotas &&
+      primeiro.gamesFeitos === segundo.gamesFeitos &&
+      primeiro.gamesSofridos === segundo.gamesSofridos
+    ) {
+      // Verificar se há mais atletas empatados
+      const empatados = classif.filter((atleta) => 
+        atleta.vitorias === primeiro.vitorias &&
+        atleta.saldoGames === primeiro.saldoGames &&
+        atleta.derrotas === primeiro.derrotas &&
+        atleta.gamesFeitos === primeiro.gamesFeitos &&
+        atleta.gamesSofridos === primeiro.gamesSofridos
+      );
+      
+      return empatados;
+    }
+    
+    return null;
+  };
+
+  const atletasEmpatados = verificarEmpateTotal(classificacaoCalculada);
+  const classificacao = classificacaoAjustada || classificacaoCalculada;
   const campeao = classificacao[0];
 
   return (
@@ -294,6 +328,133 @@ export default function ClassificacaoCompeticaoPage() {
           Classificação - {competicao.nome}
         </h1>
       </div>
+
+      {atletasEmpatados && atletasEmpatados.length > 1 && !classificacaoAjustada && (
+        <div className="mb-6 bg-orange-50 border-2 border-orange-300 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-orange-900 mb-2">
+                ⚠️ Empate Total Detectado
+              </h3>
+              <p className="text-sm text-orange-800 mb-3">
+                {atletasEmpatados.length} atleta(s) empataram em todos os critérios (vitórias, saldo de games, etc.). 
+                Defina manualmente a ordem para resolver o empate.
+              </p>
+              <button
+                onClick={() => {
+                  // Inicializar com a classificação atual
+                  setClassificacaoAjustada([...classificacaoCalculada]);
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold"
+              >
+                Definir Ordem do Empate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {classificacaoAjustada && atletasEmpatados && (
+        <div className="mb-6 bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-blue-900 mb-1">
+                Ajustando Ordem do Empate
+              </h3>
+              <p className="text-sm text-blue-700">
+                Reordene os atletas empatados. Use as setas para mover para cima ou para baixo.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setClassificacaoAjustada(null);
+                }}
+                className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  // Confirmar a ordem ajustada - já está confirmada quando o usuário ajusta
+                  alert('Ordem do empate definida com sucesso! Agora você pode finalizar a competição.');
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Confirmar Ordem
+              </button>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            {atletasEmpatados.map((atletaEmpatado) => {
+              const indexNaClassificacao = classificacaoAjustada.findIndex((a: any) => a.atletaId === atletaEmpatado.atletaId);
+              const atletaAjustado = classificacaoAjustada[indexNaClassificacao];
+              
+              return (
+                <div
+                  key={atletaEmpatado.atletaId}
+                  className="bg-white border border-blue-200 rounded-lg p-3 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-blue-600 w-8">
+                      {indexNaClassificacao + 1}º
+                    </span>
+                    <span className="font-medium text-gray-900">{atletaAjustado.nome}</span>
+                    <span className="text-sm text-gray-500">
+                      {atletaAjustado.vitorias}V • {atletaAjustado.saldoGames > 0 ? '+' : ''}{atletaAjustado.saldoGames} games
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        if (indexNaClassificacao > 0) {
+                          const novaClassificacao = [...classificacaoAjustada];
+                          // Mover para cima (trocar com o anterior)
+                          [novaClassificacao[indexNaClassificacao - 1], novaClassificacao[indexNaClassificacao]] = 
+                            [novaClassificacao[indexNaClassificacao], novaClassificacao[indexNaClassificacao - 1]];
+                          setClassificacaoAjustada(novaClassificacao);
+                        }
+                      }}
+                      disabled={indexNaClassificacao === 0}
+                      className="p-2 border border-blue-300 text-blue-600 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Mover para cima"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const indicesEmpatados = atletasEmpatados.map((a: any) => 
+                          classificacaoAjustada.findIndex((c: any) => c.atletaId === a.atletaId)
+                        ).sort((a, b) => a - b);
+                        const ultimoEmpatadoIndex = Math.max(...indicesEmpatados);
+                        const proximoIndice = indicesEmpatados.find((idx: number) => idx > indexNaClassificacao);
+                        
+                        if (proximoIndice !== undefined) {
+                          const novaClassificacao = [...classificacaoAjustada];
+                          // Mover para baixo (trocar com o próximo empatado)
+                          [novaClassificacao[indexNaClassificacao], novaClassificacao[proximoIndice]] = 
+                            [novaClassificacao[proximoIndice], novaClassificacao[indexNaClassificacao]];
+                          setClassificacaoAjustada(novaClassificacao);
+                        }
+                      }}
+                      disabled={!atletasEmpatados.some((a: any) => {
+                        const idx = classificacaoAjustada.findIndex((c: any) => c.atletaId === a.atletaId);
+                        return idx > indexNaClassificacao;
+                      })}
+                      className="p-2 border border-blue-300 text-blue-600 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Mover para baixo"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mb-6 flex justify-between items-start gap-4">
         {competicao.status === 'CONCLUIDA' && campeao && (
