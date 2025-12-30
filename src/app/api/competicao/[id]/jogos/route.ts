@@ -41,7 +41,8 @@ export async function GET(
     const jogosResult = await query(
       `SELECT 
         j.id, j."competicaoId", j.rodada, j."numeroJogo",
-        j."atleta1Id", j."atleta2Id", j."atleta1ParceriaId", j."atleta2ParceriaId",
+        j."atleta1Id", j."atleta2Id", j."atleta3Id", j."atleta4Id",
+        j."atleta1ParceriaId", j."atleta2ParceriaId",
         j."vencedorId", j."pontosAtleta1", j."pontosAtleta2",
         j."gamesAtleta1", j."gamesAtleta2", j."tiebreakAtleta1", j."tiebreakAtleta2",
         j."dataHora", j."quadraId", j.status, j.observacoes,
@@ -76,6 +77,8 @@ export async function GET(
         numeroJogo: row.numeroJogo,
         atleta1Id: row.atleta1Id || null,
         atleta2Id: row.atleta2Id || null,
+        atleta3Id: row.atleta3Id || null,
+        atleta4Id: row.atleta4Id || null,
         atleta1ParceriaId: row.atleta1ParceriaId || null,
         atleta2ParceriaId: row.atleta2ParceriaId || null,
         vencedorId: row.vencedorId || null,
@@ -232,8 +235,32 @@ export async function GET(
         }
       }
 
-      // Buscar dupla 2
-      if (row.atleta2ParceriaId) {
+      // Buscar dupla 2 - usar IDs diretamente do jogo (atleta3Id e atleta4Id armazenam os IDs dos atletas da segunda dupla)
+      if (row.atleta3Id && row.atleta4Id) {
+        // Buscar atletas diretamente pelos IDs
+        const atleta3Result = await query(
+          `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+          [row.atleta3Id]
+        );
+        const atleta4Result = await query(
+          `SELECT id, nome FROM "Atleta" WHERE id = $1`,
+          [row.atleta4Id]
+        );
+        
+        if (atleta3Result.rows.length > 0 && atleta4Result.rows.length > 0) {
+          const atleta3 = atleta3Result.rows[0];
+          const atleta4 = atleta4Result.rows[0];
+          
+          jogo.participante2 = {
+            parceriaId: row.atleta2ParceriaId,
+            nome: `${atleta3.nome} & ${atleta4.nome}`,
+            dupla: {
+              atleta1: { id: atleta3.id, nome: atleta3.nome },
+              atleta2: { id: atleta4.id, nome: atleta4.nome },
+            },
+          };
+        }
+      } else if (row.atleta2ParceriaId) {
         // Buscar registros da parceria - pegar ambos os atletas
         const dupla2Result = await query(
           `SELECT 
@@ -336,15 +363,15 @@ export async function GET(
         }
       }
 
-      if (!jogo.participante2 && row.atleta2Id) {
-        const atleta2Result = await query(
+      if (!jogo.participante2 && row.atleta3Id) {
+        const atleta3Result = await query(
           `SELECT id, nome FROM "Atleta" WHERE id = $1`,
-          [row.atleta2Id]
+          [row.atleta3Id]
         );
-        if (atleta2Result.rows.length > 0) {
+        if (atleta3Result.rows.length > 0) {
           jogo.participante2 = {
-            atletaId: atleta2Result.rows[0].id,
-            nome: atleta2Result.rows[0].nome,
+            atletaId: atleta3Result.rows[0].id,
+            nome: atleta3Result.rows[0].nome,
           };
         }
       }

@@ -74,9 +74,11 @@ export default function ClassificacaoCompeticaoPage() {
 
     // Processar cada jogo concluído
     jogos.forEach((jogo: any) => {
-      if (jogo.status === 'CONCLUIDO' && jogo.gamesAtleta1 !== null && jogo.gamesAtleta2 !== null) {
-        const games1 = jogo.gamesAtleta1 || 0;
-        const games2 = jogo.gamesAtleta2 || 0;
+      if (jogo.status === 'CONCLUIDO' && 
+          jogo.gamesAtleta1 !== null && jogo.gamesAtleta1 !== undefined &&
+          jogo.gamesAtleta2 !== null && jogo.gamesAtleta2 !== undefined) {
+        const games1 = jogo.gamesAtleta1;
+        const games2 = jogo.gamesAtleta2;
 
         // Para duplas, precisamos dos atletas de cada parceria
         if (jogo.participante1?.dupla && jogo.participante2?.dupla) {
