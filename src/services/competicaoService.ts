@@ -94,5 +94,10 @@ export const competicaoService = {
     const res = await api.post(`/competicao/${competicaoId}/finalizar`, { classificacao });
     return res.data;
   },
+
+  reabrirCompeticao: async (competicaoId: string): Promise<any> => {
+    const res = await api.post(`/competicao/${competicaoId}/reabrir`);
+    return res.data;
+  },
 };
 

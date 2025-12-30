@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import type { Competicao } from '@/types/competicao';
-import { BarChart3, ArrowLeft, Trophy, CheckCircle, Users, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { BarChart3, ArrowLeft, Trophy, CheckCircle, Users, AlertCircle, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
 
 export default function ClassificacaoCompeticaoPage() {
   const router = useRouter();
@@ -251,6 +251,26 @@ export default function ClassificacaoCompeticaoPage() {
     } catch (error: any) {
       console.error('Erro ao finalizar competição:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao finalizar competição');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReabrirCompeticao = async () => {
+    if (!competicao) return;
+
+    if (!confirm(`Reabrir competição "${competicao.nome}"?\n\nIsso permitirá alterar resultados dos jogos novamente.`)) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await competicaoService.reabrirCompeticao(competicaoId);
+      alert('Competição reaberta com sucesso!');
+      await carregarDados();
+    } catch (error: any) {
+      console.error('Erro ao reabrir competição:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao reabrir competição');
     } finally {
       setSaving(false);
     }
@@ -561,6 +581,19 @@ export default function ClassificacaoCompeticaoPage() {
           >
             <CheckCircle className="w-5 h-5" />
             {saving ? 'Finalizando...' : 'Finalizar Competição'}
+          </button>
+        </div>
+      )}
+
+      {competicao.status === 'CONCLUIDA' && (
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={handleReabrirCompeticao}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50"
+          >
+            <RotateCcw className="w-5 h-5" />
+            {saving ? 'Reabrindo...' : 'Reabrir Competição'}
           </button>
         </div>
       )}
