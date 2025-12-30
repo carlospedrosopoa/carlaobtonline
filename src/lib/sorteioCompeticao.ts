@@ -353,6 +353,51 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     });
   }
 
+  // VALIDAÇÃO FINAL CRÍTICA: Verificar se cada atleta jogou com cada um dos outros 7 exatamente uma vez
+  console.log('[SORTEIO] Validando parceiros finais...');
+  for (const atleta of atletas) {
+    const parceirosAtleta = parceiros.get(atleta.id);
+    const totalParceiros = parceirosAtleta ? parceirosAtleta.size : 0;
+    const esperado = atletas.length - 1; // 7 parceiros (todos os outros 7)
+    
+    if (totalParceiros !== esperado) {
+      const faltando = atletas
+        .filter(a => a.id !== atleta.id && !parceirosAtleta?.has(a.id))
+        .map(a => a.nome);
+      const mensagem = `ERRO CRÍTICO: ${atleta.nome} jogou com apenas ${totalParceiros}/${esperado} parceiros diferentes. Faltando: ${faltando.join(', ')}`;
+      console.error(`[SORTEIO] ${mensagem}`);
+      throw new Error(mensagem);
+    }
+    
+    // Verificar se há parceiros repetidos
+    const jogosDoAtleta = jogos.filter(jogo => {
+      const dupla1 = jogo.participante1Atletas || [];
+      const dupla2 = jogo.participante2Atletas || [];
+      return dupla1.includes(atleta.id) || dupla2.includes(atleta.id);
+    });
+    
+    const parceirosEncontrados = new Map<string, number>();
+    jogosDoAtleta.forEach(jogo => {
+      const dupla1 = jogo.participante1Atletas || [];
+      const dupla2 = jogo.participante2Atletas || [];
+      const duplaDoAtleta = dupla1.includes(atleta.id) ? dupla1 : dupla2;
+      const parceiro = duplaDoAtleta.find(a => a !== atleta.id);
+      if (parceiro) {
+        parceirosEncontrados.set(parceiro, (parceirosEncontrados.get(parceiro) || 0) + 1);
+      }
+    });
+    
+    for (const [parceiroId, count] of parceirosEncontrados.entries()) {
+      if (count > 1) {
+        const nomeParceiro = atletas.find(a => a.id === parceiroId)?.nome || parceiroId;
+        const mensagem = `ERRO CRÍTICO: ${atleta.nome} jogou ${count} vezes com ${nomeParceiro}. Cada atleta deve jogar com cada um dos outros 7 exatamente uma vez.`;
+        console.error(`[SORTEIO] ${mensagem}`);
+        throw new Error(mensagem);
+      }
+    }
+  }
+  console.log('[SORTEIO] ✅ Validação de parceiros passou! Cada atleta jogou com cada um dos outros 7 exatamente uma vez.');
+
   // Validação final: verificar se cada atleta enfrente todos os outros pelo menos uma vez
   // (os enfrentamentos já foram registrados durante a geração)
 
