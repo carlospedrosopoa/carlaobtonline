@@ -228,3 +228,7 @@ export async function PUT(
   }
 }
 
+// Suportar requisições OPTIONS (preflight) para CORS
+export async function OPTIONS(request: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), request);
+}
