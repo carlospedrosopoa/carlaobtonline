@@ -220,29 +220,41 @@ export function gerarSorteioSuper8DuplasRoundRobin(
   const fixo = atletasEmbaralhados[0];
   const rotativos = atletasEmbaralhados.slice(1); // 7 atletas restantes
 
-  // Matriz determinística baseada em round-robin circular
-  // Para 7 rotativos, precisamos de 7 rodadas onde cada par jogue junto exatamente uma vez
-  // Estrutura: em cada rodada, o fixo joga com rotativos[i], e os outros 6 formam 3 duplas
+  // Matriz determinística que garante cada par de rotativos jogue junto exatamente uma vez
+  // Para 7 rotativos, temos C(7,2) = 21 pares possíveis
+  // Em 7 rodadas com 3 duplas de rotativos cada = 21 pares totais (exatamente o necessário!)
+  // Matriz baseada em round-robin circular onde cada rotativo joga com cada um dos outros 6 exatamente uma vez
+  
+  // Matriz de pares para cada rodada (índices dos rotativos, excluindo o que está com o fixo)
+  // Cada linha representa uma rodada, com o primeiro elemento sendo o parceiro do fixo
+  const matrizPares = [
+    // Rodada 0: fixo+0, 1+6, 2+5, 3+4
+    [0, [1, 6], [2, 5], [3, 4]],
+    // Rodada 1: fixo+1, 2+0, 3+6, 4+5
+    [1, [2, 0], [3, 6], [4, 5]],
+    // Rodada 2: fixo+2, 3+1, 4+0, 5+6
+    [2, [3, 1], [4, 0], [5, 6]],
+    // Rodada 3: fixo+3, 4+2, 5+1, 6+0
+    [3, [4, 2], [5, 1], [6, 0]],
+    // Rodada 4: fixo+4, 5+3, 6+2, 0+1
+    [4, [5, 3], [6, 2], [0, 1]],
+    // Rodada 5: fixo+5, 6+4, 0+3, 1+2
+    [5, [6, 4], [0, 3], [1, 2]],
+    // Rodada 6: fixo+6, 0+5, 1+4, 2+3
+    [6, [0, 5], [1, 4], [2, 3]],
+  ];
 
   for (let rodada = 0; rodada < 7; rodada++) {
-    // O fixo joga com rotativos[rodada] (garante que o fixo jogue com cada rotativo uma vez)
-    const parceiroFixo = rotativos[rodada];
+    const configRodada = matrizPares[rodada];
+    const parceiroFixoIdx = configRodada[0] as number;
+    const parceiroFixo = rotativos[parceiroFixoIdx];
     
-    // Para os 6 rotativos restantes, usar rotação circular determinística
-    // A ideia é que cada rotativo jogue com cada um dos outros 6 exatamente uma vez
-    // Excluir o rotativos[rodada] que está com o fixo
-    const rotativosRestantes = rotativos.filter((_, idx) => idx !== rodada);
-    
-    // Usar rotação circular para formar 3 duplas dos 6 rotativos restantes
-    // A rotação garante que ao longo das 7 rodadas, cada par de rotativos se encontre exatamente uma vez
-    // Padrão: dupla1 = [0,3], dupla2 = [1,4], dupla3 = [2,5] com rotação baseada na rodada
-    const offset = rodada % 6;
-    
+    // Formar 4 duplas usando a matriz determinística
     let duplas = [
       { atleta1: fixo, atleta2: parceiroFixo },
-      { atleta1: rotativosRestantes[offset % 6], atleta2: rotativosRestantes[(offset + 3) % 6] },
-      { atleta1: rotativosRestantes[(offset + 1) % 6], atleta2: rotativosRestantes[(offset + 4) % 6] },
-      { atleta1: rotativosRestantes[(offset + 2) % 6], atleta2: rotativosRestantes[(offset + 5) % 6] },
+      { atleta1: rotativos[(configRodada[1] as number[])[0]], atleta2: rotativos[(configRodada[1] as number[])[1]] },
+      { atleta1: rotativos[(configRodada[2] as number[])[0]], atleta2: rotativos[(configRodada[2] as number[])[1]] },
+      { atleta1: rotativos[(configRodada[3] as number[])[0]], atleta2: rotativos[(configRodada[3] as number[])[1]] },
     ];
     
     // Validar que não há parceiros repetidos ANTES de registrar
