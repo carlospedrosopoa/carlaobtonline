@@ -191,8 +191,9 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     throw new Error(`Super 8 Duplas Round-Robin requer exatamente 8 atletas, mas foram fornecidos ${atletas.length}`);
   }
 
-  // Embaralhar atletas para randomizar (mas o algoritmo em si é determinístico)
-  const atletasEmbaralhados = embaralhar(atletas);
+  // NÃO embaralhar - usar ordem fixa para garantir que a matriz seja aplicada corretamente
+  // O embaralhamento estava causando problemas na aplicação da matriz determinística
+  const atletasOrdenados = [...atletas]; // Manter ordem original
 
   const jogos: Array<JogoSorteado & { 
     participante1Atletas: string[]; 
@@ -217,8 +218,9 @@ export function gerarSorteioSuper8DuplasRoundRobin(
   // O fixo joga com cada rotativo uma vez (7 rodadas)
   // Os 7 rotativos formam duplas entre si usando rotação circular
   
-  const fixo = atletasEmbaralhados[0];
-  const rotativos = atletasEmbaralhados.slice(1); // 7 atletas restantes
+  // Usar ordem fixa (sem embaralhamento) para garantir aplicação correta da matriz
+  const fixo = atletasOrdenados[0];
+  const rotativos = atletasOrdenados.slice(1); // 7 atletas restantes
 
   // Matriz determinística que garante cada par de rotativos jogue junto exatamente uma vez
   // Para 7 rotativos, temos C(7,2) = 21 pares possíveis
