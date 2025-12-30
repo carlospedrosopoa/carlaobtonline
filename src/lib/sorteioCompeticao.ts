@@ -439,8 +439,32 @@ export function gerarSorteioSuper8DuplasRoundRobin(
           if (outroAtletaDupla2) {
             const idxA2 = atletas1.indexOf(atleta2);
             const idxOutro = atletas2.indexOf(outroAtletaDupla2);
+            // Validar que a troca não cria parceiros repetidos
+            const parceirosA1Antes = parceiros.get(atletas1[0]) || new Set();
+            const parceirosA2Antes = parceiros.get(atletas1[1]) || new Set();
+            const parceirosOutroAntes = parceiros.get(outroAtletaDupla2) || new Set();
+            const parceirosA2NovoAntes = parceiros.get(atleta2) || new Set();
+            
+            // Verificar se a troca criaria parceiros repetidos
+            if (parceirosA1Antes.has(outroAtletaDupla2) || parceirosOutroAntes.has(atletas1[0]) ||
+                parceirosA2NovoAntes.has(atletas2.find(a => a !== outroAtletaDupla2) || '') ||
+                parceiros.get(atletas2.find(a => a !== outroAtletaDupla2) || '')?.has(atleta2)) {
+              console.warn(`[SORTEIO] Troca rejeitada: criaria parceiros repetidos no jogo ${idx + 1}`);
+              continue;
+            }
+            
             atletas1[idxA2] = outroAtletaDupla2;
             atletas2[idxOutro] = atleta2;
+            
+            // Atualizar parceiros após a troca
+            parceiros.get(atletas1[0])?.delete(atleta2);
+            parceiros.get(atleta2)?.delete(atletas1[0]);
+            parceiros.get(atletas1[0])?.add(outroAtletaDupla2);
+            parceiros.get(outroAtletaDupla2)?.add(atletas1[0]);
+            parceiros.get(atletas2.find(a => a !== atleta2) || '')?.delete(outroAtletaDupla2);
+            parceiros.get(outroAtletaDupla2)?.delete(atletas2.find(a => a !== atleta2) || '');
+            parceiros.get(atletas2.find(a => a !== atleta2) || '')?.add(atleta2);
+            parceiros.get(atleta2)?.add(atletas2.find(a => a !== atleta2) || '');
             
             // Buscar nomes dos atletas para atualizar o nome da dupla
             const nomeA1 = atletas.find(a => a.id === atletas1[0])?.nome || '';
