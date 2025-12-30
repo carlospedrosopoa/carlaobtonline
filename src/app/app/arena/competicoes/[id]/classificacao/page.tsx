@@ -409,15 +409,23 @@ export default function ClassificacaoCompeticaoPage() {
                   <div className="flex gap-1">
                     <button
                       onClick={() => {
-                        if (indexNaClassificacao > 0) {
+                        const indicesEmpatados = atletasEmpatados.map((a: any) => 
+                          classificacaoAjustada.findIndex((c: any) => c.atletaId === a.atletaId)
+                        ).sort((a, b) => a - b);
+                        const indiceAnterior = indicesEmpatados.findLast((idx: number) => idx < indexNaClassificacao);
+                        
+                        if (indiceAnterior !== undefined) {
                           const novaClassificacao = [...classificacaoAjustada];
-                          // Mover para cima (trocar com o anterior)
-                          [novaClassificacao[indexNaClassificacao - 1], novaClassificacao[indexNaClassificacao]] = 
-                            [novaClassificacao[indexNaClassificacao], novaClassificacao[indexNaClassificacao - 1]];
+                          // Mover para cima (trocar com o anterior empatado)
+                          [novaClassificacao[indiceAnterior], novaClassificacao[indexNaClassificacao]] = 
+                            [novaClassificacao[indexNaClassificacao], novaClassificacao[indiceAnterior]];
                           setClassificacaoAjustada(novaClassificacao);
                         }
                       }}
-                      disabled={indexNaClassificacao === 0}
+                      disabled={!atletasEmpatados.some((a: any) => {
+                        const idx = classificacaoAjustada.findIndex((c: any) => c.atletaId === a.atletaId);
+                        return idx < indexNaClassificacao;
+                      })}
                       className="p-2 border border-blue-300 text-blue-600 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Mover para cima"
                     >
