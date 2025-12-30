@@ -304,24 +304,20 @@ export default function CompeticoesPage() {
                   <CalendarCheck className="w-4 h-4" />
                   Agendar Quadras
                 </button>
-                {competicao.status === 'EM_ANDAMENTO' && (
-                  <>
-                    <button
-                      onClick={() => handleVerJogos(competicao)}
-                      className="w-full py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
-                    >
-                      <PlayCircle className="w-4 h-4" />
-                      Jogos
-                    </button>
-                    <button
-                      onClick={() => handleVerClassificacao(competicao)}
-                      className="w-full py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      Classificação
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => handleVerJogos(competicao)}
+                  className="w-full py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                >
+                  <PlayCircle className="w-4 h-4" />
+                  Jogos
+                </button>
+                <button
+                  onClick={() => handleVerClassificacao(competicao)}
+                  className="w-full py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Classificação
+                </button>
               </div>
             </div>
           ))}

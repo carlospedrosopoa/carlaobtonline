@@ -162,11 +162,17 @@ export default function JogosCompeticaoPage() {
             <div key={rodada} className="bg-gray-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-3">{rodadaLabel[rodada]}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {jogosRodada.map((jogo) => (
+                {jogosRodada.map((jogo) => {
+                  const competicaoConcluida = competicao?.status === 'CONCLUIDA';
+                  return (
                   <div 
                     key={jogo.id} 
-                    onClick={() => abrirModalResultado(jogo)}
-                    className="bg-white rounded-lg p-3 border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+                    onClick={() => !competicaoConcluida && abrirModalResultado(jogo)}
+                    className={`bg-white rounded-lg p-3 border border-gray-200 transition-all ${
+                      competicaoConcluida 
+                        ? 'cursor-not-allowed opacity-75' 
+                        : 'cursor-pointer hover:border-blue-300 hover:shadow-md'
+                    }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-600">Jogo {jogo.numeroJogo}</span>
@@ -190,13 +196,21 @@ export default function JogosCompeticaoPage() {
                           {jogo.gamesAtleta1} - {jogo.gamesAtleta2}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400 italic">Clique para inserir resultado</span>
+                        <span className="text-xs text-gray-400 italic">
+                          {competicaoConcluida ? 'Resultado não disponível' : 'Clique para inserir resultado'}
+                        </span>
                       )}
                       <span className="text-gray-400">VS</span>
                       <span className="font-medium">{jogo.participante2?.nome || 'TBD'}</span>
                     </div>
+                    {competicaoConcluida && (
+                      <div className="mt-2 text-xs text-gray-500 italic text-center">
+                        Competição concluída - resultados não podem ser alterados
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -208,6 +222,13 @@ export default function JogosCompeticaoPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Inserir Resultado</h3>
+            {competicao?.status === 'CONCLUIDA' && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  Esta competição está concluída. Os resultados não podem ser alterados.
+                </p>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -219,7 +240,8 @@ export default function JogosCompeticaoPage() {
                   value={gamesAtleta1}
                   onChange={(e) => setGamesAtleta1(e.target.value)}
                   placeholder="Games"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  disabled={competicao?.status === 'CONCLUIDA'}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
               <div className="text-center text-gray-400 font-bold">VS</div>
@@ -233,7 +255,8 @@ export default function JogosCompeticaoPage() {
                   value={gamesAtleta2}
                   onChange={(e) => setGamesAtleta2(e.target.value)}
                   placeholder="Games"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  disabled={competicao?.status === 'CONCLUIDA'}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
               <div className="text-xs text-gray-500 mt-2">
@@ -249,8 +272,8 @@ export default function JogosCompeticaoPage() {
               </button>
               <button
                 onClick={salvarResultado}
-                disabled={saving}
-                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                disabled={saving || competicao?.status === 'CONCLUIDA'}
+                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Salvando...' : 'Salvar'}
               </button>
