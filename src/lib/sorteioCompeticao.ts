@@ -420,10 +420,7 @@ export function gerarSorteioSuper8DuplasRoundRobin(
     // NÃO fazer ajustes - isso violaria a regra de parceiros únicos
     // A matriz determinística já garante a maioria dos enfrentamentos
     // Código de ajuste removido para evitar criar parceiros repetidos
-      
-      // Primeiro, tentar encontrar um jogo onde ambos estão na mesma dupla (mais fácil de ajustar)
-      for (let idx = 0; idx < jogos.length && !ajustado; idx++) {
-        const jogo = jogos[idx];
+  } else {
         const atletas1 = [...jogo.participante1Atletas];
         const atletas2 = [...jogo.participante2Atletas];
         
