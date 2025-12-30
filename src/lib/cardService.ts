@@ -177,6 +177,7 @@ export interface CompeticaoParaCard {
   id: string;
   nome: string;
   cardDivulgacaoUrl: string | null; // URL do template de divulgação
+  logoArenaUrl: string | null; // URL do logo da arena (Point)
   atletas: Array<{
     id: string;
     nome: string;
@@ -192,8 +193,11 @@ export async function buscarCompeticaoParaCard(competicaoId: string): Promise<Co
     `SELECT 
       c.id,
       c.nome,
-      c."cardDivulgacaoUrl"
+      c."cardDivulgacaoUrl",
+      c."pointId",
+      p."logoUrl" as "point_logoUrl"
     FROM "Competicao" c
+    LEFT JOIN "Point" p ON c."pointId" = p.id
     WHERE c.id = $1`,
     [competicaoId]
   );
@@ -229,6 +233,7 @@ export async function buscarCompeticaoParaCard(competicaoId: string): Promise<Co
     id: row.id,
     nome: row.nome,
     cardDivulgacaoUrl: row.cardDivulgacaoUrl || null,
+    logoArenaUrl: row.point_logoUrl || null,
     atletas,
   };
 }

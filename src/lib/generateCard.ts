@@ -830,39 +830,57 @@ export async function generateCompetitionCard(
     // Limitar a 8 atletas (Super 8)
     const atletasParaCard = competicao.atletas.slice(0, 8);
 
-    // Carregar avatar padrão
-    let imgPadrao: any = null;
-    const avatarPath = path.join(process.cwd(), 'public', 'avatar.png');
-    try {
-      if (fs.existsSync(avatarPath)) {
-        imgPadrao = await loadImage(avatarPath);
-      } else {
-        const avatarSize = 150;
-        const avatarCanvas = createCanvas(avatarSize, avatarSize);
-        const avatarCtx = avatarCanvas.getContext('2d');
-        avatarCtx.fillStyle = '#475569';
-        avatarCtx.beginPath();
-        avatarCtx.arc(avatarSize / 2, avatarSize / 2, avatarSize / 2 - 10, 0, Math.PI * 2);
-        avatarCtx.fill();
-        avatarCtx.fillStyle = '#64748b';
-        avatarCtx.beginPath();
-        avatarCtx.arc(avatarSize / 2, avatarSize / 2 - 60, 60, 0, Math.PI * 2);
-        avatarCtx.fill();
-        avatarCtx.beginPath();
-        avatarCtx.arc(avatarSize / 2, avatarSize / 2 + 60, 100, 0, Math.PI, true);
-        avatarCtx.fill();
-        imgPadrao = await loadImage(avatarCanvas.toBuffer('image/png'));
+    // Carregar logo da arena como fallback (quando atleta não tem foto)
+    let logoArena: any = null;
+    if (competicao.logoArenaUrl) {
+      try {
+        logoArena = await carregarImagemRemota(competicao.logoArenaUrl);
+        if (logoArena) {
+          console.log('[generateCompetitionCard] Logo da arena carregado com sucesso');
+        }
+      } catch (error) {
+        console.warn('[generateCompetitionCard] Erro ao carregar logo da arena:', error);
       }
-    } catch (error) {
-      console.error('[generateCompetitionCard] Erro ao carregar avatar padrão:', error);
     }
+
+    // Carregar avatar padrão (fallback se não houver logo da arena)
+    let imgPadrao: any = null;
+    if (!logoArena) {
+      const avatarPath = path.join(process.cwd(), 'public', 'avatar.png');
+      try {
+        if (fs.existsSync(avatarPath)) {
+          imgPadrao = await loadImage(avatarPath);
+        } else {
+          const avatarSize = 150;
+          const avatarCanvas = createCanvas(avatarSize, avatarSize);
+          const avatarCtx = avatarCanvas.getContext('2d');
+          avatarCtx.fillStyle = '#475569';
+          avatarCtx.beginPath();
+          avatarCtx.arc(avatarSize / 2, avatarSize / 2, avatarSize / 2 - 10, 0, Math.PI * 2);
+          avatarCtx.fill();
+          avatarCtx.fillStyle = '#64748b';
+          avatarCtx.beginPath();
+          avatarCtx.arc(avatarSize / 2, avatarSize / 2 - 60, 60, 0, Math.PI * 2);
+          avatarCtx.fill();
+          avatarCtx.beginPath();
+          avatarCtx.arc(avatarSize / 2, avatarSize / 2 + 60, 100, 0, Math.PI, true);
+          avatarCtx.fill();
+          imgPadrao = await loadImage(avatarCanvas.toBuffer('image/png'));
+        }
+      } catch (error) {
+        console.error('[generateCompetitionCard] Erro ao carregar avatar padrão:', error);
+      }
+    }
+
+    // Usar logo da arena como fallback padrão
+    const imagemFallback = logoArena || imgPadrao;
 
     // Carregar fotos dos atletas
     const imagens = await Promise.all(
       atletasParaCard.map(async (atleta) => {
-        if (!atleta.fotoUrl) return imgPadrao;
+        if (!atleta.fotoUrl) return imagemFallback;
         const img = await carregarImagemRemota(atleta.fotoUrl);
-        return img || imgPadrao;
+        return img || imagemFallback;
       })
     );
 
@@ -877,17 +895,40 @@ export async function generateCompetitionCard(
     // Espaçamento ajustado para melhor distribuição vertical
     const espacamentoVertical = (altura * 0.28) / 4;
     
+    // Ajuste para as duas primeiras fotos subirem bastante
+    const ajustePrimeirasFotos = altura * 0.215; // Ajuste para subir bastante
+    // Ajuste horizontal: primeira foto mais à esquerda, segunda mais à direita
+    const ajusteHorizontalEsquerda = largura * 0.06; // Move para esquerda
+    const ajusteHorizontalDireita = largura * 0.04; // Move para direita
+    
+    // Ajustes individuais para cada foto (pode adicionar ajustes verticais também)
+    // Coluna esquerda
+    const ajusteFoto2X = largura * 0.05; // Foto 2 (índice 1) - ajuste horizontal
+    const ajusteFoto2Y = altura * -0.115;  // Foto 2 - ajuste vertical (positivo = desce, negativo = sobe)
+    const ajusteFoto3X = largura * 0.05; // Foto 3 (índice 2) - ajuste horizontal
+    const ajusteFoto3Y = altura * -0.01;  // Foto 3 - ajuste vertical
+    const ajusteFoto4X = largura * 0.05; // Foto 4 (índice 3) - ajuste horizontal
+    const ajusteFoto4Y = altura * 0.10;  // Foto 4 - ajuste vertical
+    
+    // Coluna direita
+    const ajusteFoto6X = largura * 0.04; // Foto 6 (índice 5) - ajuste horizontal
+    const ajusteFoto6Y = altura * -0.115;  // Foto 6 - ajuste vertical
+    const ajusteFoto7X = largura * 0.04; // Foto 7 (índice 6) - ajuste horizontal
+    const ajusteFoto7Y = altura * 0.00;  // Foto 7 - ajuste vertical
+    const ajusteFoto8X = largura * 0.04; // Foto 8 (índice 7) - ajuste horizontal
+    const ajusteFoto8Y = altura * 0.10;  // Foto 8 - ajuste vertical
+    
     const posicoesFotos: Array<[number, number]> = [
       // Coluna esquerda (topo para baixo)
-      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical],
-      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical],
-      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 2],
-      [colunaEsquerdaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 3],
+      [colunaEsquerdaX - tamanhoFoto / 2 - ajusteHorizontalEsquerda, inicioVertical - ajustePrimeirasFotos], // Foto 1: mais à esquerda
+      [colunaEsquerdaX - tamanhoFoto / 2 - ajusteFoto2X, inicioVertical + espacamentoVertical + ajusteFoto2Y], // Foto 2
+      [colunaEsquerdaX - tamanhoFoto / 2 - ajusteFoto3X, inicioVertical + espacamentoVertical * 2 + ajusteFoto3Y], // Foto 3
+      [colunaEsquerdaX - tamanhoFoto / 2 - ajusteFoto4X, inicioVertical + espacamentoVertical * 3 + ajusteFoto4Y], // Foto 4
       // Coluna direita (topo para baixo)
-      [colunaDireitaX - tamanhoFoto / 2, inicioVertical],
-      [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical],
-      [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 2],
-      [colunaDireitaX - tamanhoFoto / 2, inicioVertical + espacamentoVertical * 3],
+      [colunaDireitaX - tamanhoFoto / 2 + ajusteHorizontalDireita, inicioVertical - ajustePrimeirasFotos], // Foto 5: mais à direita
+      [colunaDireitaX - tamanhoFoto / 2 + ajusteFoto6X, inicioVertical + espacamentoVertical + ajusteFoto6Y], // Foto 6
+      [colunaDireitaX - tamanhoFoto / 2 + ajusteFoto7X, inicioVertical + espacamentoVertical * 2 + ajusteFoto7Y], // Foto 7
+      [colunaDireitaX - tamanhoFoto / 2 + ajusteFoto8X, inicioVertical + espacamentoVertical * 3 + ajusteFoto8Y], // Foto 8
     ];
 
     // Desenhar fotos dos atletas (círculos)
@@ -902,7 +943,7 @@ export async function generateCompetitionCard(
         
         const imgAspect = img.width / img.height;
         // Aumentado o tamanho da imagem desenhada para preencher melhor o círculo
-        const tamanhoDesenho = tamanhoFoto * 1.05; // 5% maior para preencher melhor
+        const tamanhoDesenho = tamanhoFoto * 1.15; // 5% maior para preencher melhor
         let drawWidth = tamanhoDesenho;
         let drawHeight = tamanhoDesenho;
         let drawX = x - (tamanhoDesenho - tamanhoFoto) / 2;
