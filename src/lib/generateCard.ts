@@ -653,22 +653,23 @@ export async function generateMatchCard(
     ctx.fillText(tituloTexto, largura - 50, 100); // 50px da borda direita
     
     // Data e hora
+    // Extrair data/hora diretamente da string UTC sem conversão de timezone
+    // Isso evita problemas de fuso horário (3 horas a mais)
     ctx.fillStyle = '#ffffff'; // Garantir cor branca
     const dataJogo = new Date(partida.data);
-    const dia = dataJogo.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-    const hora = dataJogo.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // Usar métodos UTC para evitar conversão de timezone
+    const dia = String(dataJogo.getUTCDate()).padStart(2, '0');
+    const mes = String(dataJogo.getUTCMonth() + 1).padStart(2, '0');
+    const ano = dataJogo.getUTCFullYear();
+    const hora = String(dataJogo.getUTCHours()).padStart(2, '0');
+    const minuto = String(dataJogo.getUTCMinutes()).padStart(2, '0');
+    const diaFormatado = `${dia}/${mes}/${ano}`;
+    const horaFormatada = `${hora}:${minuto}`;
     
     const fonteData = obterFonteCompativel(42, 'bold');
     ctx.font = fonteData;
     console.log('[generateCard] Fonte usada para data:', fonteData);
-    const dataTexto = `${dia} - ${hora}`;
+    const dataTexto = `${diaFormatado} - ${horaFormatada}`;
     console.log('[generateCard] Desenhando data:', dataTexto, 'cor:', ctx.fillStyle);
     ctx.fillText(dataTexto, largura - 50, 150); // 50px da borda direita
     

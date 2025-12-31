@@ -107,6 +107,25 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verificar autenticação
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Não autenticado' },
+        { status: 401 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Verificar permissões (apenas ADMIN pode atualizar points)
+    if (usuario.role !== 'ADMIN') {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Apenas administradores podem atualizar estabelecimentos' },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { 
@@ -383,6 +402,11 @@ export async function DELETE(
 
 // Suportar requisições OPTIONS (preflight)
 export async function OPTIONS(request: NextRequest) {
-  return withCors(new NextResponse(null, { status: 204 }), request);
+  console.log('[CORS] OPTIONS request recebida para /api/point/[id]');
+  const origin = request.headers.get('origin');
+  console.log('[CORS] Origin:', origin);
+  const response = withCors(new NextResponse(null, { status: 204 }), request);
+  console.log('[CORS] Headers retornados:', Object.fromEntries(response.headers.entries()));
+  return response;
 }
 
