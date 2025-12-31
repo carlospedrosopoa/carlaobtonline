@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import type { Competicao } from '@/types/competicao';
-import { PlayCircle, ArrowLeft, Trophy } from 'lucide-react';
+import { PlayCircle, ArrowLeft, Trophy, Users } from 'lucide-react';
 
 export default function JogosCompeticaoPage() {
   const router = useRouter();
@@ -15,11 +15,14 @@ export default function JogosCompeticaoPage() {
   const [loading, setLoading] = useState(true);
   const [competicao, setCompeticao] = useState<Competicao | null>(null);
   const [jogos, setJogos] = useState<any[]>([]);
+  const [atletasParticipantes, setAtletasParticipantes] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [jogoEditando, setJogoEditando] = useState<any | null>(null);
   const [mostrarModalResultado, setMostrarModalResultado] = useState(false);
   const [gamesAtleta1, setGamesAtleta1] = useState<string>('');
   const [gamesAtleta2, setGamesAtleta2] = useState<string>('');
+  const [atleta1Selecionado, setAtleta1Selecionado] = useState<string>('');
+  const [atleta2Selecionado, setAtleta2Selecionado] = useState<string>('');
 
   useEffect(() => {
     if (competicaoId) {
@@ -36,6 +39,7 @@ export default function JogosCompeticaoPage() {
       ]);
       setCompeticao(competicaoData);
       setJogos(jogosData || []);
+      setAtletasParticipantes(competicaoData.atletasParticipantes || []);
     } catch (error: any) {
       console.error('Erro ao carregar dados:', error);
       alert(error?.response?.data?.mensagem || 'Erro ao carregar dados');
@@ -56,6 +60,91 @@ export default function JogosCompeticaoPage() {
     setJogoEditando(null);
     setGamesAtleta1('');
     setGamesAtleta2('');
+  };
+
+  // Calcular head to head entre dois atletas
+  const calcularHeadToHead = (atleta1Id: string, atleta2Id: string) => {
+    if (!jogos || jogos.length === 0) return { jogos: [], vitoriasAtleta1: 0, vitoriasAtleta2: 0, gamesAtleta1: 0, gamesAtleta2: 0 };
+
+    // Filtrar jogos onde ambos os atletas participaram em lados opostos
+    const jogosHeadToHead = jogos.filter((jogo: any) => {
+      if (!jogo.participante1?.dupla || !jogo.participante2?.dupla) return false;
+      
+      const dupla1Ids = [jogo.participante1.dupla.atleta1.id, jogo.participante1.dupla.atleta2.id];
+      const dupla2Ids = [jogo.participante2.dupla.atleta1.id, jogo.participante2.dupla.atleta2.id];
+      
+      // Verificar se atleta1 está em uma dupla e atleta2 está na outra
+      const atleta1NaDupla1 = dupla1Ids.includes(atleta1Id);
+      const atleta1NaDupla2 = dupla2Ids.includes(atleta1Id);
+      const atleta2NaDupla1 = dupla1Ids.includes(atleta2Id);
+      const atleta2NaDupla2 = dupla2Ids.includes(atleta2Id);
+      
+      return (atleta1NaDupla1 && atleta2NaDupla2) || (atleta1NaDupla2 && atleta2NaDupla1);
+    });
+
+    // Calcular estatísticas
+    let vitoriasAtleta1 = 0;
+    let vitoriasAtleta2 = 0;
+    let gamesAtleta1 = 0;
+    let gamesAtleta2 = 0;
+
+    jogosHeadToHead.forEach((jogo: any) => {
+      if (jogo.status === 'CONCLUIDO' && 
+          jogo.gamesAtleta1 !== null && jogo.gamesAtleta1 !== undefined &&
+          jogo.gamesAtleta2 !== null && jogo.gamesAtleta2 !== undefined) {
+        const dupla1Ids = [jogo.participante1.dupla.atleta1.id, jogo.participante1.dupla.atleta2.id];
+        const dupla2Ids = [jogo.participante2.dupla.atleta1.id, jogo.participante2.dupla.atleta2.id];
+        
+        // Determinar em qual dupla cada atleta está
+        const atleta1NaDupla1 = dupla1Ids.includes(atleta1Id);
+        const atleta1NaDupla2 = dupla2Ids.includes(atleta1Id);
+        const atleta2NaDupla1 = dupla1Ids.includes(atleta2Id);
+        const atleta2NaDupla2 = dupla2Ids.includes(atleta2Id);
+        
+        // Obter os games de cada dupla
+        const gamesDupla1 = jogo.gamesAtleta1 || 0;
+        const gamesDupla2 = jogo.gamesAtleta2 || 0;
+        
+        // Atribuir games ao atleta1 baseado em qual dupla ele está
+        if (atleta1NaDupla1) {
+          gamesAtleta1 += gamesDupla1;
+        } else if (atleta1NaDupla2) {
+          gamesAtleta1 += gamesDupla2;
+        }
+        
+        // Atribuir games ao atleta2 baseado em qual dupla ele está
+        if (atleta2NaDupla1) {
+          gamesAtleta2 += gamesDupla1;
+        } else if (atleta2NaDupla2) {
+          gamesAtleta2 += gamesDupla2;
+        }
+        
+        // Calcular vitórias: verificar qual dupla ganhou e atribuir ao atleta correto
+        if (gamesDupla1 > gamesDupla2) {
+          // Dupla1 ganhou
+          if (atleta1NaDupla1) {
+            vitoriasAtleta1++;
+          } else if (atleta2NaDupla1) {
+            vitoriasAtleta2++;
+          }
+        } else if (gamesDupla2 > gamesDupla1) {
+          // Dupla2 ganhou
+          if (atleta1NaDupla2) {
+            vitoriasAtleta1++;
+          } else if (atleta2NaDupla2) {
+            vitoriasAtleta2++;
+          }
+        }
+      }
+    });
+
+    return {
+      jogos: jogosHeadToHead,
+      vitoriasAtleta1,
+      vitoriasAtleta2,
+      gamesAtleta1,
+      gamesAtleta2,
+    };
   };
 
   const salvarResultado = async () => {
@@ -151,6 +240,154 @@ export default function JogosCompeticaoPage() {
           <PlayCircle className="w-8 h-8 text-blue-500" />
           Jogos - {competicao.nome}
         </h1>
+      </div>
+
+      {/* Seção Head to Head */}
+      <div className="mb-6 bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-bold text-gray-900">Head to Head</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selecionar Atleta 1
+            </label>
+            <select
+              value={atleta1Selecionado}
+              onChange={(e) => {
+                setAtleta1Selecionado(e.target.value);
+                if (e.target.value === atleta2Selecionado) {
+                  setAtleta2Selecionado('');
+                }
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              <option value="">Selecione um atleta</option>
+              {atletasParticipantes.map((participante: any) => (
+                <option key={participante.atletaId} value={participante.atletaId}>
+                  {participante.atleta?.nome || 'Atleta'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selecionar Atleta 2
+            </label>
+            <select
+              value={atleta2Selecionado}
+              onChange={(e) => setAtleta2Selecionado(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              disabled={atleta1Selecionado === ''}
+            >
+              <option value="">Selecione um atleta</option>
+              {atletasParticipantes
+                .filter((participante: any) => participante.atletaId !== atleta1Selecionado)
+                .map((participante: any) => (
+                  <option key={participante.atletaId} value={participante.atletaId}>
+                    {participante.atleta?.nome || 'Atleta'}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+
+        {atleta1Selecionado && atleta2Selecionado && (() => {
+          const atleta1 = atletasParticipantes.find((p: any) => p.atletaId === atleta1Selecionado);
+          const atleta2 = atletasParticipantes.find((p: any) => p.atletaId === atleta2Selecionado);
+          const headToHead = calcularHeadToHead(atleta1Selecionado, atleta2Selecionado);
+
+          return (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-lg font-bold text-gray-900 mb-3">
+                  {atleta1?.atleta?.nome || 'Atleta 1'} vs {atleta2?.atleta?.nome || 'Atleta 2'}
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600">Vitórias</p>
+                    <p className="text-2xl font-bold text-blue-600">{headToHead.vitoriasAtleta1}</p>
+                    <p className="text-xs text-gray-500">{atleta1?.atleta?.nome}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600">Vitórias</p>
+                    <p className="text-2xl font-bold text-blue-600">{headToHead.vitoriasAtleta2}</p>
+                    <p className="text-xs text-gray-500">{atleta2?.atleta?.nome}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600">Games Feitos</p>
+                    <p className="text-xl font-semibold text-gray-900">{headToHead.gamesAtleta1}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600">Games Feitos</p>
+                    <p className="text-xl font-semibold text-gray-900">{headToHead.gamesAtleta2}</p>
+                  </div>
+                </div>
+              </div>
+
+              {headToHead.jogos.length > 0 ? (
+                <div>
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">
+                    Jogos ({headToHead.jogos.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {headToHead.jogos.map((jogo: any) => {
+                      const dupla1Ids = [jogo.participante1.dupla.atleta1.id, jogo.participante1.dupla.atleta2.id];
+                      const atleta1NaDupla1 = dupla1Ids.includes(atleta1Selecionado);
+                      const games1 = jogo.gamesAtleta1;
+                      const games2 = jogo.gamesAtleta2;
+                      
+                      return (
+                        <div
+                          key={jogo.id}
+                          className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900">
+                                {jogo.participante1?.nome || 'TBD'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {jogo.rodada.replace('_', ' ')} - Jogo {jogo.numeroJogo}
+                              </p>
+                            </div>
+                            {jogo.status === 'CONCLUIDO' && games1 !== null && games2 !== null ? (
+                              <div className="text-center">
+                                <p className={`text-lg font-bold ${
+                                  atleta1NaDupla1
+                                    ? (games1 > games2 ? 'text-green-600' : games2 > games1 ? 'text-red-600' : 'text-gray-600')
+                                    : (games2 > games1 ? 'text-green-600' : games1 > games2 ? 'text-red-600' : 'text-gray-600')
+                                }`}>
+                                  {games1} x {games2}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="text-center">
+                                <p className="text-sm text-gray-400">Aguardando resultado</p>
+                              </div>
+                            )}
+                            <div className="flex-1 text-right">
+                              <p className="text-sm font-medium text-gray-900">
+                                {jogo.participante2?.nome || 'TBD'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  <p>Nenhum jogo encontrado entre estes atletas.</p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       <div className="space-y-6">

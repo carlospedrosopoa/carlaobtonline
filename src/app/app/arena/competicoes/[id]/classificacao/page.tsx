@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import type { Competicao } from '@/types/competicao';
-import { BarChart3, ArrowLeft, Trophy, CheckCircle, Users, AlertCircle, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
+import { BarChart3, ArrowLeft, Trophy, CheckCircle, AlertCircle, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
 
 export default function ClassificacaoCompeticaoPage() {
   const router = useRouter();
@@ -17,9 +17,6 @@ export default function ClassificacaoCompeticaoPage() {
   const [competicao, setCompeticao] = useState<Competicao | null>(null);
   const [jogos, setJogos] = useState<any[]>([]);
   const [atletasParticipantes, setAtletasParticipantes] = useState<any[]>([]);
-  const [mostrarHeadToHead, setMostrarHeadToHead] = useState(false);
-  const [atleta1Selecionado, setAtleta1Selecionado] = useState<string>('');
-  const [atleta2Selecionado, setAtleta2Selecionado] = useState<string>('');
   const [classificacaoAjustada, setClassificacaoAjustada] = useState<any[] | null>(null);
 
   useEffect(() => {
@@ -174,68 +171,6 @@ export default function ClassificacaoCompeticaoPage() {
     });
 
     return classificacao;
-  };
-
-  // Calcular head to head entre dois atletas
-  const calcularHeadToHead = (atleta1Id: string, atleta2Id: string) => {
-    if (!jogos || jogos.length === 0) return { jogos: [], vitoriasAtleta1: 0, vitoriasAtleta2: 0, gamesAtleta1: 0, gamesAtleta2: 0 };
-
-    // Filtrar jogos onde ambos os atletas participaram em lados opostos
-    const jogosHeadToHead = jogos.filter((jogo: any) => {
-      if (!jogo.participante1?.dupla || !jogo.participante2?.dupla) return false;
-      
-      const dupla1Ids = [jogo.participante1.dupla.atleta1.id, jogo.participante1.dupla.atleta2.id];
-      const dupla2Ids = [jogo.participante2.dupla.atleta1.id, jogo.participante2.dupla.atleta2.id];
-      
-      // Verificar se atleta1 está em uma dupla e atleta2 está na outra
-      const atleta1NaDupla1 = dupla1Ids.includes(atleta1Id);
-      const atleta1NaDupla2 = dupla2Ids.includes(atleta1Id);
-      const atleta2NaDupla1 = dupla1Ids.includes(atleta2Id);
-      const atleta2NaDupla2 = dupla2Ids.includes(atleta2Id);
-      
-      return (atleta1NaDupla1 && atleta2NaDupla2) || (atleta1NaDupla2 && atleta2NaDupla1);
-    });
-
-    // Calcular estatísticas
-    let vitoriasAtleta1 = 0;
-    let vitoriasAtleta2 = 0;
-    let gamesAtleta1 = 0;
-    let gamesAtleta2 = 0;
-
-    jogosHeadToHead.forEach((jogo: any) => {
-      if (jogo.status === 'CONCLUIDO' && 
-          jogo.gamesAtleta1 !== null && jogo.gamesAtleta1 !== undefined &&
-          jogo.gamesAtleta2 !== null && jogo.gamesAtleta2 !== undefined) {
-        const dupla1Ids = [jogo.participante1.dupla.atleta1.id, jogo.participante1.dupla.atleta2.id];
-        const atleta1NaDupla1 = dupla1Ids.includes(atleta1Id);
-        
-        if (atleta1NaDupla1) {
-          gamesAtleta1 += jogo.gamesAtleta1 || 0;
-          gamesAtleta2 += jogo.gamesAtleta2 || 0;
-          if (jogo.gamesAtleta1 > jogo.gamesAtleta2) {
-            vitoriasAtleta1++;
-          } else if (jogo.gamesAtleta2 > jogo.gamesAtleta1) {
-            vitoriasAtleta2++;
-          }
-        } else {
-          gamesAtleta1 += jogo.gamesAtleta2 || 0;
-          gamesAtleta2 += jogo.gamesAtleta1 || 0;
-          if (jogo.gamesAtleta2 > jogo.gamesAtleta1) {
-            vitoriasAtleta1++;
-          } else if (jogo.gamesAtleta1 > jogo.gamesAtleta2) {
-            vitoriasAtleta2++;
-          }
-        }
-      }
-    });
-
-    return {
-      jogos: jogosHeadToHead,
-      vitoriasAtleta1,
-      vitoriasAtleta2,
-      gamesAtleta1,
-      gamesAtleta2,
-    };
   };
 
   const handleFinalizarCompeticao = async () => {
@@ -596,13 +531,6 @@ export default function ClassificacaoCompeticaoPage() {
             </div>
           </div>
         )}
-        <button
-          onClick={() => setMostrarHeadToHead(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-        >
-          <Users className="w-5 h-5" />
-          Head to Head
-        </button>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -695,159 +623,6 @@ export default function ClassificacaoCompeticaoPage() {
         </div>
       )}
 
-      {/* Modal Head to Head */}
-      {mostrarHeadToHead && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Head to Head</h2>
-              <button
-                onClick={() => {
-                  setMostrarHeadToHead(false);
-                  setAtleta1Selecionado('');
-                  setAtleta2Selecionado('');
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Selecionar Atleta 1
-                </label>
-                <select
-                  value={atleta1Selecionado}
-                  onChange={(e) => setAtleta1Selecionado(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                >
-                  <option value="">Selecione um atleta</option>
-                  {atletasParticipantes.map((participante: any) => (
-                    <option key={participante.atletaId} value={participante.atletaId}>
-                      {participante.atleta?.nome || 'Atleta'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Selecionar Atleta 2
-                </label>
-                <select
-                  value={atleta2Selecionado}
-                  onChange={(e) => setAtleta2Selecionado(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  disabled={atleta1Selecionado === ''}
-                >
-                  <option value="">Selecione um atleta</option>
-                  {atletasParticipantes
-                    .filter((participante: any) => participante.atletaId !== atleta1Selecionado)
-                    .map((participante: any) => (
-                      <option key={participante.atletaId} value={participante.atletaId}>
-                        {participante.atleta?.nome || 'Atleta'}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
-
-            {atleta1Selecionado && atleta2Selecionado && (() => {
-              const atleta1 = atletasParticipantes.find((p: any) => p.atletaId === atleta1Selecionado);
-              const atleta2 = atletasParticipantes.find((p: any) => p.atletaId === atleta2Selecionado);
-              const headToHead = calcularHeadToHead(atleta1Selecionado, atleta2Selecionado);
-
-              return (
-                <div className="space-y-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 className="text-lg font-bold text-gray-900 mb-3">
-                      {atleta1?.atleta?.nome || 'Atleta 1'} vs {atleta2?.atleta?.nome || 'Atleta 2'}
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <p className="text-sm text-gray-600">Vitórias</p>
-                        <p className="text-2xl font-bold text-blue-600">{headToHead.vitoriasAtleta1}</p>
-                        <p className="text-xs text-gray-500">{atleta1?.atleta?.nome}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-gray-600">Vitórias</p>
-                        <p className="text-2xl font-bold text-blue-600">{headToHead.vitoriasAtleta2}</p>
-                        <p className="text-xs text-gray-500">{atleta2?.atleta?.nome}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-gray-600">Games Feitos</p>
-                        <p className="text-xl font-semibold text-gray-900">{headToHead.gamesAtleta1}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-gray-600">Games Feitos</p>
-                        <p className="text-xl font-semibold text-gray-900">{headToHead.gamesAtleta2}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {headToHead.jogos.length > 0 ? (
-                    <div>
-                      <h4 className="text-md font-semibold text-gray-900 mb-3">
-                        Jogos ({headToHead.jogos.length})
-                      </h4>
-                      <div className="space-y-2">
-                        {headToHead.jogos.map((jogo: any) => {
-                          const dupla1Ids = [jogo.participante1.dupla.atleta1.id, jogo.participante1.dupla.atleta2.id];
-                          const atleta1NaDupla1 = dupla1Ids.includes(atleta1Selecionado);
-                          const games1 = jogo.gamesAtleta1;
-                          const games2 = jogo.gamesAtleta2;
-                          
-                          return (
-                            <div
-                              key={jogo.id}
-                              className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50"
-                            >
-                              <div className="flex justify-between items-center">
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {jogo.participante1?.nome || 'TBD'}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {jogo.rodada.replace('_', ' ')} - Jogo {jogo.numeroJogo}
-                                  </p>
-                                </div>
-                                {jogo.status === 'CONCLUIDO' && games1 !== null && games2 !== null ? (
-                                  <div className="text-center">
-                                    <p className={`text-lg font-bold ${
-                                      atleta1NaDupla1
-                                        ? (games1 > games2 ? 'text-green-600' : games2 > games1 ? 'text-red-600' : 'text-gray-600')
-                                        : (games2 > games1 ? 'text-green-600' : games1 > games2 ? 'text-red-600' : 'text-gray-600')
-                                    }`}>
-                                      {atleta1NaDupla1 ? `${games1} x ${games2}` : `${games2} x ${games1}`}
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400">Não jogado</span>
-                                )}
-                                <div className="flex-1 text-right">
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {jogo.participante2?.nome || 'TBD'}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>Nenhum jogo encontrado entre estes atletas.</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
