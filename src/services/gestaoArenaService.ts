@@ -436,3 +436,55 @@ export const aberturaCaixaService = {
   },
 };
 
+// ========== COLABORADORES ==========
+export interface Colaborador {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ORGANIZER';
+  pointIdGestor: string;
+  ehColaborador: boolean;
+  gestorId: string | null;
+  createdAt: string;
+  gestor: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
+
+export interface CriarColaboradorPayload {
+  name: string;
+  email: string;
+  password: string;
+  pointId: string;
+}
+
+export interface AtualizarColaboradorPayload {
+  name?: string;
+  email?: string;
+  password?: string;
+}
+
+export const colaboradorService = {
+  listar: async (pointId: string): Promise<Colaborador[]> => {
+    const res = await api.get(`/gestao-arena/colaboradores?pointId=${pointId}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarColaboradorPayload): Promise<{ mensagem: string; colaborador: Colaborador }> => {
+    const res = await api.post('/gestao-arena/colaboradores', payload);
+    return res.data;
+  },
+
+  atualizar: async (id: string, payload: AtualizarColaboradorPayload): Promise<{ mensagem: string; colaborador: Colaborador }> => {
+    const res = await api.put(`/gestao-arena/colaboradores/${id}`, payload);
+    return res.data;
+  },
+
+  remover: async (id: string): Promise<{ mensagem: string }> => {
+    const res = await api.delete(`/gestao-arena/colaboradores/${id}`);
+    return res.data;
+  },
+};
+
