@@ -1825,8 +1825,9 @@ export default function EditarAgendamentoModal({
               </div>
             )}
 
-            {/* Botão Gerar Cards - apenas para agendamentos existentes com valor */}
-            {agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && (
+            {/* Botão Gerar Cards - apenas para agendamentos existentes com valor e com cliente vinculado */}
+            {agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && 
+             (agendamento.atletaId || agendamento.nomeAvulso || (agendamento.atletasParticipantes && agendamento.atletasParticipantes.length > 0)) && (
               <div className="mt-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                 <div className="flex items-start gap-3">
                   <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
