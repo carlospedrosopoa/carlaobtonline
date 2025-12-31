@@ -45,7 +45,7 @@ export default function EditarAgendamentoModal({
   horaInicial,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
-  // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou avulsos)
+  // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou próprios)
   const isAdmin = isAdminContext;
   const isOrganizer = isOrganizerContext;
   const canGerenciarAgendamento = isAdmin || isOrganizer;
@@ -254,8 +254,6 @@ export default function EditarAgendamentoModal({
       setNomeAvulso('');
       setTelefoneAvulso('');
       setBuscaAtleta('');
-    } else if (modo === 'avulso') {
-      setAtletaId('');
     }
   }, [modo, restaurandoDados]);
 
@@ -439,14 +437,13 @@ export default function EditarAgendamentoModal({
     setPointId(agendamentoParaUsar.quadra.point.id);
 
     // Determina o modo baseado no agendamento
+    // Se tiver nomeAvulso (compatibilidade com dados antigos), trata como 'normal' (próprio)
     if (agendamentoParaUsar.atletaId && agendamentoParaUsar.atleta) {
       setModo('atleta');
       setAtletaId(agendamentoParaUsar.atletaId);
-    } else if (agendamentoParaUsar.nomeAvulso) {
-      setModo('avulso');
-      setNomeAvulso(agendamentoParaUsar.nomeAvulso);
-      setTelefoneAvulso(agendamentoParaUsar.telefoneAvulso || '');
     } else {
+      // Modo 'normal' (próprio) - sem cliente vinculado
+      // Se tiver nomeAvulso (dados antigos), não carregamos mas tratamos como próprio
       setModo('normal');
     }
 
@@ -751,9 +748,6 @@ export default function EditarAgendamentoModal({
     let mudouModo = false;
     if (modo === 'atleta') {
       mudouModo = atletaId !== valoresOriginais.atletaId;
-    } else if (modo === 'avulso') {
-      mudouModo = (nomeAvulso || '') !== (valoresOriginais.nomeAvulso || '') ||
-                  (telefoneAvulso || '') !== (valoresOriginais.telefoneAvulso || '');
     }
 
     // Comparar participantes (ordem importa)
@@ -797,19 +791,6 @@ export default function EditarAgendamentoModal({
 
     if (modo === 'atleta' && !atletaId) {
       return 'Selecione um atleta';
-    }
-
-    if (modo === 'avulso') {
-      if (!nomeAvulso.trim()) {
-        return 'Informe o nome para agendamento avulso';
-      }
-      // Telefone é opcional, mas se informado, deve ser válido
-      if (telefoneAvulso.trim()) {
-        const telefoneLimpo = telefoneAvulso.replace(/\D/g, '');
-        if (telefoneLimpo.length < 10) {
-          return 'Telefone inválido';
-        }
-      }
     }
 
     // Validação de recorrência (criação e edição)
@@ -890,16 +871,11 @@ export default function EditarAgendamentoModal({
       if (canGerenciarAgendamento) {
         if (modo === 'atleta' && atletaId) {
           payload.atletaId = atletaId;
-          // Remove campos de avulso se existirem
+          // Remove campos de avulso se existirem (compatibilidade com dados antigos)
           payload.nomeAvulso = null;
           payload.telefoneAvulso = null;
-        } else if (modo === 'avulso') {
-          payload.nomeAvulso = nomeAvulso.trim();
-          payload.telefoneAvulso = telefoneAvulso.trim();
-          // Remove atletaId se existir
-          payload.atletaId = null;
         } else {
-          // Modo normal - remove campos específicos
+          // Modo normal (próprio) - remove campos específicos
           payload.atletaId = null;
           payload.nomeAvulso = null;
           payload.telefoneAvulso = null;
@@ -1099,19 +1075,19 @@ export default function EditarAgendamentoModal({
                   }`}
                 >
                   <Users className="w-5 h-5" />
-                  <span className="font-medium">Cliente Cadastrado</span>
+                  <span className="font-medium">Atleta Cadastrado</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setModo('avulso')}
+                  onClick={() => setModo('normal')}
                   className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                    modo === 'avulso'
+                    modo === 'normal'
                       ? 'border-blue-600 bg-blue-100 text-blue-700'
                       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <UserPlus className="w-5 h-5" />
-                  <span className="font-medium">Avulso</span>
+                  <User className="w-5 h-5" />
+                  <span className="font-medium">Próprio</span>
                 </button>
               </div>
             </div>
@@ -1367,42 +1343,6 @@ export default function EditarAgendamentoModal({
               )}
             </div>
 
-            {/* Campos Avulso (modo avulso) */}
-            {canGerenciarAgendamento && modo === 'avulso' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <UserPlus className="inline w-4 h-4 mr-1" />
-                    Nome *
-                  </label>
-                  <input
-                    type="text"
-                    value={nomeAvulso}
-                    onChange={(e) => setNomeAvulso(e.target.value)}
-                    required
-                    placeholder="Nome completo"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
-                  <input
-                    type="text"
-                    value={telefoneAvulso}
-                    onChange={(e) => {
-                      const masked = e.target.value
-                        .replace(/\D/g, '')
-                        .replace(/^(\d{2})(\d)/, '($1) $2')
-                        .replace(/(\d{5})(\d)/, '$1-$2')
-                        .slice(0, 15);
-                      setTelefoneAvulso(masked);
-                    }}
-                    placeholder="(99) 99999-9999"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Campos de Aula/Professor */}
             {canGerenciarAgendamento && (
