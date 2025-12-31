@@ -12,6 +12,8 @@ export type User = {
   role: string;
   atletaId?: string | null;
   pointIdGestor?: string | null;
+  ehColaborador?: boolean | null;
+  gestorId?: string | null;
 };
 
 // Verifica JWT Bearer Token e retorna o usuário
@@ -38,6 +40,8 @@ export async function verifyJwtAuth(request: NextRequest): Promise<User | null> 
       role: payload.role,
       atletaId: payload.atletaId,
       pointIdGestor: payload.pointIdGestor,
+      ehColaborador: payload.ehColaborador,
+      gestorId: payload.gestorId,
     };
   } catch (e) {
     console.error("verifyJwtAuth error:", e);
@@ -91,6 +95,8 @@ function shapeUsuario(user: any): User {
   const role = user.role ?? "USER";
   const atletaId = user.atletaId !== undefined ? user.atletaId : undefined;
   const pointIdGestor = user.pointIdGestor !== undefined ? user.pointIdGestor : undefined;
+  const ehColaborador = user.ehColaborador !== undefined ? user.ehColaborador : undefined;
+  const gestorId = user.gestorId !== undefined ? user.gestorId : undefined;
 
   return { 
     id: user.id, 
@@ -98,6 +104,8 @@ function shapeUsuario(user: any): User {
     role, 
     atletaId,
     pointIdGestor,
+    ehColaborador,
+    gestorId,
     email: user.email 
   };
 }

@@ -13,6 +13,8 @@ type JwtPayload = {
   role?: 'ADMIN' | 'USER' | 'ORGANIZER' | 'PROFESSOR' | string;
   atletaId?: string | null;
   pointIdGestor?: string | null;
+  ehColaborador?: boolean | null;
+  gestorId?: string | null;
   iat?: number;
   exp?: number;
 };
