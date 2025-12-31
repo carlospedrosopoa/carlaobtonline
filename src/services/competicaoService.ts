@@ -79,6 +79,20 @@ export const competicaoService = {
     return res.data;
   },
 
+  atualizarAtletasJogo: async (
+    competicaoId: string,
+    jogoId: string,
+    atletas: {
+      atleta1Id: string;
+      atleta2Id: string;
+      atleta3Id?: string;
+      atleta4Id?: string;
+    }
+  ): Promise<any> => {
+    const res = await api.patch(`/competicao/${competicaoId}/jogos/${jogoId}`, atletas);
+    return res.data;
+  },
+
   finalizarCompeticao: async (
     competicaoId: string,
     classificacao: Array<{

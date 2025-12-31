@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import type { Competicao } from '@/types/competicao';
-import { PlayCircle, ArrowLeft, Trophy, Users } from 'lucide-react';
+import { PlayCircle, ArrowLeft, Trophy, Users, Settings } from 'lucide-react';
 
 export default function JogosCompeticaoPage() {
   const router = useRouter();
@@ -236,10 +236,20 @@ export default function JogosCompeticaoPage() {
           <ArrowLeft className="w-5 h-5" />
           Voltar
         </button>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <PlayCircle className="w-8 h-8 text-blue-500" />
-          Jogos - {competicao.nome}
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+            <PlayCircle className="w-8 h-8 text-blue-500" />
+            Jogos - {competicao.nome}
+          </h1>
+          <button
+            onClick={() => router.push(`/app/arena/competicoes/${competicaoId}/jogos/manutencao`)}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+            title="Manutenção de jogos - Editar atletas rodada por rodada"
+          >
+            <Settings className="w-4 h-4" />
+            Manutenção
+          </button>
+        </div>
       </div>
 
       {/* Seção Head to Head */}
