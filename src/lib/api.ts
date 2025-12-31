@@ -243,6 +243,46 @@ export const api = {
     }
   },
   
+  patch: async (endpoint: string, body?: any, config?: any) => {
+    try {
+      const response = await apiRequest(endpoint, {
+        method: 'PATCH',
+        body: body ? JSON.stringify(body) : undefined,
+        headers: config?.headers,
+      });
+      
+      // Tenta parsear JSON, se falhar retorna objeto vazio
+      const data = await response.json().catch(() => {
+        // Se não conseguir parsear e o status não é 200, pode ser erro
+        if (!response.ok) {
+          return { mensagem: 'Erro ao processar resposta', status: response.status };
+        }
+        return {};
+      });
+      
+      // Se a resposta não está ok, lança erro
+      if (!response.ok) {
+        const error: any = new Error(data.mensagem || data.error || 'Erro na requisição');
+        error.status = response.status;
+        error.response = { data };
+        error.data = data;
+        throw error;
+      }
+      
+      return { data, status: response.status, headers: response.headers };
+    } catch (error: any) {
+      console.error('API PATCH error:', error);
+      // Se já tem status, relança o erro
+      if (error.status || error.response) {
+        throw error;
+      }
+      // Caso contrário, cria um erro genérico
+      const apiError: any = new Error(error.message || 'Erro ao conectar com o servidor');
+      apiError.status = 500;
+      throw apiError;
+    }
+  },
+  
   delete: async (endpoint: string, config?: any) => {
     try {
       // Se config contém 'data', usa como body (padrão axios)
