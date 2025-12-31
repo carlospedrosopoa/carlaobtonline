@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
+import { withCors } from '@/lib/cors';
 
 // PUT /api/point/[id]/assinante - Atualizar flag de assinante da arena
 export async function PUT(
@@ -11,18 +12,20 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN pode atualizar flag de assinante
     if (usuario.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Apenas administradores podem atualizar a flag de assinante' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -30,19 +33,21 @@ export async function PUT(
     const { assinante } = body as { assinante: boolean };
 
     if (typeof assinante !== 'boolean') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'O campo assinante deve ser um booleano' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se o point existe
     const pointCheck = await query('SELECT id FROM "Point" WHERE id = $1', [id]);
     if (pointCheck.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Arena não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Atualizar flag de assinante
@@ -55,26 +60,39 @@ export async function PUT(
         [assinante, id]
       );
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         mensagem: `Flag de assinante ${assinante ? 'ativada' : 'desativada'} com sucesso`,
         point: result.rows[0],
       });
+      return withCors(response, request);
     } catch (error: any) {
       // Se a coluna não existir ainda, retornar erro informativo
       if (error.message?.includes('assinante') || error.message?.includes('column') || error.code === '42703') {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Coluna assinante não encontrada. Execute o script SQL de migração primeiro.' },
           { status: 500 }
         );
+        return withCors(errorResponse, request);
       }
       throw error;
     }
   } catch (error: any) {
     console.error('Erro ao atualizar flag de assinante da arena:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar flag de assinante', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
+}
+
+// Suportar requisições OPTIONS (preflight)
+export async function OPTIONS(request: NextRequest) {
+  console.log('[CORS] OPTIONS request recebida para /api/point/[id]/assinante');
+  const origin = request.headers.get('origin');
+  console.log('[CORS] Origin:', origin);
+  const response = withCors(new NextResponse(null, { status: 204 }), request);
+  console.log('[CORS] Headers retornados:', Object.fromEntries(response.headers.entries()));
+  return response;
 }
 
