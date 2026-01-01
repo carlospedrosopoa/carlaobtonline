@@ -1507,6 +1507,49 @@ export default function EditarAgendamentoModal({
               />
             </div>
 
+            {/* Informações de Auditoria - apenas para agendamentos existentes */}
+            {agendamento && agendamentoCompleto && (agendamentoCompleto.createdBy || agendamentoCompleto.updatedBy) && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 className="text-xs font-semibold text-gray-700 mb-2">Informações de Auditoria</h4>
+                <div className="space-y-1.5 text-xs text-gray-600">
+                  {agendamentoCompleto.createdBy && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-700">Criado por:</span>
+                      <span>{agendamentoCompleto.createdBy.name || agendamentoCompleto.createdBy.email}</span>
+                      {agendamentoCompleto.createdAt && (
+                        <span className="text-gray-500">
+                          em {new Date(agendamentoCompleto.createdAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {agendamentoCompleto.updatedBy && agendamentoCompleto.updatedBy.id !== agendamentoCompleto.createdBy?.id && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-700">Atualizado por:</span>
+                      <span>{agendamentoCompleto.updatedBy.name || agendamentoCompleto.updatedBy.email}</span>
+                      {agendamentoCompleto.updatedAt && (
+                        <span className="text-gray-500">
+                          em {new Date(agendamentoCompleto.updatedAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Valores */}
             <div className="space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
