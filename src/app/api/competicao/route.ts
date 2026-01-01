@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
       VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4, $5, 'CRIADA',
         $6, $7, $8, $9, $10, $11, $12, $13, $14,
-        NOW(), NOW()
+        NOW(), NOW(), $15
       )
       RETURNING id`,
       [
