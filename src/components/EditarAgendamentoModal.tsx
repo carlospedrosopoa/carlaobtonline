@@ -1,7 +1,7 @@
 // components/EditarAgendamentoModal.tsx - Modal de edição de agendamento (100% igual ao cursor)
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useAuth } from '@/context/AuthContext';
 import { pointService, quadraService, agendamentoService, bloqueioAgendaService, tabelaPrecoService } from '@/services/agendamentoService';
@@ -153,7 +153,7 @@ export default function EditarAgendamentoModal({
       setAgendamentoCompleto(null);
       setManterNaTela(false);
     }
-  }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial]);
+  }, [isOpen, agendamento?.id, carregarDados]);
 
   // Preencher formulário quando o agendamento completo for carregado
   useEffect(() => {
