@@ -130,6 +130,18 @@ export interface Agendamento {
   } | null;
   createdAt: string;
   updatedAt: string;
+  createdById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedById?: string | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
 }
 
 export interface CriarPointPayload {

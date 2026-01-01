@@ -28,14 +28,16 @@ export async function GET(
         `SELECT 
           a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
           a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-          a.status, a.observacoes, a."ehAula", a."professorId", a."createdAt", a."updatedAt",
+          a.status, a.observacoes, a."ehAula", a."professorId", a."createdAt", a."updatedAt", a."createdById", a."updatedById",
           q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
           p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
           u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
           at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",
           pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",
           pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",
-          up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email"
+          up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email",
+          uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+          uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
         FROM "Agendamento" a
         LEFT JOIN "Quadra" q ON a."quadraId" = q.id
         LEFT JOIN "Point" p ON q."pointId" = p.id
@@ -43,6 +45,8 @@ export async function GET(
         LEFT JOIN "Atleta" at ON a."atletaId" = at.id
         LEFT JOIN "Professor" pr ON a."professorId" = pr.id
         LEFT JOIN "User" up ON pr."userId" = up.id
+        LEFT JOIN "User" uc ON a."createdById" = uc.id
+        LEFT JOIN "User" uu ON a."updatedById" = uu.id
         WHERE a.id = $1`,
         [id]
       );
@@ -61,12 +65,16 @@ export async function GET(
             NULL as "ehAula", NULL as "professorId", NULL as "professor_id", NULL as "professor_userId", 
             NULL as "professor_especialidade", NULL as "professor_bio", NULL as "professor_valorHora", 
             NULL as "professor_ativo", NULL as "professor_usuario_id", NULL as "professor_usuario_name", 
-            NULL as "professor_usuario_email"
+            NULL as "professor_usuario_email",
+            uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+            uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
           FROM "Agendamento" a
           LEFT JOIN "Quadra" q ON a."quadraId" = q.id
           LEFT JOIN "Point" p ON q."pointId" = p.id
           LEFT JOIN "User" u ON a."usuarioId" = u.id
           LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+          LEFT JOIN "User" uc ON a."createdById" = uc.id
+          LEFT JOIN "User" uu ON a."updatedById" = uu.id
           WHERE a.id = $1`,
           [id]
         );
@@ -136,6 +144,18 @@ export async function GET(
       } : null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      createdById: row.createdById || null,
+      createdBy: row.createdBy_user_id ? {
+        id: row.createdBy_user_id,
+        name: row.createdBy_user_name,
+        email: row.createdBy_user_email,
+      } : null,
+      updatedById: row.updatedById || null,
+      updatedBy: row.updatedBy_user_id ? {
+        id: row.updatedBy_user_id,
+        name: row.updatedBy_user_name,
+        email: row.updatedBy_user_email,
+      } : null,
       quadra: {
         id: row.quadra_id,
         nome: row.quadra_nome,
