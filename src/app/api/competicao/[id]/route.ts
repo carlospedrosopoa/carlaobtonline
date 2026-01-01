@@ -311,6 +311,9 @@ export async function PUT(
     }
 
     updates.push(`"updatedAt" = NOW()`);
+    updates.push(`"updatedById" = $${paramCount}`);
+    values.push(usuario.id);
+    paramCount++;
     values.push(competicaoId);
 
     await query(

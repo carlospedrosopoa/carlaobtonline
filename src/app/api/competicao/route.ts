@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     let sql = `SELECT 
       c.id, c."pointId", c."quadraId", c.nome, c.tipo, c.formato, c.status,
       c."dataInicio", c."dataFim", c.descricao, c."valorInscricao", c.premio, 
-      c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt",
+      c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt", c."createdById", c."updatedById",
       p.id as "point_id", p.nome as "point_nome",
       q.id as "quadra_id", q.nome as "quadra_nome"
     FROM "Competicao" c
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
       `INSERT INTO "Competicao" (
         id, "pointId", "quadraId", nome, tipo, formato, status,
         "dataInicio", "dataFim", descricao, "valorInscricao", premio, regras, "cardDivulgacaoUrl", "fotoCompeticaoUrl", "configSuper8",
-        "createdAt", "updatedAt"
+        "createdAt", "updatedAt", "createdById"
       )
       VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4, $5, 'CRIADA',
@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
         cardDivulgacaoUrlProcessada,
         fotoCompeticaoUrlProcessada,
         configSuper8 ? JSON.stringify(configSuper8) : null,
+        usuario.id,
       ]
     );
 
