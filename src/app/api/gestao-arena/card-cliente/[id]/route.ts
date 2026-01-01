@@ -109,9 +109,13 @@ export async function GET(
         `SELECT 
           i.*,
           p.id as "produto_id", p.nome as "produto_nome", p.descricao as "produto_descricao",
-          p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria"
+          p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria",
+          uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+          uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
         FROM "ItemCard" i
         LEFT JOIN "Produto" p ON i."produtoId" = p.id
+        LEFT JOIN "User" uc ON i."createdById" = uc.id
+        LEFT JOIN "User" uu ON i."updatedById" = uu.id
         WHERE i."cardId" = $1
         ORDER BY i."createdAt" ASC`,
         [id]
@@ -127,6 +131,18 @@ export async function GET(
         observacoes: itemRow.observacoes,
         createdAt: itemRow.createdAt,
         updatedAt: itemRow.updatedAt,
+        createdById: itemRow.createdById || null,
+        updatedById: itemRow.updatedById || null,
+        createdBy: itemRow.createdBy_user_id ? {
+          id: itemRow.createdBy_user_id,
+          name: itemRow.createdBy_user_name,
+          email: itemRow.createdBy_user_email,
+        } : null,
+        updatedBy: itemRow.updatedBy_user_id ? {
+          id: itemRow.updatedBy_user_id,
+          name: itemRow.updatedBy_user_name,
+          email: itemRow.updatedBy_user_email,
+        } : null,
         produto: itemRow.produto_id ? {
           id: itemRow.produto_id,
           nome: itemRow.produto_nome,

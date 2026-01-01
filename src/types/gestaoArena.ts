@@ -151,6 +151,18 @@ export interface ItemCard {
   observacoes?: string | null;
   createdAt: string;
   updatedAt: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   // Relacionamentos
   produto?: Produto;
 }
