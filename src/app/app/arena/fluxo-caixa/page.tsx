@@ -586,6 +586,9 @@ export default function FluxoCaixaPage() {
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Valor
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Criado por
+                </th>
                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
@@ -638,6 +641,16 @@ export default function FluxoCaixaPage() {
                     lancamento.tipo === 'SAIDA' ? 'text-red-600' : 'text-green-600'
                   }`}>
                     {lancamento.tipo === 'SAIDA' ? '-' : '+'}{formatarMoeda(lancamento.valor)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {lancamento.createdBy ? (
+                      <div>
+                        <div className="font-medium">{lancamento.createdBy.name}</div>
+                        <div className="text-xs text-gray-500">{formatarData(lancamento.createdAt)}</div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
                     {(lancamento.tipo === 'ENTRADA_MANUAL' || lancamento.tipo === 'SAIDA') && (

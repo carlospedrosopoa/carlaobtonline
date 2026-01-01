@@ -1,0 +1,3289 @@
+
+> appatleta@0.1.0 dev
+> next dev
+
+   ▲ Next.js 16.0.7 (Turbopack)
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.15.70:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1751ms
+ GET /app/arena/agendamentos/agenda 200 in 3.0s (compile: 2.8s, render: 257ms)
+[GCS] Storage inicializado com sucesso
+[GCS] Storage inicializado com sucesso
+Executed query {
+  text: 'SELECT \n' +
+    '      q.id, q.nome, q."pointId", q.tipo, q.capacidade, q.ativo, \n' +
+    '      q."tiposEsporte", q."createdAt", q."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "Quadra" q\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id WHERE q."pointId" = $1 ORDER BY q.nome ASC',
+  duration: 983,
+  rows: 2
+}
+ GET /api/quadra?pointId=2d77100f-aec8-45ca-b802-fcc964f539a9 200 in 1894ms (compile: 788ms, proxy.ts: 74ms, render: 1032ms)
+Executed query {
+  text: 'SELECT \n' +
+    '      a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",\n' +
+    '      a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",\n' +
+    '      a.status, a.observacoes, a."createdAt", a."updatedAt", a."createdById", a."updatedById", a."recorrenciaId", a."recorrenciaConfig", a."ehAula", a."professorId",\n' +
+    '      q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",\n' +
+    '      p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",\n' +
+    '      u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",\n' +
+    '      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",\n' +
+    '      pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",\n' +
+    '      pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",\n' +
+    '      up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email",\n' +
+    '      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",\n' +
+    '      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"\n' +
+    '    FROM "Agendamento" a\n' +
+    '    LEFT JOIN "Quadra" q ON a."quadraId" = q.id\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id\n' +
+    '    LEFT JOIN "User" u ON a."usuarioId" = u.id\n' +
+    '    LEFT JOIN "Atleta" at ON a."atletaId" = at.id\n' +
+    '    LEFT JOIN "Professor" pr ON a."professorId" = pr.id\n' +
+    '    LEFT JOIN "User" up ON pr."userId" = up.id\n' +
+    '    LEFT JOIN "User" uc ON a."createdById" = uc.id\n' +
+    '    LEFT JOIN "User" uu ON a."updatedById" = uu.id\n' +
+    '    WHERE 1=1 AND a."dataHora" >= $1 AND a."dataHora" <= $2 AND a.status = $3 AND q."pointId" = $4 ORDER BY a."dataHora" ASC',
+  duration: 1255,
+  rows: 7
+}
+Executed query {
+  text: 'SELECT \n' +
+    '      b.id, b."pointId", b."quadraIds", b.titulo, b.descricao,\n' +
+    '      b."dataInicio", b."dataFim", b."horaInicio", b."horaFim",\n' +
+    '      b.ativo, b."createdAt", b."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "BloqueioAgenda" b\n' +
+    '    LEFT JOIN "Point" p ON b."pointId" = p.id\n' +
+    '    WHERE 1=1 AND b."pointId" = $1 AND b."dataFim" >= $2 AND b."dataInicio" <= $3 AND b.ativo = true ORDER BY b."dataInicio" ASC, b."createdAt" DESC',
+  duration: 1392,
+  rows: 0
+}
+ GET /api/bloqueio-agenda?dataInicio=2026-01-01T00:00:00.000Z&dataFim=2026-01-05T23:59:59.999Z&apenasAtivos=true 200 in 2.3s (compile: 785ms, proxy.ts: 74ms, render: 1440ms)
+Executed query {
+  text: 'SELECT \n' +
+    '          id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,\n' +
+    '          "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",\n' +
+    '          "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",\n' +
+    '          "enviarLembretesAgendamento", "antecedenciaLembrete",\n' +
+    '          "infinitePayHandle",\n' +
+    '          assinante, "createdAt", "updatedAt"\n' +
+    '        FROM "Point"\n' +
+    '        WHERE id = $1',
+  duration: 586,
+  rows: 1
+}
+ GET /api/point/2d77100f-aec8-45ca-b802-fcc964f539a9 200 in 2.4s (compile: 1762ms, proxy.ts: 73ms, render: 595ms)
+Executed query {
+  text: 'SELECT \n' +
+    '      q.id, q.nome, q."pointId", q.tipo, q.capacidade, q.ativo, \n' +
+    '      q."tiposEsporte", q."createdAt", q."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "Quadra" q\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id WHERE q."pointId" = $1 ORDER BY q.nome ASC',
+  duration: 662,
+  rows: 2
+}
+ GET /api/quadra?pointId=2d77100f-aec8-45ca-b802-fcc964f539a9 200 in 679ms (compile: 3ms, proxy.ts: 5ms, render: 670ms)
+Executed query {
+  text: 'SELECT \n' +
+    '            aa."agendamentoId", aa.id, aa."atletaId", aa."createdAt",\n' +
+    '            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", \n' +
+    '            at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",\n' +
+    '            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"\n' +
+    '          FROM "AgendamentoAtleta" aa\n' +
+    '          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id\n' +
+    '          LEFT JOIN "User" u ON at."usuarioId" = u.id\n' +
+    '          WHERE aa."agendamentoId" = ANY($1::text[])\n' +
+    '          ORDER BY aa."agendamentoId", aa."createdAt" ASC',
+  duration: 545,
+  rows: 3
+}
+[GET /api/agendamento] Buscando participantes para 7 agendamentos
+[GET /api/agendamento] Encontrados 3 registros de participantes
+[GET /api/agendamento] Agendamento 0773093a-f8de-4e67-ac4d-4295c6624ac2 tem 3 participantes
+ GET /api/agendamento?dataInicio=2026-01-01T00:00:00.000Z&dataFim=2026-01-05T23:59:59.999Z&status=CONFIRMADO 200 in 2.7s (compile: 786ms, proxy.ts: 74ms, render: 1850ms)
+Executed query {
+  text: 'SELECT \n' +
+    '      b.id, b."pointId", b."quadraIds", b.titulo, b.descricao,\n' +
+    '      b."dataInicio", b."dataFim", b."horaInicio", b."horaFim",\n' +
+    '      b.ativo, b."createdAt", b."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "BloqueioAgenda" b\n' +
+    '    LEFT JOIN "Point" p ON b."pointId" = p.id\n' +
+    '    WHERE 1=1 AND b."pointId" = $1 AND b."dataFim" >= $2 AND b."dataInicio" <= $3 AND b.ativo = true ORDER BY b."dataInicio" ASC, b."createdAt" DESC',
+  duration: 531,
+  rows: 0
+}
+ GET /api/bloqueio-agenda?dataInicio=2026-01-01T00:00:00.000Z&dataFim=2026-01-05T23:59:59.999Z&apenasAtivos=true 200 in 544ms (compile: 3ms, proxy.ts: 5ms, render: 536ms)
+Executed query {
+  text: 'SELECT \n' +
+    '          id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,\n' +
+    '          "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",\n' +
+    '          "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",\n' +
+    '          "enviarLembretesAgendamento", "antecedenciaLembrete",\n' +
+    '          "infinitePayHandle",\n' +
+    '          assinante, "createdAt", "updatedAt"\n' +
+    '        FROM "Point"\n' +
+    '        WHERE id = $1',
+  duration: 508,
+  rows: 1
+}
+ GET /api/point/2d77100f-aec8-45ca-b802-fcc964f539a9 200 in 547ms (compile: 29ms, proxy.ts: 5ms, render: 513ms)
+Executed query {
+  text: 'SELECT \n' +
+    '      a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",\n' +
+    '      a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",\n' +
+    '      a.status, a.observacoes, a."createdAt", a."updatedAt", a."createdById", a."updatedById", a."recorrenciaId", a."recorrenciaConfig", a."ehAula", a."professorId",\n' +
+    '      q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",\n' +
+    '      p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",\n' +
+    '      u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",\n' +
+    '      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",\n' +
+    '      pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",\n' +
+    '      pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",\n' +
+    '      up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email",\n' +
+    '      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",\n' +
+    '      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"\n' +
+    '    FROM "Agendamento" a\n' +
+    '    LEFT JOIN "Quadra" q ON a."quadraId" = q.id\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id\n' +
+    '    LEFT JOIN "User" u ON a."usuarioId" = u.id\n' +
+    '    LEFT JOIN "Atleta" at ON a."atletaId" = at.id\n' +
+    '    LEFT JOIN "Professor" pr ON a."professorId" = pr.id\n' +
+    '    LEFT JOIN "User" up ON pr."userId" = up.id\n' +
+    '    LEFT JOIN "User" uc ON a."createdById" = uc.id\n' +
+    '    LEFT JOIN "User" uu ON a."updatedById" = uu.id\n' +
+    '    WHERE 1=1 AND a."dataHora" >= $1 AND a."dataHora" <= $2 AND a.status = $3 AND q."pointId" = $4 ORDER BY a."dataHora" ASC',
+  duration: 397,
+  rows: 7
+}
+Executed query {
+  text: 'SELECT \n' +
+    '            aa."agendamentoId", aa.id, aa."atletaId", aa."createdAt",\n' +
+    '            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", \n' +
+    '            at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",\n' +
+    '            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"\n' +
+    '          FROM "AgendamentoAtleta" aa\n' +
+    '          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id\n' +
+    '          LEFT JOIN "User" u ON at."usuarioId" = u.id\n' +
+    '          WHERE aa."agendamentoId" = ANY($1::text[])\n' +
+    '          ORDER BY aa."agendamentoId", aa."createdAt" ASC',
+  duration: 136,
+  rows: 3
+}
+[GET /api/agendamento] Buscando participantes para 7 agendamentos
+[GET /api/agendamento] Encontrados 3 registros de participantes
+[GET /api/agendamento] Agendamento 0773093a-f8de-4e67-ac4d-4295c6624ac2 tem 3 participantes
+ GET /api/agendamento?dataInicio=2026-01-01T00:00:00.000Z&dataFim=2026-01-05T23:59:59.999Z&status=CONFIRMADO 200 in 551ms (compile: 4ms, proxy.ts: 6ms, render: 541ms)
+[GCS] Storage inicializado com sucesso
+Executed query {
+  text: 'SELECT \n' +
+    '      q.id, q.nome, q."pointId", q.tipo, q.capacidade, q.ativo, \n' +
+    '      q."tiposEsporte", q."createdAt", q."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "Quadra" q\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id WHERE q."pointId" = $1 ORDER BY q.nome ASC',
+  duration: 1068,
+  rows: 2
+}
+ GET /api/quadra 200 in 1102ms (compile: 8ms, proxy.ts: 16ms, render: 1078ms)
+Executed query {
+  text: 'SELECT DISTINCT ON (a.id) a.*, \n' +
+    '              u.id as "usuario_id", \n' +
+    '              u.name as "usuario_name", \n' +
+    '              u.email as "usuario_email", \n' +
+    '              u.role as "usuario_role" \n' +
+    '       FROM "Atleta" a \n' +
+    '       LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '       LEFT JOIN "AtletaPoint" ap ON a.id = ap."atletaId"\n' +
+    '       WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" = $1)\n' +
+    '       ORDER BY a.id, a.nome ASC',
+  duration: 1243,
+  rows: 53
+}
+Executed query {
+  text: 'SELECT p.*, \n' +
+    '            u.id as "usuario_id",\n' +
+    '            u.name as "usuario_name",\n' +
+    '            u.email as "usuario_email",\n' +
+    '            u.role as "usuario_role"\n' +
+    '     FROM "Professor" p\n' +
+    '     LEFT JOIN "User" u ON p."userId" = u.id\n' +
+    '     WHERE p.ativo = $1 AND (p."pointIdPrincipal" = $2 OR EXISTS (\n' +
+    '      SELECT 1 FROM "ProfessorPoint" pp \n' +
+    '      WHERE pp."professorId" = p.id AND pp."pointId" = $2\n' +
+    '    ))\n' +
+    '     ORDER BY p."createdAt" DESC',
+  duration: 1213,
+  rows: 2
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 286,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 430,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 575,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 719,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 863,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1008,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1153,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1299,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1442,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1586,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1729,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1872,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2016,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2161,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2306,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2451,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2596,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2742,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2887,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3031,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3176,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3319,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3463,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3609,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3752,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3898,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4043,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4187,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4331,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4476,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4620,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4763,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4908,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5054,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5196,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5340,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5483,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5627,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5772,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5918,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6060,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6205,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6349,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6494,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6639,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6784,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6927,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7072,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7217,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7360,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7505,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7649,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7792,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.*, \n' +
+    '            u.id as "usuario_id",\n' +
+    '            u.name as "usuario_name",\n' +
+    '            u.email as "usuario_email",\n' +
+    '            u.role as "usuario_role"\n' +
+    '     FROM "Professor" p\n' +
+    '     LEFT JOIN "User" u ON p."userId" = u.id\n' +
+    '     WHERE p.id = $1',
+  duration: 7795,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.*, \n' +
+    '            u.id as "usuario_id",\n' +
+    '            u.name as "usuario_name",\n' +
+    '            u.email as "usuario_email",\n' +
+    '            u.role as "usuario_role"\n' +
+    '     FROM "Professor" p\n' +
+    '     LEFT JOIN "User" u ON p."userId" = u.id\n' +
+    '     WHERE p.id = $1',
+  duration: 7939,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7939,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7940,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7939,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7939,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7939,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7937,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7936,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7932,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7933,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7931,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7931,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7932,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7930,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8217,
+  rows: 3
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8214,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8215,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8213,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8211,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8209,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8208,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8205,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8206,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8206,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8202,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8202,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8200,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8197,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8199,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8199,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8199,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8198,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8198,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8196,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8193,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8193,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8195,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8198,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8195,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8194,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8193,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8193,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8192,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8192,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8191,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8190,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8190,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8190,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8188,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8188,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8331,
+  rows: 3
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8331,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8331,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8331,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "ProfessorPoint" pp\n' +
+    '       JOIN "Point" p ON pp."pointId" = p.id\n' +
+    '       WHERE pp."professorId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8331,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "ProfessorPoint" pp\n' +
+    '       JOIN "Point" p ON pp."pointId" = p.id\n' +
+    '       WHERE pp."professorId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8333,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8330,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8184,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8183,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8183,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8185,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8183,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8184,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8184,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8184,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8184,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8186,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8188,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7901,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7903,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7904,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7904,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7904,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7904,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7903,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7904,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7905,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7904,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7903,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7930,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7931,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7930,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7927,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7926,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7925,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7927,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7929,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7928,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7929,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7931,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7930,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7929,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7931,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7932,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7931,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7930,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7930,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7932,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7931,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7785,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7786,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7784,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7785,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7641,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7639,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7638,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7637,
+  rows: 1
+}
+ GET /api/atleta/listarAtletas 200 in 25.2s (compile: 129ms, proxy.ts: 14ms, render: 25.0s)
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7635,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7633,
+  rows: 1
+}
+ GET /api/professor?ativo=true 200 in 25.4s (compile: 298ms, proxy.ts: 16ms, render: 25.1s)
+Executed query {
+  text: 'SELECT \n' +
+    '      b.id, b."pointId", b."quadraIds", b.titulo, b.descricao,\n' +
+    '      b."dataInicio", b."dataFim", b."horaInicio", b."horaFim",\n' +
+    '      b.ativo, b."createdAt", b."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "BloqueioAgenda" b\n' +
+    '    LEFT JOIN "Point" p ON b."pointId" = p.id\n' +
+    '    WHERE 1=1 AND b."pointId" = $1 AND b."dataFim" >= $2 AND b."dataInicio" <= $3 AND b.ativo = true ORDER BY b."dataInicio" ASC, b."createdAt" DESC',
+  duration: 1025,
+  rows: 0
+}
+ GET /api/bloqueio-agenda?dataInicio=2026-01-01T00:00:00&dataFim=2026-01-01T23:59:59&apenasAtivos=true 200 in 1047ms (compile: 5ms, proxy.ts: 10ms, render: 1032ms)
+Executed query {
+  text: 'SELECT \n' +
+    '      a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",\n' +
+    '      a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",\n' +
+    '      a.status, a.observacoes, a."createdAt", a."updatedAt", a."createdById", a."updatedById", a."recorrenciaId", a."recorrenciaConfig", a."ehAula", a."professorId",\n' +
+    '      q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",\n' +
+    '      p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",\n' +
+    '      u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",\n' +
+    '      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",\n' +
+    '      pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",\n' +
+    '      pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",\n' +
+    '      up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email",\n' +
+    '      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",\n' +
+    '      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"\n' +
+    '    FROM "Agendamento" a\n' +
+    '    LEFT JOIN "Quadra" q ON a."quadraId" = q.id\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id\n' +
+    '    LEFT JOIN "User" u ON a."usuarioId" = u.id\n' +
+    '    LEFT JOIN "Atleta" at ON a."atletaId" = at.id\n' +
+    '    LEFT JOIN "Professor" pr ON a."professorId" = pr.id\n' +
+    '    LEFT JOIN "User" up ON pr."userId" = up.id\n' +
+    '    LEFT JOIN "User" uc ON a."createdById" = uc.id\n' +
+    '    LEFT JOIN "User" uu ON a."updatedById" = uu.id\n' +
+    '    WHERE 1=1 AND a."quadraId" = $1 AND a."dataHora" >= $2 AND a."dataHora" <= $3 AND a.status = $4 AND q."pointId" = $5 ORDER BY a."dataHora" ASC',
+  duration: 1166,
+  rows: 3
+}
+Executed query {
+  text: 'SELECT \n' +
+    '            aa."agendamentoId", aa.id, aa."atletaId", aa."createdAt",\n' +
+    '            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", \n' +
+    '            at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",\n' +
+    '            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"\n' +
+    '          FROM "AgendamentoAtleta" aa\n' +
+    '          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id\n' +
+    '          LEFT JOIN "User" u ON at."usuarioId" = u.id\n' +
+    '          WHERE aa."agendamentoId" = ANY($1::text[])\n' +
+    '          ORDER BY aa."agendamentoId", aa."createdAt" ASC',
+  duration: 146,
+  rows: 3
+}
+[GET /api/agendamento] Buscando participantes para 3 agendamentos
+[GET /api/agendamento] Encontrados 3 registros de participantes
+[GET /api/agendamento] Agendamento 0773093a-f8de-4e67-ac4d-4295c6624ac2 tem 3 participantes
+ GET /api/agendamento?quadraId=0bda0d39-1e9c-4d50-a4c8-7d3f3b6be354&dataInicio=2026-01-01T00:00:00&dataFim=2026-01-01T23:59:59&status=CONFIRMADO 200 in 1339ms (compile: 11ms, proxy.ts: 10ms, render: 1318ms)
+Executed query {
+  text: 'SELECT \n' +
+    '      a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",\n' +
+    '      a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",\n' +
+    '      a.status, a.observacoes, a."createdAt", a."updatedAt", a."createdById", a."updatedById", a."recorrenciaId", a."recorrenciaConfig", a."ehAula", a."professorId",\n' +
+    '      q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",\n' +
+    '      p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",\n' +
+    '      u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",\n' +
+    '      at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",\n' +
+    '      pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",\n' +
+    '      pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",\n' +
+    '      up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email",\n' +
+    '      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",\n' +
+    '      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"\n' +
+    '    FROM "Agendamento" a\n' +
+    '    LEFT JOIN "Quadra" q ON a."quadraId" = q.id\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id\n' +
+    '    LEFT JOIN "User" u ON a."usuarioId" = u.id\n' +
+    '    LEFT JOIN "Atleta" at ON a."atletaId" = at.id\n' +
+    '    LEFT JOIN "Professor" pr ON a."professorId" = pr.id\n' +
+    '    LEFT JOIN "User" up ON pr."userId" = up.id\n' +
+    '    LEFT JOIN "User" uc ON a."createdById" = uc.id\n' +
+    '    LEFT JOIN "User" uu ON a."updatedById" = uu.id\n' +
+    '    WHERE 1=1 AND a."quadraId" = $1 AND a."dataHora" >= $2 AND a."dataHora" <= $3 AND a.status = $4 AND q."pointId" = $5 ORDER BY a."dataHora" ASC',
+  duration: 146,
+  rows: 2
+}
+Executed query {
+  text: 'SELECT \n' +
+    '      b.id, b."pointId", b."quadraIds", b.titulo, b.descricao,\n' +
+    '      b."dataInicio", b."dataFim", b."horaInicio", b."horaFim",\n' +
+    '      b.ativo, b."createdAt", b."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "BloqueioAgenda" b\n' +
+    '    LEFT JOIN "Point" p ON b."pointId" = p.id\n' +
+    '    WHERE 1=1 AND b."pointId" = $1 AND b."dataFim" >= $2 AND b."dataInicio" <= $3 AND b.ativo = true ORDER BY b."dataInicio" ASC, b."createdAt" DESC',
+  duration: 284,
+  rows: 0
+}
+ GET /api/bloqueio-agenda?dataInicio=2026-01-02T00:00:00&dataFim=2026-01-02T23:59:59&apenasAtivos=true 200 in 307ms (compile: 8ms, proxy.ts: 10ms, render: 289ms)
+Executed query {
+  text: 'SELECT \n' +
+    '            aa."agendamentoId", aa.id, aa."atletaId", aa."createdAt",\n' +
+    '            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", \n' +
+    '            at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",\n' +
+    '            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"\n' +
+    '          FROM "AgendamentoAtleta" aa\n' +
+    '          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id\n' +
+    '          LEFT JOIN "User" u ON at."usuarioId" = u.id\n' +
+    '          WHERE aa."agendamentoId" = ANY($1::text[])\n' +
+    '          ORDER BY aa."agendamentoId", aa."createdAt" ASC',
+  duration: 286,
+  rows: 0
+}
+[GET /api/agendamento] Buscando participantes para 2 agendamentos
+[GET /api/agendamento] Encontrados 0 registros de participantes
+ GET /api/agendamento?quadraId=0bda0d39-1e9c-4d50-a4c8-7d3f3b6be354&dataInicio=2026-01-02T00:00:00&dataFim=2026-01-02T23:59:59&status=CONFIRMADO 200 in 452ms (compile: 4ms, proxy.ts: 11ms, render: 437ms)
+Executed query {
+  text: 'SELECT \n' +
+    '      tp.id, tp."quadraId", tp."inicioMinutoDia", tp."fimMinutoDia", \n' +
+    '      tp."valorHora", tp."valorHoraAula", tp.ativo, tp."createdAt", tp."updatedAt",\n' +
+    '      q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId"\n' +
+    '    FROM "TabelaPreco" tp\n' +
+    '    LEFT JOIN "Quadra" q ON tp."quadraId" = q.id WHERE q."pointId" = $1 AND tp."quadraId" = $2 ORDER BY tp."inicioMinutoDia" ASC',
+  duration: 147,
+  rows: 2
+}
+ GET /api/tabela-preco?quadraId=0bda0d39-1e9c-4d50-a4c8-7d3f3b6be354 200 in 271ms (compile: 110ms, proxy.ts: 6ms, render: 155ms)
+[POST /api/agendamento] ============================================
+[POST /api/agendamento] Body completo recebido: {
+  "observacoes": "teste",
+  "quadraId": "0bda0d39-1e9c-4d50-a4c8-7d3f3b6be354",
+  "dataHora": "2026-01-02T08:00:00",
+  "duracao": 60,
+  "atletaId": null,
+  "nomeAvulso": null,
+  "telefoneAvulso": null,
+  "atletasParticipantesIds": [],
+  "ehAula": false,
+  "professorId": null
+}
+[POST /api/agendamento] ============================================
+[POST /api/agendamento] Valores extraídos do body: {
+  ehAula: false,
+  ehAulaType: 'boolean',
+  professorId: null,
+  professorIdType: 'object'
+}
+Executed query {
+  text: 'SELECT id, "pointId" FROM "Quadra" WHERE id = $1',
+  duration: 144,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT "pointId" FROM "Quadra" WHERE id = $1',
+  duration: 142,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id FROM "Agendamento"\n' +
+    '       WHERE "quadraId" = $1\n' +
+    "       AND status = 'CONFIRMADO'\n" +
+    '       AND "dataHora" < $3\n' +
+    `       AND ("dataHora" + (duracao * INTERVAL '1 minute')) > $2`,
+  duration: 146,
+  rows: 1
+}
+[CORS DEBUG] Origin recebida: http://localhost:3000
+[CORS DEBUG] Origens permitidas: [
+  'http://localhost:3001',
+  'https://appatleta.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+[CORS DEBUG] NODE_ENV: development
+[CORS DEBUG] É localhost? true
+[CORS DEBUG] Origem permitida? true
+[CORS DEBUG] Match exato? true
+[CORS DEBUG] allowedOrigins.length: 4
+[CORS DEBUG] envOrigins existe? true
+[CORS DEBUG] ✅ Origem permitida - adicionando headers CORS
+ POST /api/agendamento 400 in 454ms (compile: 3ms, proxy.ts: 6ms, render: 445ms)
+Executed query {
+  text: 'SELECT DISTINCT ON (a.id) a.*, \n' +
+    '              u.id as "usuario_id", \n' +
+    '              u.name as "usuario_name", \n' +
+    '              u.email as "usuario_email", \n' +
+    '              u.role as "usuario_role" \n' +
+    '       FROM "Atleta" a \n' +
+    '       LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '       LEFT JOIN "AtletaPoint" ap ON a.id = ap."atletaId"\n' +
+    '       WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" = $1)\n' +
+    '       ORDER BY a.id, a.nome ASC',
+  duration: 1200,
+  rows: 53
+}
+Executed query {
+  text: 'SELECT \n' +
+    '      q.id, q.nome, q."pointId", q.tipo, q.capacidade, q.ativo, \n' +
+    '      q."tiposEsporte", q."createdAt", q."updatedAt",\n' +
+    '      p.id as "point_id", p.nome as "point_nome"\n' +
+    '    FROM "Quadra" q\n' +
+    '    LEFT JOIN "Point" p ON q."pointId" = p.id WHERE q."pointId" = $1 ORDER BY q.nome ASC',
+  duration: 1339,
+  rows: 2
+}
+ GET /api/quadra 200 in 1369ms (compile: 12ms, proxy.ts: 11ms, render: 1345ms)
+Executed query {
+  text: 'SELECT p.*, \n' +
+    '            u.id as "usuario_id",\n' +
+    '            u.name as "usuario_name",\n' +
+    '            u.email as "usuario_email",\n' +
+    '            u.role as "usuario_role"\n' +
+    '     FROM "Professor" p\n' +
+    '     LEFT JOIN "User" u ON p."userId" = u.id\n' +
+    '     WHERE p.ativo = $1 AND (p."pointIdPrincipal" = $2 OR EXISTS (\n' +
+    '      SELECT 1 FROM "ProfessorPoint" pp \n' +
+    '      WHERE pp."professorId" = p.id AND pp."pointId" = $2\n' +
+    '    ))\n' +
+    '     ORDER BY p."createdAt" DESC',
+  duration: 1469,
+  rows: 2
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 433,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 578,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 722,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 867,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1011,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1157,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1301,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1445,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1590,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1735,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 1879,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2024,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2168,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2313,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2459,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2604,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2749,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 2896,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3042,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3186,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3332,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3476,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3621,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3768,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 3915,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4063,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4209,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4355,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4499,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4644,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4791,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 4935,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5080,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5223,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5368,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5512,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5657,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5802,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 5946,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6092,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6237,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6381,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6526,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6672,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6816,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 6961,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7107,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7253,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7398,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7544,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7690,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7836,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT a.*, \n' +
+    '            u.id as "usuario_id", \n' +
+    '            u.name as "usuario_name", \n' +
+    '            u.email as "usuario_email", \n' +
+    '            u.role as "usuario_role" \n' +
+    '     FROM "Atleta" a \n' +
+    '     LEFT JOIN "User" u ON a."usuarioId" = u.id \n' +
+    '     WHERE a.id = $1',
+  duration: 7981,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.*, \n' +
+    '            u.id as "usuario_id",\n' +
+    '            u.name as "usuario_name",\n' +
+    '            u.email as "usuario_email",\n' +
+    '            u.role as "usuario_role"\n' +
+    '     FROM "Professor" p\n' +
+    '     LEFT JOIN "User" u ON p."userId" = u.id\n' +
+    '     WHERE p.id = $1',
+  duration: 7839,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.*, \n' +
+    '            u.id as "usuario_id",\n' +
+    '            u.name as "usuario_name",\n' +
+    '            u.email as "usuario_email",\n' +
+    '            u.role as "usuario_role"\n' +
+    '     FROM "Professor" p\n' +
+    '     LEFT JOIN "User" u ON p."userId" = u.id\n' +
+    '     WHERE p.id = $1',
+  duration: 7986,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7988,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7991,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7990,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7990,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7991,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 7997,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8289,
+  rows: 3
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8287,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8287,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8288,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8285,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8287,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8287,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8284,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8285,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8288,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8286,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8284,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8282,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8282,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8281,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8280,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8281,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8286,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8286,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8288,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8286,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8287,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8288,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8288,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8288,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8290,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8289,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8287,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8287,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8288,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8434,
+  rows: 3
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8432,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8434,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "AtletaPoint" ap\n' +
+    '       JOIN "Point" p ON ap."pointId" = p.id\n' +
+    '       WHERE ap."atletaId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8435,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "ProfessorPoint" pp\n' +
+    '       JOIN "Point" p ON pp."pointId" = p.id\n' +
+    '       WHERE pp."professorId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8433,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT p.id, p.nome, p."logoUrl"\n' +
+    '       FROM "ProfessorPoint" pp\n' +
+    '       JOIN "Point" p ON pp."pointId" = p.id\n' +
+    '       WHERE pp."professorId" = $1\n' +
+    '       ORDER BY p.nome ASC',
+  duration: 8431,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8430,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8284,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8284,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8281,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8284,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8284,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8284,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8283,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8282,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8282,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 8282,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7990,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7990,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7992,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7992,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7998,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7993,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7994,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7996,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7995,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7992,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7848,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7848,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7848,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7845,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7699,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7701,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7698,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7698,
+  rows: 1
+}
+ GET /api/atleta/listarAtletas 200 in 25.3s (compile: 7ms, proxy.ts: 11ms, render: 25.3s)
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7700,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, nome, "logoUrl" FROM "Point" WHERE id = $1',
+  duration: 7698,
+  rows: 1
+}
+ GET /api/professor?ativo=true 200 in 25.6s (compile: 28ms, proxy.ts: 10ms, render: 25.6s)
+Deseja finalizar o arquivo em lotes (S/N)? [?25h
+

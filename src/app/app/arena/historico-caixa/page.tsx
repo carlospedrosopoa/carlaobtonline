@@ -266,12 +266,18 @@ export default function HistoricoCaixaPage() {
                       <div>
                         <p className="text-gray-600">Abertura</p>
                         <p className="font-medium text-gray-900">{formatarData(abertura.dataAbertura)}</p>
+                        {abertura.createdBy && (
+                          <p className="text-xs text-gray-500 mt-1">por {abertura.createdBy.name}</p>
+                        )}
                       </div>
                       <div>
                         <p className="text-gray-600">Fechamento</p>
                         <p className="font-medium text-gray-900">
                           {abertura.dataFechamento ? formatarDataHora(abertura.dataFechamento) : '-'}
                         </p>
+                        {abertura.updatedBy && abertura.dataFechamento && (
+                          <p className="text-xs text-gray-500 mt-1">por {abertura.updatedBy.name}</p>
+                        )}
                       </div>
                       <div>
                         <p className="text-gray-600">Saldo Inicial</p>
