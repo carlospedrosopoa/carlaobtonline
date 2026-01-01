@@ -314,9 +314,44 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-gray-900">{produto?.nome || 'Produto'}</span>
                           </div>
-                          <div className="text-sm text-gray-600">
-                            Quantidade: {item.quantidade} × {formatarMoeda(item.precoUnitario)} ={' '}
-                            <span className="font-semibold text-gray-900">{formatarMoeda(item.precoTotal)}</span>
+                          <div className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+                            <span>Quantidade: {item.quantidade} ×</span>
+                            {itemEditando === item.id ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-32">
+                                  <InputMonetario
+                                    value={novoPrecoUnitario || 0}
+                                    onChange={(valor) => setNovoPrecoUnitario(valor)}
+                                    disabled={salvando}
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => salvarPrecoItem(item.id)}
+                                  disabled={salvando}
+                                  className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+                                  title="Salvar"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={cancelarEdicaoPreco}
+                                  disabled={salvando}
+                                  className="p-1 text-gray-600 hover:bg-gray-50 rounded transition-colors disabled:opacity-50"
+                                  title="Cancelar"
+                                >
+                                  <XIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span
+                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                onClick={() => cardCompleto?.status === 'ABERTO' && iniciarEdicaoPreco(item)}
+                                title={cardCompleto?.status === 'ABERTO' ? 'Clique para editar o preço' : ''}
+                              >
+                                {formatarMoeda(item.precoUnitario)}
+                              </span>
+                            )}
+                            <span>= <span className="font-semibold text-gray-900">{formatarMoeda(item.precoTotal)}</span></span>
                           </div>
                           {item.observacoes && (
                             <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-100 rounded border-l-2 border-gray-300 italic">
