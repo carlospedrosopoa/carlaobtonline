@@ -206,13 +206,13 @@ export async function POST(
             id, "competicaoId", rodada, "numeroJogo",
             "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id",
             "atleta1ParceriaId", "atleta2ParceriaId",
-            status, "createdAt", "updatedAt"
+            status, "createdAt", "updatedAt", "createdById"
           )
           VALUES (
             gen_random_uuid()::text, $1, $2, $3,
             $4, $5, $6, $7,
             $8, $9,
-            'AGENDADO', NOW(), NOW()
+            'AGENDADO', NOW(), NOW(), $10
           )
           RETURNING id`,
           [
@@ -225,6 +225,7 @@ export async function POST(
             atleta4Id, // Segundo atleta da segunda dupla
             parceria1Id, // ID da parceria (contém info dos dois atletas)
             parceria2Id, // ID da segunda parceria
+            usuario.id, // createdById
           ]
         );
 

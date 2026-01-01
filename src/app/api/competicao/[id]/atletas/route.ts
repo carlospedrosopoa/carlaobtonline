@@ -150,10 +150,10 @@ export async function POST(
     // Adicionar atleta principal
     const result = await query(
       `INSERT INTO "AtletaCompeticao" (
-        id, "competicaoId", "atletaId", "parceriaId", "parceiroAtletaId", pontos, "createdAt"
+        id, "competicaoId", "atletaId", "parceriaId", "parceiroAtletaId", pontos, "createdAt", "createdById"
       )
       VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, 0, NOW()
+        gen_random_uuid()::text, $1, $2, $3, $4, 0, NOW(), $5
       )
       RETURNING id`,
       [
@@ -161,6 +161,7 @@ export async function POST(
         atletaId,
         parceriaId,
         parceiroAtletaId || null,
+        usuario.id,
       ]
     );
 
@@ -170,16 +171,17 @@ export async function POST(
     if (competicao.formato === 'DUPLAS' && parceiroAtletaId && parceriaId) {
       await query(
         `INSERT INTO "AtletaCompeticao" (
-          id, "competicaoId", "atletaId", "parceriaId", "parceiroAtletaId", pontos, "createdAt"
+          id, "competicaoId", "atletaId", "parceriaId", "parceiroAtletaId", pontos, "createdAt", "createdById"
         )
         VALUES (
-          gen_random_uuid()::text, $1, $2, $3, $4, 0, NOW()
+          gen_random_uuid()::text, $1, $2, $3, $4, 0, NOW(), $5
         )`,
         [
           competicaoId,
           parceiroAtletaId,
           parceriaId,
           atletaId,
+          usuario.id,
         ]
       );
     }
