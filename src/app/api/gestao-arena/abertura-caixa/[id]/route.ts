@@ -184,6 +184,7 @@ export async function PUT(
            "saldoFinal" = $1,
            observacoes = COALESCE($2, observacoes),
            "fechadoBy" = $3,
+           "updatedById" = $3,
            "updatedAt" = NOW()
        WHERE id = $4
        RETURNING *`,
