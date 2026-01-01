@@ -59,7 +59,7 @@ export async function GET(
 
     const result = await query(
       `SELECT 
-        p.*,
+        p.*, p."createdById",
         fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
       FROM "PagamentoCard" p
       LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
@@ -110,7 +110,8 @@ export async function GET(
           valor: parseFloat(row.valor),
           observacoes: row.observacoes,
           createdAt: row.createdAt,
-          createdBy: row.createdBy,
+          createdById: row.createdById,
+          createdBy: row.createdBy, // Mantido para compatibilidade
           formaPagamento: row.formaPagamento_id ? {
             id: row.formaPagamento_id,
             nome: row.formaPagamento_nome,
@@ -309,7 +310,7 @@ export async function POST(
     // Inserir pagamento
     const pagamentoResult = await query(
       `INSERT INTO "PagamentoCard" (
-        id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdBy"
+        id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdById"
       ) VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
       ) RETURNING *`,

@@ -57,7 +57,8 @@ export async function GET(
       observacoes: row.observacoes,
       dataEntrada: row.dataEntrada,
       createdAt: row.createdAt,
-      createdBy: row.createdBy,
+      createdById: row.createdById,
+      createdBy: row.createdBy, // Mantido para compatibilidade
       formaPagamento: row.formaPagamento_id ? {
         id: row.formaPagamento_id,
         nome: row.formaPagamento_nome,

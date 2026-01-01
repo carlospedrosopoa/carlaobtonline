@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
         if (incluirPagamentos) {
           const pagamentosResult = await query(
             `SELECT 
-              p.id, p."cardId", p."formaPagamentoId", p.valor, p.observacoes, p."createdAt", p."createdBy",
+              p.id, p."cardId", p."formaPagamentoId", p.valor, p.observacoes, p."createdAt", p."createdById", p."createdBy",
               fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
             FROM "PagamentoCard" p
             LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
@@ -196,7 +196,8 @@ export async function GET(request: NextRequest) {
                 valor: parseFloat(pagRow.valor),
                 observacoes: pagRow.observacoes,
                 createdAt: pagRow.createdAt,
-                createdBy: pagRow.createdBy,
+                createdById: pagRow.createdById,
+                createdBy: pagRow.createdBy, // Mantido para compatibilidade
                 formaPagamento: pagRow.formaPagamento_id ? {
                   id: pagRow.formaPagamento_id,
                   nome: pagRow.formaPagamento_nome,
