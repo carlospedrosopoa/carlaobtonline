@@ -784,6 +784,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                 <div className="space-y-2">
                   {itensLocais.map((item) => {
                     const produto = produtos.find((p) => p.id === item.produtoId);
+                    const itemBackend = !item.isNovo ? cardCompleto.itens?.find((i) => i.id === item.itemIdBackend) : null;
                     return (
                       <div 
                         key={item.id} 
@@ -808,6 +809,11 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           {item.observacoes && (
                             <div className="text-xs text-gray-500 mt-1 italic">
                               {item.observacoes}
+                            </div>
+                          )}
+                          {itemBackend?.createdBy && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              Adicionado por: {itemBackend.createdBy.name}
                             </div>
                           )}
                         </div>
@@ -879,8 +885,15 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                             {!pagamento.isNovo && (() => {
                               const pagBackend = cardCompleto.pagamentos?.find((p) => p.id === pagamento.pagamentoIdBackend);
                               return pagBackend?.createdAt ? (
-                                <div className="text-sm text-gray-600">
-                                  {formatarData(pagBackend.createdAt)}
+                                <div className="space-y-1">
+                                  <div className="text-sm text-gray-600">
+                                    {formatarData(pagBackend.createdAt)}
+                                  </div>
+                                  {pagBackend.createdBy && (
+                                    <div className="text-xs text-gray-400">
+                                      Registrado por: {pagBackend.createdBy.name}
+                                    </div>
+                                  )}
                                 </div>
                               ) : null;
                             })()}
