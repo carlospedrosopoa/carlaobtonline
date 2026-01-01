@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     // Query base - usar NULL para whatsapp pois a coluna não existe na tabela User
     let sql = `SELECT 
       c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
-      c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdBy", c."fechadoAt", c."fechadoBy",
+      c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdById", c."createdBy", c."fechadoAt", c."fechadoBy",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
       NULL as "usuario_whatsapp",
       at.fone as "atleta_fone"
@@ -87,7 +87,8 @@ export async function GET(request: NextRequest) {
         telefoneAvulso: row.telefoneAvulso,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        createdBy: row.createdBy,
+        createdById: row.createdById,
+        createdBy: row.createdBy, // Mantido para compatibilidade
         fechadoAt: row.fechadoAt,
         fechadoBy: row.fechadoBy,
       };
@@ -294,7 +295,7 @@ export async function POST(request: NextRequest) {
     const result = await query(
       `INSERT INTO "CardCliente" (
         id, "pointId", "numeroCard", status, observacoes, "valorTotal", "usuarioId", 
-        "nomeAvulso", "telefoneAvulso", "createdAt", "updatedAt", "createdBy"
+        "nomeAvulso", "telefoneAvulso", "createdAt", "updatedAt", "createdById"
       ) VALUES (
         gen_random_uuid()::text, $1, $2, 'ABERTO', $3, 0, $4, $5, $6, NOW(), NOW(), $7
       ) RETURNING *`,

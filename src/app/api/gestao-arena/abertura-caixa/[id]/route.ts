@@ -80,7 +80,8 @@ export async function GET(
       observacoes: abertura.observacoes,
       createdAt: abertura.createdAt,
       updatedAt: abertura.updatedAt,
-      createdBy: abertura.createdBy,
+      createdById: abertura.createdById,
+      createdBy: abertura.createdBy, // Mantido para compatibilidade
       fechadoBy: abertura.fechadoBy,
       totalEntradas,
       totalSaidas,
