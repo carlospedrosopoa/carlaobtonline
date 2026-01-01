@@ -629,6 +629,9 @@ export async function PUT(
     }
 
     updates.push(`"updatedAt" = NOW()`);
+    updates.push(`"updatedById" = $${paramCount}`);
+    paramsUpdate.push(usuario.id);
+    paramCount++;
     
     // Buscar dados atuais do agendamento antes de atualizar
     let agendamentoDataAtual;

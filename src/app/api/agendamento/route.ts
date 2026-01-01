@@ -797,6 +797,7 @@ export async function POST(request: NextRequest) {
                 valorCalculado,
                 valorFinal,
                 observacoes || null,
+                usuario.id, // createdById
               ]
             );
             return result.rows[0].id;

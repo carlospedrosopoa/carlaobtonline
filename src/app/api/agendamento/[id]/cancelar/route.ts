@@ -110,10 +110,10 @@ export async function POST(
       try {
         await query(
           `UPDATE "Agendamento"
-           SET status = 'CANCELADO', "updatedAt" = NOW()
+           SET status = 'CANCELADO', "updatedAt" = NOW(), "updatedById" = $3
            WHERE "recorrenciaId" = $1
            AND "dataHora" >= $2`,
-          [recorrenciaId, dataHoraAtual.toISOString()]
+          [recorrenciaId, dataHoraAtual.toISOString(), usuario.id]
         );
       } catch (error: any) {
         // Se o campo não existe, apenas cancelar este
@@ -126,9 +126,9 @@ export async function POST(
     // Cancelar o agendamento atual (sempre)
     await query(
       `UPDATE "Agendamento"
-       SET status = 'CANCELADO', "updatedAt" = NOW()
+       SET status = 'CANCELADO', "updatedAt" = NOW(), "updatedById" = $2
        WHERE id = $1`,
-      [id]
+      [id, usuario.id]
     );
 
     // Buscar dados relacionados para retorno completo
