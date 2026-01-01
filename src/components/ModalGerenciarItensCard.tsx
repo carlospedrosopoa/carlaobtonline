@@ -274,6 +274,11 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                               {item.observacoes}
                             </div>
                           )}
+                          {item.createdBy && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              Adicionado por: {item.createdBy.name}
+                            </div>
+                          )}
                         </div>
                         {cardCompleto?.status === 'ABERTO' && (
                           <button
