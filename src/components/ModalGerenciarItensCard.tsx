@@ -4,8 +4,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, produtoService } from '@/services/gestaoArenaService';
-import type { CardCliente, Produto, ItemCard, CriarItemCardPayload } from '@/types/gestaoArena';
-import { X, Plus, Trash2, ShoppingCart, Search } from 'lucide-react';
+import type { CardCliente, Produto, ItemCard, CriarItemCardPayload, AtualizarItemCardPayload } from '@/types/gestaoArena';
+import { X, Plus, Trash2, ShoppingCart, Search, Pencil, Check, X as XIcon } from 'lucide-react';
 import InputMonetario from './InputMonetario';
 
 interface ModalGerenciarItensCardProps {
@@ -31,6 +31,10 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
   const [quantidadeItem, setQuantidadeItem] = useState(1);
   const [precoUnitarioItem, setPrecoUnitarioItem] = useState<number | null>(null);
   const inputBuscaItemRef = useRef<HTMLInputElement>(null);
+
+  // Estados para editar item
+  const [itemEditando, setItemEditando] = useState<string | null>(null);
+  const [novoPrecoUnitario, setNovoPrecoUnitario] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen && card) {
@@ -116,6 +120,41 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
       fecharModalItem();
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao adicionar item');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const iniciarEdicaoPreco = (item: ItemCard) => {
+    setItemEditando(item.id);
+    setNovoPrecoUnitario(item.precoUnitario);
+  };
+
+  const cancelarEdicaoPreco = () => {
+    setItemEditando(null);
+    setNovoPrecoUnitario(null);
+  };
+
+  const salvarPrecoItem = async (itemId: string) => {
+    if (!cardCompleto || novoPrecoUnitario === null || novoPrecoUnitario <= 0) {
+      setErro('Preço inválido');
+      return;
+    }
+
+    try {
+      setSalvando(true);
+      setErro('');
+      await itemCardService.atualizar(cardCompleto.id, itemId, {
+        precoUnitario: novoPrecoUnitario,
+      });
+      // Buscar card atualizado para refletir na listagem principal
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
+      await carregarDados();
+      onSuccess(cardAtualizado);
+      setItemEditando(null);
+      setNovoPrecoUnitario(null);
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao atualizar preço do item');
     } finally {
       setSalvando(false);
     }
@@ -290,15 +329,25 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                             </div>
                           )}
                         </div>
-                        {cardCompleto?.status === 'ABERTO' && (
-                          <button
-                            onClick={() => removerItem(item.id)}
-                            disabled={salvando}
-                            className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Remover item"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                        {cardCompleto?.status === 'ABERTO' && itemEditando !== item.id && (
+                          <div className="ml-4 flex gap-2">
+                            <button
+                              onClick={() => iniciarEdicaoPreco(item)}
+                              disabled={salvando}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Editar preço"
+                            >
+                              <Pencil className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => removerItem(item.id)}
+                              disabled={salvando}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Remover item"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     );
