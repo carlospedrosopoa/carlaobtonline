@@ -223,8 +223,8 @@ export async function POST(
     const novoValorTotal = parseFloat(totalItensResult.rows[0].total) + totalAgendamentos;
 
     await query(
-      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW() WHERE id = $2',
-      [novoValorTotal, cardId]
+      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW(), "updatedById" = $3 WHERE id = $2',
+      [novoValorTotal, cardId, usuario.id]
     );
 
     const response = NextResponse.json(itemResult.rows[0], { status: 201 });

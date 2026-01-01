@@ -32,7 +32,7 @@ export async function GET(
       `SELECT 
         c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
         c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
-        c."createdBy", c."fechadoAt", c."fechadoBy",
+        c."createdById", c."createdBy", c."fechadoAt", c."fechadoBy",
         u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
         NULL as "usuario_whatsapp",
         at.fone as "atleta_fone"
@@ -64,7 +64,8 @@ export async function GET(
       telefoneAvulso: row.telefoneAvulso,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      createdBy: row.createdBy,
+      createdById: row.createdById,
+      createdBy: row.createdBy, // Mantido para compatibilidade
       fechadoAt: row.fechadoAt,
       fechadoBy: row.fechadoBy,
     };
