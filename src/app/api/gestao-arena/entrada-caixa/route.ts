@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     let sql = `SELECT 
       e.id, e."pointId", e."aberturaCaixaId", e.valor, e.descricao, e."formaPagamentoId", e.observacoes,
-      e."dataEntrada", e."createdAt", e."createdBy",
+      e."dataEntrada", e."createdAt", e."createdById", e."createdBy",
       fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
     FROM "EntradaCaixa" e
     LEFT JOIN "FormaPagamento" fp ON e."formaPagamentoId" = fp.id
@@ -73,7 +73,8 @@ export async function GET(request: NextRequest) {
       observacoes: row.observacoes,
       dataEntrada: row.dataEntrada,
       createdAt: row.createdAt,
-      createdBy: row.createdBy,
+      createdById: row.createdById,
+      createdBy: row.createdBy, // Mantido para compatibilidade
       formaPagamento: row.formaPagamento_id ? {
         id: row.formaPagamento_id,
         nome: row.formaPagamento_nome,
@@ -207,7 +208,7 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO "EntradaCaixa" (
-        id, "pointId", "aberturaCaixaId", valor, descricao, "formaPagamentoId", observacoes, "dataEntrada", "createdAt", "createdBy"
+        id, "pointId", "aberturaCaixaId", valor, descricao, "formaPagamentoId", observacoes, "dataEntrada", "createdAt", "createdById"
       ) VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, NOW(), $8
       ) RETURNING *`,
