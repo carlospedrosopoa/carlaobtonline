@@ -172,7 +172,151 @@ export default function EditarAgendamentoModal({
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     }
-  };
+  }, [isAdmin, usuario?.role, canGerenciarAgendamento, isOrganizer]);
+
+  useEffect(() => {
+    if (isOpen) {
+      carregarDados();
+      if (agendamento) {
+        // Buscar agendamento completo para garantir que os participantes sejam carregados
+        carregarAgendamentoCompleto(agendamento.id);
+      } else {
+        // Modo criação - resetar formulário
+        resetarFormulario();
+        
+        // Se houver dataInicial e horaInicial, pré-preencher
+        if (dataInicial) {
+          setData(dataInicial);
+        }
+        if (horaInicial) {
+          setHora(horaInicial);
+        }
+        
+        // Se houver quadraIdInicial, pré-selecionar após carregar dados
+        if (quadraIdInicial) {
+          // Aguardar um pouco para os dados carregarem
+          setTimeout(() => {
+            selecionarQuadraInicial(quadraIdInicial);
+          }, 100);
+        }
+      }
+    } else {
+      // Limpar quando fechar
+      setAgendamentoCompleto(null);
+      setManterNaTela(false);
+    }
+  }, [isOpen, agendamento?.id, carregarDados]);
+
+  // Preencher formulário quando o agendamento completo for carregado
+  useEffect(() => {
+    if (agendamentoCompleto) {
+      preencherFormulario(agendamentoCompleto);
+    }
+  }, [agendamentoCompleto]);
+
+  useEffect(() => {
+    if (pointId && !isOrganizer) {
+      carregarQuadras(pointId);
+    }
+  }, [pointId]);
+
+  useEffect(() => {
+    if (quadraId && data) {
+      verificarDisponibilidade();
+    }
+  }, [quadraId, data]);
+
+  // Calcular valores quando quadra, data, hora ou duração mudarem
+  useEffect(() => {
+    const calcularValores = async () => {
+      // Só calcular se tiver quadra, data e hora selecionados
+      if (!quadraId || !data || !hora || !duracao) {
+        setValorHora(null);
+        setValorCalculado(null);
+        return;
+      }
+
+      // Não calcular se estiver restaurando dados preservados
+      if (restaurandoDados) return;
+
+      try {
+        // Buscar tabela de preços da quadra
+        const tabelasPreco = await tabelaPrecoService.listar(quadraId);
+        const tabelasAtivas = tabelasPreco.filter((tp) => tp.ativo);
+
+        if (tabelasAtivas.length > 0) {
+          // Converter hora para minutos do dia (0-1439)
+          const [horaStr, minutoStr] = hora.split(':');
+          const horaNum = parseInt(horaStr, 10);
+          const minutoNum = parseInt(minutoStr, 10);
+          const minutosDoDia = horaNum * 60 + minutoNum;
+
+          // Encontrar tabela de preço aplicável ao horário
+          // Ordenar por inicioMinutoDia para garantir que pegamos a primeira que se aplica
+          const tabelasOrdenadas = [...tabelasAtivas].sort((a, b) => a.inicioMinutoDia - b.inicioMinutoDia);
+          const precoAplicavel = tabelasOrdenadas.find((tp) => {
+            const inicioMinuto = tp.inicioMinutoDia || 0;
+            const fimMinuto = tp.fimMinutoDia !== undefined && tp.fimMinutoDia !== null ? tp.fimMinutoDia : 1439; // 23:59 se não definido
+            return minutosDoDia >= inicioMinuto && minutosDoDia < fimMinuto;
+          });
+
+          if (precoAplicavel) {
+            // Se for aula, usar valorHoraAula se disponível, senão usar valorHora como fallback
+            let valorHoraCalculado: number;
+            if (ehAula) {
+              valorHoraCalculado = (precoAplicavel.valorHoraAula !== null && precoAplicavel.valorHoraAula !== undefined)
+                ? parseFloat(precoAplicavel.valorHoraAula.toString())
+                : parseFloat(precoAplicavel.valorHora.toString());
+            } else {
+              valorHoraCalculado = parseFloat(precoAplicavel.valorHora.toString());
+            }
+            const valorCalculadoCalculado = (valorHoraCalculado * duracao) / 60;
+            setValorHora(valorHoraCalculado);
+            setValorCalculado(valorCalculadoCalculado);
+          } else {
+            // Se não encontrou tabela aplicável, limpar valores
+            setValorHora(null);
+            setValorCalculado(null);
+          }
+        } else {
+          // Se não há tabelas de preço, limpar valores
+          setValorHora(null);
+          setValorCalculado(null);
+        }
+      } catch (error) {
+        console.error('Erro ao calcular valores:', error);
+        setValorHora(null);
+        setValorCalculado(null);
+      }
+    };
+
+    calcularValores();
+  }, [quadraId, data, hora, duracao, ehAula, restaurandoDados]);
+
+
+  useEffect(() => {
+    // Não limpar campos se estivermos restaurando dados preservados
+    if (restaurandoDados) return;
+    
+    if (modo === 'normal') {
+      setAtletaId('');
+      setNomeAvulso('');
+      setTelefoneAvulso('');
+    } else if (modo === 'atleta') {
+      setNomeAvulso('');
+      setTelefoneAvulso('');
+      setBuscaAtleta('');
+    }
+  }, [modo, restaurandoDados]);
+
+  const atletasFiltrados = useMemo(() => {
+    if (!buscaAtleta.trim()) return atletas;
+    const termo = buscaAtleta.toLowerCase();
+    return atletas.filter((a) => {
+      const base = `${a.nome} ${a.fone || ''}`.toLowerCase();
+      return base.includes(termo);
+    });
+  }, [atletas, buscaAtleta]);
 
   const resetarFormulario = () => {
     setPointId('');
