@@ -196,7 +196,6 @@ export async function GET(
             valor: parseFloat(pagRow.valor),
             observacoes: pagRow.observacoes,
             createdAt: pagRow.createdAt,
-            updatedAt: pagRow.updatedAt,
             createdById: pagRow.createdById || null,
             updatedById: pagRow.updatedById || null,
             createdBy: pagRow.createdBy_user_id ? {

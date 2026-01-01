@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
         if (incluirPagamentos) {
           const pagamentosResult = await query(
             `SELECT 
-              p.id, p."cardId", p."formaPagamentoId", p.valor, p.observacoes, p."createdAt", p."updatedAt", p."createdById", p."updatedById",
+              p.id, p."cardId", p."formaPagamentoId", p.valor, p.observacoes, p."createdAt", p."createdById", p."updatedById",
               fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo",
               uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
               uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
@@ -213,7 +213,6 @@ export async function GET(request: NextRequest) {
                 valor: parseFloat(pagRow.valor),
                 observacoes: pagRow.observacoes,
                 createdAt: pagRow.createdAt,
-                updatedAt: pagRow.updatedAt,
                 createdById: pagRow.createdById || null,
                 updatedById: pagRow.updatedById || null,
                 createdBy: pagRow.createdBy_user_id ? {

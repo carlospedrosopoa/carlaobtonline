@@ -114,7 +114,6 @@ export async function GET(
           valor: parseFloat(row.valor),
           observacoes: row.observacoes,
           createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
           createdById: row.createdById || null,
           updatedById: row.updatedById || null,
           createdBy: row.createdBy_user_id ? {

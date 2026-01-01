@@ -210,7 +210,6 @@ export interface PagamentoCard {
   valor: number;
   observacoes?: string | null;
   createdAt: string;
-  updatedAt?: string;
   createdById?: string | null;
   updatedById?: string | null;
   createdBy?: {
