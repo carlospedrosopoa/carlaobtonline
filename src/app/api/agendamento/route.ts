@@ -741,10 +741,10 @@ export async function POST(request: NextRequest) {
             id, "competicaoId", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
             "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
             status, observacoes, "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId",
-            "createdAt", "updatedAt"
+            "createdById", "createdAt", "updatedAt"
           )
           VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, $13, $14, $15, $16, NOW(), NOW()
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, $13, $14, $15, $16, $17, NOW(), NOW()
           )
           RETURNING id`,
           [
@@ -764,6 +764,7 @@ export async function POST(request: NextRequest) {
             valoresInsercao.recorrenciaConfig,
             valoresInsercao.ehAula,
             valoresInsercao.professorId,
+            usuario.id, // createdById
           ]
         );
         return result.rows[0].id;
@@ -777,10 +778,10 @@ export async function POST(request: NextRequest) {
               `INSERT INTO "Agendamento" (
                 id, "competicaoId", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
                 "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-                status, observacoes, "createdAt", "updatedAt"
+                status, observacoes, "createdById", "createdAt", "updatedAt"
               )
               VALUES (
-                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, NOW(), NOW()
+                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, $13, NOW(), NOW()
               )
               RETURNING id`,
               [
