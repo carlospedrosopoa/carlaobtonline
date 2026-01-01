@@ -35,13 +35,17 @@ export async function GET(request: NextRequest) {
     // Query base - usar NULL para whatsapp pois a coluna não existe na tabela User
     let sql = `SELECT 
       c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
-      c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdById", c."createdBy", c."fechadoAt", c."fechadoBy",
+      c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdById", c."updatedById",
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
       NULL as "usuario_whatsapp",
-      at.fone as "atleta_fone"
+      at.fone as "atleta_fone",
+      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
     FROM "CardCliente" c
     LEFT JOIN "User" u ON c."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+    LEFT JOIN "User" uc ON c."createdById" = uc.id
+    LEFT JOIN "User" uu ON c."updatedById" = uu.id
     WHERE 1=1`;
 
     const params: any[] = [];
@@ -87,10 +91,18 @@ export async function GET(request: NextRequest) {
         telefoneAvulso: row.telefoneAvulso,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        createdById: row.createdById,
-        createdBy: row.createdBy, // Mantido para compatibilidade
-        fechadoAt: row.fechadoAt,
-        fechadoBy: row.fechadoBy,
+        createdById: row.createdById || null,
+        updatedById: row.updatedById || null,
+        createdBy: row.createdBy_user_id ? {
+          id: row.createdBy_user_id,
+          name: row.createdBy_user_name,
+          email: row.createdBy_user_email,
+        } : null,
+        updatedBy: row.updatedBy_user_id ? {
+          id: row.updatedBy_user_id,
+          name: row.updatedBy_user_name,
+          email: row.updatedBy_user_email,
+        } : null,
       };
 
       if (row.usuario_id) {
@@ -146,10 +158,14 @@ export async function GET(request: NextRequest) {
         if (incluirPagamentos) {
           const pagamentosResult = await query(
             `SELECT 
-              p.id, p."cardId", p."formaPagamentoId", p.valor, p.observacoes, p."createdAt", p."createdById", p."createdBy",
-              fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
+              p.id, p."cardId", p."formaPagamentoId", p.valor, p.observacoes, p."createdAt", p."updatedAt", p."createdById", p."updatedById",
+              fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo",
+              uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+              uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
             FROM "PagamentoCard" p
             LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
+            LEFT JOIN "User" uc ON p."createdById" = uc.id
+            LEFT JOIN "User" uu ON p."updatedById" = uu.id
             WHERE p."cardId" = $1
             ORDER BY p."createdAt" ASC`,
             [card.id]
@@ -197,8 +213,19 @@ export async function GET(request: NextRequest) {
                 valor: parseFloat(pagRow.valor),
                 observacoes: pagRow.observacoes,
                 createdAt: pagRow.createdAt,
-                createdById: pagRow.createdById,
-                createdBy: pagRow.createdBy, // Mantido para compatibilidade
+                updatedAt: pagRow.updatedAt,
+                createdById: pagRow.createdById || null,
+                updatedById: pagRow.updatedById || null,
+                createdBy: pagRow.createdBy_user_id ? {
+                  id: pagRow.createdBy_user_id,
+                  name: pagRow.createdBy_user_name,
+                  email: pagRow.createdBy_user_email,
+                } : null,
+                updatedBy: pagRow.updatedBy_user_id ? {
+                  id: pagRow.updatedBy_user_id,
+                  name: pagRow.updatedBy_user_name,
+                  email: pagRow.updatedBy_user_email,
+                } : null,
                 formaPagamento: pagRow.formaPagamento_id ? {
                   id: pagRow.formaPagamento_id,
                   nome: pagRow.formaPagamento_nome,

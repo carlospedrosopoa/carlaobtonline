@@ -1226,6 +1226,24 @@ export default function CompeticaoForm({ competicaoId }: CompeticaoFormProps) {
           </div>
         )}
 
+        {/* Informações de Auditoria */}
+        {competicao && (
+          <div className="mt-6 pt-4 border-t border-gray-200 text-sm text-gray-600 space-y-2">
+            <p>
+              <span className="font-semibold">Criado por:</span>{' '}
+              {competicao.createdBy?.name || competicao.createdById || 'N/A'} em{' '}
+              {new Date(competicao.createdAt).toLocaleString('pt-BR')}
+            </p>
+            {competicao.updatedById && competicao.updatedBy && (
+              <p>
+                <span className="font-semibold">Última atualização por:</span>{' '}
+                {competicao.updatedBy.name || competicao.updatedById || 'N/A'} em{' '}
+                {new Date(competicao.updatedAt).toLocaleString('pt-BR')}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Botões */}
         <div className="flex gap-4 justify-end pt-4 border-t">
           <button

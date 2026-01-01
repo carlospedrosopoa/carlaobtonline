@@ -711,6 +711,24 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
               </div>
             )}
 
+            {/* Informações de Auditoria */}
+            {cardCompleto && (
+              <div className="mt-6 pt-4 border-t border-gray-200 text-sm text-gray-600 space-y-2">
+                <p>
+                  <span className="font-semibold">Criado por:</span>{' '}
+                  {cardCompleto.createdBy?.name || cardCompleto.createdById || 'N/A'} em{' '}
+                  {new Date(cardCompleto.createdAt).toLocaleString('pt-BR')}
+                </p>
+                {cardCompleto.updatedById && cardCompleto.updatedBy && (
+                  <p>
+                    <span className="font-semibold">Última atualização por:</span>{' '}
+                    {cardCompleto.updatedBy.name || cardCompleto.updatedById || 'N/A'} em{' '}
+                    {new Date(cardCompleto.updatedAt).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Resumo Financeiro */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(() => {

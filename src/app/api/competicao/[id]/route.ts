@@ -28,12 +28,16 @@ export async function GET(
       `SELECT 
         c.id, c."pointId", c."quadraId", c.nome, c.tipo, c.formato, c.status,
         c."dataInicio", c."dataFim", c.descricao, c."valorInscricao", c.premio, 
-        c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt",
+        c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt", c."createdById", c."updatedById",
         p.id as "point_id", p.nome as "point_nome",
-        q.id as "quadra_id", q.nome as "quadra_nome"
+        q.id as "quadra_id", q.nome as "quadra_nome",
+        uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+        uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
       FROM "Competicao" c
       LEFT JOIN "Point" p ON c."pointId" = p.id
       LEFT JOIN "Quadra" q ON c."quadraId" = q.id
+      LEFT JOIN "User" uc ON c."createdById" = uc.id
+      LEFT JOIN "User" uu ON c."updatedById" = uu.id
       WHERE c.id = $1`,
       [competicaoId]
     );
@@ -117,6 +121,18 @@ export async function GET(
       configSuper8: row.configSuper8 || null,
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
+      createdById: row.createdById || null,
+      updatedById: row.updatedById || null,
+      createdBy: row.createdBy_user_id ? {
+        id: row.createdBy_user_id,
+        name: row.createdBy_user_name,
+        email: row.createdBy_user_email,
+      } : null,
+      updatedBy: row.updatedBy_user_id ? {
+        id: row.updatedBy_user_id,
+        name: row.updatedBy_user_name,
+        email: row.updatedBy_user_email,
+      } : null,
       point: row.point_id ? {
         id: row.point_id,
         nome: row.point_nome,
@@ -326,12 +342,16 @@ export async function PUT(
       `SELECT 
         c.id, c."pointId", c."quadraId", c.nome, c.tipo, c.formato, c.status,
         c."dataInicio", c."dataFim", c.descricao, c."valorInscricao", c.premio, 
-        c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt",
+        c.regras, c."cardDivulgacaoUrl", c."fotoCompeticaoUrl", c."configSuper8", c."createdAt", c."updatedAt", c."createdById", c."updatedById",
         p.id as "point_id", p.nome as "point_nome",
-        q.id as "quadra_id", q.nome as "quadra_nome"
+        q.id as "quadra_id", q.nome as "quadra_nome",
+        uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+        uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
       FROM "Competicao" c
       LEFT JOIN "Point" p ON c."pointId" = p.id
       LEFT JOIN "Quadra" q ON c."quadraId" = q.id
+      LEFT JOIN "User" uc ON c."createdById" = uc.id
+      LEFT JOIN "User" uu ON c."updatedById" = uu.id
       WHERE c.id = $1`,
       [competicaoId]
     );
@@ -356,6 +376,18 @@ export async function PUT(
       configSuper8: row.configSuper8 || null,
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
+      createdById: row.createdById || null,
+      updatedById: row.updatedById || null,
+      createdBy: row.createdBy_user_id ? {
+        id: row.createdBy_user_id,
+        name: row.createdBy_user_name,
+        email: row.createdBy_user_email,
+      } : null,
+      updatedBy: row.updatedBy_user_id ? {
+        id: row.updatedBy_user_id,
+        name: row.updatedBy_user_name,
+        email: row.updatedBy_user_email,
+      } : null,
       point: row.point_id ? {
         id: row.point_id,
         nome: row.point_nome,

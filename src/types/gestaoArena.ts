@@ -19,7 +19,18 @@ export interface CardCliente {
   telefoneAvulso?: string | null; // Telefone do cliente avulso (quando não há usuário vinculado)
   createdAt: string;
   updatedAt: string;
-  createdBy?: string | null;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   fechadoAt?: string | null;
   fechadoBy?: string | null;
   // Relacionamentos
