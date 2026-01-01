@@ -83,6 +83,7 @@ export async function POST(
           posicao.vitorias, // Usar vitórias como pontos
           competicaoId,
           posicao.atletaId,
+          usuario.id, // updatedById
         ]
       );
     }
