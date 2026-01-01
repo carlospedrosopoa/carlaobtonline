@@ -145,6 +145,16 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
     }).format(valor);
   };
 
+  const formatarDataHora = (data: string) => {
+    return new Date(data).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -274,9 +284,9 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                               {item.observacoes}
                             </div>
                           )}
-                          {item.createdBy && (
+                          {item.createdBy && item.createdAt && (
                             <div className="text-xs text-gray-400 mt-1">
-                              Adicionado por: {item.createdBy.name}
+                              Adicionado por: {item.createdBy.name} - {formatarDataHora(item.createdAt)}
                             </div>
                           )}
                         </div>

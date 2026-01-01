@@ -385,7 +385,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                             </div>
                             {pagamento.createdBy && (
                               <div className="text-xs text-gray-400 mb-2">
-                                Registrado por: {pagamento.createdBy.name}
+                                Registrado por: {pagamento.createdBy.name} - {formatarData(pagamento.createdAt)}
                               </div>
                             )}
                             {pagamento.observacoes && (
