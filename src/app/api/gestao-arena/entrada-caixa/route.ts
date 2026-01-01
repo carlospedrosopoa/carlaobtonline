@@ -22,10 +22,14 @@ export async function GET(request: NextRequest) {
 
     let sql = `SELECT 
       e.id, e."pointId", e."aberturaCaixaId", e.valor, e.descricao, e."formaPagamentoId", e.observacoes,
-      e."dataEntrada", e."createdAt", e."createdById", e."createdBy",
-      fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
+      e."dataEntrada", e."createdAt", e."createdById", e."updatedById",
+      fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo",
+      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
     FROM "EntradaCaixa" e
     LEFT JOIN "FormaPagamento" fp ON e."formaPagamentoId" = fp.id
+    LEFT JOIN "User" uc ON e."createdById" = uc.id
+    LEFT JOIN "User" uu ON e."updatedById" = uu.id
     WHERE 1=1`;
 
     const params: any[] = [];
@@ -73,8 +77,18 @@ export async function GET(request: NextRequest) {
       observacoes: row.observacoes,
       dataEntrada: row.dataEntrada,
       createdAt: row.createdAt,
-      createdById: row.createdById,
-      createdBy: row.createdBy, // Mantido para compatibilidade
+      createdById: row.createdById || null,
+      createdBy: row.createdBy_user_id ? {
+        id: row.createdBy_user_id,
+        name: row.createdBy_user_name,
+        email: row.createdBy_user_email,
+      } : null,
+      updatedById: row.updatedById || null,
+      updatedBy: row.updatedBy_user_id ? {
+        id: row.updatedBy_user_id,
+        name: row.updatedBy_user_name,
+        email: row.updatedBy_user_email,
+      } : null,
       formaPagamento: row.formaPagamento_id ? {
         id: row.formaPagamento_id,
         nome: row.formaPagamento_nome,
