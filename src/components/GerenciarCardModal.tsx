@@ -987,7 +987,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                             className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                             title={!saldoIgualZero ? 'O saldo deve ser zero para fechar o card' : ''}
                           >
-                            Fechar Card
+                            {saldoIgualZero ? 'Finalizar Card' : 'Fechar'}
                           </button>
                         </div>
                       )}
