@@ -100,6 +100,10 @@ export default function EditarAgendamentoModal({
   const [nomeAvulso, setNomeAvulso] = useState('');
   const [telefoneAvulso, setTelefoneAvulso] = useState('');
   const [buscaAtleta, setBuscaAtleta] = useState('');
+  const [buscandoAtleta, setBuscandoAtleta] = useState(false);
+  const [sugestoesAtletas, setSugestoesAtletas] = useState<Atleta[]>([]);
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const [bloquearSugestoes, setBloquearSugestoes] = useState(false);
   // Atletas participantes (múltiplos)
   const [atletasParticipantesIds, setAtletasParticipantesIds] = useState<string[]>([]);
   const [mostrarSelecaoAtletas, setMostrarSelecaoAtletas] = useState(false);
@@ -309,14 +313,39 @@ export default function EditarAgendamentoModal({
     }
   }, [modo, restaurandoDados]);
 
-  const atletasFiltrados = useMemo(() => {
-    if (!buscaAtleta.trim()) return atletas;
-    const termo = buscaAtleta.toLowerCase();
-    return atletas.filter((a) => {
-      const base = `${a.nome} ${a.fone || ''}`.toLowerCase();
-      return base.includes(termo);
-    });
-  }, [atletas, buscaAtleta]);
+  
+
+  useEffect(() => {
+    const termo = buscaAtleta.trim();
+    if (bloquearSugestoes) {
+      return;
+    }
+    if (termo.length < 2) {
+      setSugestoesAtletas([]);
+      setMostrarSugestoes(false);
+      return;
+    }
+    setMostrarSugestoes(true);
+    setBuscandoAtleta(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/user/atleta/buscar?q=${encodeURIComponent(termo)}&limite=20`);
+        const lista = Array.isArray(res.data?.atletas) ? res.data.atletas : [];
+        // compatibilidade com tipo Atleta local
+        setSugestoesAtletas(
+          lista.map((a: any) => ({ id: a.id, nome: a.nome, fone: a.telefone }))
+        );
+      } catch (error) {
+        console.error('Erro na busca dinâmica de atletas:', error);
+        setSugestoesAtletas([]);
+      } finally {
+        setBuscandoAtleta(false);
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [buscaAtleta]);
 
   const resetarFormulario = () => {
     setPointId('');
@@ -1110,28 +1139,55 @@ export default function EditarAgendamentoModal({
                     <input
                       type="text"
                       value={buscaAtleta}
-                      onChange={(e) => setBuscaAtleta(e.target.value)}
+                      onChange={(e) => {
+                        setBuscaAtleta(e.target.value);
+                        setAtletaId('');
+                        setBloquearSugestoes(false);
+                      }}
                       placeholder="Buscar por nome ou telefone..."
                       className="mb-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      aria-expanded={mostrarSugestoes}
+                      aria-controls="lista-sugestoes-atletas"
                     />
-                    <select
-                      value={atletaId}
-                      onChange={(e) => setAtletaId(e.target.value)}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    >
-                      <option value="">Selecione um atleta</option>
-                      {atletasFiltrados.map((atleta) => (
-                        <option key={atleta.id} value={atleta.id}>
-                          {atleta.nome} {atleta.fone && `- ${atleta.fone}`}
-                        </option>
-                      ))}
-                    </select>
-                    {atletasFiltrados.length === 0 && !!buscaAtleta.trim() && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        Nenhum atleta encontrado para "{buscaAtleta}". Tente outro nome ou telefone.
-                      </p>
+                    {mostrarSugestoes && (
+                      <div
+                        id="lista-sugestoes-atletas"
+                        role="listbox"
+                        className="mb-2 max-h-56 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-sm"
+                      >
+                        {buscandoAtleta && (
+                          <div className="px-4 py-2 text-sm text-gray-600" aria-live="polite">
+                            Buscando atletas...
+                          </div>
+                        )}
+                        {!buscandoAtleta && sugestoesAtletas.length === 0 && (
+                          <div className="px-4 py-2 text-sm text-gray-500" aria-live="polite">
+                            Nenhum atleta encontrado
+                          </div>
+                        )}
+                        {!buscandoAtleta && sugestoesAtletas.map((a) => (
+                          <button
+                            key={a.id}
+                            role="option"
+                            type="button"
+                            onClick={() => {
+                              setAtletaId(a.id);
+                              setBuscaAtleta(a.nome || '');
+                              setMostrarSugestoes(false);
+                              setBloquearSugestoes(true);
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-blue-50 focus:bg-blue-100 focus:outline-none"
+                            aria-selected={atletaId === a.id}
+                          >
+                            <span className="block text-sm text-gray-900">{a.nome}</span>
+                            {a.fone && (
+                              <span className="block text-xs text-gray-600">{a.fone}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     )}
+                    
                   </>
                 )}
               </div>
@@ -1299,11 +1355,25 @@ export default function EditarAgendamentoModal({
                                   {atleta.fone && (
                                     <div className="text-xs text-gray-600">{atleta.fone}</div>
                                   )}
-                                  {atleta.usuario && (
-                                    <div className="text-xs text-blue-600">
-                                      Usuário: {atleta.usuario.name} ({atleta.usuario.email})
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    const email = atleta.usuario?.email || '';
+                                    const isTemp = email.startsWith('temp_') || email.endsWith('@pendente.local');
+                                    if (isOrganizer && (!atleta.usuario || isTemp)) {
+                                      return (
+                                        <div className="text-xs text-gray-600">
+                                          Atleta ainda não vinculado a sua arena
+                                        </div>
+                                      );
+                                    }
+                                    if (atleta.usuario) {
+                                      return (
+                                        <div className="text-xs text-blue-600">
+                                          Usuário: {atleta.usuario.name} ({atleta.usuario.email})
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               </label>
                             );
