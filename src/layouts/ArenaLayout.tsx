@@ -105,6 +105,12 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         { to: '/app/arena/competicoes', label: 'Competições' },
       ],
     },
+    {
+      label: 'Administração',
+      items: [
+        { to: '/app/arena/colaboradores', label: 'Colaboradores' },
+      ],
+    },
   ];
 
   const isItemActive = (item: NavItem) => {

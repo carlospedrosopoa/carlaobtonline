@@ -96,6 +96,8 @@ export async function POST(request: NextRequest) {
       atletaId: (usuarioDb as any).atletaId !== undefined ? (usuarioDb as any).atletaId : undefined,
       professorId: (usuarioDb as any).professorId !== undefined ? (usuarioDb as any).professorId : undefined,
       pointIdGestor: (usuarioDb as any).pointIdGestor !== undefined ? (usuarioDb as any).pointIdGestor : undefined,
+      ehColaborador: (usuarioDb as any).ehColaborador !== undefined ? (usuarioDb as any).ehColaborador : undefined,
+      gestorId: (usuarioDb as any).gestorId !== undefined ? (usuarioDb as any).gestorId : undefined,
     };
 
     // Gerar tokens JWT

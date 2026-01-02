@@ -19,7 +19,18 @@ export interface CardCliente {
   telefoneAvulso?: string | null; // Telefone do cliente avulso (quando não há usuário vinculado)
   createdAt: string;
   updatedAt: string;
-  createdBy?: string | null;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   fechadoAt?: string | null;
   fechadoBy?: string | null;
   // Relacionamentos
@@ -140,6 +151,18 @@ export interface ItemCard {
   observacoes?: string | null;
   createdAt: string;
   updatedAt: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   // Relacionamentos
   produto?: Produto;
 }
@@ -199,7 +222,18 @@ export interface PagamentoCard {
   valor: number;
   observacoes?: string | null;
   createdAt: string;
-  createdBy?: string | null;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   // Relacionamentos
   formaPagamento?: FormaPagamento;
   itens?: ItemCard[]; // Itens vinculados a este pagamento
@@ -351,8 +385,18 @@ export interface AberturaCaixa {
   observacoes?: string | null;
   createdAt: string;
   updatedAt: string;
-  createdBy?: string | null;
-  fechadoBy?: string | null;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   // Calculados
   totalEntradas?: number;
   totalSaidas?: number;
@@ -384,7 +428,19 @@ export interface EntradaCaixa {
   observacoes?: string | null;
   dataEntrada: string;
   createdAt: string;
-  createdBy?: string | null;
+  updatedAt?: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   // Relacionamentos
   formaPagamento?: FormaPagamento;
   aberturaCaixa?: AberturaCaixa;
@@ -417,7 +473,19 @@ export interface SaidaCaixa {
   observacoes?: string | null;
   dataSaida: string;
   createdAt: string;
-  createdBy?: string | null;
+  updatedAt?: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   // Relacionamentos
   fornecedor?: Fornecedor;
   categoriaSaida?: CategoriaSaida;
@@ -453,7 +521,18 @@ export interface LancamentoFluxoCaixa {
   observacoes?: string | null;
   data: string;
   createdAt: string;
-  createdBy?: string | null;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   // Campos específicos de entrada manual
   formaPagamento?: FormaPagamento;
   // Campos específicos de entrada de card

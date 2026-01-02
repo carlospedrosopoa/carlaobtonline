@@ -61,9 +61,13 @@ export async function GET(
       `SELECT 
         i.*,
         p.id as "produto_id", p.nome as "produto_nome", p.descricao as "produto_descricao",
-        p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria"
+        p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria",
+        uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+        uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
       FROM "ItemCard" i
       LEFT JOIN "Produto" p ON i."produtoId" = p.id
+      LEFT JOIN "User" uc ON i."createdById" = uc.id
+      LEFT JOIN "User" uu ON i."updatedById" = uu.id
       WHERE i."cardId" = $1
       ORDER BY i."createdAt" ASC`,
       [cardId]
@@ -79,6 +83,18 @@ export async function GET(
       observacoes: row.observacoes,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      createdById: row.createdById || null,
+      updatedById: row.updatedById || null,
+      createdBy: row.createdBy_user_id ? {
+        id: row.createdBy_user_id,
+        name: row.createdBy_user_name,
+        email: row.createdBy_user_email,
+      } : null,
+      updatedBy: row.updatedBy_user_id ? {
+        id: row.updatedBy_user_id,
+        name: row.updatedBy_user_name,
+        email: row.updatedBy_user_email,
+      } : null,
       produto: row.produto_id ? {
         id: row.produto_id,
         nome: row.produto_nome,
@@ -196,11 +212,11 @@ export async function POST(
     // Inserir item
     const itemResult = await query(
       `INSERT INTO "ItemCard" (
-        id, "cardId", "produtoId", quantidade, "precoUnitario", "precoTotal", observacoes, "createdAt", "updatedAt"
+        id, "cardId", "produtoId", quantidade, "precoUnitario", "precoTotal", observacoes, "createdAt", "updatedAt", "createdById"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW()
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW(), $7
       ) RETURNING *`,
-      [cardId, produtoId, quantidade, precoUnit, precoTotal, observacoes || null]
+      [cardId, produtoId, quantidade, precoUnit, precoTotal, observacoes || null, usuario.id]
     );
 
     // Atualizar valor total do card (itens + agendamentos)
@@ -223,8 +239,8 @@ export async function POST(
     const novoValorTotal = parseFloat(totalItensResult.rows[0].total) + totalAgendamentos;
 
     await query(
-      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW() WHERE id = $2',
-      [novoValorTotal, cardId]
+      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW(), "updatedById" = $3 WHERE id = $2',
+      [novoValorTotal, cardId, usuario.id]
     );
 
     const response = NextResponse.json(itemResult.rows[0], { status: 201 });

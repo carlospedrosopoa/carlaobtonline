@@ -184,6 +184,8 @@ export async function PUT(
     }
 
     updateFields.push(`"updatedAt" = NOW()`);
+    updateFields.push(`"updatedById" = $${paramCount++}`);
+    updateValues.push(usuario.id);
 
     if (updateFields.length === 0) {
       const errorResponse = NextResponse.json(
@@ -374,6 +376,8 @@ export async function PATCH(
     updateFields.push(`"atleta2ParceriaId" = NULL`);
     updateFields.push(`"vencedorId" = NULL`);
     updateFields.push(`"updatedAt" = NOW()`);
+    updateFields.push(`"updatedById" = $${paramCount++}`);
+    updateValues.push(usuario.id);
 
     if (updateFields.length === 0) {
       const errorResponse = NextResponse.json(

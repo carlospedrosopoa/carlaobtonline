@@ -80,7 +80,8 @@ export async function GET(
       observacoes: abertura.observacoes,
       createdAt: abertura.createdAt,
       updatedAt: abertura.updatedAt,
-      createdBy: abertura.createdBy,
+      createdById: abertura.createdById,
+      createdBy: abertura.createdBy, // Mantido para compatibilidade
       fechadoBy: abertura.fechadoBy,
       totalEntradas,
       totalSaidas,
@@ -184,6 +185,7 @@ export async function PUT(
            "saldoFinal" = $1,
            observacoes = COALESCE($2, observacoes),
            "fechadoBy" = $3,
+           "updatedById" = $3,
            "updatedAt" = NOW()
        WHERE id = $4
        RETURNING *`,

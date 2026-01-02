@@ -115,6 +115,18 @@ export interface Competicao {
   } | null;
   createdAt: string;
   updatedAt: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   atletasParticipantes?: AtletaCompeticao[];
   jogos?: JogoCompeticao[];
 }

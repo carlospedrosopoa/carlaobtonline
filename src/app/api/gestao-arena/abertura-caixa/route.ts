@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     let sql = `SELECT 
       a.id, a."pointId", a."saldoInicial", a.status, a."dataAbertura", a."dataFechamento",
-      a."saldoFinal", a.observacoes, a."createdAt", a."updatedAt", a."createdBy", a."fechadoBy"
+      a."saldoFinal", a.observacoes, a."createdAt", a."updatedAt", a."createdById", a."createdBy", a."fechadoBy"
     FROM "AberturaCaixa" a
     WHERE 1=1`;
 
@@ -108,7 +108,8 @@ export async function GET(request: NextRequest) {
           observacoes: row.observacoes,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
-          createdBy: row.createdBy,
+          createdById: row.createdById,
+          createdBy: row.createdBy, // Mantido para compatibilidade
           fechadoBy: row.fechadoBy,
           totalEntradas,
           totalSaidas,
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO "AberturaCaixa" (
-        id, "pointId", "saldoInicial", status, "dataAbertura", observacoes, "createdAt", "updatedAt", "createdBy"
+        id, "pointId", "saldoInicial", status, "dataAbertura", observacoes, "createdAt", "updatedAt", "createdById"
       ) VALUES (
         gen_random_uuid()::text, $1, $2, 'ABERTA', $3, $4, NOW(), NOW(), $5
       ) RETURNING *`,

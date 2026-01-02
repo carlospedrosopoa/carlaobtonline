@@ -8,6 +8,8 @@ export interface UsuarioAdmin {
   role: 'ADMIN' | 'USER' | 'ORGANIZER' | string;
   pointIdGestor?: string | null;
   whatsapp?: string | null;
+  ehColaborador?: boolean | null;
+  gestorId?: string | null;
   createdAt?: string;
 }
 

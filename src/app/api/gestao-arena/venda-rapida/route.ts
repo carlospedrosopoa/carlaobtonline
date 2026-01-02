@@ -142,11 +142,11 @@ export async function POST(request: NextRequest) {
 
         const itemResult = await client.query(
           `INSERT INTO "ItemCard" (
-            id, "cardId", "produtoId", quantidade, "precoUnitario", "precoTotal", observacoes, "createdAt", "updatedAt"
+            id, "cardId", "produtoId", quantidade, "precoUnitario", "precoTotal", observacoes, "createdAt", "updatedAt", "createdById"
           ) VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW()
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW(), $7
           ) RETURNING id`,
-          [cardId, item.produtoId, item.quantidade, precoUnitario, precoTotal, item.observacoes || null]
+          [cardId, item.produtoId, item.quantidade, precoUnitario, precoTotal, item.observacoes || null, usuario.id]
         );
 
         itemIds.push(itemResult.rows[0].id);
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
 
         const pagamentoResult = await client.query(
           `INSERT INTO "PagamentoCard" (
-            id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdBy"
+            id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdById"
           ) VALUES (
             gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
           ) RETURNING id`,

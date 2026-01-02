@@ -59,10 +59,14 @@ export async function GET(
 
     const result = await query(
       `SELECT 
-        p.*,
-        fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
+        p.*, p."createdById", p."updatedById",
+        fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo",
+        uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+        uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
       FROM "PagamentoCard" p
       LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
+      LEFT JOIN "User" uc ON p."createdById" = uc.id
+      LEFT JOIN "User" uu ON p."updatedById" = uu.id
       WHERE p."cardId" = $1
       ORDER BY p."createdAt" ASC`,
       [cardId]
@@ -110,7 +114,18 @@ export async function GET(
           valor: parseFloat(row.valor),
           observacoes: row.observacoes,
           createdAt: row.createdAt,
-          createdBy: row.createdBy,
+          createdById: row.createdById || null,
+          updatedById: row.updatedById || null,
+          createdBy: row.createdBy_user_id ? {
+            id: row.createdBy_user_id,
+            name: row.createdBy_user_name,
+            email: row.createdBy_user_email,
+          } : null,
+          updatedBy: row.updatedBy_user_id ? {
+            id: row.updatedBy_user_id,
+            name: row.updatedBy_user_name,
+            email: row.updatedBy_user_email,
+          } : null,
           formaPagamento: row.formaPagamento_id ? {
             id: row.formaPagamento_id,
             nome: row.formaPagamento_nome,
@@ -309,7 +324,7 @@ export async function POST(
     // Inserir pagamento
     const pagamentoResult = await query(
       `INSERT INTO "PagamentoCard" (
-        id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdBy"
+        id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdById"
       ) VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
       ) RETURNING *`,

@@ -32,13 +32,17 @@ export async function GET(
       `SELECT 
         c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
         c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
-        c."createdBy", c."fechadoAt", c."fechadoBy",
+        c."createdById", c."updatedById",
         u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
         NULL as "usuario_whatsapp",
-        at.fone as "atleta_fone"
+        at.fone as "atleta_fone",
+        uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+        uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
       FROM "CardCliente" c
       LEFT JOIN "User" u ON c."usuarioId" = u.id
       LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+      LEFT JOIN "User" uc ON c."createdById" = uc.id
+      LEFT JOIN "User" uu ON c."updatedById" = uu.id
       WHERE c.id = $1`,
       [id]
     );
@@ -64,9 +68,18 @@ export async function GET(
       telefoneAvulso: row.telefoneAvulso,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      createdBy: row.createdBy,
-      fechadoAt: row.fechadoAt,
-      fechadoBy: row.fechadoBy,
+      createdById: row.createdById || null,
+      updatedById: row.updatedById || null,
+      createdBy: row.createdBy_user_id ? {
+        id: row.createdBy_user_id,
+        name: row.createdBy_user_name,
+        email: row.createdBy_user_email,
+      } : null,
+      updatedBy: row.updatedBy_user_id ? {
+        id: row.updatedBy_user_id,
+        name: row.updatedBy_user_name,
+        email: row.updatedBy_user_email,
+      } : null,
     };
 
     if (row.usuario_id) {
@@ -96,9 +109,13 @@ export async function GET(
         `SELECT 
           i.*,
           p.id as "produto_id", p.nome as "produto_nome", p.descricao as "produto_descricao",
-          p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria"
+          p."precoVenda" as "produto_precoVenda", p.categoria as "produto_categoria",
+          uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+          uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
         FROM "ItemCard" i
         LEFT JOIN "Produto" p ON i."produtoId" = p.id
+        LEFT JOIN "User" uc ON i."createdById" = uc.id
+        LEFT JOIN "User" uu ON i."updatedById" = uu.id
         WHERE i."cardId" = $1
         ORDER BY i."createdAt" ASC`,
         [id]
@@ -114,6 +131,18 @@ export async function GET(
         observacoes: itemRow.observacoes,
         createdAt: itemRow.createdAt,
         updatedAt: itemRow.updatedAt,
+        createdById: itemRow.createdById || null,
+        updatedById: itemRow.updatedById || null,
+        createdBy: itemRow.createdBy_user_id ? {
+          id: itemRow.createdBy_user_id,
+          name: itemRow.createdBy_user_name,
+          email: itemRow.createdBy_user_email,
+        } : null,
+        updatedBy: itemRow.updatedBy_user_id ? {
+          id: itemRow.updatedBy_user_id,
+          name: itemRow.updatedBy_user_name,
+          email: itemRow.updatedBy_user_email,
+        } : null,
         produto: itemRow.produto_id ? {
           id: itemRow.produto_id,
           nome: itemRow.produto_nome,
@@ -129,9 +158,13 @@ export async function GET(
       const pagamentosResult = await query(
         `SELECT 
           p.*,
-          fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
+          fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo",
+          uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+          uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
         FROM "PagamentoCard" p
         LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
+        LEFT JOIN "User" uc ON p."createdById" = uc.id
+        LEFT JOIN "User" uu ON p."updatedById" = uu.id
         WHERE p."cardId" = $1
         ORDER BY p."createdAt" ASC`,
         [id]
@@ -179,7 +212,18 @@ export async function GET(
             valor: parseFloat(pagRow.valor),
             observacoes: pagRow.observacoes,
             createdAt: pagRow.createdAt,
-            createdBy: pagRow.createdBy,
+            createdById: pagRow.createdById || null,
+            updatedById: pagRow.updatedById || null,
+            createdBy: pagRow.createdBy_user_id ? {
+              id: pagRow.createdBy_user_id,
+              name: pagRow.createdBy_user_name,
+              email: pagRow.createdBy_user_email,
+            } : null,
+            updatedBy: pagRow.updatedBy_user_id ? {
+              id: pagRow.updatedBy_user_id,
+              name: pagRow.updatedBy_user_name,
+              email: pagRow.updatedBy_user_email,
+            } : null,
             formaPagamento: pagRow.formaPagamento_id ? {
               id: pagRow.formaPagamento_id,
               nome: pagRow.formaPagamento_nome,

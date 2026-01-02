@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     let sql = `SELECT 
       s.id, s."pointId", s."aberturaCaixaId", s.valor, s.descricao, s."fornecedorId", s."categoriaSaidaId", s."tipoDespesaId", s."centroCustoId",
-      s."formaPagamentoId", s.observacoes, s."dataSaida", s."createdAt", s."createdBy",
+      s."formaPagamentoId", s.observacoes, s."dataSaida", s."createdAt", s."createdById", s."createdBy",
       fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo",
       f.id as "fornecedor_id", f.nome as "fornecedor_nome",
       cs.id as "categoriaSaida_id", cs.nome as "categoriaSaida_nome",
@@ -84,7 +84,8 @@ export async function GET(request: NextRequest) {
       observacoes: row.observacoes,
       dataSaida: row.dataSaida,
       createdAt: row.createdAt,
-      createdBy: row.createdBy,
+      createdById: row.createdById,
+      createdBy: row.createdBy, // Mantido para compatibilidade
       formaPagamento: row.formaPagamento_id ? {
         id: row.formaPagamento_id,
         nome: row.formaPagamento_nome,
@@ -366,7 +367,7 @@ export async function POST(request: NextRequest) {
     const result = await query(
       `INSERT INTO "SaidaCaixa" (
         id, "pointId", "aberturaCaixaId", valor, descricao, "fornecedorId", "categoriaSaidaId", "tipoDespesaId", "centroCustoId",
-        "formaPagamentoId", observacoes, "dataSaida", "createdAt", "createdBy"
+        "formaPagamentoId", observacoes, "dataSaida", "createdAt", "createdById"
       ) VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12
       ) RETURNING *`,

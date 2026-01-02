@@ -13,6 +13,8 @@ export interface JwtPayload {
   role: string;
   atletaId?: string | null;
   pointIdGestor?: string | null;
+  ehColaborador?: boolean | null;
+  gestorId?: string | null;
   iat?: number;
   exp?: number;
 }

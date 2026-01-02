@@ -76,13 +76,14 @@ export async function POST(
       const posicao = classificacao[i];
       await query(
         `UPDATE "AtletaCompeticao"
-         SET "posicaoFinal" = $1, pontos = $2, "updatedAt" = NOW()
+         SET "posicaoFinal" = $1, pontos = $2, "updatedAt" = NOW(), "updatedById" = $5
          WHERE "competicaoId" = $3 AND "atletaId" = $4`,
         [
           i + 1, // Posição (1º, 2º, 3º, etc.)
           posicao.vitorias, // Usar vitórias como pontos
           competicaoId,
           posicao.atletaId,
+          usuario.id, // updatedById
         ]
       );
     }

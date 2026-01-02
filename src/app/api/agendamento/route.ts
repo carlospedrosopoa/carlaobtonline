@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     let sqlBase = `SELECT 
       a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
       a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
-      a.status, a.observacoes, a."createdAt", a."updatedAt"`;
+      a.status, a.observacoes, a."createdAt", a."updatedAt", a."createdById", a."updatedById"`;
     
     // Tentar incluir campos de recorrência e professor
     let sql = sqlBase + `, a."recorrenciaId", a."recorrenciaConfig", a."ehAula", a."professorId",
@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
       at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", at."usuarioId" as "atleta_usuarioId",
       pr.id as "professor_id", pr."userId" as "professor_userId", pr.especialidade as "professor_especialidade",
       pr.bio as "professor_bio", pr."valorHora" as "professor_valorHora", pr.ativo as "professor_ativo",
-      up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email"
+      up.id as "professor_usuario_id", up.name as "professor_usuario_name", up.email as "professor_usuario_email",
+      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
     FROM "Agendamento" a
     LEFT JOIN "Quadra" q ON a."quadraId" = q.id
     LEFT JOIN "Point" p ON q."pointId" = p.id
@@ -50,6 +52,8 @@ export async function GET(request: NextRequest) {
     LEFT JOIN "Atleta" at ON a."atletaId" = at.id
     LEFT JOIN "Professor" pr ON a."professorId" = pr.id
     LEFT JOIN "User" up ON pr."userId" = up.id
+    LEFT JOIN "User" uc ON a."createdById" = uc.id
+    LEFT JOIN "User" uu ON a."updatedById" = uu.id
     WHERE 1=1`;
 
     const params: any[] = [];
@@ -192,12 +196,16 @@ export async function GET(request: NextRequest) {
       NULL as "recorrenciaId", NULL as "recorrenciaConfig",
       NULL as "ehAula", NULL as "professorId", NULL as "professor_id", NULL as "professor_userId", NULL as "professor_especialidade",
       NULL as "professor_bio", NULL as "professor_valorHora", NULL as "professor_ativo",
-      NULL as "professor_usuario_id", NULL as "professor_usuario_name", NULL as "professor_usuario_email"
+      NULL as "professor_usuario_id", NULL as "professor_usuario_name", NULL as "professor_usuario_email",
+      uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
+      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
     FROM "Agendamento" a
     LEFT JOIN "Quadra" q ON a."quadraId" = q.id
     LEFT JOIN "Point" p ON q."pointId" = p.id
     LEFT JOIN "User" u ON a."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+    LEFT JOIN "User" uc ON a."createdById" = uc.id
+    LEFT JOIN "User" uu ON a."updatedById" = uu.id
     WHERE 1=1`;
         
         // Reconstruir filtros e params
@@ -345,6 +353,18 @@ export async function GET(request: NextRequest) {
         : null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      createdById: row.createdById || null,
+      createdBy: row.createdBy_user_id ? {
+        id: row.createdBy_user_id,
+        name: row.createdBy_user_name,
+        email: row.createdBy_user_email,
+      } : null,
+      updatedById: row.updatedById || null,
+      updatedBy: row.updatedBy_user_id ? {
+        id: row.updatedBy_user_id,
+        name: row.updatedBy_user_name,
+        email: row.updatedBy_user_email,
+      } : null,
       quadra: {
         id: row.quadra_id,
         nome: row.quadra_nome,
@@ -741,10 +761,10 @@ export async function POST(request: NextRequest) {
             id, "competicaoId", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
             "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
             status, observacoes, "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId",
-            "createdAt", "updatedAt"
+            "createdById", "createdAt", "updatedAt"
           )
           VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, $13, $14, $15, $16, NOW(), NOW()
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, $13, $14, $15, $16, $17, NOW(), NOW()
           )
           RETURNING id`,
           [
@@ -764,6 +784,7 @@ export async function POST(request: NextRequest) {
             valoresInsercao.recorrenciaConfig,
             valoresInsercao.ehAula,
             valoresInsercao.professorId,
+            usuario.id, // createdById
           ]
         );
         return result.rows[0].id;
@@ -777,10 +798,10 @@ export async function POST(request: NextRequest) {
               `INSERT INTO "Agendamento" (
                 id, "competicaoId", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
                 "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-                status, observacoes, "createdAt", "updatedAt"
+                status, observacoes, "createdById", "createdAt", "updatedAt"
               )
               VALUES (
-                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, NOW(), NOW()
+                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMADO', $12, $13, NOW(), NOW()
               )
               RETURNING id`,
               [
@@ -796,6 +817,7 @@ export async function POST(request: NextRequest) {
                 valorCalculado,
                 valorFinal,
                 observacoes || null,
+                usuario.id, // createdById
               ]
             );
             return result.rows[0].id;

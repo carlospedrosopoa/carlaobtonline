@@ -1,7 +1,7 @@
 // components/EditarAgendamentoModal.tsx - Modal de edição de agendamento (100% igual ao cursor)
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useAuth } from '@/context/AuthContext';
 import { pointService, quadraService, agendamentoService, bloqueioAgendaService, tabelaPrecoService } from '@/services/agendamentoService';
@@ -122,6 +122,58 @@ export default function EditarAgendamentoModal({
   const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
 
+  const carregarDados = useCallback(async () => {
+    try {
+      const [pointsData, atletasData, quadrasData, professoresData] = await Promise.all([
+        // USER e ADMIN podem ver todos os points
+        (isAdmin || usuario?.role === 'USER') ? pointService.listar() : Promise.resolve([]),
+        canGerenciarAgendamento
+          ? (async () => {
+              try {
+                // Para ORGANIZER e ADMIN, não precisa passar parâmetros - a API já retorna todos os atletas
+                const res = await api.get(`/atleta/listarAtletas`);
+                const data = Array.isArray(res.data) ? res.data : res.data?.atletas || [];
+                return data;
+              } catch (error) {
+                console.error('Erro ao carregar atletas:', error);
+                return [];
+              }
+            })()
+          : Promise.resolve([] as Atleta[]),
+        isOrganizer ? quadraService.listar() : Promise.resolve([]),
+        // Carregar professores apenas para ADMIN e ORGANIZER
+        canGerenciarAgendamento
+          ? (async () => {
+              try {
+                setCarregandoProfessores(true);
+                const data = await professorService.listar({ ativo: true });
+                return data;
+              } catch (error) {
+                console.error('Erro ao carregar professores:', error);
+                return [];
+              } finally {
+                setCarregandoProfessores(false);
+              }
+            })()
+          : Promise.resolve([]),
+      ]);
+
+      setPoints(pointsData.filter((p: any) => p.ativo));
+      if (canGerenciarAgendamento) {
+        setCarregandoAtletas(true);
+        setAtletas(atletasData as Atleta[]);
+        setCarregandoAtletas(false);
+        setProfessores(professoresData);
+      }
+      // Se for ORGANIZER, carregar quadras diretamente
+      if (isOrganizer && quadrasData.length > 0) {
+        setQuadras((quadrasData as any[]).filter((q: any) => q.ativo));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    }
+  }, [isAdmin, usuario?.role, canGerenciarAgendamento, isOrganizer]);
+
   useEffect(() => {
     if (isOpen) {
       carregarDados();
@@ -153,7 +205,7 @@ export default function EditarAgendamentoModal({
       setAgendamentoCompleto(null);
       setManterNaTela(false);
     }
-  }, [isOpen, agendamento, quadraIdInicial, dataInicial, horaInicial]);
+  }, [isOpen, agendamento?.id, carregarDados]);
 
   // Preencher formulário quando o agendamento completo for carregado
   useEffect(() => {
@@ -265,58 +317,6 @@ export default function EditarAgendamentoModal({
       return base.includes(termo);
     });
   }, [atletas, buscaAtleta]);
-
-  const carregarDados = async () => {
-    try {
-      const [pointsData, atletasData, quadrasData, professoresData] = await Promise.all([
-        // USER e ADMIN podem ver todos os points
-        (isAdmin || usuario?.role === 'USER') ? pointService.listar() : Promise.resolve([]),
-        canGerenciarAgendamento
-          ? (async () => {
-              try {
-                // Para ORGANIZER e ADMIN, não precisa passar parâmetros - a API já retorna todos os atletas
-                const res = await api.get(`/atleta/listarAtletas`);
-                const data = Array.isArray(res.data) ? res.data : res.data?.atletas || [];
-                return data;
-              } catch (error) {
-                console.error('Erro ao carregar atletas:', error);
-                return [];
-              }
-            })()
-          : Promise.resolve([] as Atleta[]),
-        isOrganizer ? quadraService.listar() : Promise.resolve([]),
-        // Carregar professores apenas para ADMIN e ORGANIZER
-        canGerenciarAgendamento
-          ? (async () => {
-              try {
-                setCarregandoProfessores(true);
-                const data = await professorService.listar({ ativo: true });
-                return data;
-              } catch (error) {
-                console.error('Erro ao carregar professores:', error);
-                return [];
-              } finally {
-                setCarregandoProfessores(false);
-              }
-            })()
-          : Promise.resolve([]),
-      ]);
-
-      setPoints(pointsData.filter((p: any) => p.ativo));
-      if (canGerenciarAgendamento) {
-        setCarregandoAtletas(true);
-        setAtletas(atletasData as Atleta[]);
-        setCarregandoAtletas(false);
-        setProfessores(professoresData);
-      }
-      // Se for ORGANIZER, carregar quadras diretamente
-      if (isOrganizer && quadrasData.length > 0) {
-        setQuadras((quadrasData as any[]).filter((q: any) => q.ativo));
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    }
-  };
 
   const resetarFormulario = () => {
     setPointId('');
@@ -1506,6 +1506,49 @@ export default function EditarAgendamentoModal({
                 placeholder="Informações adicionais sobre o agendamento..."
               />
             </div>
+
+            {/* Informações de Auditoria - apenas para agendamentos existentes */}
+            {agendamento && agendamentoCompleto && (agendamentoCompleto.createdBy || agendamentoCompleto.updatedBy) && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 className="text-xs font-semibold text-gray-700 mb-2">Informações de Auditoria</h4>
+                <div className="space-y-1.5 text-xs text-gray-600">
+                  {agendamentoCompleto.createdBy && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-700">Criado por:</span>
+                      <span>{agendamentoCompleto.createdBy.name || agendamentoCompleto.createdBy.email}</span>
+                      {agendamentoCompleto.createdAt && (
+                        <span className="text-gray-500">
+                          em {new Date(agendamentoCompleto.createdAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {agendamentoCompleto.updatedBy && agendamentoCompleto.updatedBy.id !== agendamentoCompleto.createdBy?.id && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-700">Atualizado por:</span>
+                      <span>{agendamentoCompleto.updatedBy.name || agendamentoCompleto.updatedBy.email}</span>
+                      {agendamentoCompleto.updatedAt && (
+                        <span className="text-gray-500">
+                          em {new Date(agendamentoCompleto.updatedAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Valores */}
             <div className="space-y-2">

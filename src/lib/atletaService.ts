@@ -185,37 +185,100 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     });
   }
 
-  // Carregar arenas para cada atleta
-  // IMPORTANTE: Preservar usuarioEmail e usuario do atleta original ao mesclar com buscarAtletaComArenas
-  const atletasComArenas = await Promise.all(
-    atletas.map(async (atleta) => {
-      try {
-        const atletaComArenas = await buscarAtletaComArenas(atleta.id);
-        if (atletaComArenas) {
-          // Preservar usuarioEmail e usuario do atleta original (que já vem correto da query principal)
-          return {
-            ...atletaComArenas,
-            usuarioEmail: atleta.usuarioEmail, // Preservar do atleta original
-            usuario: atleta.usuario, // Preservar do atleta original
-          };
-        }
-        return atleta;
-      } catch (error: any) {
-        console.warn(`Erro ao buscar arenas do atleta ${atleta.id}:`, error?.message);
-        // Retorna o atleta sem arenas em caso de erro
-        return {
-          ...atleta,
-          arenasFrequentes: [],
-          arenaPrincipal: null,
-        };
-      }
-    })
-  );
+  // Otimização: carregar arenas em batch ao invés de uma query por atleta
+  const atletasComArenas = await carregarArenasEmBatch(atletas);
 
   return {
     atletas: atletasComArenas,
     usuario: { id: usuario.id, role: usuario.role },
   };
+}
+
+// Função auxiliar para carregar arenas em batch (otimização de performance)
+async function carregarArenasEmBatch(atletas: any[]) {
+  if (atletas.length === 0) {
+    return [];
+  }
+
+  const atletaIds = atletas.map(a => a.id);
+  const pointIdsPrincipais = atletas
+    .map(a => a.pointIdPrincipal)
+    .filter((id): id is string => id != null);
+
+  // Buscar todas as arenas frequentes de uma vez
+  let arenasFrequentesMap: Record<string, any[]> = {};
+  try {
+    const arenasFrequentesResult = await query(
+      `SELECT ap."atletaId", p.id, p.nome, p."logoUrl"
+       FROM "AtletaPoint" ap
+       JOIN "Point" p ON ap."pointId" = p.id
+       WHERE ap."atletaId" = ANY($1::text[])
+       ORDER BY ap."atletaId", p.nome ASC`,
+      [atletaIds]
+    );
+    
+    // Agrupar por atletaId
+    for (const row of arenasFrequentesResult.rows) {
+      const atletaId = row.atletaId;
+      if (!arenasFrequentesMap[atletaId]) {
+        arenasFrequentesMap[atletaId] = [];
+      }
+      arenasFrequentesMap[atletaId].push({
+        id: row.id,
+        nome: row.nome,
+        logoUrl: row.logoUrl,
+      });
+    }
+  } catch (error: any) {
+    console.warn('Erro ao buscar arenas frequentes em batch (tabela pode não existir ainda):', error?.message);
+  }
+
+  // Buscar todas as arenas principais de uma vez
+  let arenasPrincipaisMap: Record<string, any> = {};
+  if (pointIdsPrincipais.length > 0) {
+    try {
+      const arenasPrincipaisResult = await query(
+        `SELECT id, nome, "logoUrl" FROM "Point" WHERE id = ANY($1::text[])`,
+        [pointIdsPrincipais]
+      );
+      
+      // Criar mapa por id
+      for (const row of arenasPrincipaisResult.rows) {
+        arenasPrincipaisMap[row.id] = {
+          id: row.id,
+          nome: row.nome,
+          logoUrl: row.logoUrl,
+        };
+      }
+    } catch (error: any) {
+      console.warn('Erro ao buscar arenas principais em batch:', error?.message);
+    }
+  }
+
+  // Combinar dados
+  return atletas.map((atleta) => {
+    // Parse esportesPratica se for JSON string
+    let esportesPratica = null;
+    if (atleta.esportesPratica) {
+      if (Array.isArray(atleta.esportesPratica)) {
+        esportesPratica = atleta.esportesPratica;
+      } else if (typeof atleta.esportesPratica === 'string') {
+        try {
+          esportesPratica = JSON.parse(atleta.esportesPratica);
+        } catch (e) {
+          console.warn(`Erro ao fazer parse de esportesPratica do atleta ${atleta.id}:`, e);
+          esportesPratica = null;
+        }
+      }
+    }
+
+    return {
+      ...atleta,
+      esportesPratica,
+      arenasFrequentes: arenasFrequentesMap[atleta.id] || [],
+      arenaPrincipal: atleta.pointIdPrincipal ? (arenasPrincipaisMap[atleta.pointIdPrincipal] || null) : null,
+    };
+  });
 }
 
 export async function listarAtletasPaginados(busca: string = "", pagina: number = 1, limite: number = 10) {

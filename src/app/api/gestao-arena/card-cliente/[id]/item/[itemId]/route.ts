@@ -155,6 +155,9 @@ export async function PUT(
     }
 
     updates.push(`"updatedAt" = NOW()`);
+    updates.push(`"updatedById" = $${paramCount}`);
+    values.push(usuario.id);
+    paramCount++;
     values.push(itemId);
 
     const result = await query(
@@ -185,8 +188,8 @@ export async function PUT(
     const novoValorTotal = parseFloat(totalItensResult.rows[0].total) + totalAgendamentos;
 
     await query(
-      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW() WHERE id = $2',
-      [novoValorTotal, cardId]
+      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW(), "updatedById" = $3 WHERE id = $2',
+      [novoValorTotal, cardId, usuario.id]
     );
 
     const response = NextResponse.json(result.rows[0]);
@@ -296,8 +299,8 @@ export async function DELETE(
     const novoValorTotal = parseFloat(totalItensResult.rows[0].total) + totalAgendamentos;
 
     await query(
-      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW() WHERE id = $2',
-      [novoValorTotal, cardId]
+      'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW(), "updatedById" = $3 WHERE id = $2',
+      [novoValorTotal, cardId, usuario.id]
     );
 
     const response = NextResponse.json({ mensagem: 'Item removido com sucesso' });

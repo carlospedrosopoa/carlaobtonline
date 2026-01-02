@@ -455,9 +455,29 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       }
     }
 
-    if (!confirm('Tem certeza que deseja fechar este card?')) return;
+    // Calcular saldo atual
+    const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
+    const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
+    const saldoLocal = valorTotalItens - totalPagoLocal;
+    const saldoIgualZero = Math.abs(saldoLocal) < 0.01;
 
+    // Se há saldo pendente, apenas fecha o modal
+    if (!saldoIgualZero) {
+      onClose();
+      return;
+    }
+
+    // Se saldo é zero, pergunta se deseja finalizar o card
+    if (!confirm('O saldo está zerado. Deseja finalizar o card?')) {
+      // Se não quer finalizar, apenas fecha o modal
+      onClose();
+      return;
+    }
+
+    // Finalizar o card
     try {
+      setSalvando(true);
+      setErro('');
       await cardClienteService.atualizar(cardCompleto.id, { status: 'FECHADO' });
       await carregarDados();
       // Buscar card atualizado e passar para o callback
@@ -465,7 +485,9 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       onSuccess(cardAtualizado);
       onClose(); // Fechar o modal após fechar o card
     } catch (error: any) {
-      alert(error?.response?.data?.mensagem || 'Erro ao fechar card');
+      setErro(error?.response?.data?.mensagem || 'Erro ao finalizar o card');
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -711,6 +733,24 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
               </div>
             )}
 
+            {/* Informações de Auditoria */}
+            {cardCompleto && (
+              <div className="mt-6 pt-4 border-t border-gray-200 text-sm text-gray-600 space-y-2">
+                <p>
+                  <span className="font-semibold">Criado por:</span>{' '}
+                  {cardCompleto.createdBy?.name || cardCompleto.createdById || 'N/A'} em{' '}
+                  {new Date(cardCompleto.createdAt).toLocaleString('pt-BR')}
+                </p>
+                {cardCompleto.updatedById && cardCompleto.updatedBy && (
+                  <p>
+                    <span className="font-semibold">Última atualização por:</span>{' '}
+                    {cardCompleto.updatedBy.name || cardCompleto.updatedById || 'N/A'} em{' '}
+                    {new Date(cardCompleto.updatedAt).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Resumo Financeiro */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(() => {
@@ -766,6 +806,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                 <div className="space-y-2">
                   {itensLocais.map((item) => {
                     const produto = produtos.find((p) => p.id === item.produtoId);
+                    const itemBackend = !item.isNovo ? cardCompleto.itens?.find((i) => i.id === item.itemIdBackend) : null;
                     return (
                       <div 
                         key={item.id} 
@@ -790,6 +831,17 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           {item.observacoes && (
                             <div className="text-xs text-gray-500 mt-1 italic">
                               {item.observacoes}
+                            </div>
+                          )}
+                          {itemBackend?.createdBy && itemBackend.createdAt && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              Adicionado por: {itemBackend.createdBy.name} - {new Date(itemBackend.createdAt).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
                             </div>
                           )}
                         </div>
@@ -861,8 +913,15 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                             {!pagamento.isNovo && (() => {
                               const pagBackend = cardCompleto.pagamentos?.find((p) => p.id === pagamento.pagamentoIdBackend);
                               return pagBackend?.createdAt ? (
-                                <div className="text-sm text-gray-600">
-                                  {formatarData(pagBackend.createdAt)}
+                                <div className="space-y-1">
+                                  <div className="text-sm text-gray-600">
+                                    {formatarData(pagBackend.createdAt)}
+                                  </div>
+                                  {pagBackend.createdBy && (
+                                    <div className="text-xs text-gray-400">
+                                      Registrado por: {pagBackend.createdBy.name} - {formatarData(pagBackend.createdAt)}
+                                    </div>
+                                  )}
                                 </div>
                               ) : null;
                             })()}
@@ -952,11 +1011,9 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                         <div className="flex gap-3 mb-3">
                           <button
                             onClick={fecharCard}
-                            disabled={!saldoIgualZero}
-                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={!saldoIgualZero ? 'O saldo deve ser zero para fechar o card' : ''}
+                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                           >
-                            Fechar Card
+                            {saldoIgualZero ? 'Finalizar Card' : 'Fechar'}
                           </button>
                         </div>
                       )}
