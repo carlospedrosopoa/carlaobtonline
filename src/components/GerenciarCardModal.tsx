@@ -455,9 +455,29 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       }
     }
 
-    if (!confirm('Tem certeza que deseja fechar este card?')) return;
+    // Calcular saldo atual
+    const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
+    const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
+    const saldoLocal = valorTotalItens - totalPagoLocal;
+    const saldoIgualZero = Math.abs(saldoLocal) < 0.01;
 
+    // Se há saldo pendente, apenas fecha o modal
+    if (!saldoIgualZero) {
+      onClose();
+      return;
+    }
+
+    // Se saldo é zero, pergunta se deseja finalizar o card
+    if (!confirm('O saldo está zerado. Deseja finalizar o card?')) {
+      // Se não quer finalizar, apenas fecha o modal
+      onClose();
+      return;
+    }
+
+    // Finalizar o card
     try {
+      setSalvando(true);
+      setErro('');
       await cardClienteService.atualizar(cardCompleto.id, { status: 'FECHADO' });
       await carregarDados();
       // Buscar card atualizado e passar para o callback
@@ -465,7 +485,9 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       onSuccess(cardAtualizado);
       onClose(); // Fechar o modal após fechar o card
     } catch (error: any) {
-      alert(error?.response?.data?.mensagem || 'Erro ao fechar card');
+      setErro(error?.response?.data?.mensagem || 'Erro ao finalizar o card');
+    } finally {
+      setSalvando(false);
     }
   };
 
