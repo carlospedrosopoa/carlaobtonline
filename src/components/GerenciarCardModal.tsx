@@ -833,9 +833,15 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                               {item.observacoes}
                             </div>
                           )}
-                          {itemBackend?.createdBy && (
+                          {itemBackend?.createdBy && itemBackend.createdAt && (
                             <div className="text-xs text-gray-400 mt-1">
-                              Adicionado por: {itemBackend.createdBy.name}
+                              Adicionado por: {itemBackend.createdBy.name} - {new Date(itemBackend.createdAt).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
                             </div>
                           )}
                         </div>
@@ -913,7 +919,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                                   </div>
                                   {pagBackend.createdBy && (
                                     <div className="text-xs text-gray-400">
-                                      Registrado por: {pagBackend.createdBy.name}
+                                      Registrado por: {pagBackend.createdBy.name} - {formatarData(pagBackend.createdAt)}
                                     </div>
                                   )}
                                 </div>
