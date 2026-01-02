@@ -653,16 +653,19 @@ export async function generateMatchCard(
     ctx.fillText(tituloTexto, largura - 50, 100); // 50px da borda direita
     
     // Data e hora
-    // Extrair data/hora diretamente da string UTC sem conversão de timezone
-    // Isso evita problemas de fuso horário (3 horas a mais)
+    // Se estiver aparecendo 3 horas a mais (ex: 23:00 em vez de 20:00), 
+    // significa que a data está sendo interpretada como hora local e convertida para UTC.
+    // Para mostrar o horário correto, precisamos subtrair 3 horas do UTC manualmente.
     ctx.fillStyle = '#ffffff'; // Garantir cor branca
     const dataJogo = new Date(partida.data);
-    // Usar métodos UTC para evitar conversão de timezone
-    const dia = String(dataJogo.getUTCDate()).padStart(2, '0');
-    const mes = String(dataJogo.getUTCMonth() + 1).padStart(2, '0');
-    const ano = dataJogo.getUTCFullYear();
-    const hora = String(dataJogo.getUTCHours()).padStart(2, '0');
-    const minuto = String(dataJogo.getUTCMinutes()).padStart(2, '0');
+    // Subtrair 3 horas manualmente para garantir o horário BRT
+    const dataBr = new Date(dataJogo.getTime() - 3 * 60 * 60 * 1000);
+    // Usar métodos UTC do objeto ajustado
+    const dia = String(dataBr.getUTCDate()).padStart(2, '0');
+    const mes = String(dataBr.getUTCMonth() + 1).padStart(2, '0');
+    const ano = dataBr.getUTCFullYear();
+    const hora = String(dataBr.getUTCHours()).padStart(2, '0');
+    const minuto = String(dataBr.getUTCMinutes()).padStart(2, '0');
     const diaFormatado = `${dia}/${mes}/${ano}`;
     const horaFormatada = `${hora}:${minuto}`;
     
