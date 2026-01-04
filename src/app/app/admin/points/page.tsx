@@ -13,6 +13,8 @@ export default function AdminPointsPage() {
   const [modalAberto, setModalAberto] = useState(false);
   const [pointEditando, setPointEditando] = useState<Point | null>(null);
   const [databaseName, setDatabaseName] = useState<string>('');
+  const [neonEndpoint, setNeonEndpoint] = useState<string>('');
+  const [neonBranch, setNeonBranch] = useState<string>('');
   const [gitBranch, setGitBranch] = useState<string>('');
   const [form, setForm] = useState<CriarPointPayload>({
     nome: '',
@@ -56,6 +58,12 @@ export default function AdminPointsPage() {
       if (res.status === 200 && res.data) {
         if (res.data.databaseName) {
           setDatabaseName(res.data.databaseName);
+        }
+        if (res.data.neonEndpoint) {
+          setNeonEndpoint(res.data.neonEndpoint);
+        }
+        if (res.data.neonBranch) {
+          setNeonBranch(res.data.neonBranch);
         }
         if (res.data.gitBranch) {
           setGitBranch(res.data.gitBranch);
@@ -307,8 +315,8 @@ export default function AdminPointsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Informações do Banco de Dados e Branch */}
-      {(databaseName || gitBranch) && (
+      {/* Informações do Banco de Dados, Neon e Branch */}
+      {(databaseName || neonEndpoint || neonBranch || gitBranch) && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex flex-wrap items-center gap-4 text-blue-700">
             {databaseName && (
@@ -318,10 +326,24 @@ export default function AdminPointsPage() {
                 <span className="font-mono">{databaseName}</span>
               </div>
             )}
+            {neonBranch && (
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-5 h-5" />
+                <span className="font-semibold">Neon Branch:</span>
+                <span className="font-mono">{neonBranch}</span>
+              </div>
+            )}
+            {neonEndpoint && (
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                <span className="font-semibold">Neon Endpoint:</span>
+                <span className="font-mono">{neonEndpoint}</span>
+              </div>
+            )}
             {gitBranch && (
               <div className="flex items-center gap-2">
                 <GitBranch className="w-5 h-5" />
-                <span className="font-semibold">Branch:</span>
+                <span className="font-semibold">Branch Git:</span>
                 <span className="font-mono">{gitBranch}</span>
               </div>
             )}
