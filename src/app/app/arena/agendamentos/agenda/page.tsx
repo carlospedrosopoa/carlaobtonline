@@ -1187,10 +1187,15 @@ export default function ArenaAgendaSemanalPage() {
                                     style={{ width: larguraPorQuadra }}
                                     onClick={() => {
                                       if (!temConteudo) {
-                                        const dataHora = new Date(dia);
-                                        dataHora.setHours(slot.hora, slot.minuto, 0, 0);
-                                        setDataInicialModal(dataHora.toISOString());
-                                        setHoraInicialModal(`${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`);
+                                        // Formatar data no formato YYYY-MM-DD
+                                        const ano = dia.getFullYear();
+                                        const mes = String(dia.getMonth() + 1).padStart(2, '0');
+                                        const diaNum = String(dia.getDate()).padStart(2, '0');
+                                        const dataFormatada = `${ano}-${mes}-${diaNum}`;
+                                        // Formatar hora no formato HH:mm
+                                        const horaFormatada = `${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`;
+                                        setDataInicialModal(dataFormatada);
+                                        setHoraInicialModal(horaFormatada);
                                         setAgendamentoEditando(null);
                                         setModalEditarAberto(true);
                                       }
