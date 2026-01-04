@@ -240,8 +240,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log('[API PUT] ========== INÍCIO PUT /api/agendamento/[id] ==========');
   try {
     const { id } = await params;
+    console.log('[API PUT] ID do agendamento:', id);
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
       const errorResponse = NextResponse.json(
@@ -320,6 +322,7 @@ export async function PUT(
     }
 
     const body = await request.json();
+    console.log('[API PUT] Recebido payload:', JSON.stringify(body, null, 2));
     const {
       quadraId,
       dataHora,
@@ -343,6 +346,8 @@ export async function PUT(
       nomeAvulso?: string | null;
       telefoneAvulso?: string | null;
       valorNegociado?: number | null;
+      valorHora?: number | null;
+      valorCalculado?: number | null;
       aplicarARecorrencia?: boolean;
       recorrencia?: RecorrenciaConfig;
       atletasParticipantesIds?: string[] | null;
@@ -497,11 +502,20 @@ export async function PUT(
     const ehAulaFinal = ehAula !== undefined ? ehAula : (agendamentoAtual.ehAula || false);
     const professorIdFinal = professorId !== undefined ? professorId : (agendamentoAtual.professorId || null);
 
-    // Recalcular valores se necessário (quando muda quadra, data/hora ou duração)
+    // Recalcular valores sempre que houver qualquer alteração (para permitir atualizar valores quando tabela de preços foi criada)
     let valorHora: number | null = null;
     let valorCalculado: number | null = null;
 
-    if (quadraId || dataHora || duracao) {
+    // Se valores foram enviados no payload, usar esses valores (já calculados no frontend)
+    if (body.valorHora !== undefined) {
+      valorHora = body.valorHora;
+    }
+    if (body.valorCalculado !== undefined) {
+      valorCalculado = body.valorCalculado;
+    }
+
+    // Recalcular se não foram enviados ou se mudou quadra, data/hora ou duração
+    if (!body.valorHora && (quadraId || dataHora || duracao)) {
       let horaAgendamento: number | null = null;
       const duracaoFinal = duracao || agendamentoAtual.duracao || 60;
 
@@ -610,7 +624,8 @@ export async function PUT(
 
     if (valorNegociado !== undefined) {
       updates.push(`"valorNegociado" = $${paramCount}`);
-      paramsUpdate.push(valorNegociado || null);
+      // Permitir que 0 seja salvo corretamente (não usar || null que converte 0 em null)
+      paramsUpdate.push(valorNegociado !== null && valorNegociado !== undefined ? valorNegociado : null);
       paramCount++;
     }
 
@@ -627,10 +642,12 @@ export async function PUT(
     }
 
     // Adicionar configuração de recorrência aos updates se fornecida
-    if (recorrencia !== undefined) {
+    // IMPORTANTE: Só atualizar se recorrencia for um objeto válido (não null, não undefined)
+    // Se for null ou undefined, manter o valor atual (não remover a recorrência existente)
+    if (recorrencia !== undefined && recorrencia !== null) {
       try {
         updates.push(`"recorrenciaConfig" = $${paramCount}`);
-        paramsUpdate.push(recorrencia ? JSON.stringify(recorrencia) : null);
+        paramsUpdate.push(JSON.stringify(recorrencia));
         paramCount++;
       } catch (error: any) {
         // Se o campo não existe, tentar sem ele
@@ -663,7 +680,7 @@ export async function PUT(
     } catch (error: any) {
       if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
         agendamentoDataAtual = await query(
-          'SELECT "dataHora", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso", duracao, "valorHora", "valorCalculado", "valorNegociado", observacoes FROM "Agendamento" WHERE id = $1',
+          'SELECT "dataHora", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso", duracao, "valorHora", "valorCalculado", "valorNegociado", observacoes, "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
           [id]
         );
       } else {
@@ -672,11 +689,25 @@ export async function PUT(
     }
     
     const dadosAtuais = agendamentoDataAtual.rows[0];
-    const dataHoraAtualRecorrencia = new Date(dadosAtuais.dataHora);
+    // Normalizar dataHora para garantir que seja tratada como UTC
+    // normalizarDataHora retorna string ISO, então converter para Date
+    const dataHoraAtualRecorrenciaStr = normalizarDataHora(dadosAtuais.dataHora);
+    const dataHoraAtualRecorrencia = new Date(dataHoraAtualRecorrenciaStr);
     const recorrenciaIdAtual = dadosAtuais.recorrenciaId;
     
+    console.log('[API] dataHoraAtualRecorrencia (após normalizarDataHora):', dataHoraAtualRecorrencia.toISOString(), 'timestamp:', dataHoraAtualRecorrencia.getTime());
+    
     // Se há recorrência e o usuário quer aplicar a todos os futuros E há nova configuração de recorrência
+    console.log('[API] Verificando condições:', {
+      temRecorrenciaAtual,
+      aplicarARecorrencia,
+      temRecorrencia: !!recorrencia,
+      temTipo: recorrencia?.tipo,
+      recorrenciaIdAtual,
+    });
+    
     if (temRecorrenciaAtual && aplicarARecorrencia && recorrencia && recorrencia.tipo) {
+      console.log('[API] Entrando no bloco: Recriar recorrência');
       // 1. Deletar todos os agendamentos futuros da recorrência atual (exceto o atual)
       if (recorrenciaIdAtual) {
         await query(
@@ -1199,14 +1230,19 @@ export async function DELETE(
       const recorrenciaId = agendamento.recorrenciaId;
       
       // Deletar este agendamento e todos os futuros da mesma recorrência
+      // IMPORTANTE: Incluir o agendamento atual explicitamente usando OR id = $3
+      // para garantir que ele seja sempre deletado, mesmo que haja problemas de timezone
       try {
-        await query(
+        const result = await query(
           `DELETE FROM "Agendamento"
            WHERE "recorrenciaId" = $1
-           AND "dataHora" >= $2`,
-          [recorrenciaId, dataHoraAtual.toISOString()]
+           AND ("dataHora" >= $2 OR id = $3)`,
+          [recorrenciaId, dataHoraAtual.toISOString(), id]
         );
-        const response = NextResponse.json({ mensagem: 'Agendamento(s) deletado(s) com sucesso' });
+        const response = NextResponse.json({ 
+          mensagem: 'Agendamento(s) deletado(s) com sucesso',
+          deletados: result.rowCount 
+        });
         return withCors(response, request);
       } catch (error: any) {
         // Se o campo não existe, apenas deletar este
@@ -1216,11 +1252,19 @@ export async function DELETE(
       }
     }
 
-    // Deletar o agendamento atual (sempre)
+    // Deletar apenas o agendamento atual (quando não é para deletar todos os futuros)
     const result = await query(
       `DELETE FROM "Agendamento" WHERE id = $1 RETURNING id`,
       [id]
     );
+
+    if (result.rows.length === 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Agendamento não encontrado ou já foi deletado' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
 
     const response = NextResponse.json({ mensagem: 'Agendamento deletado com sucesso' });
     return withCors(response, request);

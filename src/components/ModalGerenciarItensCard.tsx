@@ -205,7 +205,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
             <ShoppingCart className="w-6 h-6 text-emerald-600" />
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                Gerenciar Itens - Card #{cardCompleto?.numeroCard || card?.numeroCard}
+                Gerenciar Itens - Comanda #{cardCompleto?.numeroCard || card?.numeroCard}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 {cardCompleto?.usuario?.name || cardCompleto?.nomeAvulso || 'Cliente'}

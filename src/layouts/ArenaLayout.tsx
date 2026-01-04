@@ -61,8 +61,8 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       ],
     },
     {
-      label: 'Cards de Clientes',
-      items: [{ to: '/app/arena/cards-clientes', label: 'Cards de Clientes' }],
+      label: 'Comandas de Clientes',
+      items: [{ to: '/app/arena/cards-clientes', label: 'Comandas de Clientes' }],
     },
     {
       label: 'Fluxo de Caixa',

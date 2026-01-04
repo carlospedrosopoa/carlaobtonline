@@ -10,8 +10,9 @@ import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoReco
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
 import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw, Smartphone, UserCog, GraduationCap } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw, Smartphone, UserCog, GraduationCap, Phone } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
+import { api } from '@/lib/api';
 
 export default function ArenaAgendaSemanalPage() {
   const { usuario, isAdmin, isOrganizer } = useAuth();
@@ -37,6 +38,9 @@ export default function ArenaAgendaSemanalPage() {
   const [modalQuadrasDisponiveisAberto, setModalQuadrasDisponiveisAberto] = useState(false);
   const [tooltipAgendamento, setTooltipAgendamento] = useState<string | null>(null);
   const [tooltipPosicao, setTooltipPosicao] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipDia, setTooltipDia] = useState<Date | null>(null);
+  const [tooltipDiaPosicao, setTooltipDiaPosicao] = useState<{ x: number; y: number } | null>(null);
+  const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Inicializar sempre com a data atual como primeiro dia
@@ -868,6 +872,15 @@ export default function ArenaAgendaSemanalPage() {
           <p className="text-gray-600">Visualize todos os agendamentos da sua arena</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {(isAdmin || isOrganizer) && (
+            <button
+              onClick={() => setModalCriarUsuarioIncompleto(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              <UserPlus className="w-5 h-5" />
+              Criar / Vincular Atleta
+            </button>
+          )}
           <button
             onClick={() => setModalQuadrasDisponiveisAberto(true)}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
@@ -1020,7 +1033,28 @@ export default function ArenaAgendaSemanalPage() {
                   {diasSemana.map((dia, idx) => (
                     <th
                       key={idx}
-                      className="px-4 py-3 text-center text-xs font-semibold text-gray-700 min-w-[220px] bg-gradient-to-b from-blue-50 to-blue-100 border-r border-gray-200"
+                      className={`px-4 py-3 text-center text-xs font-semibold text-gray-700 min-w-[220px] bg-gradient-to-b from-blue-50 to-blue-100 ${idx < diasSemana.length - 1 ? 'border-r-2 border-gray-300' : ''}`}
+                      onMouseEnter={(e) => {
+                        setTooltipDia(dia);
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTooltipDiaPosicao({
+                          x: rect.left + rect.width / 2,
+                          y: rect.top,
+                        });
+                      }}
+                      onMouseLeave={() => {
+                        setTooltipDia(null);
+                        setTooltipDiaPosicao(null);
+                      }}
+                      onMouseMove={(e) => {
+                        if (tooltipDia) {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setTooltipDiaPosicao({
+                            x: rect.left + rect.width / 2,
+                            y: rect.top,
+                          });
+                        }
+                      }}
                     >
                       <div className="flex flex-col items-center">
                         <span className="text-gray-600 text-xs uppercase font-bold">
@@ -1107,8 +1141,29 @@ export default function ArenaAgendaSemanalPage() {
                         return (
                           <td
                             key={diaIdx}
-                            className="px-1 py-0.5 align-top relative"
+                            className={`px-1 py-0.5 align-top relative ${diaIdx < diasSemana.length - 1 ? 'border-r-2 border-gray-300' : ''}`}
                             style={{ height: '60px' }}
+                            onMouseEnter={(e) => {
+                              setTooltipDia(dia);
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setTooltipDiaPosicao({
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                              });
+                            }}
+                            onMouseLeave={() => {
+                              setTooltipDia(null);
+                              setTooltipDiaPosicao(null);
+                            }}
+                            onMouseMove={(e) => {
+                              if (tooltipDia) {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setTooltipDiaPosicao({
+                                  x: rect.left + rect.width / 2,
+                                  y: rect.top,
+                                });
+                              }
+                            }}
                           >
                             {/* Renderizar colunas fixas para cada quadra */}
                             <div className="absolute inset-1 flex flex-nowrap gap-1">
@@ -1568,6 +1623,396 @@ export default function ArenaAgendaSemanalPage() {
           />
         </div>
       )}
+
+      {/* Tooltip do Dia */}
+      {tooltipDia && tooltipDiaPosicao && (
+        <div
+          className="fixed z-[100] bg-blue-600 text-white text-sm rounded-lg px-4 py-2 shadow-xl pointer-events-none font-semibold"
+          style={{
+            left: `${tooltipDiaPosicao.x}px`,
+            top: `${tooltipDiaPosicao.y}px`,
+            transform: 'translate(-50%, -100%)',
+            marginTop: '-8px',
+          }}
+        >
+          <div className="text-sm capitalize">
+            {tooltipDia.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+          </div>
+          {/* Seta do tooltip */}
+          <div
+            className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1"
+            style={{
+              width: 0,
+              height: 0,
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: '6px solid rgb(37, 99, 235)',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Modal Criar / Vincular Atleta */}
+      <ModalCriarUsuarioIncompleto
+        isOpen={modalCriarUsuarioIncompleto}
+        onClose={() => setModalCriarUsuarioIncompleto(false)}
+        onSuccess={() => {
+          // Pode recarregar dados se necessário
+        }}
+      />
+    </div>
+  );
+}
+
+// Componente Modal para Criar / Vincular Atleta
+interface ModalCriarUsuarioIncompletoProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarUsuarioIncompletoProps) {
+  const { usuario } = useAuth();
+  const [nome, setNome] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const [atletaEncontrado, setAtletaEncontrado] = useState<{ id: string; nome: string; telefone: string } | null>(null);
+  const [modo, setModo] = useState<'buscar' | 'criar' | 'vincular'>('buscar');
+  const telefoneInputRef = useRef<HTMLInputElement>(null);
+
+  const formatarTelefone = (valor: string) => {
+    const apenasNumeros = valor.replace(/\D/g, '');
+    if (apenasNumeros.length <= 11) {
+      return apenasNumeros
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2');
+    }
+    return valor;
+  };
+
+  const handleBuscarTelefone = async () => {
+    if (!telefone.trim()) {
+      setErro('Informe o telefone');
+      return;
+    }
+
+    const telefoneNormalizado = telefone.replace(/\D/g, '');
+    if (telefoneNormalizado.length < 10) {
+      setErro('Telefone inválido. Informe pelo menos 10 dígitos.');
+      return;
+    }
+
+    setBuscando(true);
+    setErro('');
+    setAtletaEncontrado(null);
+
+    try {
+      // Buscar atleta por telefone
+      const { data, status } = await api.post('/user/atleta/buscar-por-telefone', {
+        telefone: telefoneNormalizado,
+      });
+
+      if (status === 200 && data.existe) {
+        // Atleta encontrado - mostrar opção de vincular
+        setAtletaEncontrado({
+          id: data.id,
+          nome: data.nome,
+          telefone: data.telefone,
+        });
+        setModo('vincular');
+      } else {
+        // Atleta não encontrado - modo criar
+        setModo('criar');
+      }
+    } catch (err: any) {
+      if (err?.response?.data?.codigo === 'ATLETA_NAO_ENCONTRADO' || err?.response?.status === 404) {
+        // Atleta não encontrado - modo criar
+        setModo('criar');
+      } else {
+        setErro(err?.response?.data?.mensagem || 'Erro ao buscar telefone. Tente novamente.');
+      }
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  const handleVincularAtleta = async () => {
+    if (!atletaEncontrado) return;
+
+    setSalvando(true);
+    setErro('');
+
+    try {
+      const { data, status } = await api.post(`/atleta/${atletaEncontrado.id}/vincular-arena`);
+
+      if (status === 200) {
+        alert(`Atleta "${atletaEncontrado.nome}" vinculado à arena com sucesso!`);
+        resetarModal();
+        onSuccess();
+        onClose();
+      } else {
+        setErro(data.mensagem || 'Erro ao vincular atleta');
+      }
+    } catch (err: any) {
+      // Tratar caso especial: atleta já vinculado
+      if (err?.response?.data?.codigo === 'ATLETA_JA_VINCULADO' || err?.response?.data?.jaVinculado) {
+        // Mostrar mensagem informativa (não é erro crítico)
+        alert(err?.response?.data?.mensagem || `O atleta "${atletaEncontrado.nome}" já está vinculado à sua arena.`);
+        resetarModal();
+        onClose();
+      } else {
+        setErro(
+          err?.response?.data?.mensagem ||
+            err?.response?.data?.error ||
+            'Erro ao vincular atleta. Tente novamente.'
+        );
+        console.error('Erro ao vincular atleta:', err);
+      }
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleCriarUsuario = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro('');
+    
+    if (!nome.trim() || !telefone.trim()) {
+      setErro('Nome e telefone são obrigatórios');
+      return;
+    }
+
+    const telefoneNormalizado = telefone.replace(/\D/g, '');
+    if (telefoneNormalizado.length < 10) {
+      setErro('Telefone inválido. Informe pelo menos 10 dígitos.');
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const { data, status } = await api.post('/user/criar-incompleto', {
+        name: nome.trim(),
+        telefone: telefoneNormalizado,
+      });
+
+      if (status === 201) {
+        alert('Usuário criado com sucesso! Ele poderá completar o cadastro usando o telefone no appatleta.');
+        resetarModal();
+        onSuccess();
+        onClose();
+      } else {
+        setErro(data.mensagem || 'Erro ao criar usuário');
+      }
+    } catch (err: any) {
+      setErro(
+        err?.response?.data?.mensagem ||
+          err?.response?.data?.error ||
+          'Erro ao criar usuário. Verifique os dados.'
+      );
+      console.error('Erro ao criar usuário incompleto:', err);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const resetarModal = () => {
+    setNome('');
+    setTelefone('');
+    setErro('');
+    setAtletaEncontrado(null);
+    setModo('buscar');
+  };
+
+  const handleClose = () => {
+    resetarModal();
+    onClose();
+  };
+
+  // Focar no campo de telefone quando a modal abrir no modo buscar
+  useEffect(() => {
+    if (isOpen && modo === 'buscar' && telefoneInputRef.current) {
+      // Pequeno delay para garantir que a modal está renderizada
+      setTimeout(() => {
+        telefoneInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen, modo]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 relative max-w-md w-full">
+        <button
+          className="absolute top-2 right-2 text-gray-600 hover:text-black text-lg"
+          onClick={handleClose}
+          disabled={salvando || buscando}
+        >
+          ✕
+        </button>
+        <h3 className="text-lg font-semibold mb-4">Criar / Vincular Atleta</h3>
+
+        {erro && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+            {erro}
+          </div>
+        )}
+
+        {modo === 'buscar' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 mb-4">
+              Informe o telefone do atleta. Se ele já estiver cadastrado, você poderá vinculá-lo à sua arena.
+            </p>
+
+            <div>
+              <label className="block font-semibold mb-1">Telefone *</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  ref={telefoneInputRef}
+                  type="tel"
+                  value={formatarTelefone(telefone)}
+                  onChange={(e) => {
+                    const apenasNumeros = e.target.value.replace(/\D/g, '');
+                    if (apenasNumeros.length <= 11) {
+                      setTelefone(apenasNumeros);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border rounded"
+                  placeholder="(00) 00000-0000"
+                  required
+                  disabled={buscando}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={buscando}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleBuscarTelefone}
+                disabled={buscando || telefone.replace(/\D/g, '').length < 10}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {buscando ? 'Buscando...' : 'Buscar'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {modo === 'vincular' && atletaEncontrado && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-gray-700 mb-2">
+                <strong>Atleta encontrado:</strong>
+              </p>
+              <p className="text-lg font-semibold text-gray-900">{atletaEncontrado.nome}</p>
+              <p className="text-sm text-gray-600 mt-1">Telefone: {formatarTelefone(atletaEncontrado.telefone)}</p>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              Deseja vincular este atleta à sua arena? Ele aparecerá na sua lista de atletas.
+            </p>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setModo('buscar');
+                  setAtletaEncontrado(null);
+                }}
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleVincularAtleta}
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {salvando ? 'Vinculando...' : 'Vincular à Arena'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {modo === 'criar' && (
+          <form onSubmit={handleCriarUsuario} className="space-y-4">
+            <p className="text-sm text-gray-600 mb-4">
+              Telefone não encontrado. Crie um novo usuário pendente que poderá se vincular posteriormente usando o telefone no appatleta.
+            </p>
+
+            <div>
+              <label className="block font-semibold mb-1">Nome completo *</label>
+              <input
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Nome do usuário"
+                required
+                disabled={salvando}
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold mb-1">Telefone *</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="tel"
+                  value={formatarTelefone(telefone)}
+                  onChange={(e) => {
+                    const apenasNumeros = e.target.value.replace(/\D/g, '');
+                    if (apenasNumeros.length <= 11) {
+                      setTelefone(apenasNumeros);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border rounded"
+                  placeholder="(00) 00000-0000"
+                  required
+                  disabled={salvando}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                O usuário usará este telefone para vincular a conta no appatleta
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setModo('buscar');
+                  setNome('');
+                }}
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={salvando}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {salvando ? 'Criando...' : 'Criar Usuário'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

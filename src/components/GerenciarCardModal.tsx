@@ -495,10 +495,10 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     if (!cardCompleto) return;
 
     // Confirmação rigorosa para evitar cliques acidentais
-    const confirmacao1 = confirm('⚠️ ATENÇÃO: Você está prestes a CANCELAR este card.\n\nEsta ação não pode ser desfeita e todos os dados serão perdidos.\n\nDeseja realmente continuar?');
+    const confirmacao1 = confirm('⚠️ ATENÇÃO: Você está prestes a CANCELAR esta comanda.\n\nEsta ação não pode ser desfeita e todos os dados serão perdidos.\n\nDeseja realmente continuar?');
     if (!confirmacao1) return;
 
-    const confirmacao2 = confirm('⚠️ ÚLTIMA CONFIRMAÇÃO:\n\nTem CERTEZA ABSOLUTA que deseja CANCELAR este card?\n\nEsta ação não pode ser desfeita.');
+    const confirmacao2 = confirm('⚠️ ÚLTIMA CONFIRMAÇÃO:\n\nTem CERTEZA ABSOLUTA que deseja CANCELAR esta comanda?\n\nEsta ação não pode ser desfeita.');
     if (!confirmacao2) return;
 
     try {
@@ -534,7 +534,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
     const confirmacao = confirm(
       '⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL.\n\n' +
-      'Tem certeza que deseja excluir este card?\n\n' +
+      'Tem certeza que deseja excluir esta comanda?\n\n' +
       'Esta ação não pode ser desfeita.'
     );
 
@@ -656,7 +656,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Card #{card.numeroCard}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Comanda #{card.numeroCard}</h2>
               <div className="mt-2">{cardCompleto && getStatusBadge(cardCompleto.status)}</div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -1001,7 +1001,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                                 disabled={salvando}
                                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {salvando ? 'Salvando...' : 'Salvar e Fechar Card'}
+                                {salvando ? 'Salvando...' : 'Salvar e Fechar Comanda'}
                               </button>
                             )}
                           </div>
@@ -1013,7 +1013,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                             onClick={fecharCard}
                             className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                           >
-                            {saldoIgualZero ? 'Finalizar Card' : 'Fechar'}
+                            {saldoIgualZero ? 'Finalizar Comanda' : 'Fechar'}
                           </button>
                         </div>
                       )}
@@ -1031,7 +1031,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           onClick={abrirModalExcluir}
                           className="w-full px-4 py-2 bg-red-100 text-red-600 border border-red-300 rounded-lg hover:bg-red-200 transition-colors text-sm"
                         >
-                          🗑️ Excluir Card
+                          🗑️ Excluir Comanda
                         </button>
                       </div>
                     </>
@@ -1043,15 +1043,15 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                             onClick={abrirModalConfirmarSenha}
                             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                           >
-                            {cardCompleto?.status === 'FECHADO' ? 'Reabrir Card' : 'Reabrir Card (Cancelado)'}
+                            {cardCompleto?.status === 'FECHADO' ? 'Reabrir Comanda' : 'Reabrir Comanda (Cancelado)'}
                           </button>
                         </div>
                       )}
                       <div className="border-t border-gray-200 pt-3">
                         <p className="text-xs text-gray-500 text-center">
                           {cardCompleto?.status === 'FECHADO' 
-                            ? 'Este card está fechado' 
-                            : 'Este card está cancelado'}
+                            ? 'Esta comanda está fechada' 
+                            : 'Esta comanda está cancelada'}
                         </p>
                       </div>
                     </>
@@ -1336,13 +1336,13 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
           </div>
         )}
 
-        {/* Modal Confirmar Senha para Reabrir Card */}
+        {/* Modal Confirmar Senha para Reabrir Comanda */}
         {modalConfirmarSenhaAberto && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Confirmar Senha</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Para reabrir este card, é necessário confirmar sua senha.
+                Para reabrir esta comanda, é necessário confirmar sua senha.
               </p>
               {erroSenha && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -1392,13 +1392,13 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
           </div>
         )}
 
-        {/* Modal Excluir Card */}
+        {/* Modal Excluir Comanda */}
         {modalExcluirAberto && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Excluir Card</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Excluir Comanda</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Para excluir este card, por favor, informe sua senha:
+                Para excluir esta comanda, por favor, informe sua senha:
               </p>
               {erroExclusao && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
