@@ -86,6 +86,7 @@ async function apiRequest(
   const response = await fetch(url, {
     ...options,
     headers: headers as HeadersInit,
+    cache: 'no-store', // Forçar SSR - sempre buscar dados novos no servidor, ignorando cache
   });
 
   // Se receber 401, pode ser token expirado - limpa o token
