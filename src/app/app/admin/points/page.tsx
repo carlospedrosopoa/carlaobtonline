@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { pointService } from '@/services/agendamentoService';
 import type { Point, CriarPointPayload } from '@/types/agendamento';
-import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff, Crown, CreditCard, Database } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff, Crown, CreditCard, Database, GitBranch } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function AdminPointsPage() {
@@ -13,6 +13,9 @@ export default function AdminPointsPage() {
   const [modalAberto, setModalAberto] = useState(false);
   const [pointEditando, setPointEditando] = useState<Point | null>(null);
   const [databaseName, setDatabaseName] = useState<string>('');
+  const [neonEndpoint, setNeonEndpoint] = useState<string>('');
+  const [neonBranch, setNeonBranch] = useState<string>('');
+  const [gitBranch, setGitBranch] = useState<string>('');
   const [form, setForm] = useState<CriarPointPayload>({
     nome: '',
     endereco: '',
@@ -52,8 +55,19 @@ export default function AdminPointsPage() {
   const carregarInfoBanco = async () => {
     try {
       const res = await api.get('/admin/info');
-      if (res.status === 200 && res.data?.databaseName) {
-        setDatabaseName(res.data.databaseName);
+      if (res.status === 200 && res.data) {
+        if (res.data.databaseName) {
+          setDatabaseName(res.data.databaseName);
+        }
+        if (res.data.neonEndpoint) {
+          setNeonEndpoint(res.data.neonEndpoint);
+        }
+        if (res.data.neonBranch) {
+          setNeonBranch(res.data.neonBranch);
+        }
+        if (res.data.gitBranch) {
+          setGitBranch(res.data.gitBranch);
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar informações do banco:', error);
@@ -301,13 +315,38 @@ export default function AdminPointsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Informações do Banco de Dados */}
-      {databaseName && (
+      {/* Informações do Banco de Dados, Neon e Branch */}
+      {(databaseName || neonEndpoint || neonBranch || gitBranch) && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2 text-blue-700">
-            <Database className="w-5 h-5" />
-            <span className="font-semibold">Banco de Dados:</span>
-            <span className="font-mono">{databaseName}</span>
+          <div className="flex flex-wrap items-center gap-4 text-blue-700">
+            {databaseName && (
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                <span className="font-semibold">Banco de Dados:</span>
+                <span className="font-mono">{databaseName}</span>
+              </div>
+            )}
+            {neonBranch && (
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-5 h-5" />
+                <span className="font-semibold">Neon Branch:</span>
+                <span className="font-mono">{neonBranch}</span>
+              </div>
+            )}
+            {neonEndpoint && (
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                <span className="font-semibold">Neon Endpoint:</span>
+                <span className="font-mono">{neonEndpoint}</span>
+              </div>
+            )}
+            {gitBranch && (
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-5 h-5" />
+                <span className="font-semibold">Branch Git:</span>
+                <span className="font-mono">{gitBranch}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
