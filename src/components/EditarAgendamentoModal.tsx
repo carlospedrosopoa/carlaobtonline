@@ -120,8 +120,8 @@ export default function EditarAgendamentoModal({
   const [diaMesRecorrencia, setDiaMesRecorrencia] = useState<number>(1);
   const [dataFimRecorrencia, setDataFimRecorrencia] = useState('');
   const [quantidadeOcorrencias, setQuantidadeOcorrencias] = useState<number>(12);
-  const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros
-  const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente
+  const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros (não usado mais, mas mantido para compatibilidade)
+  const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente (não usado mais, mas mantido para compatibilidade)
   const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
   const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
@@ -470,10 +470,15 @@ export default function EditarAgendamentoModal({
     if (agendamentoParaUsar.atletaId && agendamentoParaUsar.atleta) {
       setModo('atleta');
       setAtletaId(agendamentoParaUsar.atletaId);
+      // Preencher o campo de busca com o nome do atleta para exibir
+      setBuscaAtleta(agendamentoParaUsar.atleta.nome || '');
+      setBloquearSugestoes(true); // Bloquear sugestões já que temos um atleta selecionado
     } else {
       // Modo 'normal' (próprio) - sem cliente vinculado
       // Se tiver nomeAvulso (dados antigos), não carregamos mas tratamos como próprio
       setModo('normal');
+      setBuscaAtleta('');
+      setBloquearSugestoes(false);
     }
 
     // Preenche campos de recorrência se o agendamento já for recorrente
@@ -857,14 +862,13 @@ export default function EditarAgendamentoModal({
       return;
     }
 
-    setSalvando(true);
-
     try {
       // Enviar o horário escolhido pelo usuário sem conversão de timezone
       // O backend vai salvar exatamente como informado (tratando como UTC direto)
       // Isso garante que 20h escolhido = 20h gravado no banco
       const payload: any = {
-        observacoes: observacoes || undefined,
+        // Sempre incluir observacoes (mesmo que seja string vazia, enviar como null)
+        observacoes: observacoes || null,
       };
 
       // Só enviar dataHora, quadraId e duracao se estiver editando E realmente alterou, ou se estiver criando
@@ -912,8 +916,21 @@ export default function EditarAgendamentoModal({
       }
 
       // Valor negociado (ADMIN e ORGANIZER podem informar)
-      if (canGerenciarAgendamento && valorNegociado !== null && valorNegociado > 0) {
-        payload.valorNegociado = valorNegociado;
+      // Sempre enviar valorNegociado quando canGerenciarAgendamento for true, mesmo se for null
+      if (canGerenciarAgendamento) {
+        payload.valorNegociado = valorNegociado !== null && valorNegociado !== undefined ? valorNegociado : null;
+      }
+
+      // Sempre enviar valores calculados quando houver qualquer alteração (para permitir recalcular valores)
+      // Isso é útil quando a tabela de preços foi criada após o agendamento
+      if (agendamento) {
+        // Enviar valores calculados sempre que houver alteração (mesmo que sejam null)
+        payload.valorHora = valorHora;
+        payload.valorCalculado = valorCalculado;
+      } else {
+        // Modo criação - sempre enviar valores calculados
+        payload.valorHora = valorHora;
+        payload.valorCalculado = valorCalculado;
       }
 
       // Configuração de recorrência (criação e edição)
@@ -966,85 +983,111 @@ export default function EditarAgendamentoModal({
       console.log('[EditarAgendamentoModal] ============================================');
       console.log('[EditarAgendamentoModal] Payload completo que será enviado:');
       console.log(JSON.stringify(payload, null, 2));
+      console.log('[EditarAgendamentoModal] valorNegociado no estado:', valorNegociado);
+      console.log('[EditarAgendamentoModal] valorNegociado no payload:', payload.valorNegociado);
+      console.log('[EditarAgendamentoModal] canGerenciarAgendamento:', canGerenciarAgendamento);
       console.log('[EditarAgendamentoModal] ============================================');
 
-      let resultado;
-      // Verificar se é edição: agendamento existe E tem ID válido (não vazio)
-      if (agendamento && agendamento.id && agendamento.id.trim() !== '') {
+      // Executar salvamento diretamente (sem modal de confirmação)
+      // A lógica de aplicar aos futuros foi removida - sempre edita apenas o agendamento atual
+      if (agendamento) {
         // Modo edição
-        // Se o agendamento já é recorrente, adicionar opção de aplicar apenas neste ou em todos os futuros
-        if (agendamentoJaRecorrente) {
-          payload.aplicarARecorrencia = aplicarARecorrencia;
+        setSalvando(true);
+        try {
+          const agendamentoAtualizado = await agendamentoService.atualizar(agendamento.id, payload);
+          
+          // Atualizar estado com valores atualizados
+          setValorHora(agendamentoAtualizado.valorHora || null);
+          setValorCalculado(agendamentoAtualizado.valorCalculado || null);
+          setValorNegociado(agendamentoAtualizado.valorNegociado || null);
+          
+          // Armazenar valores originais para comparação futura
+          const dataHoraStr = agendamentoAtualizado.dataHora;
+          const dataResult = dataHoraStr.split('T')[0];
+          const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+          const horaResult = match ? `${match[1]}:${match[2]}` : '00:00';
+          
+          setValoresOriginais({
+            quadraId: agendamentoAtualizado.quadraId,
+            dataHora: `${dataResult}T${horaResult}:00`,
+            duracao: agendamentoAtualizado.duracao,
+            observacoes: agendamentoAtualizado.observacoes || '',
+            valorHora: agendamentoAtualizado.valorHora ?? null,
+            valorCalculado: agendamentoAtualizado.valorCalculado ?? null,
+            valorNegociado: agendamentoAtualizado.valorNegociado ?? null,
+            atletaId: agendamentoAtualizado.atletaId || null,
+            nomeAvulso: agendamentoAtualizado.nomeAvulso || '',
+            telefoneAvulso: agendamentoAtualizado.telefoneAvulso || '',
+            atletasParticipantesIds: agendamentoAtualizado.atletasParticipantes?.map((ap: any) => ap.atletaId).filter((id: string) => id) || [],
+            ehAula: agendamentoAtualizado.ehAula || false,
+            professorId: agendamentoAtualizado.professorId || null,
+          });
+          
+          onSuccess();
+          onClose();
+        } catch (error: any) {
+          console.error('Erro ao atualizar agendamento:', error);
+          setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao atualizar agendamento. Tente novamente.');
+        } finally {
+          setSalvando(false);
         }
-        resultado = await agendamentoService.atualizar(agendamento.id, payload);
       } else {
-        // Modo criação (agendamento é null ou não tem ID válido)
-        resultado = await agendamentoService.criar(payload);
-      }
-
-      // Atualiza os valores exibidos com o retorno do backend (recalculado)
-      setValorHora(resultado.valorHora ?? null);
-      setValorCalculado(resultado.valorCalculado ?? null);
-      setValorNegociado(resultado.valorNegociado ?? null);
-
-      // Se for edição, atualizar valores originais após salvar para resetar detecção de alterações
-      if (agendamento && resultado) {
-        const dataHoraStr = resultado.dataHora;
-        const dataResult = dataHoraStr.split('T')[0];
-        const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
-        const horaResult = match ? `${match[1]}:${match[2]}` : '00:00';
-        
-        setValoresOriginais({
-          quadraId: resultado.quadraId,
-          dataHora: `${dataResult}T${horaResult}:00`,
-          duracao: resultado.duracao,
-          observacoes: resultado.observacoes || '',
-          valorHora: resultado.valorHora ?? null,
-          valorCalculado: resultado.valorCalculado ?? null,
-          valorNegociado: resultado.valorNegociado ?? null,
-          atletaId: resultado.atletaId || null,
-          nomeAvulso: resultado.nomeAvulso || '',
-          telefoneAvulso: resultado.telefoneAvulso || '',
-          atletasParticipantesIds: resultado.atletasParticipantes?.map((ap: any) => ap.atletaId).filter((id: string) => id) || [],
-          ehAula: resultado.ehAula || false,
-          professorId: resultado.professorId || null,
-        });
-      }
-
-      // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
-      if (manterNaTela && canGerenciarAgendamento && !agendamento) {
-        // Limpar apenas seleção de quadras e participantes
-        setQuadraId('');
-        setAtletasParticipantesIds([]);
-        setParticipantesCompletos([]);
-        setMostrarSelecaoAtletas(false);
-        setBuscaAtletasParticipantes('');
-        // Limpar valores calculados (serão recalculados quando selecionar nova quadra)
-        setValorHora(null);
-        setValorCalculado(null);
-        // Limpar erro se houver
-        setErro('');
-        // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, atletaId, etc)
-        // Não fechar o modal - mantém aberto
-        onSuccess(); // Atualiza a lista de agendamentos
-        // NÃO chamar onClose() - mantém o modal aberto
-      } else {
-        // Comportamento normal: fechar o modal
-        onSuccess();
-        onClose();
+        // Modo criação
+        setSalvando(true);
+        try {
+          const novoAgendamento = await agendamentoService.criar(payload);
+          
+          // Atualizar estado com valores calculados
+          setValorHora(novoAgendamento.valorHora || null);
+          setValorCalculado(novoAgendamento.valorCalculado || null);
+          setValorNegociado(novoAgendamento.valorNegociado || null);
+          
+          // Armazenar valores originais para comparação futura
+          setValoresOriginais({
+            valorHora: novoAgendamento.valorHora,
+            valorCalculado: novoAgendamento.valorCalculado,
+            valorNegociado: novoAgendamento.valorNegociado,
+          });
+          
+          // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
+          if (manterNaTela && canGerenciarAgendamento) {
+            // Limpar apenas seleção de quadras e participantes
+            setQuadraId('');
+            setAtletasParticipantesIds([]);
+            setParticipantesCompletos([]);
+            setMostrarSelecaoAtletas(false);
+            setBuscaAtletasParticipantes('');
+            // Limpar valores calculados (serão recalculados quando selecionar nova quadra)
+            setValorHora(null);
+            setValorCalculado(null);
+            // Limpar erro se houver
+            setErro('');
+            // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, atletaId, etc)
+            // Não fechar o modal - mantém aberto
+            onSuccess(); // Atualiza a lista de agendamentos
+            // NÃO chamar onClose() - mantém o modal aberto
+          } else {
+            // Comportamento normal: fechar o modal
+            onSuccess();
+            onClose();
+          }
+        } catch (error: any) {
+          console.error('Erro ao criar agendamento:', error);
+          setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao criar agendamento. Tente novamente.');
+        } finally {
+          setSalvando(false);
+        }
       }
     } catch (error: any) {
-      console.error(`Erro ao ${agendamento ? 'atualizar' : 'criar'} agendamento:`, error);
+      console.error(`Erro ao preparar ${agendamento ? 'atualização' : 'criação'} de agendamento:`, error);
       setErro(
         error?.response?.data?.mensagem ||
           error?.data?.mensagem ||
-          `Erro ao ${agendamento ? 'atualizar' : 'criar'} agendamento. Tente novamente.`
+          `Erro ao preparar ${agendamento ? 'atualização' : 'criação'} de agendamento. Tente novamente.`
       );
-    } finally {
       setSalvando(false);
     }
   };
-
 
   const conflito = verificarConflito();
 
@@ -1838,45 +1881,6 @@ export default function EditarAgendamentoModal({
                 )}
               </div>
 
-            {/* Opção de aplicar recorrência quando já é recorrente */}
-            {agendamento && agendamentoJaRecorrente && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-start gap-3">
-                  <Repeat className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900 mb-2">
-                      Este agendamento faz parte de uma recorrência
-                    </p>
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="aplicarRecorrencia"
-                          checked={!aplicarARecorrencia}
-                          onChange={() => setAplicarARecorrencia(false)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Aplicar alterações apenas neste agendamento
-                        </span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="aplicarRecorrencia"
-                          checked={aplicarARecorrencia}
-                          onChange={() => setAplicarARecorrencia(true)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Aplicar alterações neste e em todos os agendamentos futuros desta recorrência
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Botão Gerar Cards - apenas para agendamentos existentes com valor e com cliente vinculado */}
             {agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && 
@@ -1886,16 +1890,16 @@ export default function EditarAgendamentoModal({
                   <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-emerald-900 mb-2">
-                      Gerar Cards de Cliente
+                      Gerar Comandas de Cliente
                     </p>
                     <p className="text-xs text-emerald-700 mb-3">
-                      Cria um card para cada cliente envolvido no agendamento (original + participantes) com o item "Locação" dividido proporcionalmente. Se o cliente já tiver um card aberto, o item será adicionado ao card existente.
+                      Cria uma comanda para cada cliente envolvido no agendamento (original + participantes) com o item "Locação" dividido proporcionalmente. Se o cliente já tiver uma comanda aberta, o item será adicionado à comanda existente.
                     </p>
                     <button
                       type="button"
                       onClick={async () => {
                         if (!agendamento?.id) return;
-                        if (!confirm('Deseja gerar cards de cliente para todos os participantes deste agendamento?')) return;
+                        if (!confirm('Deseja gerar comandas de cliente para todos os participantes deste agendamento?')) return;
 
                         try {
                           setGerandoCards(true);
@@ -2015,6 +2019,7 @@ export default function EditarAgendamentoModal({
           </form>
         </Dialog.Panel>
       </div>
+
     </Dialog>
   );
 }

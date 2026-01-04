@@ -187,7 +187,7 @@ export default function ModalGerenciarAgendamentosCard({ isOpen, card, onClose, 
             <Calendar className="w-6 h-6 text-emerald-600" />
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                Gerenciar Agendamentos - Card #{cardCompleto?.numeroCard || card?.numeroCard}
+                Gerenciar Agendamentos - Comanda #{cardCompleto?.numeroCard || card?.numeroCard}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 {cardCompleto?.usuario?.name || cardCompleto?.nomeAvulso || 'Cliente'}

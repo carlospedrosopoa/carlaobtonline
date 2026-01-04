@@ -128,7 +128,7 @@ export default function CardsClientesPage() {
     }
     
     // Card: informações do cliente, data e status
-    mensagem += `📋 *Card #${card.numeroCard}:*\n`;
+    mensagem += `📋 *Comanda #${card.numeroCard}:*\n`;
     mensagem += `👤 *Cliente:* ${nomeCliente}\n`;
     mensagem += `📅 *Data:* ${dataFormatada}\n`;
     mensagem += `📊 *Status:* ${status}\n\n`;
@@ -246,7 +246,7 @@ export default function CardsClientesPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando cards...</p>
+          <p className="text-gray-600">Carregando comandas...</p>
         </div>
       </div>
     );
@@ -257,8 +257,8 @@ export default function CardsClientesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cards de Clientes</h1>
-          <p className="text-gray-600 mt-1">Gerencie os cards de atendimento</p>
+          <h1 className="text-3xl font-bold text-gray-900">Comandas de Clientes</h1>
+          <p className="text-gray-600 mt-1">Gerencie as comandas de atendimento</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -446,7 +446,7 @@ export default function CardsClientesPage() {
         <div className="bg-white rounded-lg shadow">
           <div className="text-center py-12">
             <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">Nenhum card encontrado</p>
+            <p className="text-gray-600">Nenhuma comanda encontrada</p>
           </div>
         </div>
       )}

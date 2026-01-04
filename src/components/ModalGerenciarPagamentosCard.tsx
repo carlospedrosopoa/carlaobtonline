@@ -249,7 +249,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
   };
 
   const fecharCard = async () => {
-    if (!cardCompleto || !confirm('Tem certeza que deseja fechar este card?')) return;
+    if (!cardCompleto || !confirm('Tem certeza que deseja fechar esta comanda?')) return;
 
     try {
       setSalvando(true);
@@ -299,7 +299,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
             <CreditCard className="w-6 h-6 text-emerald-600" />
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                Gerenciar Pagamentos - Card #{cardCompleto?.numeroCard || card?.numeroCard}
+                Gerenciar Pagamentos - Comanda #{cardCompleto?.numeroCard || card?.numeroCard}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 {cardCompleto?.usuario?.name || cardCompleto?.nomeAvulso || 'Cliente'}
@@ -446,7 +446,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                 className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={salvando}
               >
-                {salvando ? 'Fechando...' : 'Fechar Card'}
+                {salvando ? 'Fechando...' : 'Fechar Comanda'}
               </button>
             </div>
           ) : (

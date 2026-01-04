@@ -608,7 +608,7 @@ export default function FluxoCaixaPage() {
                     )}
                     {lancamento.tipo === 'ENTRADA_CARD' && (
                       <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        Pagamento Card #{lancamento.numeroCard}
+                        Pagamento Comanda #{lancamento.numeroCard}
                       </span>
                     )}
                     {lancamento.tipo === 'SAIDA' && (

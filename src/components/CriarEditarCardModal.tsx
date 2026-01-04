@@ -157,7 +157,7 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
 
     const confirmacao = confirm(
       '⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL.\n\n' +
-      'Tem certeza que deseja excluir este card?\n\n' +
+      'Tem certeza que deseja excluir esta comanda?\n\n' +
       'Esta ação não pode ser desfeita.'
     );
 
@@ -198,7 +198,7 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="flex justify-between items-start mb-4">
           <h2 className="text-2xl font-bold text-gray-900">
-            {card ? 'Editar Card' : 'Novo Card'}
+            {card ? 'Editar Comanda' : 'Nova Comanda'}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-6 h-6" />
@@ -344,7 +344,7 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Excluir Card
+                  Excluir Comanda
                 </button>
               )}
               <button
@@ -368,7 +368,7 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <h3 className="font-semibold text-red-800 mb-2">Confirmar Exclusão</h3>
                   <p className="text-sm text-red-700 mb-3">
-                    Para excluir este card, por favor, informe sua senha:
+                    Para excluir esta comanda, por favor, informe sua senha:
                   </p>
                   <input
                     type="password"
