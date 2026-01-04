@@ -30,26 +30,62 @@ export async function POST(request: NextRequest) {
     const telefoneNormalizado = telefone.replace(/\D/g, '');
     const emailNormalizado = email.toLowerCase().trim();
 
-    // Verificar se email já existe
-    const emailExiste = await query('SELECT id FROM "User" WHERE email = $1', [emailNormalizado]);
-    if (emailExiste.rows.length > 0) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'E-mail já cadastrado' },
-        { status: 400 }
-      );
-      return withCors(errorResponse, request);
-    }
-
-    // Verificar se telefone já está em uso por outro usuário
+    // Verificar se atleta já existe e tem usuário vinculado
+    let userId: string;
+    let atualizarUsuarioExistente = false;
+    
     if (atletaId) {
       const atletaExistente = await query(
-        'SELECT "usuarioId" FROM "Atleta" WHERE id = $1',
+        `SELECT a."usuarioId", u.email as "usuarioEmail", u.id as "userId"
+         FROM "Atleta" a
+         LEFT JOIN "User" u ON u.id = a."usuarioId"
+         WHERE a.id = $1`,
         [atletaId]
       );
       
       if (atletaExistente.rows.length > 0 && atletaExistente.rows[0].usuarioId) {
+        const usuarioEmail = atletaExistente.rows[0].usuarioEmail;
+        userId = atletaExistente.rows[0].userId;
+        
+        // Verificar se o email é temporário (usuário pré-cadastrado/incompleto)
+        const isEmailTemporario = usuarioEmail && (
+          usuarioEmail.endsWith('@pendente.local') ||
+          usuarioEmail.startsWith('temp_')
+        );
+        
+        // Se não for email temporário, não permite vincular (já tem conta real)
+        if (!isEmailTemporario) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Este atleta já possui uma conta vinculada' },
+            { status: 400 }
+          );
+          return withCors(errorResponse, request);
+        }
+        
+        // Se for email temporário, vai atualizar o usuário existente ao invés de criar novo
+        atualizarUsuarioExistente = true;
+      }
+    }
+
+    // Verificar se email já existe (apenas se não for atualização de usuário temporário)
+    if (!atualizarUsuarioExistente) {
+      const emailExiste = await query('SELECT id FROM "User" WHERE email = $1', [emailNormalizado]);
+      if (emailExiste.rows.length > 0) {
         const errorResponse = NextResponse.json(
-          { mensagem: 'Este atleta já possui uma conta vinculada' },
+          { mensagem: 'E-mail já cadastrado' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+    } else {
+      // Se está atualizando, verificar se o novo email não está em uso por OUTRO usuário
+      const emailExisteEmOutroUsuario = await query(
+        'SELECT id FROM "User" WHERE email = $1 AND id != $2',
+        [emailNormalizado, userId]
+      );
+      if (emailExisteEmOutroUsuario.rows.length > 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'E-mail já cadastrado' },
           { status: 400 }
         );
         return withCors(errorResponse, request);
@@ -58,19 +94,27 @@ export async function POST(request: NextRequest) {
 
     // Criar hash da senha
     const hash = await bcrypt.hash(password, 12);
-    const userId = uuidv4();
 
-    // Criar usuário
-    await query(
-      'INSERT INTO "User" (id, name, email, password, role, "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
-      [userId, name, emailNormalizado, hash, 'USER']
-    );
+    if (atualizarUsuarioExistente && userId) {
+      // Atualizar usuário existente (preserva o ID para manter referências)
+      await query(
+        'UPDATE "User" SET name = $1, email = $2, password = $3, "updatedAt" = NOW() WHERE id = $4',
+        [name, emailNormalizado, hash, userId]
+      );
+    } else {
+      // Criar novo usuário
+      userId = uuidv4();
+      await query(
+        'INSERT INTO "User" (id, name, email, password, role, "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
+        [userId, name, emailNormalizado, hash, 'USER']
+      );
+    }
 
-    // Se tem atletaId, vincular o atleta ao usuário
+    // Se tem atletaId, vincular o atleta ao usuário (se ainda não estiver vinculado)
     if (atletaId) {
       // Verificar se o telefone do atleta confere
       const atleta = await query(
-        'SELECT id, fone FROM "Atleta" WHERE id = $1',
+        'SELECT id, fone, "usuarioId" FROM "Atleta" WHERE id = $1',
         [atletaId]
       );
 
@@ -78,7 +122,7 @@ export async function POST(request: NextRequest) {
         const telefoneAtleta = atleta.rows[0].fone?.replace(/\D/g, '');
         
         if (telefoneAtleta === telefoneNormalizado) {
-          // Vincular atleta ao usuário
+          // Vincular atleta ao usuário (atualiza caso já esteja vinculado)
           await query(
             'UPDATE "Atleta" SET "usuarioId" = $1, "updatedAt" = NOW() WHERE id = $2',
             [userId, atletaId]
