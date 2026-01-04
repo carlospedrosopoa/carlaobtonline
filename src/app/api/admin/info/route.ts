@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
+import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,8 +41,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Obter branch atual
+    let gitBranch = 'N/A';
+    try {
+      // Prioridade 1: Variável de ambiente do Vercel
+      if (process.env.VERCEL_GIT_COMMIT_REF) {
+        gitBranch = process.env.VERCEL_GIT_COMMIT_REF;
+      } else if (process.env.GIT_BRANCH) {
+        // Prioridade 2: Variável de ambiente customizada
+        gitBranch = process.env.GIT_BRANCH;
+      } else {
+        // Prioridade 3: Tentar ler do git diretamente (apenas em desenvolvimento/local)
+        try {
+          // Tenta executar git rev-parse --abbrev-ref HEAD
+          const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+            cwd: process.cwd(),
+          }).trim();
+          if (branch) {
+            gitBranch = branch;
+          }
+        } catch (gitError) {
+          // Se falhar, tenta ler do arquivo .git/HEAD (alternativa)
+          try {
+            const gitHeadPath = join(process.cwd(), '.git', 'HEAD');
+            const headContent = readFileSync(gitHeadPath, 'utf8').trim();
+            const branchMatch = headContent.match(/refs\/heads\/(.+)/);
+            if (branchMatch && branchMatch[1]) {
+              gitBranch = branchMatch[1];
+            }
+          } catch (fileError) {
+            // Ignora erro ao ler arquivo
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao obter branch:', error);
+    }
+
     const info = {
       databaseName,
+      gitBranch,
       environment: process.env.NODE_ENV || 'development',
     };
 
