@@ -1,7 +1,7 @@
 // components/EditarAgendamentoModal.tsx - Modal de edição de agendamento (100% igual ao cursor)
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Dialog } from '@headlessui/react';
 import { useAuth } from '@/context/AuthContext';
 import { pointService, quadraService, agendamentoService, bloqueioAgendaService, tabelaPrecoService } from '@/services/agendamentoService';
@@ -125,6 +125,7 @@ export default function EditarAgendamentoModal({
   const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
   const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
+  const inputBuscaAtletaRef = useRef<HTMLInputElement>(null); // Ref para o campo de busca de atleta
 
   const carregarDados = useCallback(async () => {
     try {
@@ -202,6 +203,13 @@ export default function EditarAgendamentoModal({
           setTimeout(() => {
             selecionarQuadraInicial(quadraIdInicial);
           }, 100);
+        }
+        
+        // Focar no campo de busca de atleta após um pequeno delay (para garantir que o modal esteja renderizado)
+        if (canGerenciarAgendamento) {
+          setTimeout(() => {
+            inputBuscaAtletaRef.current?.focus();
+          }, 300);
         }
       }
     } else {
@@ -364,7 +372,7 @@ export default function EditarAgendamentoModal({
     setNomeAvulso('');
     setTelefoneAvulso('');
     setBuscaAtleta('');
-    setModo('normal');
+    setModo('atleta'); // Padrão: Cliente Cadastrado
     setAgendamentosExistentes([]);
     setErro('');
     setAtletasParticipantesIds([]);
@@ -374,6 +382,15 @@ export default function EditarAgendamentoModal({
     setManterNaTela(false); // Resetar flag ao resetar formulário
     setEhAula(false);
     setProfessorId('');
+    // Limpar campos de recorrência
+    setTemRecorrencia(false);
+    setTipoRecorrencia(null);
+    setIntervaloRecorrencia(1);
+    setDiasSemanaRecorrencia([]);
+    setDiaMesRecorrencia(1);
+    setDataFimRecorrencia('');
+    setQuantidadeOcorrencias(12);
+    setAgendamentoJaRecorrente(false);
   };
 
   const selecionarQuadraInicial = async (quadraIdParaSelecionar: string) => {
@@ -1060,6 +1077,14 @@ export default function EditarAgendamentoModal({
             // Limpar valores calculados (serão recalculados quando selecionar nova quadra)
             setValorHora(null);
             setValorCalculado(null);
+            // Limpar campos de recorrência (cada agendamento deve ser único)
+            setTemRecorrencia(false);
+            setTipoRecorrencia(null);
+            setIntervaloRecorrencia(1);
+            setDiasSemanaRecorrencia([]);
+            setDiaMesRecorrencia(1);
+            setDataFimRecorrencia('');
+            setQuantidadeOcorrencias(12);
             // Limpar erro se houver
             setErro('');
             // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, atletaId, etc)
@@ -1180,6 +1205,7 @@ export default function EditarAgendamentoModal({
                 ) : (
                   <>
                     <input
+                      ref={inputBuscaAtletaRef}
                       type="text"
                       value={buscaAtleta}
                       onChange={(e) => {
