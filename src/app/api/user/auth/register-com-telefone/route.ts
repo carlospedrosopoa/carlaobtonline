@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     if (atualizarUsuarioExistente && userId) {
       // Atualizar usuário existente (preserva o ID para manter referências)
       await query(
-        'UPDATE "User" SET name = $1, email = $2, password = $3, "updatedAt" = NOW() WHERE id = $4',
+        'UPDATE "User" SET name = $1, email = $2, password = $3 WHERE id = $4',
         [name, emailNormalizado, hash, userId]
       );
     } else {
