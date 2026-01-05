@@ -449,7 +449,27 @@ export async function PUT(
     if (dataHora || (quadraId && quadraId !== agendamentoAtual.quadraId)) {
       // Tratar dataHora como horário local do usuário e converter para UTC
       const dataHoraParaVerificar = dataHora || agendamentoAtual.dataHora;
+      
+      // Verificar se dataHoraParaVerificar existe e é válida
+      if (!dataHoraParaVerificar) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Data/hora do agendamento não encontrada' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+      
       const [dataPart, horaPart] = dataHoraParaVerificar.split('T');
+      
+      // Verificar se dataPart e horaPart foram extraídos corretamente
+      if (!dataPart || !horaPart) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Formato de data/hora inválido' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+      
       const [ano, mes, dia] = dataPart.split('-').map(Number);
       const [hora, minuto] = horaPart.split(':').map(Number);
       
