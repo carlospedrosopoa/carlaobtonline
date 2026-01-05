@@ -272,19 +272,32 @@ export default function ArenaAgendaMobilePage() {
           </div>
 
           {/* Navegação de datas */}
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2">
             <button
               onClick={() => navegarDias('anterior')}
-              className="p-2 rounded-lg hover:bg-gray-100"
+              className="p-2 rounded-lg hover:bg-gray-100 flex-shrink-0"
             >
               <ChevronLeft className="w-5 h-5 text-gray-600" />
             </button>
-            <span className="text-sm font-semibold text-gray-700">
-              {dataSelecionada.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-            </span>
+            <div className="flex items-center gap-2 flex-1 justify-center">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <input
+                type="date"
+                value={dataSelecionada.toISOString().split('T')[0]}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const novaData = new Date(e.target.value);
+                    novaData.setHours(0, 0, 0, 0);
+                    setDataSelecionada(novaData);
+                  }
+                }}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none flex-1 max-w-[180px]"
+                title="Selecione uma data"
+              />
+            </div>
             <button
               onClick={() => navegarDias('proxima')}
-              className="p-2 rounded-lg hover:bg-gray-100"
+              className="p-2 rounded-lg hover:bg-gray-100 flex-shrink-0"
             >
               <ChevronRight className="w-5 h-5 text-gray-600" />
             </button>
