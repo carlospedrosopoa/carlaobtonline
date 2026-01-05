@@ -2,17 +2,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarSaidaCaixaPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/saida-caixa - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/saida-caixa - Listar saídas de caixa
 export async function GET(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { searchParams } = new URL(request.url);
@@ -49,10 +57,11 @@ export async function GET(request: NextRequest) {
       params.push(pointId);
       paramCount++;
     } else if (usuario.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para listar saídas de caixa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (dataInicio) {
@@ -109,13 +118,15 @@ export async function GET(request: NextRequest) {
       } : null,
     }));
 
-    return NextResponse.json(saidas);
+    const response = NextResponse.json(saidas);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao listar saídas de caixa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao listar saídas de caixa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -124,18 +135,20 @@ export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem criar saídas de caixa
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para criar saídas de caixa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body: CriarSaidaCaixaPayload = await request.json();
@@ -164,10 +177,11 @@ export async function POST(request: NextRequest) {
       );
 
       if (aberturaAbertaResult.rows.length === 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Não há uma abertura de caixa aberta. Por favor, abra o caixa primeiro.' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       aberturaId = aberturaAbertaResult.rows[0].id;
@@ -179,48 +193,54 @@ export async function POST(request: NextRequest) {
       );
 
       if (aberturaResult.rows.length === 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Abertura de caixa não encontrada' },
           { status: 404 }
         );
+        return withCors(errorResponse, request);
       }
 
       if (aberturaResult.rows[0].status !== 'ABERTA') {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'A abertura de caixa informada está fechada' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
 
       if (aberturaResult.rows[0].pointId !== pointId) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'A abertura de caixa não pertence a esta arena' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
     if (!pointId || !valor || !descricao || !centroCustoId || !formaPagamentoId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'PointId, valor, descricao, centroCustoId e formaPagamentoId são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (valor <= 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Valor deve ser maior que zero' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta arena' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -231,17 +251,19 @@ export async function POST(request: NextRequest) {
     );
 
     if (formaPagamentoResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Forma de pagamento não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (!formaPagamentoResult.rows[0].ativo) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Forma de pagamento não está ativa' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Verificar se a categoria de saída existe e está ativa (se informada)
@@ -270,10 +292,11 @@ export async function POST(request: NextRequest) {
         }
       } catch (error: any) {
         console.error('Erro ao buscar/criar categoria padrão:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Erro ao processar categoria de saída. Por favor, selecione uma categoria ou crie uma categoria padrão no sistema.' },
           { status: 500 }
         );
+        return withCors(errorResponse, request);
       }
     } else {
       // Verificar se a categoria informada existe e está ativa
@@ -283,17 +306,19 @@ export async function POST(request: NextRequest) {
       );
 
       if (categoriaResult.rows.length === 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Categoria de saída não encontrada' },
           { status: 404 }
         );
+        return withCors(errorResponse, request);
       }
 
       if (!categoriaResult.rows[0].ativo) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Categoria de saída não está ativa' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -304,17 +329,19 @@ export async function POST(request: NextRequest) {
     );
 
     if (centroCustoResult.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Centro de custo não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (!centroCustoResult.rows[0].ativo) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Centro de custo não está ativo' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Se fornecedor foi informado, verificar se existe
@@ -325,17 +352,19 @@ export async function POST(request: NextRequest) {
       );
 
       if (fornecedorResult.rows.length === 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Fornecedor não encontrado' },
           { status: 404 }
         );
+        return withCors(errorResponse, request);
       }
 
       if (!fornecedorResult.rows[0].ativo) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Fornecedor não está ativo' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -350,17 +379,19 @@ export async function POST(request: NextRequest) {
       );
 
       if (tipoDespesaResult.rows.length === 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Tipo de despesa não encontrado' },
           { status: 404 }
         );
+        return withCors(errorResponse, request);
       }
 
       if (!tipoDespesaResult.rows[0].ativo) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Tipo de despesa não está ativo' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -387,7 +418,8 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const response = NextResponse.json(result.rows[0], { status: 201 });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar saída de caixa:', error);
     console.error('Detalhes do erro:', {
@@ -396,7 +428,7 @@ export async function POST(request: NextRequest) {
       detail: error.detail,
       constraint: error.constraint,
     });
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { 
         mensagem: 'Erro ao criar saída de caixa', 
         error: error.message,
@@ -405,6 +437,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

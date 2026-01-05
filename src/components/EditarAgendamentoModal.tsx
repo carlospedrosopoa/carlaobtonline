@@ -310,6 +310,10 @@ export default function EditarAgendamentoModal({
     // Não limpar campos se estivermos restaurando dados preservados
     if (restaurandoDados) return;
     
+    // Não limpar campos se estivermos preenchendo um agendamento existente
+    // (o preencherFormulario já preenche os campos corretamente)
+    if (agendamentoCompleto) return;
+    
     if (modo === 'normal') {
       setAtletaId('');
       setNomeAvulso('');
@@ -319,7 +323,7 @@ export default function EditarAgendamentoModal({
       setTelefoneAvulso('');
       setBuscaAtleta('');
     }
-  }, [modo, restaurandoDados]);
+  }, [modo, restaurandoDados, agendamentoCompleto]);
 
   
 
@@ -1958,8 +1962,25 @@ export default function EditarAgendamentoModal({
                           }
                         } catch (error: any) {
                           console.error('Erro completo ao gerar cards:', error);
-                          const mensagemErro = error?.response?.data?.mensagem || error?.data?.mensagem || error?.message || 'Erro ao gerar cards';
+                          
+                          // Verificar se é um erro de rede/timeout
+                          const isNetworkError = error?.message?.includes('Failed to fetch') || 
+                                                 error?.message?.includes('NetworkError') ||
+                                                 error?.message?.includes('cancelada');
+                          
+                          let mensagemErro = error?.response?.data?.mensagem || 
+                                            error?.data?.mensagem || 
+                                            error?.message || 
+                                            'Erro ao gerar cards';
+                          
+                          // Se for erro de rede mas os cards podem ter sido criados, verificar no servidor
+                          if (isNetworkError) {
+                            mensagemErro = 'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
+                            console.warn('Erro de rede ao gerar cards, mas a operação pode ter sido concluída no servidor');
+                          }
+                          
                           setErro(mensagemErro);
+                          
                           // Não mostrar alert de erro se os cards foram criados (pode ser um erro de parsing)
                           if (!error?.response?.data?.cards && !error?.data?.cards) {
                             alert(`Erro: ${mensagemErro}`);
