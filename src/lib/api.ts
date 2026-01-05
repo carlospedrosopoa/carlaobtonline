@@ -96,6 +96,12 @@ async function apiRequest(
     });
     
     clearTimeout(timeoutId);
+    
+    // Se receber 401, pode ser token expirado - limpa o token
+    if (response.status === 401 && accessToken) {
+      setAccessToken(null);
+    }
+    
     return response;
   } catch (error: any) {
     clearTimeout(timeoutId);
@@ -105,13 +111,6 @@ async function apiRequest(
     }
     throw error;
   }
-
-  // Se receber 401, pode ser token expirado - limpa o token
-  if (response.status === 401 && accessToken) {
-    setAccessToken(null);
-  }
-
-  return response;
 }
 
 // API estilo axios para compatibilidade
