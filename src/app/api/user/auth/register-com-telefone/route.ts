@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const emailNormalizado = email.toLowerCase().trim();
 
     // Verificar se atleta já existe e tem usuário vinculado
-    let userId: string;
+    let userId: string | undefined;
     let atualizarUsuarioExistente = false;
     
     if (atletaId) {
@@ -79,6 +79,14 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Se está atualizando, verificar se o novo email não está em uso por OUTRO usuário
+      if (!userId) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Erro ao processar atualização de conta' },
+          { status: 500 }
+        );
+        return withCors(errorResponse, request);
+      }
+      
       const emailExisteEmOutroUsuario = await query(
         'SELECT id FROM "User" WHERE email = $1 AND id != $2',
         [emailNormalizado, userId]
