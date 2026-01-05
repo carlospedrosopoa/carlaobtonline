@@ -83,11 +83,28 @@ async function apiRequest(
     }
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers: headers as HeadersInit,
-    cache: 'no-store', // Forçar SSR - sempre buscar dados novos no servidor, ignorando cache
-  });
+  // Criar AbortController para timeout (60 segundos para operações longas como gerar cards)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: headers as HeadersInit,
+      cache: 'no-store', // Forçar SSR - sempre buscar dados novos no servidor, ignorando cache
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    // Se foi abortado por timeout, lançar erro mais descritivo
+    if (error.name === 'AbortError') {
+      throw new Error('A requisição demorou muito tempo e foi cancelada. Tente novamente.');
+    }
+    throw error;
+  }
 
   // Se receber 401, pode ser token expirado - limpa o token
   if (response.status === 401 && accessToken) {
