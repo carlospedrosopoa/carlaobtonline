@@ -2,6 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
+
+// OPTIONS /api/gestao-arena/saida-caixa/[id] - Preflight CORS
+export async function OPTIONS(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/saida-caixa/[id] - Obter saída de caixa
 export async function GET(
@@ -36,10 +46,11 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Saída de caixa não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const row = result.rows[0];
@@ -47,10 +58,11 @@ export async function GET(
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, row.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta saída de caixa' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -87,13 +99,15 @@ export async function GET(
       } : null,
     };
 
-    return NextResponse.json(saida);
+    const response = NextResponse.json(saida);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter saída de caixa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter saída de caixa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -105,18 +119,20 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Apenas ADMIN e ORGANIZER podem deletar saídas de caixa
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para deletar saídas de caixa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -128,10 +144,11 @@ export async function DELETE(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Saída de caixa não encontrada' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const saida = existe.rows[0];
@@ -139,22 +156,25 @@ export async function DELETE(
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, saida.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a esta saída de caixa' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
     await query('DELETE FROM "SaidaCaixa" WHERE id = $1', [id]);
 
-    return NextResponse.json({ mensagem: 'Saída de caixa deletada com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Saída de caixa deletada com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar saída de caixa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar saída de caixa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
