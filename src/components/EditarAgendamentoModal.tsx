@@ -310,6 +310,10 @@ export default function EditarAgendamentoModal({
     // Não limpar campos se estivermos restaurando dados preservados
     if (restaurandoDados) return;
     
+    // Não limpar campos se estivermos preenchendo um agendamento existente
+    // (o preencherFormulario já preenche os campos corretamente)
+    if (agendamentoCompleto) return;
+    
     if (modo === 'normal') {
       setAtletaId('');
       setNomeAvulso('');
@@ -319,7 +323,7 @@ export default function EditarAgendamentoModal({
       setTelefoneAvulso('');
       setBuscaAtleta('');
     }
-  }, [modo, restaurandoDados]);
+  }, [modo, restaurandoDados, agendamentoCompleto]);
 
   
 
