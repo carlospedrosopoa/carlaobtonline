@@ -448,7 +448,29 @@ export async function PUT(
     // Se dataHora ou quadraId foi alterado, verificar conflitos
     if (dataHora || (quadraId && quadraId !== agendamentoAtual.quadraId)) {
       // Tratar dataHora como horário local do usuário e converter para UTC
-      const dataHoraParaVerificar = dataHora || agendamentoAtual.dataHora;
+      // Se dataHora foi fornecida, usar ela; caso contrário, buscar do banco
+      let dataHoraParaVerificar: string | undefined;
+      
+      if (dataHora) {
+        dataHoraParaVerificar = dataHora;
+      } else {
+        // Buscar dataHora atual do banco se não foi fornecida
+        const agendamentoDataCheck = await query(
+          'SELECT "dataHora" FROM "Agendamento" WHERE id = $1',
+          [id]
+        );
+        
+        if (agendamentoDataCheck.rows.length === 0 || !agendamentoDataCheck.rows[0].dataHora) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Data/hora do agendamento não encontrada' },
+            { status: 400 }
+          );
+          return withCors(errorResponse, request);
+        }
+        
+        // Normalizar dataHora do banco para string ISO
+        dataHoraParaVerificar = normalizarDataHora(agendamentoDataCheck.rows[0].dataHora);
+      }
       
       // Verificar se dataHoraParaVerificar existe e é válida
       if (!dataHoraParaVerificar) {
