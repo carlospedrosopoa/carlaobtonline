@@ -424,12 +424,10 @@ export default function ArenaAgendaMobilePage() {
             setDataInicialModal(undefined);
             setHoraInicialModal(undefined);
           }}
-          agendamento={agendamentoEditando || undefined}
+          agendamento={agendamentoEditando}
           dataInicial={dataInicialModal}
           horaInicial={horaInicialModal}
-          onSave={() => {
-            setModalEditarAberto(false);
-            setAgendamentoEditando(null);
+          onSuccess={() => {
             carregarAgendamentos();
           }}
         />
