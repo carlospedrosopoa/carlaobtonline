@@ -679,13 +679,32 @@ export async function PUT(
       );
     } catch (error: any) {
       if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
-        agendamentoDataAtual = await query(
-          'SELECT "dataHora", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso", duracao, "valorHora", "valorCalculado", "valorNegociado", observacoes, "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
-          [id]
-        );
+        try {
+          agendamentoDataAtual = await query(
+            'SELECT "dataHora", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso", duracao, "valorHora", "valorCalculado", "valorNegociado", observacoes, "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
+            [id]
+          );
+        } catch (error2: any) {
+          if (error2.message?.includes('ehAula') || error2.message?.includes('professorId')) {
+            agendamentoDataAtual = await query(
+              'SELECT "dataHora", "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso", duracao, "valorHora", "valorCalculado", "valorNegociado", observacoes FROM "Agendamento" WHERE id = $1',
+              [id]
+            );
+          } else {
+            throw error2;
+          }
+        }
       } else {
         throw error;
       }
+    }
+    
+    if (!agendamentoDataAtual || agendamentoDataAtual.rows.length === 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Agendamento não encontrado' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
     }
     
     const dadosAtuais = agendamentoDataAtual.rows[0];
@@ -693,7 +712,7 @@ export async function PUT(
     // normalizarDataHora retorna string ISO, então converter para Date
     const dataHoraAtualRecorrenciaStr = normalizarDataHora(dadosAtuais.dataHora);
     const dataHoraAtualRecorrencia = new Date(dataHoraAtualRecorrenciaStr);
-    const recorrenciaIdAtual = dadosAtuais.recorrenciaId;
+    const recorrenciaIdAtual = dadosAtuais.recorrenciaId || null;
     
     console.log('[API] dataHoraAtualRecorrencia (após normalizarDataHora):', dataHoraAtualRecorrencia.toISOString(), 'timestamp:', dataHoraAtualRecorrencia.getTime());
     
@@ -734,14 +753,50 @@ export async function PUT(
       
       // 3. Atualizar o agendamento atual primeiro
       paramsUpdate.push(id);
-      const sqlAtualizar = `UPDATE "Agendamento"
+      
+      // Construir RETURNING de forma segura (sem campos que podem não existir)
+      let sqlAtualizar;
+      try {
+        sqlAtualizar = `UPDATE "Agendamento"
                  SET ${updates.join(', ')}
                  WHERE id = $${paramCount}
                  RETURNING id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
                    "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
                    status, observacoes, "recorrenciaId", "recorrenciaConfig", "createdAt", "updatedAt"`;
+      } catch (error: any) {
+        // Se houver erro ao construir SQL, tentar sem campos opcionais
+        sqlAtualizar = `UPDATE "Agendamento"
+                 SET ${updates.join(', ')}
+                 WHERE id = $${paramCount}
+                 RETURNING id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                   "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+                   status, observacoes, "createdAt", "updatedAt"`;
+      }
 
-      const result = await query(sqlAtualizar, paramsUpdate);
+      console.log('[API PUT] Executando UPDATE com SQL:', sqlAtualizar);
+      console.log('[API PUT] Parâmetros:', paramsUpdate);
+      
+      let result;
+      try {
+        result = await query(sqlAtualizar, paramsUpdate);
+      } catch (error: any) {
+        // Se falhar por causa de campos no RETURNING, tentar sem eles
+        if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
+          console.warn('[API PUT] Campos de recorrência não encontrados, tentando sem eles');
+          sqlAtualizar = `UPDATE "Agendamento"
+                   SET ${updates.join(', ')}
+                   WHERE id = $${paramCount}
+                   RETURNING id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+                     "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+                     status, observacoes, "createdAt", "updatedAt"`;
+          result = await query(sqlAtualizar, paramsUpdate);
+        } else {
+          console.error('[API PUT] Erro na query UPDATE:', error);
+          console.error('[API PUT] SQL:', sqlAtualizar);
+          console.error('[API PUT] Parâmetros:', paramsUpdate);
+          throw error;
+        }
+      }
       
       // 4. Gerar novos agendamentos recorrentes baseados nos dados atualizados
       const dadosBase = {
@@ -946,7 +1001,18 @@ export async function PUT(
                      "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
                      status, observacoes, "createdAt", "updatedAt"`;
 
-      const result = await query(sql, paramsUpdate);
+      console.log('[API PUT] Executando UPDATE simples com SQL:', sql);
+      console.log('[API PUT] Parâmetros:', paramsUpdate);
+      
+      let result;
+      try {
+        result = await query(sql, paramsUpdate);
+      } catch (error: any) {
+        console.error('[API PUT] Erro na query UPDATE simples:', error);
+        console.error('[API PUT] SQL:', sql);
+        console.error('[API PUT] Parâmetros:', paramsUpdate);
+        throw error;
+      }
 
       // Buscar dados relacionados para retorno completo
       let agendamentoCompleto;
@@ -1148,9 +1214,22 @@ export async function PUT(
       return withCors(response, request);
     }
   } catch (error: any) {
-    console.error('Erro ao atualizar agendamento:', error);
+    console.error('[API PUT] Erro ao atualizar agendamento:', error);
+    console.error('[API PUT] Stack trace:', error.stack);
+    console.error('[API PUT] Detalhes do erro:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      hint: error.hint,
+    });
     const errorResponse = NextResponse.json(
-      { mensagem: 'Erro ao atualizar agendamento', error: error.message },
+      { 
+        mensagem: 'Erro ao atualizar agendamento', 
+        error: error.message,
+        detail: error.detail || error.message,
+        constraint: error.constraint,
+      },
       { status: 500 }
     );
     return withCors(errorResponse, request);
