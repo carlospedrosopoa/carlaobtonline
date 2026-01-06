@@ -341,7 +341,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         </>
       )}
 
-      <main className="py-6 px-4">
+      <main className="pt-24 py-6 px-4">
         <div className="max-w-7xl mx-auto">
           {children}
         </div>
