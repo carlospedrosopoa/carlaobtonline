@@ -587,7 +587,7 @@ export async function deletarAtleta(atletaId: string): Promise<boolean> {
     // Deletar o atleta
     const result = await query('DELETE FROM "Atleta" WHERE id = $1', [atletaId]);
     
-    return result.rowCount !== undefined && result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   } catch (error) {
     console.error('Erro ao deletar atleta:', error);
     throw error;
