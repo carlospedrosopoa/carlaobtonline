@@ -283,13 +283,20 @@ async function carregarArenasEmBatch(atletas: any[]) {
 
 export async function listarAtletasPaginados(busca: string = "", pagina: number = 1, limite: number = 10) {
   const offset = (pagina - 1) * limite;
+  
+  // Normalizar busca removendo acentuação
+  const buscaNormalizada = busca
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  
   const result = await query(
     `SELECT id, nome, "dataNascimento" 
      FROM "Atleta" 
-     WHERE nome ILIKE $1 
+     WHERE LOWER(TRANSLATE(nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE LOWER($1)
      ORDER BY nome ASC 
      LIMIT $2 OFFSET $3`,
-    [`%${busca}%`, limite, offset]
+    [`%${buscaNormalizada}%`, limite, offset]
   );
   
   const atletas = result.rows.map((a: any) => ({

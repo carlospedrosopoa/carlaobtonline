@@ -25,9 +25,18 @@ export async function GET(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
+    // Função para normalizar texto removendo acentuação
+    const normalizarTexto = (texto: string): string => {
+      return texto
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    };
+
     // Buscar atletas por nome ou telefone
     // Remover caracteres não numéricos do termo para busca de telefone
     const termoLimpo = termo.trim();
+    const termoNormalizado = normalizarTexto(termoLimpo);
     const termoTelefone = termoLimpo.replace(/\D/g, ''); // Apenas números
 
     let sql: string;
@@ -35,6 +44,7 @@ export async function GET(request: NextRequest) {
 
     if (termoTelefone.length >= 3) {
       // Se o termo tem números, buscar por nome OU telefone
+      // Usar função SQL para normalizar nome e comparar
       sql = `
         SELECT 
           a.id,
@@ -48,20 +58,20 @@ export async function GET(request: NextRequest) {
         FROM "Atleta" a
         LEFT JOIN "User" u ON a."usuarioId" = u.id
         WHERE (
-          LOWER(a.nome) LIKE LOWER($1)
+          LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE LOWER($1)
           OR a.fone LIKE $2
         )
         AND a.id IS NOT NULL
         ORDER BY 
           CASE 
-            WHEN LOWER(a.nome) LIKE LOWER($3) THEN 1
+            WHEN LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE LOWER($3) THEN 1
             WHEN a.fone LIKE $4 THEN 2
             ELSE 3
           END,
           a.nome ASC
         LIMIT $5
       `;
-      const termoLike = `%${termoLimpo}%`;
+      const termoLike = `%${termoNormalizado}%`;
       const telefoneLike = `%${termoTelefone}%`;
       params = [termoLike, telefoneLike, termoLike, telefoneLike, limite];
     } else {
@@ -78,12 +88,12 @@ export async function GET(request: NextRequest) {
           u.email as "usuarioEmail"
         FROM "Atleta" a
         LEFT JOIN "User" u ON a."usuarioId" = u.id
-        WHERE LOWER(a.nome) LIKE LOWER($1)
+        WHERE LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE LOWER($1)
         AND a.id IS NOT NULL
         ORDER BY a.nome ASC
         LIMIT $2
       `;
-      params = [`%${termoLimpo}%`, limite];
+      params = [`%${termoNormalizado}%`, limite];
     }
 
     const result = await query(sql, params);
