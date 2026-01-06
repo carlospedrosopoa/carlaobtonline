@@ -85,3 +85,4 @@ WHERE t.table_schema = 'public'
 ORDER BY t.table_name, c.ordinal_position;
 
 
+

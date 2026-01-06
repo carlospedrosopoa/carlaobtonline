@@ -74,9 +74,14 @@ export async function GET(request: NextRequest) {
       paramCount++;
     }
 
-    sql += ` ORDER BY c."numeroCard" DESC`;
+    sql += ` ORDER BY COALESCE(c."updatedAt", c."createdAt") DESC, c."createdAt" DESC`;
 
+    console.log('[GET /api/gestao-arena/card-cliente] SQL:', sql);
+    console.log('[GET /api/gestao-arena/card-cliente] Params:', params);
+    
     const result = await query(sql, params);
+    
+    console.log(`[GET /api/gestao-arena/card-cliente] Query executada, ${result.rows.length} cards encontrados`);
     
     const cards = result.rows.map((row: any) => {
       const card: any = {

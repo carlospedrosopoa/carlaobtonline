@@ -1021,7 +1021,7 @@ export default function ArenaAgendaSemanalPage() {
       <div className="bg-white rounded-xl shadow-lg overflow-visible">
         <div className="overflow-x-auto overflow-y-visible">
           <div className="min-w-[1000px]">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse" style={{ position: 'relative' }}>
               <thead>
                 <tr className="bg-gray-50 border-b-2 border-gray-300">
                   <th className="sticky left-0 z-20 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-700 border-r-2 border-gray-300 w-20">
@@ -1068,12 +1068,12 @@ export default function ArenaAgendaSemanalPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody style={{ position: 'relative' }}>
                 {horariosFiltrados.map((slot) => {
                   const mostrarHora = slot.minuto === 0; // Mostrar apenas nas horas cheias
                   
                   return (
-                    <tr key={`${slot.hora}-${slot.minuto}`} className="border-b border-gray-200">
+                    <tr key={`${slot.hora}-${slot.minuto}`} className="border-b border-gray-200" style={{ position: 'relative' }}>
                       <td className="sticky left-0 z-10 bg-white px-4 py-1 text-xs font-medium text-gray-600 border-r-2 border-gray-300 align-top">
                         {mostrarHora && (
                           <div className="font-semibold text-gray-700">
@@ -1141,7 +1141,7 @@ export default function ArenaAgendaSemanalPage() {
                         return (
                           <td
                             key={diaIdx}
-                            className={`px-1 py-0.5 align-top relative ${diaIdx < diasSemana.length - 1 ? 'border-r-2 border-gray-300' : ''}`}
+                            className={`px-1 py-0.5 align-top relative overflow-visible ${diaIdx < diasSemana.length - 1 ? 'border-r-2 border-gray-300' : ''}`}
                             style={{ height: '60px' }}
                             onMouseEnter={(e) => {
                               setTooltipDia(dia);
@@ -1166,7 +1166,7 @@ export default function ArenaAgendaSemanalPage() {
                             }}
                           >
                             {/* Renderizar colunas fixas para cada quadra */}
-                            <div className="absolute inset-1 flex flex-nowrap gap-1">
+                            <div className="absolute inset-1 flex flex-nowrap gap-1" style={{ overflow: 'visible' }}>
                               {quadrasOrdenadas.map((quadra, quadraIdx) => {
                                 // Filtrar agendamentos desta quadra
                                 const agendamentosDaQuadra = agendamentosParaRenderizar.filter(
@@ -1187,15 +1187,10 @@ export default function ArenaAgendaSemanalPage() {
                                     style={{ width: larguraPorQuadra }}
                                     onClick={() => {
                                       if (!temConteudo) {
-                                        // Formatar data no formato YYYY-MM-DD
-                                        const ano = dia.getFullYear();
-                                        const mes = String(dia.getMonth() + 1).padStart(2, '0');
-                                        const diaNum = String(dia.getDate()).padStart(2, '0');
-                                        const dataFormatada = `${ano}-${mes}-${diaNum}`;
-                                        // Formatar hora no formato HH:mm
-                                        const horaFormatada = `${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`;
-                                        setDataInicialModal(dataFormatada);
-                                        setHoraInicialModal(horaFormatada);
+                                        const dataHora = new Date(dia);
+                                        dataHora.setHours(slot.hora, slot.minuto, 0, 0);
+                                        setDataInicialModal(dataHora.toISOString());
+                                        setHoraInicialModal(`${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`);
                                         setAgendamentoEditando(null);
                                         setModalEditarAberto(true);
                                       }
@@ -1319,6 +1314,7 @@ export default function ArenaAgendaSemanalPage() {
                                             height: `${linhasOcupadas * 60 - 2}px`,
                                             width: '100%',
                                             zIndex: menuAberto === agendamento.id ? 20 : 10,
+                                            minHeight: `${linhasOcupadas * 60 - 2}px`,
                                           }}
                                           onMouseEnter={(e) => {
                                             if (agendamento.observacoes) {

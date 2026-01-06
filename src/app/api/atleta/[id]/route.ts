@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { atualizarAtleta, buscarAtletaPorId, deletarAtleta } from '@/lib/atletaService';
+import { atualizarAtleta, buscarAtletaPorId, deletarAtleta, atletaTemporarioCriadoPelaArena } from '@/lib/atletaService';
 import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
 
 export async function GET(
@@ -78,10 +78,11 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    // Verificar se o atleta pertence ao usuário (ou se é ADMIN)
-    if (user.role !== 'ADMIN' && atletaExistente.usuarioId !== user.id) {
+    // Verificar se pode editar: apenas atletas temporários criados pela arena do usuário
+    const podeEditar = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
+    if (!podeEditar) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Você não tem permissão para atualizar este atleta' },
+        { mensagem: 'Apenas atletas temporários criados pela sua arena podem ser editados' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
@@ -253,11 +254,11 @@ export async function DELETE(
       return withCors(errorResponse, request);
     }
 
-    // Verificar permissão: apenas ADMIN pode deletar qualquer atleta
-    // Usuários podem deletar apenas seus próprios atletas
-    if (user.role !== 'ADMIN' && atletaExistente.usuarioId !== user.id) {
+    // Verificar se pode deletar: apenas atletas temporários criados pela arena do usuário
+    const podeDeletar = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
+    if (!podeDeletar) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Você não tem permissão para deletar este atleta' },
+        { mensagem: 'Apenas atletas temporários criados pela sua arena podem ser excluídos' },
         { status: 403 }
       );
       return withCors(errorResponse, request);

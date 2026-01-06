@@ -20,6 +20,8 @@ interface Atleta {
   usuarioId: string;
   assinante?: boolean;
   usuarioEmail?: string;
+  pointIdPrincipal?: string | null;
+  arenasFrequentes?: Array<{ id: string; nome: string; logoUrl?: string }>;
   usuario?: {
     id: string;
     name: string;
@@ -1087,49 +1089,54 @@ export default function AdminAtletasPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-col gap-2 w-full">
-                <button
-                  onClick={() => {
-                    setModalEditarAtleta(atleta);
-                  }}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Editar Dados
-                </button>
+              {/* Botões de ação apenas para atletas temporários */}
+              {isAtletaPendente(atleta) && (
+                <div className="mt-4 flex flex-col gap-2 w-full">
+                  <button
+                    onClick={() => {
+                      setModalEditarAtleta(atleta);
+                    }}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    Editar Dados
+                  </button>
 
-                <button
-                  onClick={() => {
-                    setModalEditarFoto({
-                      atletaId: atleta.id,
-                      fotoAtual: atleta.fotoUrl || null,
-                    });
-                  }}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                >
-                  Alterar Foto
-                </button>
+                  <button
+                    onClick={() => {
+                      setModalEditarFoto({
+                        atletaId: atleta.id,
+                        fotoAtual: atleta.fotoUrl || null,
+                      });
+                    }}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  >
+                    Alterar Foto
+                  </button>
 
-                <button
-                  onClick={async () => {
-                    if (!confirm(`Tem certeza que deseja excluir o atleta "${atleta.nome}"? Esta ação não pode ser desfeita.`)) {
-                      return;
-                    }
-                    try {
-                      const { status } = await api.delete(`/atleta/${atleta.id}`);
-                      if (status === 200) {
-                        fetchAtletas();
-                      } else {
-                        alert('Erro ao excluir atleta. Tente novamente.');
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Tem certeza que deseja excluir o atleta "${atleta.nome}"? Esta ação não pode ser desfeita.`)) {
+                        return;
                       }
-                    } catch (error) {
-                      console.error('Erro ao excluir atleta:', error);
-                      alert('Erro ao excluir atleta. Tente novamente.');
-                    }
-                  }}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                >
-                  Excluir Atleta
-                </button>
+                      try {
+                        const { status } = await api.delete(`/atleta/${atleta.id}`);
+                        if (status === 200) {
+                          fetchAtletas();
+                        } else {
+                          alert('Erro ao excluir atleta. Tente novamente.');
+                        }
+                      } catch (error: any) {
+                        console.error('Erro ao excluir atleta:', error);
+                        const mensagem = error?.response?.data?.mensagem || 'Erro ao excluir atleta. Tente novamente.';
+                        alert(mensagem);
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Excluir Atleta
+                  </button>
+                </div>
+              )}
 
                 {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
                 {atleta.fone && isAtletaPendente(atleta) && (

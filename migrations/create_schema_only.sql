@@ -305,3 +305,4 @@ COMMENT ON COLUMN public."Agendamento"."updatedById" IS 'ID do usuário que fez 
 -- 2. Ou eu posso criar o script completo em partes
 
 
+

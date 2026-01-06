@@ -109,9 +109,10 @@ export async function DELETE(
       await query(
         `UPDATE "CardCliente" 
          SET "valorTotal" = $1,
-         "updatedAt" = NOW()
+         "updatedAt" = NOW(),
+         "updatedById" = $3
          WHERE id = $2`,
-        [novoValorTotal, cardId]
+        [novoValorTotal, cardId, usuario.id]
       );
     } catch (error: any) {
       console.error('Erro ao desvincular agendamento:', error);

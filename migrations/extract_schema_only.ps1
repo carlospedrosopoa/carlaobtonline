@@ -57,3 +57,4 @@ Write-Host "Linhas processadas: $($lines.Count)" -ForegroundColor Cyan
 Write-Host "Linhas no output: $($output.Count)" -ForegroundColor Cyan
 
 
+

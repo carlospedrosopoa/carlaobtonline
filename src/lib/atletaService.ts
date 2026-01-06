@@ -521,6 +521,64 @@ export async function atualizarAtleta(atletaId: string, dados: {
   };
 }
 
+// Verificar se um atleta temporário foi criado pela arena do usuário
+export async function atletaTemporarioCriadoPelaArena(
+  atleta: any,
+  usuario: { id: string; role: string; pointIdGestor?: string | null }
+): Promise<boolean> {
+  // ADMIN pode editar/excluir qualquer atleta temporário
+  if (usuario.role === 'ADMIN') {
+    // Verificar se é temporário
+    const email = atleta.usuarioEmail || atleta.usuario?.email;
+    if (!email) return false;
+    return email.startsWith('temp_') && email.endsWith('@pendente.local');
+  }
+
+  // Verificar se o atleta é temporário
+  const email = atleta.usuarioEmail || atleta.usuario?.email;
+  if (!email || !email.startsWith('temp_') || !email.endsWith('@pendente.local')) {
+    return false;
+  }
+
+  // ORGANIZER só pode editar/excluir atletas temporários CRIADOS pela sua arena
+  if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
+    // Verificar qual arena criou o atleta verificando o usuário criador
+    // O atleta temporário foi criado por um usuário (via usuarioId)
+    // Precisamos verificar se esse usuário criador é um ORGANIZER da mesma arena
+    if (atleta.usuarioId) {
+      try {
+        const usuarioCriadorResult = await query(
+          'SELECT "pointIdGestor" FROM "User" WHERE id = $1',
+          [atleta.usuarioId]
+        );
+        
+        if (usuarioCriadorResult.rows.length > 0) {
+          const pointIdGestorCriador = usuarioCriadorResult.rows[0].pointIdGestor;
+          
+          // Se o usuário criador tem o mesmo pointIdGestor, então foi criado por essa arena
+          if (pointIdGestorCriador === usuario.pointIdGestor) {
+            return true;
+          }
+        }
+      } catch (error: any) {
+        console.warn('Erro ao verificar usuário criador:', error?.message);
+      }
+    }
+    
+    // Fallback: verificar se o pointIdPrincipal corresponde (pode ter sido alterado)
+    // Mas só aceitar se o atleta não tiver sido criado por outra arena
+    // Na prática, se chegou aqui, o atleta não foi criado por essa arena
+    return false;
+  }
+
+  // USER comum só pode editar/excluir seus próprios atletas temporários
+  if (usuario.role === 'USER' && atleta.usuarioId === usuario.id) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function deletarAtleta(atletaId: string): Promise<boolean> {
   try {
     // Deletar relacionamentos primeiro

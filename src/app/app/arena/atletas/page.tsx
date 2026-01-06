@@ -21,6 +21,8 @@ interface Atleta {
   usuarioId: string;
   assinante?: boolean;
   usuarioEmail?: string;
+  pointIdPrincipal?: string | null;
+  arenasFrequentes?: Array<{ id: string; nome: string; logoUrl?: string }>;
   usuario?: {
     id: string;
     name: string;
@@ -414,6 +416,31 @@ export default function ArenaAtletasPage() {
     return false;
   };
 
+  // Verificar se o atleta temporário foi criado pela arena do usuário
+  // Nota: Esta é uma verificação conservadora no frontend. O backend faz a validação final
+  // verificando qual arena realmente criou o atleta através do pointIdGestor do usuário criador
+  const atletaTemporarioCriadoPelaArena = (atleta: Atleta): boolean => {
+    // Verificar se é temporário
+    if (!isAtletaPendente(atleta)) {
+      return false;
+    }
+
+    // Se não tem pointIdGestor, não pode ser criado pela arena
+    if (!usuario?.pointIdGestor) {
+      return false;
+    }
+
+    // Verificação conservadora: apenas mostrar botões se o pointIdPrincipal corresponder
+    // Isso indica que provavelmente foi criado por essa arena
+    // O backend fará a validação final verificando o pointIdGestor do usuário criador
+    if (atleta.pointIdPrincipal === usuario.pointIdGestor) {
+      return true;
+    }
+
+    // Não considerar apenas arenasFrequentes, pois o atleta pode ter sido vinculado depois
+    return false;
+  };
+
   const fetchAtletas = async () => {
     try {
       setCarregando(true);
@@ -667,30 +694,33 @@ export default function ArenaAtletasPage() {
                 </div>
               )}
 
-              {/* Botões de ação gerais */}
-              <div className="mt-4 w-full space-y-2">
-                <button
-                  onClick={async () => {
-                    if (!confirm(`Tem certeza que deseja excluir o atleta "${atleta.nome}"? Esta ação não pode ser desfeita.`)) {
-                      return;
-                    }
-                    try {
-                      const { status } = await api.delete(`/atleta/${atleta.id}`);
-                      if (status === 200) {
-                        fetchAtletas();
-                      } else {
-                        alert('Erro ao excluir atleta. Tente novamente.');
+              {/* Botões de ação apenas para atletas temporários criados pela arena */}
+              {atletaTemporarioCriadoPelaArena(atleta) && (
+                <div className="mt-4 w-full space-y-2">
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Tem certeza que deseja excluir o atleta "${atleta.nome}"? Esta ação não pode ser desfeita.`)) {
+                        return;
                       }
-                    } catch (error) {
-                      console.error('Erro ao excluir atleta:', error);
-                      alert('Erro ao excluir atleta. Tente novamente.');
-                    }
-                  }}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                >
-                  Excluir Atleta
-                </button>
-              </div>
+                      try {
+                        const { status } = await api.delete(`/atleta/${atleta.id}`);
+                        if (status === 200) {
+                          fetchAtletas();
+                        } else {
+                          alert('Erro ao excluir atleta. Tente novamente.');
+                        }
+                      } catch (error: any) {
+                        console.error('Erro ao excluir atleta:', error);
+                        const mensagem = error?.response?.data?.mensagem || 'Erro ao excluir atleta. Tente novamente.';
+                        alert(mensagem);
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Excluir Atleta
+                  </button>
+                </div>
+              )}
 
               {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
               {atleta.fone && isAtletaPendente(atleta) && (

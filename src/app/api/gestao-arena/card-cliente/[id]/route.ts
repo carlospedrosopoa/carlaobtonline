@@ -464,6 +464,9 @@ export async function PUT(
     }
 
     updates.push(`"updatedAt" = NOW()`);
+    updates.push(`"updatedById" = $${paramCount}`);
+    values.push(usuario.id);
+    paramCount++;
     values.push(id);
 
     const result = await query(
