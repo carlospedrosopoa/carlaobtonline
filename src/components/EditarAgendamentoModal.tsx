@@ -127,6 +127,14 @@ export default function EditarAgendamentoModal({
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
   const inputBuscaAtletaRef = useRef<HTMLInputElement>(null); // Ref para o campo de busca de atleta
 
+  // Função para normalizar texto removendo acentuação
+  const normalizarTexto = (texto: string): string => {
+    return texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  };
+
   const carregarDados = useCallback(async () => {
     try {
       const [pointsData, atletasData, quadrasData, professoresData] = await Promise.all([
@@ -1386,9 +1394,11 @@ export default function EditarAgendamentoModal({
                           const atletasFiltradosParticipantes = !buscaAtletasParticipantes.trim() 
                             ? atletas 
                             : atletas.filter((a) => {
-                                const termo = buscaAtletasParticipantes.toLowerCase();
-                                const nomeMatch = a.nome?.toLowerCase().includes(termo);
-                                const foneMatch = a.fone?.toLowerCase().includes(termo);
+                                const termoNormalizado = normalizarTexto(buscaAtletasParticipantes);
+                                const nomeNormalizado = normalizarTexto(a.nome || '');
+                                const foneNormalizado = normalizarTexto(a.fone || '');
+                                const nomeMatch = nomeNormalizado.includes(termoNormalizado);
+                                const foneMatch = foneNormalizado.includes(termoNormalizado);
                                 return nomeMatch || foneMatch;
                               });
                           

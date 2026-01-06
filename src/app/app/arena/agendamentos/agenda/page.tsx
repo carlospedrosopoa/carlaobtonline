@@ -43,6 +43,14 @@ export default function ArenaAgendaSemanalPage() {
   const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
+  // Função para normalizar texto removendo acentuação
+  const normalizarTexto = (texto: string): string => {
+    return texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  };
+
   // Inicializar sempre com a data atual como primeiro dia
   const [inicioSemana, setInicioSemana] = useState(() => {
     const hoje = new Date();
@@ -194,16 +202,16 @@ export default function ArenaAgendaSemanalPage() {
 
     // Aplicar filtro por nome ou telefone
     if (filtroNome.trim()) {
-      const termoBusca = filtroNome.toLowerCase().trim();
-      const termoBuscaNumerico = termoBusca.replace(/\D/g, '');
+      const termoBusca = normalizarTexto(filtroNome.trim());
+      const termoBuscaNumerico = filtroNome.trim().replace(/\D/g, '');
       
       agendamentosFiltrados = agendamentosFiltrados.filter((ag) => {
         // Buscar no nome do professor (se for aula)
-        if (ag.ehAula && ag.professor?.usuario?.name && ag.professor.usuario.name.toLowerCase().includes(termoBusca)) {
+        if (ag.ehAula && ag.professor?.usuario?.name && normalizarTexto(ag.professor.usuario.name).includes(termoBusca)) {
           return true;
         }
         // Buscar na especialidade do professor
-        if (ag.ehAula && ag.professor?.especialidade && ag.professor.especialidade.toLowerCase().includes(termoBusca)) {
+        if (ag.ehAula && ag.professor?.especialidade && normalizarTexto(ag.professor.especialidade).includes(termoBusca)) {
           return true;
         }
         // Buscar no email do professor
@@ -211,7 +219,7 @@ export default function ArenaAgendaSemanalPage() {
           return true;
         }
         // Buscar no nome do atleta
-        if (ag.atleta?.nome && ag.atleta.nome.toLowerCase().includes(termoBusca)) {
+        if (ag.atleta?.nome && normalizarTexto(ag.atleta.nome).includes(termoBusca)) {
           return true;
         }
         // Buscar no telefone do atleta (remover caracteres não numéricos para comparação)
@@ -222,7 +230,7 @@ export default function ArenaAgendaSemanalPage() {
           }
         }
         // Buscar no nome avulso
-        if (ag.nomeAvulso && ag.nomeAvulso.toLowerCase().includes(termoBusca)) {
+        if (ag.nomeAvulso && normalizarTexto(ag.nomeAvulso).includes(termoBusca)) {
           return true;
         }
         // Buscar no telefone avulso (remover caracteres não numéricos para comparação)
@@ -233,7 +241,7 @@ export default function ArenaAgendaSemanalPage() {
           }
         }
         // Buscar no nome do usuário
-        if (ag.usuario?.name && ag.usuario.name.toLowerCase().includes(termoBusca)) {
+        if (ag.usuario?.name && normalizarTexto(ag.usuario.name).includes(termoBusca)) {
           return true;
         }
         // Buscar no email do usuário
@@ -282,16 +290,16 @@ export default function ArenaAgendaSemanalPage() {
 
     // Aplicar filtro por nome ou telefone
     if (filtroNome.trim()) {
-      const termoBusca = filtroNome.toLowerCase().trim();
-      const termoBuscaNumerico = termoBusca.replace(/\D/g, '');
+      const termoBusca = normalizarTexto(filtroNome.trim());
+      const termoBuscaNumerico = filtroNome.trim().replace(/\D/g, '');
       
       agendamentosFiltrados = agendamentosFiltrados.filter((ag) => {
         // Buscar no nome do professor (se for aula)
-        if (ag.ehAula && ag.professor?.usuario?.name && ag.professor.usuario.name.toLowerCase().includes(termoBusca)) {
+        if (ag.ehAula && ag.professor?.usuario?.name && normalizarTexto(ag.professor.usuario.name).includes(termoBusca)) {
           return true;
         }
         // Buscar na especialidade do professor
-        if (ag.ehAula && ag.professor?.especialidade && ag.professor.especialidade.toLowerCase().includes(termoBusca)) {
+        if (ag.ehAula && ag.professor?.especialidade && normalizarTexto(ag.professor.especialidade).includes(termoBusca)) {
           return true;
         }
         // Buscar no email do professor
@@ -299,7 +307,7 @@ export default function ArenaAgendaSemanalPage() {
           return true;
         }
         // Buscar no nome do atleta
-        if (ag.atleta?.nome && ag.atleta.nome.toLowerCase().includes(termoBusca)) {
+        if (ag.atleta?.nome && normalizarTexto(ag.atleta.nome).includes(termoBusca)) {
           return true;
         }
         // Buscar no telefone do atleta (remover caracteres não numéricos para comparação)
@@ -310,7 +318,7 @@ export default function ArenaAgendaSemanalPage() {
           }
         }
         // Buscar no nome avulso
-        if (ag.nomeAvulso && ag.nomeAvulso.toLowerCase().includes(termoBusca)) {
+        if (ag.nomeAvulso && normalizarTexto(ag.nomeAvulso).includes(termoBusca)) {
           return true;
         }
         // Buscar no telefone avulso (remover caracteres não numéricos para comparação)
@@ -321,7 +329,7 @@ export default function ArenaAgendaSemanalPage() {
           }
         }
         // Buscar no nome do usuário
-        if (ag.usuario?.name && ag.usuario.name.toLowerCase().includes(termoBusca)) {
+        if (ag.usuario?.name && normalizarTexto(ag.usuario.name).includes(termoBusca)) {
           return true;
         }
         // Buscar no email do usuário

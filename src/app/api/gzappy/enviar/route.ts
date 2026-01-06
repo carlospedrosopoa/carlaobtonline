@@ -2,6 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUsuarioFromRequest } from '@/lib/auth';
 import { enviarMensagemGzappy, formatarNumeroGzappy } from '@/lib/gzappyService';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
+
+/**
+ * OPTIONS /api/gzappy/enviar - Preflight CORS
+ */
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 /**
  * POST /api/gzappy/enviar
@@ -20,18 +29,20 @@ export async function POST(request: NextRequest) {
     // Verificar autenticação
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(response, request);
     }
 
     // Verificar permissões (apenas ADMIN e ORGANIZER podem enviar)
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { mensagem: 'Apenas administradores e organizadores podem enviar mensagens' },
         { status: 403 }
       );
+      return withCors(response, request);
     }
 
     const body = await request.json();
@@ -39,24 +50,27 @@ export async function POST(request: NextRequest) {
 
     // Validações
     if (!destinatario || !mensagem) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { mensagem: 'Destinatário e mensagem são obrigatórios' },
         { status: 400 }
       );
+      return withCors(response, request);
     }
 
     if (typeof mensagem !== 'string' || mensagem.trim().length === 0) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { mensagem: 'A mensagem não pode estar vazia' },
         { status: 400 }
       );
+      return withCors(response, request);
     }
 
     if (mensagem.length > 4096) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { mensagem: 'A mensagem não pode ter mais de 4096 caracteres' },
         { status: 400 }
       );
+      return withCors(response, request);
     }
 
     // Formatar número do destinatário
@@ -66,10 +80,11 @@ export async function POST(request: NextRequest) {
     const pointIdFinal = pointId || (usuario.role === 'ORGANIZER' ? usuario.pointIdGestor : undefined);
 
     if (!pointIdFinal) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { mensagem: 'Arena não identificada. É necessário fornecer pointId ou ser um organizador de uma arena.' },
         { status: 400 }
       );
+      return withCors(response, request);
     }
 
     // Enviar mensagem via Gzappy
@@ -91,10 +106,11 @@ export async function POST(request: NextRequest) {
           destinatario: numeroFormatado,
           pointId: pointIdFinal,
         });
-        return NextResponse.json(
+        const response = NextResponse.json(
           { mensagem: 'Erro ao enviar mensagem via Gzappy. Verifique as configurações da arena e os logs do servidor.' },
           { status: 500 }
         );
+        return withCors(response, request);
       }
 
       console.log('✅ Mensagem Gzappy enviada com sucesso:', {
@@ -102,11 +118,12 @@ export async function POST(request: NextRequest) {
         pointId: pointIdFinal,
       });
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         sucesso: true,
         mensagem: 'Mensagem enviada com sucesso',
         destinatario: numeroFormatado,
       });
+      return withCors(response, request);
     } catch (error: any) {
       console.error('❌ Erro ao enviar mensagem via Gzappy:', {
         error: error.message,
@@ -117,22 +134,24 @@ export async function POST(request: NextRequest) {
 
       // Capturar erros específicos do Gzappy
       if (error.message?.includes('Gzappy') || error.message?.includes('JWT Token') || error.message?.includes('API Key') || error.message?.includes('Instance ID')) {
-        return NextResponse.json(
+        const response = NextResponse.json(
           { 
             mensagem: error.message,
             detalhes: 'Verifique se as credenciais do Gzappy estão corretas e ativas nas configurações da arena.'
           },
           { status: 400 }
         );
+        return withCors(response, request);
       }
       throw error; // Re-lançar outros erros
     }
   } catch (error: any) {
     console.error('Erro ao enviar mensagem via Gzappy:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { mensagem: 'Erro ao processar requisição', error: error.message },
       { status: 500 }
     );
+    return withCors(response, request);
   }
 }
 
