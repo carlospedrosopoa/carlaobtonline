@@ -267,6 +267,26 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       .reduce((sum, item) => sum + item.precoTotal, 0);
   };
 
+  // Preencher valor automaticamente quando itens são selecionados
+  useEffect(() => {
+    if (!modalPagamentoAberto || !cardCompleto) return;
+    
+    if (itensSelecionadosPagamento.length > 0) {
+      // Sempre atualizar o valor quando itens são selecionados
+      const valorItens = calcularValorItensSelecionados();
+      setValorPagamento(valorItens);
+    } else if (valorPagamento === null || valorPagamento === 0) {
+      // Se não há itens selecionados e valor ainda não foi preenchido, usar saldo
+      const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
+      const totalPago = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
+      const saldo = valorTotalItens - totalPago;
+      if (saldo > 0) {
+        setValorPagamento(saldo);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itensSelecionadosPagamento, modalPagamentoAberto]);
+
   const fecharModalPagamento = () => {
     setModalPagamentoAberto(false);
     setErro('');
@@ -1198,21 +1218,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                 </div>
               )}
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
-                  <select
-                    value={formaPagamentoSelecionada}
-                    onChange={(e) => setFormaPagamentoSelecionada(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  >
-                    <option value="">Selecione uma forma de pagamento</option>
-                    {formasPagamento.map((forma) => (
-                      <option key={forma.id} value={forma.id}>
-                        {forma.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
                 {/* Seleção de Itens */}
                 {itensLocais.length > 0 && (
@@ -1290,22 +1295,13 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
                 <div>
                   <InputMonetario
-                    label={itensSelecionadosPagamento.length > 0 ? 'Valor (será ajustado automaticamente se necessário)' : 'Valor'}
+                    label="Valor *"
                     value={valorPagamento}
                     onChange={setValorPagamento}
                     placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0,00"}
                     min={0}
                     required
                   />
-                  {itensSelecionadosPagamento.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setValorPagamento(calcularValorItensSelecionados())}
-                      className="mt-1 text-sm text-emerald-600 hover:text-emerald-700 underline"
-                    >
-                      Usar valor dos itens selecionados
-                    </button>
-                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
@@ -1316,6 +1312,34 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
+
+                {/* Botões de Forma de Pagamento */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Forma de Pagamento *</label>
+                  <div className="flex flex-wrap gap-2">
+                    {formasPagamento.map((forma) => {
+                      const selecionada = formaPagamentoSelecionada === forma.id;
+                      return (
+                        <button
+                          key={forma.id}
+                          type="button"
+                          onClick={() => setFormaPagamentoSelecionada(forma.id)}
+                          className={`px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                            selecionada
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                          }`}
+                        >
+                          {forma.nome}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {formaPagamentoSelecionada === '' && (
+                    <p className="mt-2 text-xs text-red-500">Selecione uma forma de pagamento.</p>
+                  )}
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={fecharModalPagamento}
@@ -1326,7 +1350,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   <button
                     onClick={adicionarPagamento}
                     disabled={salvando || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0}
-                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {salvando ? 'Adicionando...' : 'Adicionar'}
                   </button>

@@ -350,6 +350,12 @@ export async function POST(
     // Não fechar automaticamente - o card será fechado manualmente quando necessário
     // O sistema mantém o saldo (valorTotal - totalPago) para controle
 
+    // Atualizar updatedAt do card
+    await query(
+      'UPDATE "CardCliente" SET "updatedAt" = NOW(), "updatedById" = $2 WHERE id = $1',
+      [cardId, usuario.id]
+    );
+
     const response = NextResponse.json(pagamentoResult.rows[0], { status: 201 });
     return withCors(response, request);
   } catch (error: any) {

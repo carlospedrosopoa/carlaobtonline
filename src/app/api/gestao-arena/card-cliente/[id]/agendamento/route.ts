@@ -274,9 +274,10 @@ export async function POST(
       await query(
         `UPDATE "CardCliente" 
          SET "valorTotal" = $1,
-         "updatedAt" = NOW()
+         "updatedAt" = NOW(),
+         "updatedById" = $3
          WHERE id = $2`,
-        [novoValorTotal, cardId]
+        [novoValorTotal, cardId, usuario.id]
       );
     } catch (error: any) {
       console.error('Erro ao atualizar valor total do card:', error);

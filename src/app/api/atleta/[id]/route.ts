@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
-import { atualizarAtleta, buscarAtletaPorId } from '@/lib/atletaService';
+import { atualizarAtleta, buscarAtletaPorId, deletarAtleta, atletaTemporarioCriadoPelaArena } from '@/lib/atletaService';
 import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
 
 export async function GET(
@@ -78,10 +78,11 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    // Verificar se o atleta pertence ao usuário (ou se é ADMIN)
-    if (user.role !== 'ADMIN' && atletaExistente.usuarioId !== user.id) {
+    // Verificar se pode editar: apenas atletas temporários criados pela arena do usuário
+    const podeEditar = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
+    if (!podeEditar) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Você não tem permissão para atualizar este atleta' },
+        { mensagem: 'Apenas atletas temporários criados pela sua arena podem ser editados' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
@@ -222,6 +223,74 @@ export async function PUT(
     console.error('Erro ao atualizar atleta:', error);
     const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar atleta' },
+      { status: 500 }
+    );
+    return withCors(errorResponse, request);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authResult = await requireAuth(request);
+    
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    const { user } = authResult;
+    const { id } = await params;
+    
+    // Verificar se o atleta existe
+    const atletaExistente = await buscarAtletaPorId(id);
+    
+    if (!atletaExistente) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Atleta não encontrado' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Verificar se pode deletar: apenas atletas temporários criados pela arena do usuário
+    const podeDeletar = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
+    if (!podeDeletar) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Apenas atletas temporários criados pela sua arena podem ser excluídos' },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Deletar foto do GCS se existir
+    if (atletaExistente.fotoUrl && atletaExistente.fotoUrl.startsWith('https://storage.googleapis.com/')) {
+      try {
+        await deleteImage(atletaExistente.fotoUrl);
+      } catch (error) {
+        console.error('Erro ao deletar imagem do atleta (não crítico):', error);
+        // Continua mesmo se não conseguir deletar a imagem
+      }
+    }
+
+    // Deletar o atleta
+    const deletado = await deletarAtleta(id);
+    
+    if (!deletado) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Erro ao deletar atleta' },
+        { status: 500 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const response = NextResponse.json({ mensagem: 'Atleta deletado com sucesso' });
+    return withCors(response, request);
+  } catch (error) {
+    console.error('Erro ao deletar atleta:', error);
+    const errorResponse = NextResponse.json(
+      { mensagem: 'Erro ao deletar atleta' },
       { status: 500 }
     );
     return withCors(errorResponse, request);

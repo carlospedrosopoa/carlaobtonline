@@ -110,19 +110,24 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
     if (!modalPagamentoAberto || !cardCompleto) return;
     
     if (itensSelecionadosPagamento.length > 0) {
+      // Sempre atualizar o valor quando itens são selecionados
       const valorItens = calcularValorItensSelecionados();
-      if (valorItens > 0 && valorPagamento !== valorItens) {
+      if (valorItens > 0) {
         setValorPagamento(valorItens);
+      } else {
+        setValorPagamento(0);
       }
     } else if (valorPagamento === null || valorPagamento === 0) {
       // Se não há itens selecionados e valor ainda não foi preenchido, usar saldo
       const saldo = calcularSaldo();
       if (saldo > 0) {
         setValorPagamento(saldo);
+      } else {
+        setValorPagamento(null);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itensSelecionadosPagamento.length, modalPagamentoAberto]);
+  }, [itensSelecionadosPagamento, modalPagamentoAberto, itens]);
 
   // Recalcular valor por pessoa quando valor ou numeroPessoas mudar
   useEffect(() => {
@@ -542,7 +547,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
               {/* 2. Valor a pagar */}
               <div>
                 <InputMonetario
-                  label={itensSelecionadosPagamento.length > 0 ? 'Valor a Pagar *' : 'Valor a Pagar *'}
+                  label="Valor *"
                   value={valorPagamento}
                   onChange={setValorPagamento}
                   placeholder={itensSelecionadosPagamento.length > 0 
@@ -553,15 +558,6 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                   min={0}
                   required
                 />
-                {itensSelecionadosPagamento.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setValorPagamento(calcularValorItensSelecionados())}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                  >
-                    Usar valor dos itens selecionados
-                  </button>
-                )}
                 {itensSelecionadosPagamento.length === 0 && calcularSaldo() > 0 && (
                   <button
                     type="button"
@@ -612,34 +608,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                 )}
               </div>
 
-              {/* 4. Botões de Forma de Pagamento */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento *</label>
-                <div className="flex flex-wrap gap-2">
-                  {formasPagamento.map((forma) => {
-                    const selecionada = formaPagamentoSelecionada === forma.id;
-                    return (
-                      <button
-                        key={forma.id}
-                        type="button"
-                        onClick={() => setFormaPagamentoSelecionada(forma.id)}
-                        className={`px-3 py-2 text-sm rounded-full border transition-colors ${
-                          selecionada
-                            ? 'bg-emerald-600 text-white border-emerald-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                        }`}
-                      >
-                        {forma.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                {formaPagamentoSelecionada === '' && (
-                  <p className="mt-1 text-xs text-red-500">Selecione uma forma de pagamento.</p>
-                )}
-              </div>
-
-              {/* 5. Observação do pagamento */}
+              {/* 4. Observação do pagamento */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
                 <textarea
@@ -649,6 +618,33 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="Observações sobre o pagamento..."
                 />
+              </div>
+
+              {/* 5. Botões de Forma de Pagamento */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Forma de Pagamento *</label>
+                <div className="flex flex-wrap gap-2">
+                  {formasPagamento.map((forma) => {
+                    const selecionada = formaPagamentoSelecionada === forma.id;
+                    return (
+                      <button
+                        key={forma.id}
+                        type="button"
+                        onClick={() => setFormaPagamentoSelecionada(forma.id)}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                          selecionada
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                        }`}
+                      >
+                        {forma.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                {formaPagamentoSelecionada === '' && (
+                  <p className="mt-2 text-xs text-red-500">Selecione uma forma de pagamento.</p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -666,7 +662,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                     (numeroPessoas === 1 && (valorPagamento === null || valorPagamento <= 0)) ||
                     (numeroPessoas > 1 && (valorPorPessoa === null || valorPorPessoa <= 0))
                   }
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {salvando ? 'Adicionando...' : numeroPessoas > 1 ? `Adicionar Pagamento (${numeroPessoas} pessoas)` : 'Adicionar'}
                 </button>

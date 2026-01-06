@@ -132,11 +132,23 @@ export async function DELETE(
       if (totalPago < valorTotal) {
         await query(
           `UPDATE "CardCliente" 
-           SET status = 'ABERTO', "fechadoAt" = NULL, "fechadoBy" = NULL, "updatedAt" = NOW() 
+           SET status = 'ABERTO', "fechadoAt" = NULL, "fechadoBy" = NULL, "updatedAt" = NOW(), "updatedById" = $2 
            WHERE id = $1`,
-          [cardId]
+          [cardId, usuario.id]
+        );
+      } else {
+        // Atualizar updatedAt mesmo se não reabrir
+        await query(
+          'UPDATE "CardCliente" SET "updatedAt" = NOW(), "updatedById" = $2 WHERE id = $1',
+          [cardId, usuario.id]
         );
       }
+    } else {
+      // Atualizar updatedAt mesmo se o card não estava fechado
+      await query(
+        'UPDATE "CardCliente" SET "updatedAt" = NOW(), "updatedById" = $2 WHERE id = $1',
+        [cardId, usuario.id]
+      );
     }
 
     const response = NextResponse.json({ mensagem: 'Pagamento removido com sucesso' });

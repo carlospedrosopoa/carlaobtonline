@@ -464,6 +464,9 @@ export async function PUT(
     }
 
     updates.push(`"updatedAt" = NOW()`);
+    updates.push(`"updatedById" = $${paramCount}`);
+    values.push(usuario.id);
+    paramCount++;
     values.push(id);
 
     const result = await query(
@@ -598,39 +601,81 @@ export async function DELETE(
       }
     }
 
-    // Apenas cards cancelados ou abertos sem itens podem ser deletados
+    // Verificar se o card existe
     const cardInfo = await query(
       'SELECT status FROM "CardCliente" WHERE id = $1',
       [id]
     );
-    const status = cardInfo.rows[0].status;
-
-    if (status === 'FECHADO') {
+    
+    if (cardInfo.rows.length === 0) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Não é possível deletar um card fechado' },
-        { status: 400 }
+        { mensagem: 'Card de cliente não encontrado' },
+        { status: 404 }
       );
       return withCors(errorResponse, request);
     }
 
-    // Verificar se há itens ou pagamentos
-    const itens = await query(
-      'SELECT id FROM "ItemCard" WHERE "cardId" = $1 LIMIT 1',
-      [id]
-    );
-    const pagamentos = await query(
-      'SELECT id FROM "PagamentoCard" WHERE "cardId" = $1 LIMIT 1',
-      [id]
-    );
-
-    if (itens.rows.length > 0 || pagamentos.rows.length > 0) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Não é possível deletar um card que possui itens ou pagamentos. Cancele o card ao invés de deletá-lo.' },
-        { status: 400 }
+    // Deletar em cascata: primeiro os relacionamentos, depois o card
+    // 1. Deletar PagamentoItem (relacionado aos pagamentos)
+    try {
+      await query(
+        `DELETE FROM "PagamentoItem" 
+         WHERE "pagamentoCardId" IN (
+           SELECT id FROM "PagamentoCard" WHERE "cardId" = $1
+         )`,
+        [id]
       );
-      return withCors(errorResponse, request);
+    } catch (error: any) {
+      // Se a tabela PagamentoItem não existir, apenas logar
+      if (!error.message?.includes('does not exist') && error.code !== '42P01') {
+        console.warn('Erro ao deletar PagamentoItem (pode não existir):', error.message);
+      }
     }
 
+    // 2. Deletar EntradaCaixa relacionada aos pagamentos (se houver)
+    try {
+      const pagamentosResult = await query(
+        'SELECT "entradaCaixaId" FROM "PagamentoCard" WHERE "cardId" = $1 AND "entradaCaixaId" IS NOT NULL',
+        [id]
+      );
+      
+      for (const pagamento of pagamentosResult.rows) {
+        if (pagamento.entradaCaixaId) {
+          try {
+            await query('DELETE FROM "EntradaCaixa" WHERE id = $1', [pagamento.entradaCaixaId]);
+          } catch (error: any) {
+            console.warn('Erro ao deletar EntradaCaixa relacionada:', error.message);
+          }
+        }
+      }
+    } catch (error: any) {
+      console.warn('Erro ao processar EntradaCaixa relacionada:', error.message);
+    }
+
+    // 3. Deletar todos os itens do card
+    await query('DELETE FROM "ItemCard" WHERE "cardId" = $1', [id]);
+
+    // 4. Deletar todos os pagamentos do card
+    await query('DELETE FROM "PagamentoCard" WHERE "cardId" = $1', [id]);
+
+    // 5. Deletar CardAgendamento (se existir)
+    try {
+      const tableExists = await query(
+        `SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'CardAgendamento'
+        )`
+      );
+
+      if (tableExists.rows[0]?.exists) {
+        await query('DELETE FROM "CardAgendamento" WHERE "cardId" = $1', [id]);
+      }
+    } catch (error: any) {
+      console.warn('Erro ao deletar CardAgendamento (pode não existir):', error.message);
+    }
+
+    // 6. Deletar o card
     await query('DELETE FROM "CardCliente" WHERE id = $1', [id]);
 
     const response = NextResponse.json({ mensagem: 'Card de cliente deletado com sucesso' });

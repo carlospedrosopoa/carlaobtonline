@@ -119,3 +119,4 @@ pg_dump --schema-only --no-owner --no-privileges "postgresql://neondb_owner:npg_
 - Ou use `Out-File -Encoding utf8`
 
 
+

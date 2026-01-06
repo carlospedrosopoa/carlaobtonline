@@ -51,7 +51,10 @@ export default function CardsClientesPage() {
   };
 
   const carregarCards = async () => {
-    if (!usuario?.pointIdGestor) return;
+    if (!usuario?.pointIdGestor) {
+      console.log('[carregarCards] Sem pointIdGestor, abortando');
+      return;
+    }
     
     try {
       setLoading(true);
@@ -60,15 +63,25 @@ export default function CardsClientesPage() {
       const incluirItens = filtroStatus !== 'ABERTO';
       const incluirPagamentos = filtroStatus !== 'ABERTO';
       
+      console.log('[carregarCards] Carregando cards:', {
+        pointId: usuario.pointIdGestor,
+        status: filtroStatus || undefined,
+        incluirItens,
+        incluirPagamentos: true
+      });
+      
       const data = await cardClienteService.listar(
         usuario.pointIdGestor,
         filtroStatus || undefined,
         incluirItens,
         true // Sempre incluir pagamentos para calcular saldo
       );
-      setCards(data);
+      
+      console.log('[carregarCards] Cards recebidos:', Array.isArray(data) ? data.length : 'não é array', data);
+      setCards(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar cards:', error);
+      setCards([]);
     } finally {
       setLoading(false);
     }
@@ -489,7 +502,8 @@ export default function CardsClientesPage() {
                 )
               );
             } else {
-              // Se não recebeu card atualizado, recarregar toda a lista
+              // Se não recebeu card atualizado (card foi deletado), recarregar lista e limpar busca
+              setBusca(''); // Limpar campo de busca após deletar card
               carregarCards();
             }
           }}
