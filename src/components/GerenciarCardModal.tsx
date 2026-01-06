@@ -1218,21 +1218,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                 </div>
               )}
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
-                  <select
-                    value={formaPagamentoSelecionada}
-                    onChange={(e) => setFormaPagamentoSelecionada(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  >
-                    <option value="">Selecione uma forma de pagamento</option>
-                    {formasPagamento.map((forma) => (
-                      <option key={forma.id} value={forma.id}>
-                        {forma.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
                 {/* Seleção de Itens */}
                 {itensLocais.length > 0 && (
