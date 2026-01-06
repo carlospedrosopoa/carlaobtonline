@@ -536,22 +536,5 @@ export async function deletarAtleta(atletaId: string): Promise<boolean> {
   }
 }
 
-  const atleta = await buscarAtletaComArenas(atletaId);
-  
-  if (!atleta) {
-    return null;
-  }
-
-  console.log('[ATUALIZAR ATLETA] Atleta retornado após buscar:', {
-    id: atleta.id,
-    aceitaLembretesAgendamento: atleta.aceitaLembretesAgendamento
-  });
-
-  return {
-    ...atleta,
-    idade: calcularIdade(atleta.dataNascimento),
-  };
-}
-
 
 
