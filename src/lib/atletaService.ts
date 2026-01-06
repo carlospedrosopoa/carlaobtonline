@@ -488,6 +488,23 @@ export async function atualizarAtleta(atletaId: string, dados: {
     try {
       // Remover todas as arenas frequentes existentes
       await query('DELETE FROM "AtletaPoint" WHERE "atletaId" = $1', [atletaId]);
+  
+  return atletaAtualizado;
+}
+
+export async function deletarAtleta(atletaId: string): Promise<boolean> {
+  try {
+    // Deletar relacionamentos primeiro
+    await query('DELETE FROM "AtletaPoint" WHERE "atletaId" = $1', [atletaId]);
+    
+    // Deletar o atleta
+    const result = await query('DELETE FROM "Atleta" WHERE id = $1', [atletaId]);
+    
+    return result.rowCount !== undefined && result.rowCount > 0;
+  } catch (error) {
+    console.error('Erro ao deletar atleta:', error);
+    throw error;
+  }
       
       // Inserir novas arenas frequentes
       if (dados.pointIdsFrequentes.length > 0) {

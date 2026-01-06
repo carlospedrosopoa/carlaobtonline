@@ -667,6 +667,31 @@ export default function ArenaAtletasPage() {
                 </div>
               )}
 
+              {/* Botões de ação gerais */}
+              <div className="mt-4 w-full space-y-2">
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Tem certeza que deseja excluir o atleta "${atleta.nome}"? Esta ação não pode ser desfeita.`)) {
+                      return;
+                    }
+                    try {
+                      const { status } = await api.delete(`/atleta/${atleta.id}`);
+                      if (status === 200) {
+                        fetchAtletas();
+                      } else {
+                        alert('Erro ao excluir atleta. Tente novamente.');
+                      }
+                    } catch (error) {
+                      console.error('Erro ao excluir atleta:', error);
+                      alert('Erro ao excluir atleta. Tente novamente.');
+                    }
+                  }}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Excluir Atleta
+                </button>
+              </div>
+
               {/* Botões de ação para atletas pendentes (sem usuário vinculado ou com email temporário) */}
               {atleta.fone && isAtletaPendente(atleta) && (
                 <div className="mt-4 w-full space-y-2">
