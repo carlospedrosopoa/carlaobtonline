@@ -112,16 +112,22 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
     if (itensSelecionadosPagamento.length > 0) {
       // Sempre atualizar o valor quando itens são selecionados
       const valorItens = calcularValorItensSelecionados();
-      setValorPagamento(valorItens);
+      if (valorItens > 0) {
+        setValorPagamento(valorItens);
+      } else {
+        setValorPagamento(0);
+      }
     } else if (valorPagamento === null || valorPagamento === 0) {
       // Se não há itens selecionados e valor ainda não foi preenchido, usar saldo
       const saldo = calcularSaldo();
       if (saldo > 0) {
         setValorPagamento(saldo);
+      } else {
+        setValorPagamento(null);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itensSelecionadosPagamento, modalPagamentoAberto]);
+  }, [itensSelecionadosPagamento, modalPagamentoAberto, itens]);
 
   // Recalcular valor por pessoa quando valor ou numeroPessoas mudar
   useEffect(() => {

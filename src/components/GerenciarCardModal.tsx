@@ -267,6 +267,26 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       .reduce((sum, item) => sum + item.precoTotal, 0);
   };
 
+  // Preencher valor automaticamente quando itens são selecionados
+  useEffect(() => {
+    if (!modalPagamentoAberto || !cardCompleto) return;
+    
+    if (itensSelecionadosPagamento.length > 0) {
+      // Sempre atualizar o valor quando itens são selecionados
+      const valorItens = calcularValorItensSelecionados();
+      setValorPagamento(valorItens);
+    } else if (valorPagamento === null || valorPagamento === 0) {
+      // Se não há itens selecionados e valor ainda não foi preenchido, usar saldo
+      const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
+      const totalPago = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
+      const saldo = valorTotalItens - totalPago;
+      if (saldo > 0) {
+        setValorPagamento(saldo);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itensSelecionadosPagamento, modalPagamentoAberto]);
+
   const fecharModalPagamento = () => {
     setModalPagamentoAberto(false);
     setErro('');
@@ -1290,22 +1310,13 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
                 <div>
                   <InputMonetario
-                    label={itensSelecionadosPagamento.length > 0 ? 'Valor (será ajustado automaticamente se necessário)' : 'Valor'}
+                    label="Valor *"
                     value={valorPagamento}
                     onChange={setValorPagamento}
                     placeholder={itensSelecionadosPagamento.length > 0 ? calcularValorItensSelecionados().toFixed(2) : "0,00"}
                     min={0}
                     required
                   />
-                  {itensSelecionadosPagamento.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setValorPagamento(calcularValorItensSelecionados())}
-                      className="mt-1 text-sm text-emerald-600 hover:text-emerald-700 underline"
-                    >
-                      Usar valor dos itens selecionados
-                    </button>
-                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
