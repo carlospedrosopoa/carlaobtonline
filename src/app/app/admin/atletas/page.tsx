@@ -1189,7 +1189,6 @@ export default function AdminAtletasPage() {
                     </button>
                   </>
                 )}
-              </div>
             </div>
           ))}
         </div>
