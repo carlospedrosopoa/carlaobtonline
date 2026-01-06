@@ -489,7 +489,8 @@ export default function CardsClientesPage() {
                 )
               );
             } else {
-              // Se não recebeu card atualizado, recarregar toda a lista
+              // Se não recebeu card atualizado (card foi deletado), recarregar lista e limpar busca
+              setBusca(''); // Limpar campo de busca após deletar card
               carregarCards();
             }
           }}
