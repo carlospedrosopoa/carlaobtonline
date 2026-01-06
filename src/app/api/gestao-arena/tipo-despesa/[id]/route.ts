@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { AtualizarTipoDespesaPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/tipo-despesa/[id] - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/tipo-despesa/[id] - Obter tipo de despesa
 export async function GET(
@@ -12,10 +19,11 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -26,10 +34,11 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Tipo de despesa não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const tipoDespesa = result.rows[0];
@@ -37,25 +46,29 @@ export async function GET(
     // Verificar permissão
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
       if (tipoDespesa.pointId !== usuario.pointIdGestor) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este tipo de despesa' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     } else if (usuario.role !== 'ADMIN') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para visualizar tipos de despesa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
-    return NextResponse.json(tipoDespesa);
+    const response = NextResponse.json(tipoDespesa);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter tipo de despesa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter tipo de despesa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -67,17 +80,19 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para atualizar tipos de despesa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -91,10 +106,11 @@ export async function PUT(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Tipo de despesa não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const tipoDespesa = existe.rows[0];
@@ -102,10 +118,11 @@ export async function PUT(
     // Verificar permissão
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
       if (tipoDespesa.pointId !== usuario.pointIdGestor) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este tipo de despesa' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -117,10 +134,11 @@ export async function PUT(
       );
 
       if (nomeExiste.rows.length > 0) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Já existe um tipo de despesa com este nome nesta arena' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -146,10 +164,11 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -158,13 +177,15 @@ export async function PUT(
     const sql = `UPDATE "TipoDespesa" SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
     const result = await query(sql, paramsArray);
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar tipo de despesa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar tipo de despesa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -176,17 +197,19 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para deletar tipos de despesa' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -198,10 +221,11 @@ export async function DELETE(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Tipo de despesa não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const tipoDespesa = existe.rows[0];
@@ -209,10 +233,11 @@ export async function DELETE(
     // Verificar permissão
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
       if (tipoDespesa.pointId !== usuario.pointIdGestor) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este tipo de despesa' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -221,13 +246,15 @@ export async function DELETE(
 
     await query('DELETE FROM "TipoDespesa" WHERE id = $1', [id]);
 
-    return NextResponse.json({ mensagem: 'Tipo de despesa deletado com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Tipo de despesa deletado com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar tipo de despesa:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar tipo de despesa', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
