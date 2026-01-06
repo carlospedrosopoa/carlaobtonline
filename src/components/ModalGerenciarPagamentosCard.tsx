@@ -110,10 +110,9 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
     if (!modalPagamentoAberto || !cardCompleto) return;
     
     if (itensSelecionadosPagamento.length > 0) {
+      // Sempre atualizar o valor quando itens são selecionados
       const valorItens = calcularValorItensSelecionados();
-      if (valorItens > 0 && valorPagamento !== valorItens) {
-        setValorPagamento(valorItens);
-      }
+      setValorPagamento(valorItens);
     } else if (valorPagamento === null || valorPagamento === 0) {
       // Se não há itens selecionados e valor ainda não foi preenchido, usar saldo
       const saldo = calcularSaldo();
@@ -122,7 +121,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itensSelecionadosPagamento.length, modalPagamentoAberto]);
+  }, [itensSelecionadosPagamento, modalPagamentoAberto]);
 
   // Recalcular valor por pessoa quando valor ou numeroPessoas mudar
   useEffect(() => {
@@ -542,7 +541,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
               {/* 2. Valor a pagar */}
               <div>
                 <InputMonetario
-                  label={itensSelecionadosPagamento.length > 0 ? 'Valor a Pagar *' : 'Valor a Pagar *'}
+                  label="Valor *"
                   value={valorPagamento}
                   onChange={setValorPagamento}
                   placeholder={itensSelecionadosPagamento.length > 0 
@@ -553,15 +552,6 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                   min={0}
                   required
                 />
-                {itensSelecionadosPagamento.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setValorPagamento(calcularValorItensSelecionados())}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                  >
-                    Usar valor dos itens selecionados
-                  </button>
-                )}
                 {itensSelecionadosPagamento.length === 0 && calcularSaldo() > 0 && (
                   <button
                     type="button"
@@ -666,7 +656,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                     (numeroPessoas === 1 && (valorPagamento === null || valorPagamento <= 0)) ||
                     (numeroPessoas > 1 && (valorPorPessoa === null || valorPorPessoa <= 0))
                   }
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {salvando ? 'Adicionando...' : numeroPessoas > 1 ? `Adicionar Pagamento (${numeroPessoas} pessoas)` : 'Adicionar'}
                 </button>
