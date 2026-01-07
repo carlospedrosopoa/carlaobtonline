@@ -30,11 +30,14 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
   const [buscaProduto, setBuscaProduto] = useState('');
   const [quantidadeItem, setQuantidadeItem] = useState(1);
   const [precoUnitarioItem, setPrecoUnitarioItem] = useState<number | null>(null);
+  const [observacoesItem, setObservacoesItem] = useState('');
   const inputBuscaItemRef = useRef<HTMLInputElement>(null);
 
   // Estados para editar item
   const [itemEditando, setItemEditando] = useState<string | null>(null);
   const [novoPrecoUnitario, setNovoPrecoUnitario] = useState<number | null>(null);
+  const [editandoObservacoes, setEditandoObservacoes] = useState<string | null>(null);
+  const [novasObservacoes, setNovasObservacoes] = useState('');
 
   useEffect(() => {
     if (isOpen && card) {
@@ -70,6 +73,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
     setBuscaProduto('');
     setQuantidadeItem(1);
     setPrecoUnitarioItem(null);
+    setObservacoesItem('');
     setModalItemAberto(true);
   };
 
@@ -86,6 +90,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
   const fecharModalItem = () => {
     setModalItemAberto(false);
     setErro('');
+    setObservacoesItem('');
   };
 
   const adicionarItem = async () => {
@@ -110,6 +115,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
         produtoId: produtoSelecionado,
         quantidade: quantidadeItem,
         precoUnitario: precoUnitario,
+        observacoes: observacoesItem.trim() || undefined,
       };
 
       await itemCardService.criar(cardCompleto.id, payload);
@@ -128,11 +134,49 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
   const iniciarEdicaoPreco = (item: ItemCard) => {
     setItemEditando(item.id);
     setNovoPrecoUnitario(item.precoUnitario);
+    setEditandoObservacoes(null);
   };
 
   const cancelarEdicaoPreco = () => {
     setItemEditando(null);
     setNovoPrecoUnitario(null);
+    setEditandoObservacoes(null);
+    setNovasObservacoes('');
+  };
+
+  const iniciarEdicaoObservacoes = (item: ItemCard) => {
+    setEditandoObservacoes(item.id);
+    setNovasObservacoes(item.observacoes || '');
+    setItemEditando(null);
+  };
+
+  const cancelarEdicaoObservacoes = () => {
+    setEditandoObservacoes(null);
+    setNovasObservacoes('');
+  };
+
+  const salvarObservacoesItem = async (itemId: string) => {
+    if (!cardCompleto) {
+      setErro('Card não encontrado');
+      return;
+    }
+
+    try {
+      setSalvando(true);
+      setErro('');
+      await itemCardService.atualizar(cardCompleto.id, itemId, {
+        observacoes: novasObservacoes.trim() || null,
+      });
+      const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
+      await carregarDados();
+      onSuccess(cardAtualizado);
+      setEditandoObservacoes(null);
+      setNovasObservacoes('');
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao atualizar observações do item');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const salvarPrecoItem = async (itemId: string) => {
@@ -353,9 +397,54 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                             )}
                             <span>= <span className="font-semibold text-gray-900">{formatarMoeda(item.precoTotal)}</span></span>
                           </div>
-                          {item.observacoes && (
-                            <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-100 rounded border-l-2 border-gray-300 italic">
-                              {item.observacoes}
+                          {editandoObservacoes === item.id ? (
+                            <div className="mt-2 space-y-2">
+                              <textarea
+                                value={novasObservacoes}
+                                onChange={(e) => setNovasObservacoes(e.target.value)}
+                                placeholder="Adicionar observações..."
+                                rows={2}
+                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                                disabled={salvando}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => salvarObservacoesItem(item.id)}
+                                  disabled={salvando}
+                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                >
+                                  Salvar
+                                </button>
+                                <button
+                                  onClick={cancelarEdicaoObservacoes}
+                                  disabled={salvando}
+                                  className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-2 flex items-start gap-2">
+                              {item.observacoes ? (
+                                <div className="flex-1 text-xs text-gray-500 p-2 bg-gray-100 rounded border-l-2 border-gray-300 italic">
+                                  {item.observacoes}
+                                </div>
+                              ) : (
+                                <div className="flex-1 text-xs text-gray-400 italic">
+                                  Sem observações
+                                </div>
+                              )}
+                              {cardCompleto?.status === 'ABERTO' && (
+                                <button
+                                  onClick={() => iniciarEdicaoObservacoes(item)}
+                                  disabled={salvando}
+                                  className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                                  title="Editar observações"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
                             </div>
                           )}
                           {item.createdBy && item.createdAt && (
@@ -521,6 +610,16 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                   onChange={setPrecoUnitarioItem}
                   placeholder="Usar preço do produto"
                   min={0}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
+                <textarea
+                  value={observacoesItem}
+                  onChange={(e) => setObservacoesItem(e.target.value)}
+                  placeholder="Ex: Sem gelo, bem passado, etc."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                 />
               </div>
               <div className="flex gap-3 pt-4">
