@@ -338,8 +338,24 @@ export default function CardsClientesPage() {
         observacoes: 'Pagamento rápido',
       });
 
-      // Recarregar cards
+      // Recarregar cards para obter o saldo atualizado
       await carregarCards();
+      
+      // Buscar o card atualizado para verificar o saldo
+      const cardsAtualizados = await cardClienteService.listar(usuario?.pointIdGestor, undefined, true, true);
+      const cardAtualizado = cardsAtualizados.find(c => c.id === card.id);
+      
+      // Se o saldo for zero ou negativo, finalizar a comanda
+      if (cardAtualizado) {
+        const saldoAtualizado = cardAtualizado.saldo !== undefined ? cardAtualizado.saldo : cardAtualizado.valorTotal;
+        if (saldoAtualizado <= 0 && cardAtualizado.status === 'ABERTO') {
+          await cardClienteService.atualizar(card.id, {
+            status: 'FECHADO',
+          });
+          // Recarregar cards novamente para atualizar o status
+          await carregarCards();
+        }
+      }
       
       // Fechar pagamento rápido
       fecharPagamentoRapido(card.id);
