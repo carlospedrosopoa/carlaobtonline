@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
            ("dataHora" >= $2 AND "dataHora" < $3)
            OR ("dataHora" + (COALESCE(duracao, 60)) * INTERVAL '1 minute' > $2 AND "dataHora" < $3)
          )`,
-      [quadraId, dataHoraNormalizada.toISOString(), dataHoraFim.toISOString()]
+      [quadraId, dataHoraNormalizada, dataHoraFim.toISOString()]
     );
 
     if (conflitosResult.rows.length > 0) {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
          AND ativo = true
          AND "dataInicio" <= $3
          AND "dataFim" >= $2`,
-      [quadra.pointId, dataHoraNormalizada.toISOString(), dataHoraFim.toISOString()]
+      [quadra.pointId, dataHoraNormalizada, dataHoraFim.toISOString()]
     );
 
     // Verificar se algum bloqueio afeta esta quadra
