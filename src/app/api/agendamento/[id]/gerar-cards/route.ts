@@ -100,18 +100,46 @@ export async function POST(
     }
 
     // Buscar atletas participantes e participantes avulsos
-    const participantesResult = await query(
-      `SELECT 
-        aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso",
-        at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
-        at."usuarioId" as "atleta_usuarioId",
-        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
-      FROM "AgendamentoAtleta" aa
-      LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
-      LEFT JOIN "User" u ON at."usuarioId" = u.id
-      WHERE aa."agendamentoId" = $1`,
-      [agendamentoId]
-    );
+    let participantesResult;
+    try {
+      participantesResult = await query(
+        `SELECT 
+          aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso",
+          at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+          at."usuarioId" as "atleta_usuarioId",
+          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+        FROM "AgendamentoAtleta" aa
+        LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+        LEFT JOIN "User" u ON at."usuarioId" = u.id
+        WHERE aa."agendamentoId" = $1`,
+        [agendamentoId]
+      );
+    } catch (error: any) {
+      // Se os campos nomeAvulso/telefoneAvulso não existem, tentar query sem eles
+      if (error.message?.includes('nomeAvulso') || error.message?.includes('telefoneAvulso') || error.code === '42703') {
+        console.warn('[gerar-cards] Campos nomeAvulso/telefoneAvulso não existem, usando query sem eles');
+        participantesResult = await query(
+          `SELECT 
+            aa."atletaId",
+            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+            at."usuarioId" as "atleta_usuarioId",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+          FROM "AgendamentoAtleta" aa
+          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+          LEFT JOIN "User" u ON at."usuarioId" = u.id
+          WHERE aa."agendamentoId" = $1`,
+          [agendamentoId]
+        );
+        // Adicionar campos null para compatibilidade
+        participantesResult.rows = participantesResult.rows.map((row: any) => ({
+          ...row,
+          nomeAvulso: null,
+          telefoneAvulso: null,
+        }));
+      } else {
+        throw error;
+      }
+    }
 
     console.log(`[gerar-cards] Participantes encontrados: ${participantesResult.rows.length}`);
     participantesResult.rows.forEach((row: any, index: number) => {
