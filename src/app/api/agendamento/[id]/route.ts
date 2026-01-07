@@ -341,7 +341,9 @@ export async function PUT(
     }
 
     const body = await request.json();
-    console.log('[API PUT] Recebido payload:', JSON.stringify(body, null, 2));
+    console.log('[API PUT] Recebido payload completo:', JSON.stringify(body, null, 2));
+    console.log('[API PUT] participantesAvulsos no body:', body.participantesAvulsos);
+    console.log('[API PUT] atletasParticipantesIds no body:', body.atletasParticipantesIds);
     const {
       quadraId,
       dataHora,

@@ -1016,9 +1016,13 @@ export default function EditarAgendamentoModal({
       }
 
       // Participantes avulsos (não criam atletas, são salvos diretamente na tabela AgendamentoAtleta)
-      if (participantesAvulsos.length > 0) {
-        payload.participantesAvulsos = participantesAvulsos.map(av => ({ nome: av.nome }));
-      }
+      // Sempre enviar o array, mesmo que vazio, para garantir que o backend processe corretamente
+      payload.participantesAvulsos = participantesAvulsos.length > 0 
+        ? participantesAvulsos.map(av => ({ nome: av.nome }))
+        : [];
+      
+      console.log('[EditarAgendamentoModal] Participantes avulsos no estado:', participantesAvulsos);
+      console.log('[EditarAgendamentoModal] Participantes avulsos no payload:', payload.participantesAvulsos);
 
       // Campos de aula/professor
       if (ehAula) {
