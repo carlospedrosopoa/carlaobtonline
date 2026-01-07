@@ -47,22 +47,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar atleta temporário (sem usuarioId, com dataNascimento padrão)
+    // Normalizar telefone (remover formatação)
+    const telefoneNormalizado = telefone.replace(/\D/g, '');
+
+    // Verificar se já existe um atleta com este telefone
+    const atletaExistenteResult = await query(
+      `SELECT id, nome, fone, "usuarioId" 
+       FROM "Atleta" 
+       WHERE fone = $1 
+       ORDER BY "createdAt" DESC 
+       LIMIT 1`,
+      [telefoneNormalizado]
+    );
+
+    if (atletaExistenteResult.rows.length > 0) {
+      // Atleta já existe, atualizar nome se necessário e retornar
+      const atletaExistente = atletaExistenteResult.rows[0];
+      
+      // Se o nome for diferente, atualizar
+      if (atletaExistente.nome !== nome.trim()) {
+        await query(
+          `UPDATE "Atleta" 
+           SET nome = $1, "updatedAt" = NOW() 
+           WHERE id = $2`,
+          [nome.trim(), atletaExistente.id]
+        );
+      }
+
+      return withCors(
+        NextResponse.json({
+          id: atletaExistente.id,
+          nome: nome.trim(),
+          telefone: telefoneNormalizado,
+          temporario: !atletaExistente.usuarioId, // É temporário se não tiver usuarioId
+          existente: true,
+        }),
+        request
+      );
+    }
+
+    // Se não existe, criar novo atleta temporário
     const atletaId = uuidv4();
     const dataNascimentoPadrao = new Date('2000-01-01'); // Data padrão para atletas temporários
 
     await query(
       `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, NULL, $5, NOW(), NOW())`,
-      [atletaId, nome.trim(), telefone.trim(), dataNascimentoPadrao, pointId]
+      [atletaId, nome.trim(), telefoneNormalizado, dataNascimentoPadrao, pointId]
     );
 
     return withCors(
       NextResponse.json({
         id: atletaId,
         nome: nome.trim(),
-        telefone: telefone.trim(),
+        telefone: telefoneNormalizado,
         temporario: true,
+        existente: false,
       }),
       request
     );
