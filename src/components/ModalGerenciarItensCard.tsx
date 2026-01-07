@@ -596,10 +596,19 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
                   value={quantidadeItem}
-                  onChange={(e) => setQuantidadeItem(parseInt(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const valor = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+                    if (valor === '' || parseInt(valor) >= 1) {
+                      setQuantidadeItem(valor === '' ? 1 : parseInt(valor));
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!e.target.value || parseInt(e.target.value) < 1) {
+                      setQuantidadeItem(1);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
               </div>
