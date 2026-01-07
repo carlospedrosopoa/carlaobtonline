@@ -491,6 +491,7 @@ export default function EditarAgendamentoModal({
       nomeAvulso: agendamentoParaUsar.nomeAvulso || '',
       telefoneAvulso: agendamentoParaUsar.telefoneAvulso || '',
       atletasParticipantesIds: agendamentoParaUsar.atletasParticipantes?.filter((ap) => ap.atletaId).map((ap) => ap.atletaId!) || [],
+      participantesAvulsos: agendamentoParaUsar.atletasParticipantes?.filter((ap) => !ap.atletaId && ap.atleta?.nome).map((ap) => ({ nome: ap.atleta.nome })) || [],
       ehAula: agendamentoParaUsar.ehAula || false,
       professorId: agendamentoParaUsar.professorId || null,
     });
@@ -835,7 +836,14 @@ export default function EditarAgendamentoModal({
     // Comparar participantes (ordem importa)
     const participantesAtuais = [...atletasParticipantesIds].sort();
     const participantesOriginais = [...(valoresOriginais.atletasParticipantesIds || [])].sort();
-    const mudouParticipantes = JSON.stringify(participantesAtuais) !== JSON.stringify(participantesOriginais);
+    const mudouParticipantesAtletas = JSON.stringify(participantesAtuais) !== JSON.stringify(participantesOriginais);
+    
+    // Comparar participantes avulsos (ordem importa, comparar por nome)
+    const avulsosAtuais = [...participantesAvulsos].map(a => a.nome).sort();
+    const avulsosOriginais = [...(valoresOriginais.participantesAvulsos || [])].map((a: any) => a.nome || a).sort();
+    const mudouParticipantesAvulsos = JSON.stringify(avulsosAtuais) !== JSON.stringify(avulsosOriginais);
+    
+    const mudouParticipantes = mudouParticipantesAtletas || mudouParticipantesAvulsos;
 
     // Comparar campos de aula/professor
     const mudouEhAula = ehAula !== (valoresOriginais.ehAula || false);
@@ -857,6 +865,7 @@ export default function EditarAgendamentoModal({
     nomeAvulso,
     telefoneAvulso,
     atletasParticipantesIds,
+    participantesAvulsos,
     ehAula,
     professorId,
   ]);
@@ -1076,6 +1085,7 @@ export default function EditarAgendamentoModal({
             nomeAvulso: agendamentoAtualizado.nomeAvulso || '',
             telefoneAvulso: agendamentoAtualizado.telefoneAvulso || '',
             atletasParticipantesIds: agendamentoAtualizado.atletasParticipantes?.map((ap: any) => ap.atletaId).filter((id: string) => id) || [],
+            participantesAvulsos: agendamentoAtualizado.atletasParticipantes?.filter((ap: any) => !ap.atletaId && ap.atleta?.nome).map((ap: any) => ({ nome: ap.atleta.nome })) || [],
             ehAula: agendamentoAtualizado.ehAula || false,
             professorId: agendamentoAtualizado.professorId || null,
           });
