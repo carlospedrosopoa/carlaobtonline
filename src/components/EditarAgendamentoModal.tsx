@@ -1001,7 +1001,7 @@ export default function EditarAgendamentoModal({
         try {
           for (const avulso of participantesAvulsos) {
             // Criar atleta temporário para o participante avulso (sem telefone)
-            const atletaAvulsoResponse = await api.post('/atleta/criar', {
+            const atletaAvulsoResponse = await api.post('/atleta/criar-avulso', {
               nome: avulso.nome,
               fone: '',
               pointId: usuario.pointIdGestor,
