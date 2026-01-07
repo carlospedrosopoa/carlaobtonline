@@ -1037,7 +1037,7 @@ export async function POST(request: NextRequest) {
         if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
           for (const atletaIdPart of atletasParticipantesIds) {
             const insertResult = await query(
-              `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdBy", "createdAt")
+              `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
                VALUES ($1, $2, NULL, NULL, $3, NOW())
                ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING
                RETURNING id`,
@@ -1056,7 +1056,7 @@ export async function POST(request: NextRequest) {
           for (const avulso of participantesAvulsos) {
             if (avulso.nome && avulso.nome.trim()) {
               await query(
-                `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdBy", "createdAt")
+                `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
                  VALUES ($1, NULL, $2, NULL, $3, NOW())`,
                 [agendamentoId, avulso.nome.trim(), usuario.id]
               );

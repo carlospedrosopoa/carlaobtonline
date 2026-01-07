@@ -109,6 +109,7 @@ export async function POST(
     // Buscar atletas participantes e participantes avulsos
     let participantesResult;
     try {
+      console.log(`[gerar-cards] Buscando participantes para agendamento ${agendamentoId}`);
       participantesResult = await query(
         `SELECT 
           aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso",
@@ -121,6 +122,7 @@ export async function POST(
         WHERE aa."agendamentoId" = $1`,
         [agendamentoId]
       );
+      console.log(`[gerar-cards] Query executada com sucesso. Encontrados ${participantesResult.rows.length} registros.`);
     } catch (error: any) {
       // Se os campos nomeAvulso/telefoneAvulso não existem, tentar query sem eles
       if (error.message?.includes('nomeAvulso') || error.message?.includes('telefoneAvulso') || error.code === '42703') {
