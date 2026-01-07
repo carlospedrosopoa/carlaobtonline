@@ -99,6 +99,13 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
+    // Lista de clientes para criar cards
+    const clientes: Array<{
+      usuarioId?: string | null;
+      nomeAvulso?: string | null;
+      telefoneAvulso?: string | null;
+    }> = [];
+
     // Buscar atletas participantes e participantes avulsos
     let participantesResult;
     try {
@@ -152,14 +159,7 @@ export async function POST(
       });
     });
 
-    console.log(`[gerar-cards] Clientes antes de adicionar participantes: ${clientes.length}`);
-
-    // Lista de clientes para criar cards
-    const clientes: Array<{
-      usuarioId?: string | null;
-      nomeAvulso?: string | null;
-      telefoneAvulso?: string | null;
-    }> = [];
+    console.log(`[gerar-cards] Clientes antes de adicionar cliente original: ${clientes.length}`);
 
     // Adicionar cliente original
     if (agendamento.atletaId) {
@@ -209,9 +209,20 @@ export async function POST(
     }
 
     // Adicionar atletas participantes e participantes avulsos
-    participantesResult.rows.forEach((row: any) => {
+    console.log(`[gerar-cards] Processando ${participantesResult.rows.length} participantes...`);
+    participantesResult.rows.forEach((row: any, index: number) => {
+      console.log(`[gerar-cards] Processando participante ${index + 1}:`, {
+        atletaId: row.atletaId,
+        nomeAvulso: row.nomeAvulso,
+        telefoneAvulso: row.telefoneAvulso,
+        atleta_nome: row.atleta_nome,
+        atleta_fone: row.atleta_fone,
+        usuario_id: row.usuario_id,
+      });
+
       // Se for participante avulso (sem atletaId, com nomeAvulso)
       if (!row.atletaId && row.nomeAvulso) {
+        console.log(`[gerar-cards] ✅ Encontrado participante avulso: ${row.nomeAvulso}`);
         // Verificar se já existe um cliente avulso com o mesmo nome
         // (telefone pode ser null, então comparamos apenas por nome)
         const jaExiste = clientes.some(
@@ -219,14 +230,14 @@ export async function POST(
         );
 
         if (!jaExiste) {
-          console.log(`[gerar-cards] Adicionando participante avulso: ${row.nomeAvulso}`);
+          console.log(`[gerar-cards] ➕ Adicionando participante avulso à lista: ${row.nomeAvulso}`);
           clientes.push({
             usuarioId: null,
             nomeAvulso: row.nomeAvulso,
             telefoneAvulso: row.telefoneAvulso || null,
           });
         } else {
-          console.log(`[gerar-cards] Participante avulso "${row.nomeAvulso}" já existe na lista de clientes`);
+          console.log(`[gerar-cards] ⚠️ Participante avulso "${row.nomeAvulso}" já existe na lista de clientes`);
         }
       } else if (row.usuario_id) {
         // Atleta com usuarioId (tipo user) - verificar se já existe
