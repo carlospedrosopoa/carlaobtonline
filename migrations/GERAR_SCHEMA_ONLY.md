@@ -61,3 +61,4 @@ psql "postgresql://usuario:senha@host/database?sslmode=require" -f migrations/sc
 
 
 
+

@@ -58,3 +58,4 @@ Write-Host "Linhas no output: $($output.Count)" -ForegroundColor Cyan
 
 
 
+
