@@ -354,6 +354,7 @@ export async function PUT(
       aplicarARecorrencia = false, // false = apenas este, true = este e todos futuros
       recorrencia, // Configuração de recorrência (opcional, para criar ou atualizar recorrência)
       atletasParticipantesIds, // IDs dos atletas participantes
+      participantesAvulsos, // Participantes avulsos (não são atletas cadastrados)
       ehAula,
       professorId,
     } = body as {
