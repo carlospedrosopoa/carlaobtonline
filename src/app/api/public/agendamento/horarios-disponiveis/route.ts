@@ -84,13 +84,13 @@ export async function GET(request: NextRequest) {
     );
 
     // Buscar bloqueios do dia
+    // BloqueioAgenda usa pointId e quadraIds (JSONB array), não quadraId
     const bloqueiosResult = await query(
-      `SELECT b."quadraId", b."dataHoraInicio", b."dataHoraFim"
+      `SELECT b."pointId", b."quadraIds", b."dataInicio", b."dataFim", b."horaInicio", b."horaFim"
        FROM "BloqueioAgenda" b
-       INNER JOIN "Quadra" q ON b."quadraId" = q.id
-       WHERE q."pointId" = $1
-         AND b."dataHoraInicio" <= $3
-         AND b."dataHoraFim" >= $2
+       WHERE b."pointId" = $1
+         AND b."dataInicio" <= $3
+         AND b."dataFim" >= $2
          AND b.ativo = true`,
       [pointId, dataInicioDia, dataFimDia]
     );
@@ -129,14 +129,48 @@ export async function GET(request: NextRequest) {
 
         // Verificar conflitos com bloqueios
         const temConflitoBloqueio = bloqueiosResult.rows.some((bloq: any) => {
-          if (bloq.quadraId !== quadraId) return false;
+          // Verificar se o bloqueio afeta esta quadra
+          // Se quadraIds for null ou vazio, bloqueia todas as quadras do point
+          // Se tiver quadraIds, verificar se esta quadra está na lista
+          if (bloq.quadraIds && Array.isArray(bloq.quadraIds) && bloq.quadraIds.length > 0) {
+            if (!bloq.quadraIds.includes(quadraId)) {
+              return false; // Bloqueio não afeta esta quadra
+            }
+          }
+          // Se quadraIds for null/vazio, bloqueia todas as quadras
 
-          const bloqInicio = new Date(bloq.dataHoraInicio);
-          const bloqFim = new Date(bloq.dataHoraFim);
-          const bloqInicioMin = bloqInicio.getUTCHours() * 60 + bloqInicio.getUTCMinutes();
-          const bloqFimMin = bloqFim.getUTCHours() * 60 + bloqFim.getUTCMinutes();
+          // Verificar conflito de data/hora
+          const bloqDataInicio = new Date(bloq.dataInicio);
+          const bloqDataFim = new Date(bloq.dataFim);
+          
+          // Se o bloqueio tem horaInicio/horaFim, usar eles
+          // Senão, bloqueia o dia inteiro
+          let bloqInicioMin: number;
+          let bloqFimMin: number;
+          
+          if (bloq.horaInicio !== null && bloq.horaInicio !== undefined) {
+            bloqInicioMin = bloq.horaInicio; // Já está em minutos
+          } else {
+            bloqInicioMin = 0; // Início do dia
+          }
+          
+          if (bloq.horaFim !== null && bloq.horaFim !== undefined) {
+            bloqFimMin = bloq.horaFim; // Já está em minutos
+          } else {
+            bloqFimMin = 24 * 60; // Fim do dia (1440 minutos)
+          }
 
-          // Verificar sobreposição
+          // Verificar se a data do slot está dentro do período do bloqueio
+          const slotDate = new Date(`${data}T${slot}:00`);
+          const slotDateStr = slotDate.toISOString().split('T')[0];
+          const bloqDataInicioStr = bloqDataInicio.toISOString().split('T')[0];
+          const bloqDataFimStr = bloqDataFim.toISOString().split('T')[0];
+          
+          if (slotDateStr < bloqDataInicioStr || slotDateStr > bloqDataFimStr) {
+            return false; // Fora do período do bloqueio
+          }
+
+          // Verificar sobreposição de horário
           return !(slotFimMin <= bloqInicioMin || slotInicioMin >= bloqFimMin);
         });
 

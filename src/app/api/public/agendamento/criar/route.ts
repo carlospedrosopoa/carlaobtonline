@@ -93,19 +93,56 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar conflitos com bloqueios
+    // BloqueioAgenda usa pointId e quadraIds (JSONB array), não quadraId
     const bloqueiosResult = await query(
-      `SELECT id FROM "BloqueioAgenda"
-       WHERE "quadraId" = $1
+      `SELECT id, "quadraIds", "dataInicio", "dataFim", "horaInicio", "horaFim"
+       FROM "BloqueioAgenda"
+       WHERE "pointId" = $1
          AND ativo = true
-         AND (
-           ("dataHoraInicio" <= $2 AND "dataHoraFim" > $2)
-           OR ("dataHoraInicio" < $3 AND "dataHoraFim" >= $3)
-           OR ("dataHoraInicio" >= $2 AND "dataHoraFim" <= $3)
-         )`,
-      [quadraId, dataHoraNormalizada.toISOString(), dataHoraFim.toISOString()]
+         AND "dataInicio" <= $3
+         AND "dataFim" >= $2`,
+      [quadra.pointId, dataHoraNormalizada.toISOString(), dataHoraFim.toISOString()]
     );
 
-    if (bloqueiosResult.rows.length > 0) {
+    // Verificar se algum bloqueio afeta esta quadra
+    const temBloqueio = bloqueiosResult.rows.some((bloq: any) => {
+      // Se quadraIds for null ou vazio, bloqueia todas as quadras
+      if (!bloq.quadraIds || (Array.isArray(bloq.quadraIds) && bloq.quadraIds.length === 0)) {
+        // Bloqueia todas as quadras - verificar horário
+        return verificarConflitoHorario(bloq, dataHoraNormalizada, dataHoraFim);
+      }
+      
+      // Se tiver quadraIds, verificar se esta quadra está na lista
+      if (Array.isArray(bloq.quadraIds) && bloq.quadraIds.includes(quadraId)) {
+        return verificarConflitoHorario(bloq, dataHoraNormalizada, dataHoraFim);
+      }
+      
+      return false;
+    });
+
+    function verificarConflitoHorario(bloq: any, inicio: Date, fim: Date): boolean {
+      const bloqDataInicio = new Date(bloq.dataInicio);
+      const bloqDataFim = new Date(bloq.dataFim);
+      
+      // Verificar se há sobreposição de datas
+      if (fim <= bloqDataInicio || inicio >= bloqDataFim) {
+        return false;
+      }
+      
+      // Se o bloqueio tem horaInicio/horaFim, verificar horário específico
+      if (bloq.horaInicio !== null && bloq.horaInicio !== undefined &&
+          bloq.horaFim !== null && bloq.horaFim !== undefined) {
+        const inicioMin = inicio.getUTCHours() * 60 + inicio.getUTCMinutes();
+        const fimMin = fim.getUTCHours() * 60 + fim.getUTCMinutes();
+        
+        return !(fimMin <= bloq.horaInicio || inicioMin >= bloq.horaFim);
+      }
+      
+      // Se não tem hora específica, bloqueia o dia inteiro
+      return true;
+    }
+
+    if (temBloqueio) {
       return withCors(
         NextResponse.json({ mensagem: 'Horário está bloqueado' }, { status: 400 }),
         request
