@@ -99,26 +99,69 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Buscar atletas participantes
-    const participantesResult = await query(
-      `SELECT 
-        aa."atletaId",
-        at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
-        at."usuarioId" as "atleta_usuarioId",
-        u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
-      FROM "AgendamentoAtleta" aa
-      LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
-      LEFT JOIN "User" u ON at."usuarioId" = u.id
-      WHERE aa."agendamentoId" = $1`,
-      [agendamentoId]
-    );
-
     // Lista de clientes para criar cards
     const clientes: Array<{
       usuarioId?: string | null;
       nomeAvulso?: string | null;
       telefoneAvulso?: string | null;
     }> = [];
+
+    // Buscar atletas participantes e participantes avulsos
+    let participantesResult;
+    try {
+      console.log(`[gerar-cards] Buscando participantes para agendamento ${agendamentoId}`);
+      participantesResult = await query(
+        `SELECT 
+          aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso",
+          at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+          at."usuarioId" as "atleta_usuarioId",
+          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+        FROM "AgendamentoAtleta" aa
+        LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+        LEFT JOIN "User" u ON at."usuarioId" = u.id
+        WHERE aa."agendamentoId" = $1`,
+        [agendamentoId]
+      );
+      console.log(`[gerar-cards] Query executada com sucesso. Encontrados ${participantesResult.rows.length} registros.`);
+    } catch (error: any) {
+      // Se os campos nomeAvulso/telefoneAvulso não existem, tentar query sem eles
+      if (error.message?.includes('nomeAvulso') || error.message?.includes('telefoneAvulso') || error.code === '42703') {
+        console.warn('[gerar-cards] Campos nomeAvulso/telefoneAvulso não existem, usando query sem eles');
+        participantesResult = await query(
+          `SELECT 
+            aa."atletaId",
+            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+            at."usuarioId" as "atleta_usuarioId",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+          FROM "AgendamentoAtleta" aa
+          LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+          LEFT JOIN "User" u ON at."usuarioId" = u.id
+          WHERE aa."agendamentoId" = $1`,
+          [agendamentoId]
+        );
+        // Adicionar campos null para compatibilidade
+        participantesResult.rows = participantesResult.rows.map((row: any) => ({
+          ...row,
+          nomeAvulso: null,
+          telefoneAvulso: null,
+        }));
+      } else {
+        throw error;
+      }
+    }
+
+    console.log(`[gerar-cards] Participantes encontrados: ${participantesResult.rows.length}`);
+    participantesResult.rows.forEach((row: any, index: number) => {
+      console.log(`[gerar-cards] Participante ${index + 1}:`, {
+        atletaId: row.atletaId,
+        nomeAvulso: row.nomeAvulso,
+        telefoneAvulso: row.telefoneAvulso,
+        atleta_nome: row.atleta_nome,
+        usuario_id: row.usuario_id,
+      });
+    });
+
+    console.log(`[gerar-cards] Clientes antes de adicionar cliente original: ${clientes.length}`);
 
     // Adicionar cliente original
     if (agendamento.atletaId) {
@@ -167,9 +210,38 @@ export async function POST(
       });
     }
 
-    // Adicionar atletas participantes
-    participantesResult.rows.forEach((row: any) => {
-      if (row.usuario_id) {
+    // Adicionar atletas participantes e participantes avulsos
+    console.log(`[gerar-cards] Processando ${participantesResult.rows.length} participantes...`);
+    participantesResult.rows.forEach((row: any, index: number) => {
+      console.log(`[gerar-cards] Processando participante ${index + 1}:`, {
+        atletaId: row.atletaId,
+        nomeAvulso: row.nomeAvulso,
+        telefoneAvulso: row.telefoneAvulso,
+        atleta_nome: row.atleta_nome,
+        atleta_fone: row.atleta_fone,
+        usuario_id: row.usuario_id,
+      });
+
+      // Se for participante avulso (sem atletaId, com nomeAvulso)
+      if (!row.atletaId && row.nomeAvulso) {
+        console.log(`[gerar-cards] ✅ Encontrado participante avulso: ${row.nomeAvulso}`);
+        // Verificar se já existe um cliente avulso com o mesmo nome
+        // (telefone pode ser null, então comparamos apenas por nome)
+        const jaExiste = clientes.some(
+          (c) => !c.usuarioId && c.nomeAvulso === row.nomeAvulso
+        );
+
+        if (!jaExiste) {
+          console.log(`[gerar-cards] ➕ Adicionando participante avulso à lista: ${row.nomeAvulso}`);
+          clientes.push({
+            usuarioId: null,
+            nomeAvulso: row.nomeAvulso,
+            telefoneAvulso: row.telefoneAvulso || null,
+          });
+        } else {
+          console.log(`[gerar-cards] ⚠️ Participante avulso "${row.nomeAvulso}" já existe na lista de clientes`);
+        }
+      } else if (row.usuario_id) {
         // Atleta com usuarioId (tipo user) - verificar se já existe
         const jaExiste = clientes.some(
           (c) => c.usuarioId && c.usuarioId === row.usuario_id
@@ -196,6 +268,15 @@ export async function POST(
           });
         }
       }
+    });
+
+    console.log(`[gerar-cards] Total de clientes após adicionar participantes: ${clientes.length}`);
+    clientes.forEach((cliente, index) => {
+      console.log(`[gerar-cards] Cliente ${index + 1}:`, {
+        usuarioId: cliente.usuarioId,
+        nomeAvulso: cliente.nomeAvulso,
+        telefoneAvulso: cliente.telefoneAvulso,
+      });
     });
 
     if (clientes.length === 0) {

@@ -338,8 +338,41 @@ export default function CardsClientesPage() {
         observacoes: 'Pagamento rápido',
       });
 
-      // Recarregar cards
-      await carregarCards();
+      // Calcular o novo saldo (saldo atual - valor do pagamento)
+      const saldoAtual = card.saldo !== undefined ? card.saldo : card.valorTotal;
+      const novoSaldo = saldoAtual - valorPagamento;
+      
+      // Se o saldo for zero ou negativo, finalizar a comanda
+      if (novoSaldo <= 0 && card.status === 'ABERTO') {
+        await cardClienteService.atualizar(card.id, {
+          status: 'FECHADO',
+        });
+        
+        // Atualizar o card localmente sem recarregar a lista
+        setCards((prevCards) =>
+          prevCards.map((c) =>
+            c.id === card.id
+              ? {
+                  ...c,
+                  status: 'FECHADO' as StatusCard,
+                  saldo: 0,
+                }
+              : c
+          )
+        );
+      } else {
+        // Atualizar apenas o saldo do card localmente
+        setCards((prevCards) =>
+          prevCards.map((c) =>
+            c.id === card.id
+              ? {
+                  ...c,
+                  saldo: novoSaldo,
+                }
+              : c
+          )
+        );
+      }
       
       // Fechar pagamento rápido
       fecharPagamentoRapido(card.id);

@@ -411,7 +411,7 @@ export async function GET(request: NextRequest) {
       if (agendamentosIds.length > 0) {
         const participantesResult = await query(
           `SELECT 
-            aa."agendamentoId", aa.id, aa."atletaId", aa."createdAt",
+            aa."agendamentoId", aa.id, aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso", aa."createdAt",
             at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
             at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",
             u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
@@ -432,23 +432,41 @@ export async function GET(request: NextRequest) {
           if (!participantesPorAgendamento[rowPart.agendamentoId]) {
             participantesPorAgendamento[rowPart.agendamentoId] = [];
           }
-          participantesPorAgendamento[rowPart.agendamentoId].push({
-            id: rowPart.id,
-            atletaId: rowPart.atletaId,
-            atleta: {
-              id: rowPart.atleta_id,
-              nome: rowPart.atleta_nome,
-              fone: rowPart.atleta_fone,
-              usuarioId: rowPart.atleta_usuarioId || null,
-              fotoUrl: rowPart.atleta_fotoUrl || null,
-              usuario: rowPart.usuario_id ? {
-                id: rowPart.usuario_id,
-                name: rowPart.usuario_name,
-                email: rowPart.usuario_email,
-              } : null,
-            },
-            createdAt: rowPart.createdAt,
-          });
+          // Se for participante avulso (sem atletaId)
+          if (!rowPart.atletaId && rowPart.nomeAvulso) {
+            participantesPorAgendamento[rowPart.agendamentoId].push({
+              id: rowPart.id,
+              atletaId: null,
+              atleta: {
+                id: null,
+                nome: rowPart.nomeAvulso,
+                fone: rowPart.telefoneAvulso || null,
+                usuarioId: null,
+                fotoUrl: null,
+                usuario: null,
+              },
+              createdAt: rowPart.createdAt,
+            });
+          } else {
+            // Se for atleta cadastrado
+            participantesPorAgendamento[rowPart.agendamentoId].push({
+              id: rowPart.id,
+              atletaId: rowPart.atletaId,
+              atleta: {
+                id: rowPart.atleta_id,
+                nome: rowPart.atleta_nome,
+                fone: rowPart.atleta_fone,
+                usuarioId: rowPart.atleta_usuarioId || null,
+                fotoUrl: rowPart.atleta_fotoUrl || null,
+                usuario: rowPart.usuario_id ? {
+                  id: rowPart.usuario_id,
+                  name: rowPart.usuario_name,
+                  email: rowPart.usuario_email,
+                } : null,
+              },
+              createdAt: rowPart.createdAt,
+            });
+          }
         });
 
         // Adicionar participantes a cada agendamento
@@ -522,6 +540,7 @@ export async function POST(request: NextRequest) {
       valorNegociado,
       recorrencia,
       atletasParticipantesIds,
+      participantesAvulsos,
       ehAula,
       professorId,
       competicaoId,
@@ -536,6 +555,7 @@ export async function POST(request: NextRequest) {
       valorNegociado?: number;
       recorrencia?: RecorrenciaConfig;
       atletasParticipantesIds?: string[];
+      participantesAvulsos?: Array<{ nome: string }>;
       ehAula?: boolean;
       professorId?: string | null;
       competicaoId?: string | null;
@@ -1008,29 +1028,64 @@ export async function POST(request: NextRequest) {
       } : null,
     };
 
-    // Salvar atletas participantes se fornecido
-    if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
-      console.log(`[POST /api/agendamento] Salvando ${atletasParticipantesIds.length} participantes para agendamento ${agendamentoId}`);
+    // Salvar atletas participantes e participantes avulsos se fornecido
+    if ((atletasParticipantesIds && atletasParticipantesIds.length > 0) || (participantesAvulsos && participantesAvulsos.length > 0)) {
+      const totalParticipantes = (atletasParticipantesIds?.length || 0) + (participantesAvulsos?.length || 0);
+      console.log(`[POST /api/agendamento] Salvando ${totalParticipantes} participantes para agendamento ${agendamentoId}`);
       try {
-        for (const atletaIdPart of atletasParticipantesIds) {
-          const insertResult = await query(
-            `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "createdBy", "createdAt")
-             VALUES ($1, $2, $3, NOW())
-             ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING
-             RETURNING id`,
-            [agendamentoId, atletaIdPart, usuario.id]
-          );
-          if (insertResult.rows.length > 0) {
-            console.log(`[POST /api/agendamento] Participante ${atletaIdPart} adicionado ao agendamento ${agendamentoId}`);
-          } else {
-            console.log(`[POST /api/agendamento] Participante ${atletaIdPart} já existe no agendamento ${agendamentoId} (conflito ignorado)`);
+        // Salvar atletas participantes
+        if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
+          for (const atletaIdPart of atletasParticipantesIds) {
+            const insertResult = await query(
+              `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
+               VALUES ($1, $2, NULL, NULL, $3, NOW())
+               ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING
+               RETURNING id`,
+              [agendamentoId, atletaIdPart, usuario.id]
+            );
+            if (insertResult.rows.length > 0) {
+              console.log(`[POST /api/agendamento] Participante ${atletaIdPart} adicionado ao agendamento ${agendamentoId}`);
+            } else {
+              console.log(`[POST /api/agendamento] Participante ${atletaIdPart} já existe no agendamento ${agendamentoId} (conflito ignorado)`);
+            }
           }
         }
 
-        // Buscar atletas participantes para retorno
+        // Salvar participantes avulsos
+        if (participantesAvulsos && participantesAvulsos.length > 0) {
+          console.log(`[POST /api/agendamento] Adicionando ${participantesAvulsos.length} participantes avulsos ao agendamento ${agendamentoId}`);
+          for (const avulso of participantesAvulsos) {
+            if (avulso.nome && avulso.nome.trim()) {
+              try {
+                const result = await query(
+                  `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
+                   VALUES ($1, NULL, $2, NULL, $3, NOW())
+                   RETURNING id`,
+                  [agendamentoId, avulso.nome.trim(), usuario.id]
+                );
+                console.log(`[POST /api/agendamento] ✅ Participante avulso "${avulso.nome}" adicionado com sucesso. ID: ${result.rows[0]?.id}`);
+              } catch (error: any) {
+                console.error(`[POST /api/agendamento] ❌ Erro ao adicionar participante avulso "${avulso.nome}":`, error);
+                console.error(`[POST /api/agendamento] Detalhes do erro:`, {
+                  message: error.message,
+                  code: error.code,
+                  detail: error.detail,
+                  constraint: error.constraint,
+                });
+                throw error;
+              }
+            } else {
+              console.warn(`[POST /api/agendamento] Participante avulso com nome vazio ignorado:`, avulso);
+            }
+          }
+        } else {
+          console.log(`[POST /api/agendamento] Nenhum participante avulso para adicionar`);
+        }
+
+        // Buscar participantes para retorno (incluindo avulsos)
         const participantesResult = await query(
           `SELECT 
-            aa.id, aa."atletaId", aa."createdAt",
+            aa.id, aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso", aa."createdAt",
             at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
             at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",
             u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
@@ -1042,23 +1097,42 @@ export async function POST(request: NextRequest) {
           [agendamentoId]
         );
 
-        agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => ({
-          id: rowPart.id,
-          atletaId: rowPart.atletaId,
-          atleta: {
-            id: rowPart.atleta_id,
-            nome: rowPart.atleta_nome,
-            fone: rowPart.atleta_fone,
-            usuarioId: rowPart.atleta_usuarioId || null,
-            fotoUrl: rowPart.atleta_fotoUrl || null,
-            usuario: rowPart.usuario_id ? {
-              id: rowPart.usuario_id,
-              name: rowPart.usuario_name,
-              email: rowPart.usuario_email,
-            } : null,
-          },
-          createdAt: rowPart.createdAt,
-        }));
+        agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => {
+          // Se for participante avulso (sem atletaId)
+          if (!rowPart.atletaId && rowPart.nomeAvulso) {
+            return {
+              id: rowPart.id,
+              atletaId: null,
+              atleta: {
+                id: null,
+                nome: rowPart.nomeAvulso,
+                fone: rowPart.telefoneAvulso || null,
+                usuarioId: null,
+                fotoUrl: null,
+                usuario: null,
+              },
+              createdAt: rowPart.createdAt,
+            };
+          }
+          // Se for atleta cadastrado
+          return {
+            id: rowPart.id,
+            atletaId: rowPart.atletaId,
+            atleta: {
+              id: rowPart.atleta_id,
+              nome: rowPart.atleta_nome,
+              fone: rowPart.atleta_fone,
+              usuarioId: rowPart.atleta_usuarioId || null,
+              fotoUrl: rowPart.atleta_fotoUrl || null,
+              usuario: rowPart.usuario_id ? {
+                id: rowPart.usuario_id,
+                name: rowPart.usuario_name,
+                email: rowPart.usuario_email,
+              } : null,
+            },
+            createdAt: rowPart.createdAt,
+          };
+        });
       } catch (error: any) {
         // Se a tabela AgendamentoAtleta não existir ainda, apenas logar o erro
         if (error.message?.includes('does not exist') || error.code === '42P01') {

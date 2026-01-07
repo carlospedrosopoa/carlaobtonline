@@ -108,6 +108,9 @@ export default function EditarAgendamentoModal({
   const [atletasParticipantesIds, setAtletasParticipantesIds] = useState<string[]>([]);
   const [mostrarSelecaoAtletas, setMostrarSelecaoAtletas] = useState(false);
   const [buscaAtletasParticipantes, setBuscaAtletasParticipantes] = useState('');
+  // Participantes avulsos (apenas nome)
+  const [participantesAvulsos, setParticipantesAvulsos] = useState<Array<{ id: string; nome: string }>>([]);
+  const [nomeAvulsoParticipante, setNomeAvulsoParticipante] = useState('');
   // Campos de aula/professor
   const [ehAula, setEhAula] = useState(false);
   const [professorId, setProfessorId] = useState<string>('');
@@ -368,6 +371,8 @@ export default function EditarAgendamentoModal({
   }, [buscaAtleta]);
 
   const resetarFormulario = () => {
+    setParticipantesAvulsos([]);
+    setNomeAvulsoParticipante('');
     setPointId('');
     setQuadraId('');
     // Definir data atual como padrão para novos agendamentos
@@ -485,7 +490,8 @@ export default function EditarAgendamentoModal({
       atletaId: agendamentoParaUsar.atletaId || null,
       nomeAvulso: agendamentoParaUsar.nomeAvulso || '',
       telefoneAvulso: agendamentoParaUsar.telefoneAvulso || '',
-      atletasParticipantesIds: agendamentoParaUsar.atletasParticipantes?.map((ap) => ap.atletaId).filter((id) => id) || [],
+      atletasParticipantesIds: agendamentoParaUsar.atletasParticipantes?.filter((ap) => ap.atletaId).map((ap) => ap.atletaId!) || [],
+      participantesAvulsos: agendamentoParaUsar.atletasParticipantes?.filter((ap) => !ap.atletaId && ap.atleta?.nome).map((ap) => ({ nome: ap.atleta.nome })) || [],
       ehAula: agendamentoParaUsar.ehAula || false,
       professorId: agendamentoParaUsar.professorId || null,
     });
@@ -542,17 +548,31 @@ export default function EditarAgendamentoModal({
     // Resetar opção de aplicar recorrência
     setAplicarARecorrencia(false);
 
-    // Preencher atletas participantes
+    // Preencher atletas participantes e participantes avulsos
     if (agendamentoParaUsar.atletasParticipantes && agendamentoParaUsar.atletasParticipantes.length > 0) {
       console.log('[EditarAgendamentoModal] Carregando participantes:', agendamentoParaUsar.atletasParticipantes);
-      const idsParticipantes = agendamentoParaUsar.atletasParticipantes.map(ap => ap.atletaId).filter(id => id);
+      // Separar atletas cadastrados de participantes avulsos
+      const idsParticipantes = agendamentoParaUsar.atletasParticipantes
+        .filter(ap => ap.atletaId)
+        .map(ap => ap.atletaId!);
+      const avulsos = agendamentoParaUsar.atletasParticipantes
+        .filter(ap => !ap.atletaId && ap.atleta?.nome)
+        .map(ap => ({
+          id: ap.id,
+          nome: ap.atleta.nome,
+        }));
+      
       console.log('[EditarAgendamentoModal] IDs dos participantes:', idsParticipantes);
+      console.log('[EditarAgendamentoModal] Participantes avulsos:', avulsos);
+      
       setAtletasParticipantesIds(idsParticipantes);
+      setParticipantesAvulsos(avulsos);
       // Armazenar dados completos dos participantes para exibição
       setParticipantesCompletos(agendamentoParaUsar.atletasParticipantes);
     } else {
       console.log('[EditarAgendamentoModal] Nenhum participante encontrado. atletasParticipantes:', agendamentoParaUsar.atletasParticipantes);
       setAtletasParticipantesIds([]);
+      setParticipantesAvulsos([]);
       setParticipantesCompletos([]);
     }
   };
@@ -816,7 +836,14 @@ export default function EditarAgendamentoModal({
     // Comparar participantes (ordem importa)
     const participantesAtuais = [...atletasParticipantesIds].sort();
     const participantesOriginais = [...(valoresOriginais.atletasParticipantesIds || [])].sort();
-    const mudouParticipantes = JSON.stringify(participantesAtuais) !== JSON.stringify(participantesOriginais);
+    const mudouParticipantesAtletas = JSON.stringify(participantesAtuais) !== JSON.stringify(participantesOriginais);
+    
+    // Comparar participantes avulsos (ordem importa, comparar por nome)
+    const avulsosAtuais = [...participantesAvulsos].map(a => a.nome).sort();
+    const avulsosOriginais = [...(valoresOriginais.participantesAvulsos || [])].map((a: any) => a.nome || a).sort();
+    const mudouParticipantesAvulsos = JSON.stringify(avulsosAtuais) !== JSON.stringify(avulsosOriginais);
+    
+    const mudouParticipantes = mudouParticipantesAtletas || mudouParticipantesAvulsos;
 
     // Comparar campos de aula/professor
     const mudouEhAula = ehAula !== (valoresOriginais.ehAula || false);
@@ -838,6 +865,7 @@ export default function EditarAgendamentoModal({
     nomeAvulso,
     telefoneAvulso,
     atletasParticipantesIds,
+    participantesAvulsos,
     ehAula,
     professorId,
   ]);
@@ -996,6 +1024,15 @@ export default function EditarAgendamentoModal({
         payload.atletasParticipantesIds = [];
       }
 
+      // Participantes avulsos (não criam atletas, são salvos diretamente na tabela AgendamentoAtleta)
+      // Sempre enviar o array, mesmo que vazio, para garantir que o backend processe corretamente
+      payload.participantesAvulsos = participantesAvulsos.length > 0 
+        ? participantesAvulsos.map(av => ({ nome: av.nome }))
+        : [];
+      
+      console.log('[EditarAgendamentoModal] Participantes avulsos no estado:', participantesAvulsos);
+      console.log('[EditarAgendamentoModal] Participantes avulsos no payload:', payload.participantesAvulsos);
+
       // Campos de aula/professor
       if (ehAula) {
         payload.ehAula = true;
@@ -1048,6 +1085,7 @@ export default function EditarAgendamentoModal({
             nomeAvulso: agendamentoAtualizado.nomeAvulso || '',
             telefoneAvulso: agendamentoAtualizado.telefoneAvulso || '',
             atletasParticipantesIds: agendamentoAtualizado.atletasParticipantes?.map((ap: any) => ap.atletaId).filter((id: string) => id) || [],
+            participantesAvulsos: agendamentoAtualizado.atletasParticipantes?.filter((ap: any) => !ap.atletaId && ap.atleta?.nome).map((ap: any) => ({ nome: ap.atleta.nome })) || [],
             ehAula: agendamentoAtualizado.ehAula || false,
             professorId: agendamentoAtualizado.professorId || null,
           });
@@ -1280,9 +1318,9 @@ export default function EditarAgendamentoModal({
                 <label className="block text-sm font-medium text-gray-700">
                   <Users className="inline w-4 h-4 mr-1" />
                   Atletas Participantes (opcional)
-                  {atletasParticipantesIds.length > 0 && (
+                  {(atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0) && (
                     <span className="ml-2 text-xs text-gray-500">
-                      ({atletasParticipantesIds.length} selecionado{atletasParticipantesIds.length !== 1 ? 's' : ''})
+                      ({atletasParticipantesIds.length + participantesAvulsos.length} selecionado{(atletasParticipantesIds.length + participantesAvulsos.length) !== 1 ? 's' : ''})
                     </span>
                   )}
                 </label>
@@ -1296,12 +1334,37 @@ export default function EditarAgendamentoModal({
               </div>
               
               {/* Mostrar participantes selecionados mesmo quando a seleção está oculta */}
-              {!mostrarSelecaoAtletas && (atletasParticipantesIds.length > 0 || participantesCompletos.length > 0) && (
+              {!mostrarSelecaoAtletas && (atletasParticipantesIds.length > 0 || participantesCompletos.length > 0 || participantesAvulsos.length > 0) && (
                 <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
                   <p className="text-xs font-medium text-purple-700 mb-2">
                     Participantes adicionados:
                   </p>
                   <div className="space-y-1.5">
+                    {/* Participantes avulsos */}
+                    {participantesAvulsos.map((avulso) => (
+                      <div
+                        key={avulso.id}
+                        className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {avulso.nome} <span className="text-xs text-gray-500 italic">(avulso)</span>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setParticipantesAvulsos(participantesAvulsos.filter(p => p.id !== avulso.id));
+                          }}
+                          className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                          title="Remover participante"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
                     {participantesCompletos.length > 0 ? (
                       // Usar dados completos do agendamento
                       participantesCompletos.map((participante) => (
@@ -1382,13 +1445,60 @@ export default function EditarAgendamentoModal({
                     </div>
                   ) : (
                     <>
-                      <input
-                        type="text"
-                        value={buscaAtletasParticipantes}
-                        onChange={(e) => setBuscaAtletasParticipantes(e.target.value)}
-                        placeholder="Buscar atleta por nome ou telefone..."
-                        className="mb-3 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                      />
+                      {/* Campo de busca e adicionar avulso */}
+                      <div className="mb-3 flex gap-2">
+                        <input
+                          type="text"
+                          value={buscaAtletasParticipantes}
+                          onChange={(e) => setBuscaAtletasParticipantes(e.target.value)}
+                          placeholder="Buscar atleta por nome ou telefone..."
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={nomeAvulsoParticipante}
+                            onChange={(e) => setNomeAvulsoParticipante(e.target.value)}
+                            placeholder="Nome avulso"
+                            className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && nomeAvulsoParticipante.trim()) {
+                                e.preventDefault();
+                                const novoId = `avulso-${Date.now()}-${Math.random()}`;
+                                setParticipantesAvulsos([
+                                  ...participantesAvulsos,
+                                  {
+                                    id: novoId,
+                                    nome: nomeAvulsoParticipante.trim(),
+                                  }
+                                ]);
+                                setNomeAvulsoParticipante('');
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (nomeAvulsoParticipante.trim()) {
+                                const novoId = `avulso-${Date.now()}-${Math.random()}`;
+                                setParticipantesAvulsos([
+                                  ...participantesAvulsos,
+                                  {
+                                    id: novoId,
+                                    nome: nomeAvulsoParticipante.trim(),
+                                  }
+                                ]);
+                                setNomeAvulsoParticipante('');
+                              }
+                            }}
+                            disabled={!nomeAvulsoParticipante.trim()}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            <UserPlus className="w-4 h-4 inline mr-1" />
+                            Adicionar
+                          </button>
+                        </div>
+                      </div>
                       <div className="max-h-48 overflow-y-auto space-y-2">
                         {(() => {
                           const atletasFiltradosParticipantes = !buscaAtletasParticipantes.trim() 
@@ -1463,12 +1573,29 @@ export default function EditarAgendamentoModal({
                           });
                         })()}
                       </div>
-                      {atletasParticipantesIds.length > 0 && (
+                      {(atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0) && (
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <div className="text-sm font-medium text-gray-700 mb-2">
-                            Selecionados: {atletasParticipantesIds.length}
+                            Selecionados: {atletasParticipantesIds.length + participantesAvulsos.length}
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            {/* Participantes avulsos */}
+                            {participantesAvulsos.map((avulso) => (
+                              <span
+                                key={avulso.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs"
+                              >
+                                {avulso.nome} <span className="text-xs italic">(avulso)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setParticipantesAvulsos(participantesAvulsos.filter(p => p.id !== avulso.id))}
+                                  className="text-purple-600 hover:text-purple-800"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                            {/* Atletas selecionados */}
                             {atletasParticipantesIds.map((id) => {
                               const atleta = atletas.find(a => a.id === id);
                               return atleta ? (
