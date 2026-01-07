@@ -1053,16 +1053,33 @@ export async function POST(request: NextRequest) {
 
         // Salvar participantes avulsos
         if (participantesAvulsos && participantesAvulsos.length > 0) {
+          console.log(`[POST /api/agendamento] Adicionando ${participantesAvulsos.length} participantes avulsos ao agendamento ${agendamentoId}`);
           for (const avulso of participantesAvulsos) {
             if (avulso.nome && avulso.nome.trim()) {
-              await query(
-                `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
-                 VALUES ($1, NULL, $2, NULL, $3, NOW())`,
-                [agendamentoId, avulso.nome.trim(), usuario.id]
-              );
-              console.log(`[POST /api/agendamento] Participante avulso "${avulso.nome}" adicionado ao agendamento ${agendamentoId}`);
+              try {
+                const result = await query(
+                  `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
+                   VALUES ($1, NULL, $2, NULL, $3, NOW())
+                   RETURNING id`,
+                  [agendamentoId, avulso.nome.trim(), usuario.id]
+                );
+                console.log(`[POST /api/agendamento] ✅ Participante avulso "${avulso.nome}" adicionado com sucesso. ID: ${result.rows[0]?.id}`);
+              } catch (error: any) {
+                console.error(`[POST /api/agendamento] ❌ Erro ao adicionar participante avulso "${avulso.nome}":`, error);
+                console.error(`[POST /api/agendamento] Detalhes do erro:`, {
+                  message: error.message,
+                  code: error.code,
+                  detail: error.detail,
+                  constraint: error.constraint,
+                });
+                throw error;
+              }
+            } else {
+              console.warn(`[POST /api/agendamento] Participante avulso com nome vazio ignorado:`, avulso);
             }
           }
+        } else {
+          console.log(`[POST /api/agendamento] Nenhum participante avulso para adicionar`);
         }
 
         // Buscar participantes para retorno (incluindo avulsos)

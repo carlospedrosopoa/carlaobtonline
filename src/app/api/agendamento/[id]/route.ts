@@ -1167,35 +1167,66 @@ export async function PUT(
       // Atualizar atletas participantes e participantes avulsos se fornecido
       if (atletasParticipantesIds !== undefined || participantesAvulsos !== undefined) {
         try {
+          console.log(`[PUT /api/agendamento/${id}] Atualizando participantes:`, {
+            atletasParticipantesIds,
+            participantesAvulsos,
+          });
+
           // Remover todos os participantes existentes
           await query(
             'DELETE FROM "AgendamentoAtleta" WHERE "agendamentoId" = $1',
             [id]
           );
+          console.log(`[PUT /api/agendamento/${id}] Participantes existentes removidos`);
 
           // Adicionar novos participantes (atletas)
           if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
+            console.log(`[PUT /api/agendamento/${id}] Adicionando ${atletasParticipantesIds.length} atletas participantes`);
             for (const atletaIdPart of atletasParticipantesIds) {
-              await query(
+              const result = await query(
                 `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
                  VALUES ($1, $2, NULL, NULL, $3, NOW())
-                 ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING`,
+                 ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING
+                 RETURNING id`,
                 [id, atletaIdPart, usuario.id]
               );
+              if (result.rows.length > 0) {
+                console.log(`[PUT /api/agendamento/${id}] Atleta ${atletaIdPart} adicionado com sucesso`);
+              } else {
+                console.log(`[PUT /api/agendamento/${id}] Atleta ${atletaIdPart} já existia (conflito ignorado)`);
+              }
             }
           }
 
           // Adicionar participantes avulsos
           if (participantesAvulsos && participantesAvulsos.length > 0) {
+            console.log(`[PUT /api/agendamento/${id}] Adicionando ${participantesAvulsos.length} participantes avulsos`);
             for (const avulso of participantesAvulsos) {
               if (avulso.nome && avulso.nome.trim()) {
-                await query(
-                  `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
-                   VALUES ($1, NULL, $2, NULL, $3, NOW())`,
-                  [id, avulso.nome.trim(), usuario.id]
-                );
+                try {
+                  const result = await query(
+                    `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
+                     VALUES ($1, NULL, $2, NULL, $3, NOW())
+                     RETURNING id`,
+                    [id, avulso.nome.trim(), usuario.id]
+                  );
+                  console.log(`[PUT /api/agendamento/${id}] ✅ Participante avulso "${avulso.nome}" adicionado com sucesso. ID: ${result.rows[0]?.id}`);
+                } catch (error: any) {
+                  console.error(`[PUT /api/agendamento/${id}] ❌ Erro ao adicionar participante avulso "${avulso.nome}":`, error);
+                  console.error(`[PUT /api/agendamento/${id}] Detalhes do erro:`, {
+                    message: error.message,
+                    code: error.code,
+                    detail: error.detail,
+                    constraint: error.constraint,
+                  });
+                  throw error;
+                }
+              } else {
+                console.warn(`[PUT /api/agendamento/${id}] Participante avulso com nome vazio ignorado:`, avulso);
               }
             }
+          } else {
+            console.log(`[PUT /api/agendamento/${id}] Nenhum participante avulso para adicionar`);
           }
 
           // Buscar participantes atualizados para retorno (incluindo avulsos)
