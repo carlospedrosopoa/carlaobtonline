@@ -490,7 +490,7 @@ export default function EditarAgendamentoModal({
       atletaId: agendamentoParaUsar.atletaId || null,
       nomeAvulso: agendamentoParaUsar.nomeAvulso || '',
       telefoneAvulso: agendamentoParaUsar.telefoneAvulso || '',
-      atletasParticipantesIds: agendamentoParaUsar.atletasParticipantes?.map((ap) => ap.atletaId).filter((id) => id) || [],
+      atletasParticipantesIds: agendamentoParaUsar.atletasParticipantes?.filter((ap) => ap.atletaId).map((ap) => ap.atletaId!) || [],
       ehAula: agendamentoParaUsar.ehAula || false,
       professorId: agendamentoParaUsar.professorId || null,
     });
@@ -547,17 +547,31 @@ export default function EditarAgendamentoModal({
     // Resetar opção de aplicar recorrência
     setAplicarARecorrencia(false);
 
-    // Preencher atletas participantes
+    // Preencher atletas participantes e participantes avulsos
     if (agendamentoParaUsar.atletasParticipantes && agendamentoParaUsar.atletasParticipantes.length > 0) {
       console.log('[EditarAgendamentoModal] Carregando participantes:', agendamentoParaUsar.atletasParticipantes);
-      const idsParticipantes = agendamentoParaUsar.atletasParticipantes.map(ap => ap.atletaId).filter(id => id);
+      // Separar atletas cadastrados de participantes avulsos
+      const idsParticipantes = agendamentoParaUsar.atletasParticipantes
+        .filter(ap => ap.atletaId)
+        .map(ap => ap.atletaId!);
+      const avulsos = agendamentoParaUsar.atletasParticipantes
+        .filter(ap => !ap.atletaId && ap.atleta?.nome)
+        .map(ap => ({
+          id: ap.id,
+          nome: ap.atleta.nome,
+        }));
+      
       console.log('[EditarAgendamentoModal] IDs dos participantes:', idsParticipantes);
+      console.log('[EditarAgendamentoModal] Participantes avulsos:', avulsos);
+      
       setAtletasParticipantesIds(idsParticipantes);
+      setParticipantesAvulsos(avulsos);
       // Armazenar dados completos dos participantes para exibição
       setParticipantesCompletos(agendamentoParaUsar.atletasParticipantes);
     } else {
       console.log('[EditarAgendamentoModal] Nenhum participante encontrado. atletasParticipantes:', agendamentoParaUsar.atletasParticipantes);
       setAtletasParticipantesIds([]);
+      setParticipantesAvulsos([]);
       setParticipantesCompletos([]);
     }
   };
@@ -995,32 +1009,15 @@ export default function EditarAgendamentoModal({
       }
 
       // Atletas participantes (múltiplos)
-      // Criar atletas temporários para participantes avulsos e adicionar seus IDs
-      let idsParticipantes = [...atletasParticipantesIds];
-      if (participantesAvulsos.length > 0 && usuario?.pointIdGestor) {
-        try {
-          for (const avulso of participantesAvulsos) {
-            // Criar atleta temporário para o participante avulso (sem telefone)
-            const atletaAvulsoResponse = await api.post('/atleta/criar-avulso', {
-              nome: avulso.nome,
-              fone: '',
-              pointId: usuario.pointIdGestor,
-            });
-            if (atletaAvulsoResponse.data?.id) {
-              idsParticipantes.push(atletaAvulsoResponse.data.id);
-            }
-          }
-        } catch (error: any) {
-          console.error('Erro ao criar atletas avulsos:', error);
-          setErro('Erro ao criar participantes avulsos. Tente novamente.');
-          return;
-        }
-      }
-      
-      if (idsParticipantes.length > 0) {
-        payload.atletasParticipantesIds = idsParticipantes;
+      if (atletasParticipantesIds.length > 0) {
+        payload.atletasParticipantesIds = atletasParticipantesIds;
       } else {
         payload.atletasParticipantesIds = [];
+      }
+
+      // Participantes avulsos (não criam atletas, são salvos diretamente na tabela AgendamentoAtleta)
+      if (participantesAvulsos.length > 0) {
+        payload.participantesAvulsos = participantesAvulsos.map(av => ({ nome: av.nome }));
       }
 
       // Campos de aula/professor

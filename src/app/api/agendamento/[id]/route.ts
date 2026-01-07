@@ -183,7 +183,7 @@ export async function GET(
     try {
       const participantesResult = await query(
         `SELECT 
-          aa.id, aa."atletaId", aa."createdAt",
+          aa.id, aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso", aa."createdAt",
           at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
           at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",
           u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
@@ -195,23 +195,42 @@ export async function GET(
         [id]
       );
 
-      agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => ({
-        id: rowPart.id,
-        atletaId: rowPart.atletaId,
-        atleta: {
-          id: rowPart.atleta_id,
-          nome: rowPart.atleta_nome,
-          fone: rowPart.atleta_fone,
-          usuarioId: rowPart.atleta_usuarioId || null,
-          fotoUrl: rowPart.atleta_fotoUrl || null,
-          usuario: rowPart.usuario_id ? {
-            id: rowPart.usuario_id,
-            name: rowPart.usuario_name,
-            email: rowPart.usuario_email,
-          } : null,
-        },
-        createdAt: rowPart.createdAt,
-      }));
+      agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => {
+        // Se for participante avulso (sem atletaId)
+        if (!rowPart.atletaId && rowPart.nomeAvulso) {
+          return {
+            id: rowPart.id,
+            atletaId: null,
+            atleta: {
+              id: null,
+              nome: rowPart.nomeAvulso,
+              fone: rowPart.telefoneAvulso || null,
+              usuarioId: null,
+              fotoUrl: null,
+              usuario: null,
+            },
+            createdAt: rowPart.createdAt,
+          };
+        }
+        // Se for atleta cadastrado
+        return {
+          id: rowPart.id,
+          atletaId: rowPart.atletaId,
+          atleta: {
+            id: rowPart.atleta_id,
+            nome: rowPart.atleta_nome,
+            fone: rowPart.atleta_fone,
+            usuarioId: rowPart.atleta_usuarioId || null,
+            fotoUrl: rowPart.atleta_fotoUrl || null,
+            usuario: rowPart.usuario_id ? {
+              id: rowPart.usuario_id,
+              name: rowPart.usuario_name,
+              email: rowPart.usuario_email,
+            } : null,
+          },
+          createdAt: rowPart.createdAt,
+        };
+      });
     } catch (error: any) {
       // Se a tabela AgendamentoAtleta não existir ainda, retornar array vazio
       if (error.message?.includes('does not exist') || error.code === '42P01') {
@@ -351,6 +370,7 @@ export async function PUT(
       aplicarARecorrencia?: boolean;
       recorrencia?: RecorrenciaConfig;
       atletasParticipantesIds?: string[] | null;
+      participantesAvulsos?: Array<{ nome: string }> | null;
       ehAula?: boolean;
       professorId?: string | null;
     };
@@ -1144,8 +1164,8 @@ export async function PUT(
         } : null,
       };
 
-      // Atualizar atletas participantes se fornecido
-      if (atletasParticipantesIds !== undefined) {
+      // Atualizar atletas participantes e participantes avulsos se fornecido
+      if (atletasParticipantesIds !== undefined || participantesAvulsos !== undefined) {
         try {
           // Remover todos os participantes existentes
           await query(
@@ -1153,22 +1173,35 @@ export async function PUT(
             [id]
           );
 
-          // Adicionar novos participantes
+          // Adicionar novos participantes (atletas)
           if (atletasParticipantesIds && atletasParticipantesIds.length > 0) {
             for (const atletaIdPart of atletasParticipantesIds) {
               await query(
-                `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "createdBy", "createdAt")
-                 VALUES ($1, $2, $3, NOW())
+                `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdBy", "createdAt")
+                 VALUES ($1, $2, NULL, NULL, $3, NOW())
                  ON CONFLICT ("agendamentoId", "atletaId") DO NOTHING`,
                 [id, atletaIdPart, usuario.id]
               );
             }
           }
 
-          // Buscar atletas participantes atualizados para retorno
+          // Adicionar participantes avulsos
+          if (participantesAvulsos && participantesAvulsos.length > 0) {
+            for (const avulso of participantesAvulsos) {
+              if (avulso.nome && avulso.nome.trim()) {
+                await query(
+                  `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdBy", "createdAt")
+                   VALUES ($1, NULL, $2, NULL, $3, NOW())`,
+                  [id, avulso.nome.trim(), usuario.id]
+                );
+              }
+            }
+          }
+
+          // Buscar participantes atualizados para retorno (incluindo avulsos)
           const participantesResult = await query(
             `SELECT 
-              aa.id, aa."atletaId", aa."createdAt",
+              aa.id, aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso", aa."createdAt",
               at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
               at."usuarioId" as "atleta_usuarioId", at."fotoUrl" as "atleta_fotoUrl",
               u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
@@ -1180,23 +1213,42 @@ export async function PUT(
             [id]
           );
 
-          agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => ({
-            id: rowPart.id,
-            atletaId: rowPart.atletaId,
-            atleta: {
-              id: rowPart.atleta_id,
-              nome: rowPart.atleta_nome,
-              fone: rowPart.atleta_fone,
-              usuarioId: rowPart.atleta_usuarioId || null,
-              fotoUrl: rowPart.atleta_fotoUrl || null,
-              usuario: rowPart.usuario_id ? {
-                id: rowPart.usuario_id,
-                name: rowPart.usuario_name,
-                email: rowPart.usuario_email,
-              } : null,
-            },
-            createdAt: rowPart.createdAt,
-          }));
+          agendamento.atletasParticipantes = participantesResult.rows.map((rowPart: any) => {
+            // Se for participante avulso (sem atletaId)
+            if (!rowPart.atletaId && rowPart.nomeAvulso) {
+              return {
+                id: rowPart.id,
+                atletaId: null,
+                atleta: {
+                  id: null,
+                  nome: rowPart.nomeAvulso,
+                  fone: rowPart.telefoneAvulso || null,
+                  usuarioId: null,
+                  fotoUrl: null,
+                  usuario: null,
+                },
+                createdAt: rowPart.createdAt,
+              };
+            }
+            // Se for atleta cadastrado
+            return {
+              id: rowPart.id,
+              atletaId: rowPart.atletaId,
+              atleta: {
+                id: rowPart.atleta_id,
+                nome: rowPart.atleta_nome,
+                fone: rowPart.atleta_fone,
+                usuarioId: rowPart.atleta_usuarioId || null,
+                fotoUrl: rowPart.atleta_fotoUrl || null,
+                usuario: rowPart.usuario_id ? {
+                  id: rowPart.usuario_id,
+                  name: rowPart.usuario_name,
+                  email: rowPart.usuario_email,
+                } : null,
+              },
+              createdAt: rowPart.createdAt,
+            };
+          });
         } catch (error: any) {
           // Se a tabela AgendamentoAtleta não existir ainda, apenas logar o erro
           if (error.message?.includes('does not exist') || error.code === '42P01') {

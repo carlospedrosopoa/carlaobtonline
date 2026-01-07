@@ -99,10 +99,10 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Buscar atletas participantes
+    // Buscar atletas participantes e participantes avulsos
     const participantesResult = await query(
       `SELECT 
-        aa."atletaId",
+        aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso",
         at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
         at."usuarioId" as "atleta_usuarioId",
         u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
@@ -167,9 +167,22 @@ export async function POST(
       });
     }
 
-    // Adicionar atletas participantes
+    // Adicionar atletas participantes e participantes avulsos
     participantesResult.rows.forEach((row: any) => {
-      if (row.usuario_id) {
+      // Se for participante avulso (sem atletaId, com nomeAvulso)
+      if (!row.atletaId && row.nomeAvulso) {
+        const jaExiste = clientes.some(
+          (c) => c.nomeAvulso === row.nomeAvulso && (!row.telefoneAvulso || c.telefoneAvulso === row.telefoneAvulso)
+        );
+
+        if (!jaExiste) {
+          clientes.push({
+            usuarioId: null,
+            nomeAvulso: row.nomeAvulso,
+            telefoneAvulso: row.telefoneAvulso || null,
+          });
+        }
+      } else if (row.usuario_id) {
         // Atleta com usuarioId (tipo user) - verificar se já existe
         const jaExiste = clientes.some(
           (c) => c.usuarioId && c.usuarioId === row.usuario_id
