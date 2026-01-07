@@ -113,6 +113,19 @@ export async function POST(
       [agendamentoId]
     );
 
+    console.log(`[gerar-cards] Participantes encontrados: ${participantesResult.rows.length}`);
+    participantesResult.rows.forEach((row: any, index: number) => {
+      console.log(`[gerar-cards] Participante ${index + 1}:`, {
+        atletaId: row.atletaId,
+        nomeAvulso: row.nomeAvulso,
+        telefoneAvulso: row.telefoneAvulso,
+        atleta_nome: row.atleta_nome,
+        usuario_id: row.usuario_id,
+      });
+    });
+
+    console.log(`[gerar-cards] Clientes antes de adicionar participantes: ${clientes.length}`);
+
     // Lista de clientes para criar cards
     const clientes: Array<{
       usuarioId?: string | null;
@@ -171,16 +184,21 @@ export async function POST(
     participantesResult.rows.forEach((row: any) => {
       // Se for participante avulso (sem atletaId, com nomeAvulso)
       if (!row.atletaId && row.nomeAvulso) {
+        // Verificar se já existe um cliente avulso com o mesmo nome
+        // (telefone pode ser null, então comparamos apenas por nome)
         const jaExiste = clientes.some(
-          (c) => c.nomeAvulso === row.nomeAvulso && (!row.telefoneAvulso || c.telefoneAvulso === row.telefoneAvulso)
+          (c) => !c.usuarioId && c.nomeAvulso === row.nomeAvulso
         );
 
         if (!jaExiste) {
+          console.log(`[gerar-cards] Adicionando participante avulso: ${row.nomeAvulso}`);
           clientes.push({
             usuarioId: null,
             nomeAvulso: row.nomeAvulso,
             telefoneAvulso: row.telefoneAvulso || null,
           });
+        } else {
+          console.log(`[gerar-cards] Participante avulso "${row.nomeAvulso}" já existe na lista de clientes`);
         }
       } else if (row.usuario_id) {
         // Atleta com usuarioId (tipo user) - verificar se já existe
@@ -209,6 +227,15 @@ export async function POST(
           });
         }
       }
+    });
+
+    console.log(`[gerar-cards] Total de clientes após adicionar participantes: ${clientes.length}`);
+    clientes.forEach((cliente, index) => {
+      console.log(`[gerar-cards] Cliente ${index + 1}:`, {
+        usuarioId: cliente.usuarioId,
+        nomeAvulso: cliente.nomeAvulso,
+        telefoneAvulso: cliente.telefoneAvulso,
+      });
     });
 
     if (clientes.length === 0) {
