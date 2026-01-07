@@ -655,6 +655,24 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                             {formatarMoeda(item.precoTotal)}
                           </div>
                         </div>
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Observações (opcional)</label>
+                          <textarea
+                            value={item.observacoes || ''}
+                            onChange={(e) => {
+                              setCarrinho((prev) =>
+                                prev.map((i) =>
+                                  i.produtoId === item.produtoId
+                                    ? { ...i, observacoes: e.target.value }
+                                    : i
+                                )
+                              );
+                            }}
+                            placeholder="Ex: Sem gelo, bem passado, etc."
+                            rows={2}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
