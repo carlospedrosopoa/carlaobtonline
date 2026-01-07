@@ -165,7 +165,7 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
       setSalvando(true);
       setErro('');
       await itemCardService.atualizar(cardCompleto.id, itemId, {
-        observacoes: novasObservacoes.trim() || null,
+        observacoes: novasObservacoes.trim() || undefined,
       });
       const cardAtualizado = await cardClienteService.obter(cardCompleto.id, true, true, false);
       await carregarDados();
