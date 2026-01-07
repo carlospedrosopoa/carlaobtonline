@@ -1204,30 +1204,50 @@ export async function PUT(
           // Adicionar participantes avulsos
           if (participantesAvulsos && participantesAvulsos.length > 0) {
             console.log(`[PUT /api/agendamento/${id}] Adicionando ${participantesAvulsos.length} participantes avulsos`);
-            for (const avulso of participantesAvulsos) {
-              if (avulso.nome && avulso.nome.trim()) {
+            for (let i = 0; i < participantesAvulsos.length; i++) {
+              const avulso = participantesAvulsos[i];
+              console.log(`[PUT /api/agendamento/${id}] Processando participante avulso ${i + 1}/${participantesAvulsos.length}:`, avulso);
+              
+              if (avulso && avulso.nome && avulso.nome.trim()) {
+                const nomeTrimmed = avulso.nome.trim();
+                console.log(`[PUT /api/agendamento/${id}] Tentando inserir participante avulso "${nomeTrimmed}" com parâmetros:`, {
+                  agendamentoId: id,
+                  atletaId: null,
+                  nomeAvulso: nomeTrimmed,
+                  telefoneAvulso: null,
+                  createdById: usuario.id,
+                });
+                
                 try {
                   const result = await query(
                     `INSERT INTO "AgendamentoAtleta" ("agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso", "createdById", "createdAt")
                      VALUES ($1, NULL, $2, NULL, $3, NOW())
-                     RETURNING id`,
-                    [id, avulso.nome.trim(), usuario.id]
+                     RETURNING id, "agendamentoId", "atletaId", "nomeAvulso", "telefoneAvulso"`,
+                    [id, nomeTrimmed, usuario.id]
                   );
-                  console.log(`[PUT /api/agendamento/${id}] ✅ Participante avulso "${avulso.nome}" adicionado com sucesso. ID: ${result.rows[0]?.id}`);
+                  
+                  if (result.rows && result.rows.length > 0) {
+                    console.log(`[PUT /api/agendamento/${id}] ✅ Participante avulso "${nomeTrimmed}" adicionado com sucesso. ID: ${result.rows[0]?.id}`);
+                    console.log(`[PUT /api/agendamento/${id}] Registro inserido:`, result.rows[0]);
+                  } else {
+                    console.warn(`[PUT /api/agendamento/${id}] ⚠️ Query executada mas nenhum registro retornado para "${nomeTrimmed}"`);
+                  }
                 } catch (error: any) {
-                  console.error(`[PUT /api/agendamento/${id}] ❌ Erro ao adicionar participante avulso "${avulso.nome}":`, error);
+                  console.error(`[PUT /api/agendamento/${id}] ❌ Erro ao adicionar participante avulso "${nomeTrimmed}":`, error);
                   console.error(`[PUT /api/agendamento/${id}] Detalhes do erro:`, {
                     message: error.message,
                     code: error.code,
                     detail: error.detail,
                     constraint: error.constraint,
+                    stack: error.stack,
                   });
                   throw error;
                 }
               } else {
-                console.warn(`[PUT /api/agendamento/${id}] Participante avulso com nome vazio ignorado:`, avulso);
+                console.warn(`[PUT /api/agendamento/${id}] Participante avulso com nome vazio ou inválido ignorado:`, avulso);
               }
             }
+            console.log(`[PUT /api/agendamento/${id}] Finalizado processamento de participantes avulsos`);
           } else {
             console.log(`[PUT /api/agendamento/${id}] Nenhum participante avulso para adicionar`);
           }
