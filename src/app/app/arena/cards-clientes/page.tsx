@@ -10,9 +10,12 @@ import CriarEditarCardModal from '@/components/CriarEditarCardModal';
 import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List } from 'lucide-react';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
+import { formaPagamentoService, pagamentoCardService } from '@/services/gestaoArenaService';
+import type { FormaPagamento } from '@/types/gestaoArena';
+import InputMonetario from '@/components/InputMonetario';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
@@ -29,6 +32,13 @@ export default function CardsClientesPage() {
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false);
   const [cardGerenciando, setCardGerenciando] = useState<CardCliente | null>(null);
   const [nomeArena, setNomeArena] = useState<string>('');
+  const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
+  // Estados para pagamento rápido por card
+  const [pagamentoRapidoAberto, setPagamentoRapidoAberto] = useState<Record<string, boolean>>({});
+  const [formaPagamentoSelecionada, setFormaPagamentoSelecionada] = useState<Record<string, string>>({});
+  const [valorRecebido, setValorRecebido] = useState<Record<string, number | null>>({});
+  const [processandoPagamento, setProcessandoPagamento] = useState<Record<string, boolean>>({});
+  
   // Carregar preferência de visualização do localStorage
   const [visualizacao, setVisualizacao] = useState<'lista' | 'cards'>(() => {
     if (typeof window !== 'undefined') {
@@ -50,6 +60,7 @@ export default function CardsClientesPage() {
     if (usuario?.pointIdGestor) {
       carregarCards();
       carregarNomeArena();
+      carregarFormasPagamento();
     }
     // Removido filtroStatus da dependência para não recarregar ao alternar visualização
   }, [usuario?.pointIdGestor]);
@@ -60,6 +71,16 @@ export default function CardsClientesPage() {
       carregarCards();
     }
   }, [filtroStatus]);
+  
+  const carregarFormasPagamento = async () => {
+    if (!usuario?.pointIdGestor) return;
+    try {
+      const formas = await formaPagamentoService.listar(usuario.pointIdGestor, true);
+      setFormasPagamento(formas);
+    } catch (error) {
+      console.error('Erro ao carregar formas de pagamento:', error);
+    }
+  };
 
   const carregarNomeArena = async () => {
     if (!usuario?.pointIdGestor) return;
@@ -264,6 +285,76 @@ export default function CardsClientesPage() {
       const mensagemErro = error?.response?.data?.mensagem || error?.message || 'Erro ao enviar mensagem';
       alert(`Erro ao enviar mensagem: ${mensagemErro}`);
     }
+  };
+
+  const abrirPagamentoRapido = (cardId: string) => {
+    setPagamentoRapidoAberto((prev) => ({ ...prev, [cardId]: true }));
+    setFormaPagamentoSelecionada((prev) => ({ ...prev, [cardId]: '' }));
+    setValorRecebido((prev) => ({ ...prev, [cardId]: null }));
+  };
+
+  const fecharPagamentoRapido = (cardId: string) => {
+    setPagamentoRapidoAberto((prev) => ({ ...prev, [cardId]: false }));
+    setFormaPagamentoSelecionada((prev) => ({ ...prev, [cardId]: '' }));
+    setValorRecebido((prev) => ({ ...prev, [cardId]: null }));
+  };
+
+  const processarPagamentoRapido = async (card: CardCliente) => {
+    if (!formaPagamentoSelecionada[card.id]) return;
+    
+    const formaPagamentoId = formaPagamentoSelecionada[card.id];
+    const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+    
+    // Se for dinheiro, usar valor recebido (mas limitado ao saldo), senão usar saldo completo
+    let valorPagamento = saldo;
+    const formaPagamento = formasPagamento.find((fp) => fp.id === formaPagamentoId);
+    const isDinheiro = formaPagamento?.nome?.toLowerCase().includes('dinheiro') || 
+                       formaPagamento?.nome?.toLowerCase().includes('cash');
+    
+    if (isDinheiro) {
+      if (valorRecebido[card.id] === null || valorRecebido[card.id] === undefined) {
+        alert('Informe o valor recebido');
+        return;
+      }
+      if (valorRecebido[card.id]! < saldo) {
+        alert(`O valor recebido (${formatarMoeda(valorRecebido[card.id]!)}) deve ser maior ou igual ao saldo (${formatarMoeda(saldo)})`);
+        return;
+      }
+      valorPagamento = saldo; // Sempre pagar o saldo completo, o troco é calculado separadamente
+    }
+
+    if (valorPagamento <= 0) {
+      alert('O valor do pagamento deve ser maior que zero');
+      return;
+    }
+
+    try {
+      setProcessandoPagamento((prev) => ({ ...prev, [card.id]: true }));
+      
+      await pagamentoCardService.criar(card.id, {
+        cardId: card.id,
+        formaPagamentoId,
+        valor: valorPagamento,
+        observacoes: 'Pagamento rápido',
+      });
+
+      // Recarregar cards
+      await carregarCards();
+      
+      // Fechar pagamento rápido
+      fecharPagamentoRapido(card.id);
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao processar pagamento');
+    } finally {
+      setProcessandoPagamento((prev) => ({ ...prev, [card.id]: false }));
+    }
+  };
+
+  const calcularTroco = (card: CardCliente): number => {
+    const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+    const recebido = valorRecebido[card.id];
+    if (recebido === null || recebido === undefined) return 0;
+    return Math.max(0, recebido - saldo);
   };
 
   const getStatusBadge = (status: StatusCard) => {
@@ -578,6 +669,140 @@ export default function CardsClientesPage() {
                 <Calendar className="w-4 h-4" />
                 <span>{formatarData(card.createdAt)}</span>
               </div>
+
+              {/* Pagamento Rápido - apenas para cards abertos */}
+              {card.status === 'ABERTO' && (
+                <div className="mb-3 pt-3 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+                  {!pagamentoRapidoAberto[card.id] ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        abrirPagamentoRapido(card.id);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm font-medium"
+                    >
+                      <Bolt className="w-4 h-4" />
+                      Pagamento Rápido
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                          <Bolt className="w-4 h-4 text-yellow-600" />
+                          Pagamento Rápido
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fecharPagamentoRapido(card.id);
+                          }}
+                          className="text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+                      
+                      {/* Botões de Formas de Pagamento */}
+                      <div className="flex flex-wrap gap-2">
+                        {formasPagamento.map((forma) => {
+                          const selecionada = formaPagamentoSelecionada[card.id] === forma.id;
+                          const isDinheiro = forma.nome?.toLowerCase().includes('dinheiro') || 
+                                           forma.nome?.toLowerCase().includes('cash');
+                          return (
+                            <button
+                              key={forma.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormaPagamentoSelecionada((prev) => ({ ...prev, [card.id]: forma.id }));
+                                // Se for dinheiro, inicializar com o saldo
+                                if (isDinheiro) {
+                                  const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                                  setValorRecebido((prev) => ({ ...prev, [card.id]: saldo }));
+                                } else {
+                                  setValorRecebido((prev) => ({ ...prev, [card.id]: null }));
+                                }
+                              }}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border-2 transition-all ${
+                                selecionada
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                              }`}
+                            >
+                              {forma.nome}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Campo de Valor Recebido (apenas para dinheiro) */}
+                      {formaPagamentoSelecionada[card.id] && (() => {
+                        const formaSelecionada = formasPagamento.find(
+                          (fp) => fp.id === formaPagamentoSelecionada[card.id]
+                        );
+                        const isDinheiro = formaSelecionada?.nome?.toLowerCase().includes('dinheiro') || 
+                                         formaSelecionada?.nome?.toLowerCase().includes('cash');
+                        
+                        if (isDinheiro) {
+                          const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                          const troco = calcularTroco(card);
+                          
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-gray-700 font-medium flex-1">
+                                  Valor Recebido:
+                                </label>
+                                <div className="flex-1">
+                                  <InputMonetario
+                                    value={valorRecebido[card.id]}
+                                    onChange={(val) => setValorRecebido((prev) => ({ ...prev, [card.id]: val }))}
+                                    placeholder="0,00"
+                                    min={saldo}
+                                  />
+                                </div>
+                              </div>
+                              {valorRecebido[card.id] !== null && valorRecebido[card.id] !== undefined && valorRecebido[card.id]! >= saldo && (
+                                <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200">
+                                  <span className="text-xs font-medium text-green-700">Troco:</span>
+                                  <span className="text-sm font-bold text-green-700">{formatarMoeda(troco)}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* Botão de Processar Pagamento */}
+                      {formaPagamentoSelecionada[card.id] && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            processarPagamentoRapido(card);
+                          }}
+                          disabled={processandoPagamento[card.id] || (() => {
+                            const formaSelecionada = formasPagamento.find(
+                              (fp) => fp.id === formaPagamentoSelecionada[card.id]
+                            );
+                            const isDinheiro = formaSelecionada?.nome?.toLowerCase().includes('dinheiro') || 
+                                             formaSelecionada?.nome?.toLowerCase().includes('cash');
+                            if (isDinheiro) {
+                              const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                              return !valorRecebido[card.id] || valorRecebido[card.id]! < saldo;
+                            }
+                            // Para outras formas de pagamento, sempre permitir
+                            return false;
+                          })()}
+                          className="w-full px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {processandoPagamento[card.id] ? 'Processando...' : 'Confirmar Pagamento'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center gap-2 pt-3 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
                 <button
