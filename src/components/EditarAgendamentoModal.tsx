@@ -108,10 +108,9 @@ export default function EditarAgendamentoModal({
   const [atletasParticipantesIds, setAtletasParticipantesIds] = useState<string[]>([]);
   const [mostrarSelecaoAtletas, setMostrarSelecaoAtletas] = useState(false);
   const [buscaAtletasParticipantes, setBuscaAtletasParticipantes] = useState('');
-  // Participantes avulsos (nome e telefone opcional)
-  const [participantesAvulsos, setParticipantesAvulsos] = useState<Array<{ id: string; nome: string; telefone?: string }>>([]);
+  // Participantes avulsos (apenas nome)
+  const [participantesAvulsos, setParticipantesAvulsos] = useState<Array<{ id: string; nome: string }>>([]);
   const [nomeAvulsoParticipante, setNomeAvulsoParticipante] = useState('');
-  const [telefoneAvulsoParticipante, setTelefoneAvulsoParticipante] = useState('');
   // Campos de aula/professor
   const [ehAula, setEhAula] = useState(false);
   const [professorId, setProfessorId] = useState<string>('');
@@ -374,7 +373,6 @@ export default function EditarAgendamentoModal({
   const resetarFormulario = () => {
     setParticipantesAvulsos([]);
     setNomeAvulsoParticipante('');
-    setTelefoneAvulsoParticipante('');
     setPointId('');
     setQuadraId('');
     // Definir data atual como padrão para novos agendamentos
@@ -1002,10 +1000,10 @@ export default function EditarAgendamentoModal({
       if (participantesAvulsos.length > 0 && usuario?.pointIdGestor) {
         try {
           for (const avulso of participantesAvulsos) {
-            // Criar atleta temporário para o participante avulso
+            // Criar atleta temporário para o participante avulso (sem telefone)
             const atletaAvulsoResponse = await api.post('/atleta/criar', {
               nome: avulso.nome,
-              fone: avulso.telefone || '',
+              fone: '',
               pointId: usuario.pointIdGestor,
             });
             if (atletaAvulsoResponse.data?.id) {
@@ -1341,11 +1339,6 @@ export default function EditarAgendamentoModal({
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {avulso.nome} <span className="text-xs text-gray-500 italic">(avulso)</span>
                           </p>
-                          {avulso.telefone && (
-                            <p className="text-xs text-gray-600 truncate">
-                              {avulso.telefone}
-                            </p>
-                          )}
                         </div>
                         <button
                           type="button"
@@ -1456,7 +1449,7 @@ export default function EditarAgendamentoModal({
                             value={nomeAvulsoParticipante}
                             onChange={(e) => setNomeAvulsoParticipante(e.target.value)}
                             placeholder="Nome avulso"
-                            className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                            className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && nomeAvulsoParticipante.trim()) {
                                 e.preventDefault();
@@ -1466,34 +1459,9 @@ export default function EditarAgendamentoModal({
                                   {
                                     id: novoId,
                                     nome: nomeAvulsoParticipante.trim(),
-                                    telefone: telefoneAvulsoParticipante.trim() || undefined,
                                   }
                                 ]);
                                 setNomeAvulsoParticipante('');
-                                setTelefoneAvulsoParticipante('');
-                              }
-                            }}
-                          />
-                          <input
-                            type="text"
-                            value={telefoneAvulsoParticipante}
-                            onChange={(e) => setTelefoneAvulsoParticipante(e.target.value)}
-                            placeholder="Telefone (opcional)"
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && nomeAvulsoParticipante.trim()) {
-                                e.preventDefault();
-                                const novoId = `avulso-${Date.now()}-${Math.random()}`;
-                                setParticipantesAvulsos([
-                                  ...participantesAvulsos,
-                                  {
-                                    id: novoId,
-                                    nome: nomeAvulsoParticipante.trim(),
-                                    telefone: telefoneAvulsoParticipante.trim() || undefined,
-                                  }
-                                ]);
-                                setNomeAvulsoParticipante('');
-                                setTelefoneAvulsoParticipante('');
                               }
                             }}
                           />
@@ -1507,11 +1475,9 @@ export default function EditarAgendamentoModal({
                                   {
                                     id: novoId,
                                     nome: nomeAvulsoParticipante.trim(),
-                                    telefone: telefoneAvulsoParticipante.trim() || undefined,
                                   }
                                 ]);
                                 setNomeAvulsoParticipante('');
-                                setTelefoneAvulsoParticipante('');
                               }
                             }}
                             disabled={!nomeAvulsoParticipante.trim()}
