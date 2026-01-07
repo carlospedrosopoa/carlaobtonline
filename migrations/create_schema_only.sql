@@ -306,3 +306,4 @@ COMMENT ON COLUMN public."Agendamento"."updatedById" IS 'ID do usuário que fez 
 
 
 
+

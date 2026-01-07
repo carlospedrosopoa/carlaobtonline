@@ -10,9 +10,12 @@ import CriarEditarCardModal from '@/components/CriarEditarCardModal';
 import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw } from 'lucide-react';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
+import { formaPagamentoService, pagamentoCardService } from '@/services/gestaoArenaService';
+import type { FormaPagamento } from '@/types/gestaoArena';
+import InputMonetario from '@/components/InputMonetario';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
@@ -29,13 +32,55 @@ export default function CardsClientesPage() {
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false);
   const [cardGerenciando, setCardGerenciando] = useState<CardCliente | null>(null);
   const [nomeArena, setNomeArena] = useState<string>('');
+  const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
+  // Estados para pagamento rápido por card
+  const [pagamentoRapidoAberto, setPagamentoRapidoAberto] = useState<Record<string, boolean>>({});
+  const [formaPagamentoSelecionada, setFormaPagamentoSelecionada] = useState<Record<string, string>>({});
+  const [valorRecebido, setValorRecebido] = useState<Record<string, number | null>>({});
+  const [processandoPagamento, setProcessandoPagamento] = useState<Record<string, boolean>>({});
+  
+  // Carregar preferência de visualização do localStorage
+  const [visualizacao, setVisualizacao] = useState<'lista' | 'cards'>(() => {
+    if (typeof window !== 'undefined') {
+      const salva = localStorage.getItem('cards-visualizacao');
+      return (salva === 'cards' || salva === 'lista') ? salva : 'lista';
+    }
+    return 'lista';
+  });
+  
+  // Salvar preferência no localStorage quando mudar
+  const alterarVisualizacao = (novaVisualizacao: 'lista' | 'cards') => {
+    setVisualizacao(novaVisualizacao);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cards-visualizacao', novaVisualizacao);
+    }
+  };
 
   useEffect(() => {
     if (usuario?.pointIdGestor) {
       carregarCards();
       carregarNomeArena();
+      carregarFormasPagamento();
     }
-  }, [usuario?.pointIdGestor, filtroStatus]);
+    // Removido filtroStatus da dependência para não recarregar ao alternar visualização
+  }, [usuario?.pointIdGestor]);
+  
+  // Recarregar apenas quando o filtro de status mudar
+  useEffect(() => {
+    if (usuario?.pointIdGestor) {
+      carregarCards();
+    }
+  }, [filtroStatus]);
+  
+  const carregarFormasPagamento = async () => {
+    if (!usuario?.pointIdGestor) return;
+    try {
+      const formas = await formaPagamentoService.listar(usuario.pointIdGestor, true);
+      setFormasPagamento(formas);
+    } catch (error) {
+      console.error('Erro ao carregar formas de pagamento:', error);
+    }
+  };
 
   const carregarNomeArena = async () => {
     if (!usuario?.pointIdGestor) return;
@@ -242,6 +287,76 @@ export default function CardsClientesPage() {
     }
   };
 
+  const abrirPagamentoRapido = (cardId: string) => {
+    setPagamentoRapidoAberto((prev) => ({ ...prev, [cardId]: true }));
+    setFormaPagamentoSelecionada((prev) => ({ ...prev, [cardId]: '' }));
+    setValorRecebido((prev) => ({ ...prev, [cardId]: null }));
+  };
+
+  const fecharPagamentoRapido = (cardId: string) => {
+    setPagamentoRapidoAberto((prev) => ({ ...prev, [cardId]: false }));
+    setFormaPagamentoSelecionada((prev) => ({ ...prev, [cardId]: '' }));
+    setValorRecebido((prev) => ({ ...prev, [cardId]: null }));
+  };
+
+  const processarPagamentoRapido = async (card: CardCliente) => {
+    if (!formaPagamentoSelecionada[card.id]) return;
+    
+    const formaPagamentoId = formaPagamentoSelecionada[card.id];
+    const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+    
+    // Se for dinheiro, usar valor recebido (mas limitado ao saldo), senão usar saldo completo
+    let valorPagamento = saldo;
+    const formaPagamento = formasPagamento.find((fp) => fp.id === formaPagamentoId);
+    const isDinheiro = formaPagamento?.nome?.toLowerCase().includes('dinheiro') || 
+                       formaPagamento?.nome?.toLowerCase().includes('cash');
+    
+    if (isDinheiro) {
+      if (valorRecebido[card.id] === null || valorRecebido[card.id] === undefined) {
+        alert('Informe o valor recebido');
+        return;
+      }
+      if (valorRecebido[card.id]! < saldo) {
+        alert(`O valor recebido (${formatarMoeda(valorRecebido[card.id]!)}) deve ser maior ou igual ao saldo (${formatarMoeda(saldo)})`);
+        return;
+      }
+      valorPagamento = saldo; // Sempre pagar o saldo completo, o troco é calculado separadamente
+    }
+
+    if (valorPagamento <= 0) {
+      alert('O valor do pagamento deve ser maior que zero');
+      return;
+    }
+
+    try {
+      setProcessandoPagamento((prev) => ({ ...prev, [card.id]: true }));
+      
+      await pagamentoCardService.criar(card.id, {
+        cardId: card.id,
+        formaPagamentoId,
+        valor: valorPagamento,
+        observacoes: 'Pagamento rápido',
+      });
+
+      // Recarregar cards
+      await carregarCards();
+      
+      // Fechar pagamento rápido
+      fecharPagamentoRapido(card.id);
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao processar pagamento');
+    } finally {
+      setProcessandoPagamento((prev) => ({ ...prev, [card.id]: false }));
+    }
+  };
+
+  const calcularTroco = (card: CardCliente): number => {
+    const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+    const recebido = valorRecebido[card.id];
+    if (recebido === null || recebido === undefined) return 0;
+    return Math.max(0, recebido - saldo);
+  };
+
   const getStatusBadge = (status: StatusCard) => {
     switch (status) {
       case 'ABERTO':
@@ -317,12 +432,38 @@ export default function CardsClientesPage() {
           <option value="FECHADO">Fechado</option>
           <option value="CANCELADO">Cancelado</option>
         </select>
+        {/* Botões de alternância de visualização */}
+        <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-1 bg-gray-50">
+          <button
+            onClick={() => alterarVisualizacao('lista')}
+            className={`px-3 py-1.5 rounded transition-colors ${
+              visualizacao === 'lista'
+                ? 'bg-white text-emerald-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+            title="Visualização em lista"
+          >
+            <List className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => alterarVisualizacao('cards')}
+            className={`px-3 py-1.5 rounded transition-colors ${
+              visualizacao === 'cards'
+                ? 'bg-white text-emerald-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+            title="Visualização em cards"
+          >
+            <LayoutGrid className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Lista de Cards */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      {/* Lista de Cards ou Cards */}
+      {visualizacao === 'lista' ? (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Card</th>
@@ -454,6 +595,262 @@ export default function CardsClientesPage() {
           </table>
         </div>
       </div>
+      ) : (
+        /* Visualização em Cards */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cardsFiltrados.map((card) => (
+            <div
+              key={card.id}
+              onClick={() => abrirDetalhes(card)}
+              className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-gray-200 p-4"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-emerald-600" />
+                  <span className="font-bold text-gray-900">#{card.numeroCard}</span>
+                </div>
+                {getStatusBadge(card.status)}
+              </div>
+              
+              <div className="mb-3">
+                {card.usuario ? (
+                  <div>
+                    <div className="font-semibold text-gray-900">{card.usuario.name}</div>
+                    {card.usuario.email && (
+                      <div className="text-xs text-gray-500">{card.usuario.email}</div>
+                    )}
+                  </div>
+                ) : card.nomeAvulso ? (
+                  <div>
+                    <div className="font-semibold text-gray-900">{card.nomeAvulso}</div>
+                    {card.telefoneAvulso && (
+                      <div className="text-xs text-gray-500">{card.telefoneAvulso}</div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-400 italic">Não informado</span>
+                )}
+                {card.observacoes && (
+                  <div className="mt-2 flex items-start gap-1">
+                    <FileText className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-gray-500 line-clamp-2">{card.observacoes}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 mb-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Valor Total:</span>
+                  <span className="font-semibold text-gray-900">{formatarMoeda(card.valorTotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Total Pago:</span>
+                  {card.totalPago !== undefined ? (
+                    <span className="font-semibold text-green-600">{formatarMoeda(card.totalPago)}</span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Saldo:</span>
+                  <span className={`font-bold ${
+                    card.saldo !== undefined && card.saldo > 0 
+                      ? 'text-red-600' 
+                      : card.saldo !== undefined && card.saldo === 0
+                      ? 'text-green-600'
+                      : 'text-gray-600'
+                  }`}>
+                    {formatarMoeda(card.saldo !== undefined ? card.saldo : card.valorTotal)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-gray-500 mb-3 pt-3 border-t border-gray-200">
+                <Calendar className="w-4 h-4" />
+                <span>{formatarData(card.createdAt)}</span>
+              </div>
+
+              {/* Pagamento Rápido - apenas para cards abertos */}
+              {card.status === 'ABERTO' && (
+                <div className="mb-3 pt-3 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+                  {!pagamentoRapidoAberto[card.id] ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        abrirPagamentoRapido(card.id);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm font-medium"
+                    >
+                      <Bolt className="w-4 h-4" />
+                      Pagamento Rápido
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                          <Bolt className="w-4 h-4 text-yellow-600" />
+                          Pagamento Rápido
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fecharPagamentoRapido(card.id);
+                          }}
+                          className="text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+                      
+                      {/* Botões de Formas de Pagamento */}
+                      <div className="flex flex-wrap gap-2">
+                        {formasPagamento.map((forma) => {
+                          const selecionada = formaPagamentoSelecionada[card.id] === forma.id;
+                          const isDinheiro = forma.nome?.toLowerCase().includes('dinheiro') || 
+                                           forma.nome?.toLowerCase().includes('cash');
+                          return (
+                            <button
+                              key={forma.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormaPagamentoSelecionada((prev) => ({ ...prev, [card.id]: forma.id }));
+                                // Se for dinheiro, inicializar com o saldo
+                                if (isDinheiro) {
+                                  const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                                  setValorRecebido((prev) => ({ ...prev, [card.id]: saldo }));
+                                } else {
+                                  setValorRecebido((prev) => ({ ...prev, [card.id]: null }));
+                                }
+                              }}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border-2 transition-all ${
+                                selecionada
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                              }`}
+                            >
+                              {forma.nome}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Campo de Valor Recebido (apenas para dinheiro) */}
+                      {formaPagamentoSelecionada[card.id] && (() => {
+                        const formaSelecionada = formasPagamento.find(
+                          (fp) => fp.id === formaPagamentoSelecionada[card.id]
+                        );
+                        const isDinheiro = formaSelecionada?.nome?.toLowerCase().includes('dinheiro') || 
+                                         formaSelecionada?.nome?.toLowerCase().includes('cash');
+                        
+                        if (isDinheiro) {
+                          const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                          const troco = calcularTroco(card);
+                          
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-gray-700 font-medium flex-1">
+                                  Valor Recebido:
+                                </label>
+                                <div className="flex-1">
+                                  <InputMonetario
+                                    value={valorRecebido[card.id]}
+                                    onChange={(val) => setValorRecebido((prev) => ({ ...prev, [card.id]: val }))}
+                                    placeholder="0,00"
+                                    min={saldo}
+                                  />
+                                </div>
+                              </div>
+                              {valorRecebido[card.id] !== null && valorRecebido[card.id] !== undefined && valorRecebido[card.id]! >= saldo && (
+                                <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200">
+                                  <span className="text-xs font-medium text-green-700">Troco:</span>
+                                  <span className="text-sm font-bold text-green-700">{formatarMoeda(troco)}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* Botão de Processar Pagamento */}
+                      {formaPagamentoSelecionada[card.id] && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            processarPagamentoRapido(card);
+                          }}
+                          disabled={processandoPagamento[card.id] || (() => {
+                            const formaSelecionada = formasPagamento.find(
+                              (fp) => fp.id === formaPagamentoSelecionada[card.id]
+                            );
+                            const isDinheiro = formaSelecionada?.nome?.toLowerCase().includes('dinheiro') || 
+                                             formaSelecionada?.nome?.toLowerCase().includes('cash');
+                            if (isDinheiro) {
+                              const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                              return !valorRecebido[card.id] || valorRecebido[card.id]! < saldo;
+                            }
+                            // Para outras formas de pagamento, sempre permitir
+                            return false;
+                          })()}
+                          className="w-full px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {processandoPagamento[card.id] ? 'Processando...' : 'Confirmar Pagamento'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-3 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCardGerenciando(card);
+                    setModalItensAberto(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs font-medium"
+                  title="Gerenciar Itens"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Itens
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCardGerenciando(card);
+                    setModalPagamentosAberto(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs font-medium"
+                  title="Gerenciar Pagamentos"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Pagamentos
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (obterTelefoneCliente(card)) {
+                      enviarWhatsAppCard(card, e);
+                    }
+                  }}
+                  disabled={!obterTelefoneCliente(card)}
+                  className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-xs font-medium ${
+                    obterTelefoneCliente(card)
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                  }`}
+                  title={obterTelefoneCliente(card) ? 'Enviar informações do card por WhatsApp' : 'Telefone do cliente não cadastrado'}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {cardsFiltrados.length === 0 && (
         <div className="bg-white rounded-lg shadow">

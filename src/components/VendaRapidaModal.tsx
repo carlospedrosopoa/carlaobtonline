@@ -632,10 +632,20 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                           <div className="flex items-center gap-2">
                             <label className="text-sm text-gray-700">Qtd:</label>
                             <input
-                              type="number"
-                              min="1"
+                              type="text"
                               value={item.quantidade}
-                              onChange={(e) => atualizarQuantidadeItem(item.produtoId, parseInt(e.target.value) || 1)}
+                              onChange={(e) => {
+                                const valor = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+                                if (valor === '' || parseInt(valor) >= 1) {
+                                  atualizarQuantidadeItem(item.produtoId, valor === '' ? 1 : parseInt(valor));
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const valor = parseInt(e.target.value) || 1;
+                                if (valor < 1) {
+                                  atualizarQuantidadeItem(item.produtoId, 1);
+                                }
+                              }}
                               className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                             />
                           </div>
@@ -654,6 +664,24 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                           <div className="ml-auto font-semibold text-emerald-600">
                             {formatarMoeda(item.precoTotal)}
                           </div>
+                        </div>
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Observações (opcional)</label>
+                          <textarea
+                            value={item.observacoes || ''}
+                            onChange={(e) => {
+                              setCarrinho((prev) =>
+                                prev.map((i) =>
+                                  i.produtoId === item.produtoId
+                                    ? { ...i, observacoes: e.target.value }
+                                    : i
+                                )
+                              );
+                            }}
+                            placeholder="Ex: Sem gelo, bem passado, etc."
+                            rows={2}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                          />
                         </div>
                       </div>
                     ))}
