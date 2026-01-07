@@ -59,7 +59,12 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   const [buscaProduto, setBuscaProduto] = useState('');
   const [quantidadeItem, setQuantidadeItem] = useState(1);
   const [precoUnitarioItem, setPrecoUnitarioItem] = useState<number | null>(null);
+  const [observacoesItem, setObservacoesItem] = useState('');
   const inputBuscaItemRef = useRef<HTMLInputElement>(null);
+  
+  // Estados para editar observações de item
+  const [itemEditandoObservacoes, setItemEditandoObservacoes] = useState<string | null>(null);
+  const [novasObservacoesItem, setNovasObservacoesItem] = useState('');
 
   // Estados para adicionar pagamento
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
@@ -177,6 +182,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     setBuscaProduto('');
     setQuantidadeItem(1);
     setPrecoUnitarioItem(null);
+    setObservacoesItem('');
     setModalItemAberto(true);
   };
 
@@ -217,7 +223,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       quantidade: quantidadeItem,
       precoUnitario: precoUnitario,
       precoTotal: precoTotal,
-      observacoes: undefined,
+      observacoes: observacoesItem.trim() || undefined,
       isNovo: true,
     };
 
@@ -240,6 +246,30 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
     // Remover da lista local
     setItensLocais((prev) => prev.filter((i) => i.id !== itemId));
     setTemAlteracoesNaoSalvas(true);
+  };
+
+  const iniciarEdicaoObservacoes = (itemId: string) => {
+    const item = itensLocais.find((i) => i.id === itemId);
+    setItemEditandoObservacoes(itemId);
+    setNovasObservacoesItem(item?.observacoes || '');
+  };
+
+  const cancelarEdicaoObservacoes = () => {
+    setItemEditandoObservacoes(null);
+    setNovasObservacoesItem('');
+  };
+
+  const salvarObservacoesItem = (itemId: string) => {
+    setItensLocais((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? { ...item, observacoes: novasObservacoesItem.trim() || undefined }
+          : item
+      )
+    );
+    setTemAlteracoesNaoSalvas(true);
+    setItemEditandoObservacoes(null);
+    setNovasObservacoesItem('');
   };
 
   const abrirModalPagamento = () => {
@@ -353,6 +383,21 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       // Remover itens marcados para remoção
       for (const itemId of itensRemovidos) {
         await itemCardService.deletar(cardCompleto.id, itemId);
+      }
+
+      // Atualizar itens existentes que tiveram observações alteradas
+      const itensExistentes = itensLocais.filter((i) => !i.isNovo && i.itemIdBackend);
+      for (const item of itensExistentes) {
+        const itemBackend = cardCompleto.itens?.find((i) => i.id === item.itemIdBackend);
+        if (itemBackend) {
+          // Verificar se observações foram alteradas
+          const observacoesAlteradas = item.observacoes !== (itemBackend.observacoes || undefined);
+          if (observacoesAlteradas) {
+            await itemCardService.atualizar(cardCompleto.id, item.itemIdBackend!, {
+              observacoes: item.observacoes,
+            });
+          }
+        }
       }
 
       // Adicionar novos itens e armazenar mapeamento de IDs temporários para reais
@@ -848,9 +893,50 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           <div className="text-sm text-gray-600">
                             {item.quantidade}x {formatarMoeda(item.precoUnitario)} = {formatarMoeda(item.precoTotal)}
                           </div>
-                          {item.observacoes && (
-                            <div className="text-xs text-gray-500 mt-1 italic">
-                              {item.observacoes}
+                          {itemEditandoObservacoes === item.id ? (
+                            <div className="mt-2 space-y-2">
+                              <textarea
+                                value={novasObservacoesItem}
+                                onChange={(e) => setNovasObservacoesItem(e.target.value)}
+                                placeholder="Adicionar observações..."
+                                rows={2}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => salvarObservacoesItem(item.id)}
+                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                >
+                                  Salvar
+                                </button>
+                                <button
+                                  onClick={cancelarEdicaoObservacoes}
+                                  className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-1 flex items-start gap-2">
+                              {item.observacoes ? (
+                                <div className="flex-1 text-xs text-gray-500 italic p-1 bg-gray-100 rounded border-l-2 border-gray-300">
+                                  {item.observacoes}
+                                </div>
+                              ) : (
+                                <div className="flex-1 text-xs text-gray-400 italic">
+                                  Sem observações
+                                </div>
+                              )}
+                              {cardCompleto.status === 'ABERTO' && (
+                                <button
+                                  onClick={() => iniciarEdicaoObservacoes(item.id)}
+                                  className="px-1.5 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  title="Editar observações"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </button>
+                              )}
                             </div>
                           )}
                           {itemBackend?.createdBy && itemBackend.createdAt && (
@@ -1182,6 +1268,16 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     onChange={setPrecoUnitarioItem}
                     placeholder="Usar preço do produto"
                     min={0}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
+                  <textarea
+                    value={observacoesItem}
+                    onChange={(e) => setObservacoesItem(e.target.value)}
+                    placeholder="Ex: Sem gelo, bem passado, etc."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
