@@ -1,6 +1,25 @@
 -- Migração: Adicionar suporte a participantes avulsos em AgendamentoAtleta
 -- Segue o mesmo padrão dos cards de clientes (nomeAvulso e telefoneAvulso)
 
+-- IMPORTANTE: Remover constraint NOT NULL da coluna atletaId para permitir participantes avulsos
+-- Primeiro, verificar se a constraint existe e removê-la
+DO $$ 
+BEGIN
+  -- Verificar se atletaId tem constraint NOT NULL e removê-la
+  IF EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name = 'AgendamentoAtleta' 
+      AND column_name = 'atletaId' 
+      AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE "AgendamentoAtleta" ALTER COLUMN "atletaId" DROP NOT NULL;
+    RAISE NOTICE 'Constraint NOT NULL removida da coluna atletaId';
+  ELSE
+    RAISE NOTICE 'Coluna atletaId já permite NULL ou não existe';
+  END IF;
+END $$;
+
 -- Adicionar colunas para participantes avulsos na tabela AgendamentoAtleta
 ALTER TABLE "AgendamentoAtleta" 
 ADD COLUMN IF NOT EXISTS "nomeAvulso" TEXT NULL,
