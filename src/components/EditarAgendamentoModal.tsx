@@ -1307,9 +1307,9 @@ export default function EditarAgendamentoModal({
                 <label className="block text-sm font-medium text-gray-700">
                   <Users className="inline w-4 h-4 mr-1" />
                   Atletas Participantes (opcional)
-                  {atletasParticipantesIds.length > 0 && (
+                  {(atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0) && (
                     <span className="ml-2 text-xs text-gray-500">
-                      ({atletasParticipantesIds.length} selecionado{atletasParticipantesIds.length !== 1 ? 's' : ''})
+                      ({atletasParticipantesIds.length + participantesAvulsos.length} selecionado{(atletasParticipantesIds.length + participantesAvulsos.length) !== 1 ? 's' : ''})
                     </span>
                   )}
                 </label>
@@ -1562,12 +1562,29 @@ export default function EditarAgendamentoModal({
                           });
                         })()}
                       </div>
-                      {atletasParticipantesIds.length > 0 && (
+                      {(atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0) && (
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <div className="text-sm font-medium text-gray-700 mb-2">
-                            Selecionados: {atletasParticipantesIds.length}
+                            Selecionados: {atletasParticipantesIds.length + participantesAvulsos.length}
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            {/* Participantes avulsos */}
+                            {participantesAvulsos.map((avulso) => (
+                              <span
+                                key={avulso.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs"
+                              >
+                                {avulso.nome} <span className="text-xs italic">(avulso)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setParticipantesAvulsos(participantesAvulsos.filter(p => p.id !== avulso.id))}
+                                  className="text-purple-600 hover:text-purple-800"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                            {/* Atletas selecionados */}
                             {atletasParticipantesIds.map((id) => {
                               const atleta = atletas.find(a => a.id === id);
                               return atleta ? (
