@@ -437,40 +437,6 @@ export default function AgendarPublicoPage() {
           {/* Modal de sucesso */}
           {sucesso && (
             <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-              <button
-                onClick={() => {
-                  setSucesso(false);
-                  // Limpar formulário ao fechar
-                  setNome('');
-                  setTelefone('');
-                  setDataSelecionada('');
-                  setHorarioSelecionado('');
-                  setQuadraSelecionada('');
-                  setHorariosDisponiveis([]);
-                  setQuadrasDisponiveis([]);
-                  setAtletaId(null);
-                }}
-                className="absolute top-3 right-3 text-green-600 hover:text-green-800 transition-colors"
-                aria-label="Fechar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="flex items-start gap-3 pr-8">
-                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold text-green-900 text-lg mb-2">
-                    Agendamento realizado com sucesso!
-                  </p>
-                  <div className="space-y-2">
-                    <p className="text-sm text-green-700 flex items-center gap-2">
-                      <MessageCircle className="w-4 h-4" />
-                      Você receberá uma confirmação por WhatsApp em breve.
-                    </p>
-                    <p className="text-xs text-green-600 mt-2">
-                      Clique no botão X acima para fechar e fazer um novo agendamento.
-                    </p>
-                  </div>
-            <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
                 <button
                   onClick={() => {
