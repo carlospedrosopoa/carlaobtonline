@@ -1,7 +1,7 @@
 // app/app/admin/atletas/page.tsx - Lista de Atletas (igual ao cursor)
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { pointService } from '@/services/agendamentoService';
 import type { Point } from '@/types/agendamento';
@@ -853,10 +853,8 @@ export default function AdminAtletasPage() {
   const [linkVinculo, setLinkVinculo] = useState<{ atletaId: string; link: string; nome: string } | null>(null);
   const [linkCopiado, setLinkCopiado] = useState(false);
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchAtletas();
-  }, []);
+  const [busca, setBusca] = useState('');
+  const [buscando, setBuscando] = useState(false);
 
   const isAtletaPendente = (atleta: Atleta): boolean => {
     // Atleta pendente se não tem usuarioId
@@ -876,10 +874,13 @@ export default function AdminAtletasPage() {
     return false;
   };
 
-  const fetchAtletas = async () => {
+  const fetchAtletas = useCallback(async () => {
     try {
-      setCarregando(true);
-      const { data } = await api.get('/atleta/listarAtletas');
+      setBuscando(true);
+      const url = busca 
+        ? `/atleta/listarAtletas?busca=${encodeURIComponent(busca)}`
+        : '/atleta/listarAtletas';
+      const { data } = await api.get(url);
       // backend pode responder { atletas, usuario } OU array puro
       const atletasArray = Array.isArray(data) ? data : data.atletas || [];
       // Ordenar alfabeticamente por nome
@@ -896,8 +897,18 @@ export default function AdminAtletasPage() {
       console.error('Erro ao buscar atletas:', err);
     } finally {
       setCarregando(false);
+      setBuscando(false);
     }
-  };
+  }, [busca]);
+
+  // Carregar atletas inicialmente e quando busca mudar (com debounce)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchAtletas();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [fetchAtletas]);
 
   const gerarLinkVinculo = async (atletaId: string) => {
     try {
@@ -1003,6 +1014,44 @@ export default function AdminAtletasPage() {
             <UserPlus className="w-5 h-5" />
             Criar / Vincular Atleta
           </button>
+        )}
+      </div>
+
+      {/* Campo de busca */}
+      <div className="bg-white rounded-xl shadow-md p-4">
+        <div className="relative">
+          <input
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por nome, email ou telefone..."
+            className="w-full px-4 py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <svg
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          {buscando && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+        </div>
+        {busca && (
+          <p className="text-sm text-gray-500 mt-2">
+            {atletas.length === 0 
+              ? 'Nenhum atleta encontrado' 
+              : `${atletas.length} atleta${atletas.length !== 1 ? 's' : ''} encontrado${atletas.length !== 1 ? 's' : ''}`}
+          </p>
         )}
       </div>
 

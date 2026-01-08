@@ -1,7 +1,7 @@
 // app/api/public/agendamento/criar/route.ts
 // API pública para criar agendamento com atleta temporário
 import { NextRequest, NextResponse } from 'next/server';
-import { query, normalizarDataHora } from '@/lib/db';
+import { query } from '@/lib/db';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -14,7 +14,7 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { quadraId, dataHora, duracao, atletaId, observacoes } = body;
+    const { quadraId, dataHora, duracao, atletaId, usuarioId, observacoes, pointId } = body;
 
     if (!quadraId) {
       return withCors(
@@ -58,8 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se o atleta existe
-    const atletaResult = await query('SELECT id, nome FROM "Atleta" WHERE id = $1', [atletaId]);
+    // Validar que a quadra pertence ao point informado (se pointId foi passado)
+    // Isso garante que não estamos criando agendamento em quadra de outro point
+    if (pointId && quadra.pointId !== pointId) {
+      return withCors(
+        NextResponse.json({ mensagem: 'Quadra não pertence ao estabelecimento informado' }, { status: 400 }),
+        request
+      );
+    }
+
+    // Verificar se o atleta existe e se tem usuarioId (atleta cadastrado)
+    const atletaResult = await query('SELECT id, nome, "usuarioId" FROM "Atleta" WHERE id = $1', [atletaId]);
     if (atletaResult.rows.length === 0) {
       return withCors(
         NextResponse.json({ mensagem: 'Atleta não encontrado' }, { status: 404 }),
@@ -67,22 +76,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const atleta = atletaResult.rows[0];
+    
+    // Prioridade para usuarioId (comportamento appatleta):
+    // 1. PRINCIPAL: Se o atleta tem usuarioId (atleta cadastrado), usar o do atleta
+    // 2. FALLBACK: Se o atleta NÃO tem usuarioId (telefone novo/temporário), usar o do parâmetro
+    // 3. Se nenhum dos dois, deixar null (agendamento público/temporário)
+    let usuarioIdFinal: string | null = null;
+    
+    // PRINCIPAL: Verificar se o atleta tem usuarioId (comportamento appatleta)
+    if (atleta.usuarioId) {
+      usuarioIdFinal = atleta.usuarioId;
+    } else if (usuarioId) {
+      // FALLBACK: Se atleta não tem usuarioId, usar o do parâmetro (se informado)
+      // Validar se o usuarioId existe no banco
+      const userCheck = await query('SELECT id FROM "User" WHERE id = $1', [usuarioId]);
+      if (userCheck.rows.length > 0) {
+        usuarioIdFinal = usuarioId;
+      } else {
+        // Se usuarioId não existe, logar aviso mas continuar sem ele
+        console.warn(`usuarioId ${usuarioId} informado não existe no banco, ignorando`);
+      }
+    }
+
     // Verificar conflitos de horário
-    const dataHoraNormalizada = normalizarDataHora(dataHora);
+    // Usar o mesmo padrão do appatleta: tratar dataHora como horário "naive" (sem timezone)
+    // dataHora vem no formato "YYYY-MM-DDTHH:mm" (horário escolhido pelo usuário)
+    // Salvar exatamente como informado, tratando como UTC direto
+    const [dataPart, horaPart] = dataHora.split('T');
+    const [ano, mes, dia] = dataPart.split('-').map(Number);
+    const [hora, minuto] = horaPart.split(':').map(Number);
+    
+    // Criar data UTC diretamente com os valores informados (sem conversão de timezone)
+    const dataHoraUTC = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
     const duracaoMinutos = duracao || 60;
-    const dataHoraFim = new Date(dataHoraNormalizada);
-    dataHoraFim.setUTCMinutes(dataHoraFim.getUTCMinutes() + duracaoMinutos);
+    const dataHoraFim = new Date(dataHoraUTC.getTime() + duracaoMinutos * 60000);
 
     // Verificar conflitos com agendamentos confirmados
     const conflitosResult = await query(
       `SELECT id FROM "Agendamento"
        WHERE "quadraId" = $1
          AND status = 'CONFIRMADO'
-         AND (
-           ("dataHora" >= $2 AND "dataHora" < $3)
-           OR ("dataHora" + (COALESCE(duracao, 60)) * INTERVAL '1 minute' > $2 AND "dataHora" < $3)
-         )`,
-      [quadraId, dataHoraNormalizada.toISOString(), dataHoraFim.toISOString()]
+         AND "dataHora" < $3
+       AND ("dataHora" + (COALESCE(duracao, 60)) * INTERVAL '1 minute') > $2`,
+      [quadraId, dataHoraUTC.toISOString(), dataHoraFim.toISOString()]
     );
 
     if (conflitosResult.rows.length > 0) {
@@ -101,7 +138,7 @@ export async function POST(request: NextRequest) {
          AND ativo = true
          AND "dataInicio" <= $3
          AND "dataFim" >= $2`,
-      [quadra.pointId, dataHoraNormalizada.toISOString(), dataHoraFim.toISOString()]
+      [quadra.pointId, dataHoraUTC.toISOString(), dataHoraFim.toISOString()]
     );
 
     // Verificar se algum bloqueio afeta esta quadra
@@ -109,18 +146,18 @@ export async function POST(request: NextRequest) {
       // Se quadraIds for null ou vazio, bloqueia todas as quadras
       if (!bloq.quadraIds || (Array.isArray(bloq.quadraIds) && bloq.quadraIds.length === 0)) {
         // Bloqueia todas as quadras - verificar horário
-        return verificarConflitoHorario(bloq, dataHoraNormalizada, dataHoraFim);
+        return verificarConflitoHorario(bloq, dataHoraUTC, dataHoraFim);
       }
       
       // Se tiver quadraIds, verificar se esta quadra está na lista
       if (Array.isArray(bloq.quadraIds) && bloq.quadraIds.includes(quadraId)) {
-        return verificarConflitoHorario(bloq, dataHoraNormalizada, dataHoraFim);
+        return verificarConflitoHorario(bloq, dataHoraUTC, dataHoraFim);
       }
       
       return false;
     });
 
-    function verificarConflitoHorario(bloq: any, inicio: Date, fim: Date): boolean {
+    const verificarConflitoHorario = (bloq: any, inicio: Date, fim: Date): boolean => {
       const bloqDataInicio = new Date(bloq.dataInicio);
       const bloqDataFim = new Date(bloq.dataFim);
       
@@ -140,7 +177,7 @@ export async function POST(request: NextRequest) {
       
       // Se não tem hora específica, bloqueia o dia inteiro
       return true;
-    }
+    };
 
     if (temBloqueio) {
       return withCors(
@@ -150,16 +187,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar valor da quadra (se houver tabela de preços)
+    // A tabela TabelaPreco só tem quadraId, não pointId
     let valorHora = null;
     try {
       const precoResult = await query(
         `SELECT "valorHora" FROM "TabelaPreco"
-         WHERE "pointId" = $1
-           AND "quadraId" = $2
+         WHERE "quadraId" = $1
            AND ativo = true
          ORDER BY "createdAt" DESC
          LIMIT 1`,
-        [quadra.pointId, quadraId]
+        [quadraId]
       );
 
       if (precoResult.rows.length > 0) {
@@ -173,24 +210,59 @@ export async function POST(request: NextRequest) {
     const valorCalculado = valorHora ? (valorHora * duracaoMinutos) / 60 : null;
 
     // Criar agendamento
+    // Se o atleta tem usuarioId, vincular ao usuário (como se fosse feito pelo app do atleta)
+    // Se não tem usuarioId, é agendamento público/temporário
     const agendamentoId = uuidv4();
-    await query(
-      `INSERT INTO "Agendamento" (
-        id, "quadraId", "atletaId", "dataHora", duracao,
-        "valorHora", "valorCalculado", status, observacoes,
-        "createdAt", "updatedAt"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'CONFIRMADO', $8, NOW(), NOW())`,
-      [
-        agendamentoId,
+    const valorNegociado = valorCalculado; // Para agendamento público, valor negociado = valor calculado
+    
+    // Tentar inserir com campos opcionais (recorrenciaId, ehAula, professorId, createdById, updatedById)
+    try {
+      await query(
+        `INSERT INTO "Agendamento" (
+          id, "quadraId", "usuarioId", "atletaId", "dataHora", duracao,
+          "valorHora", "valorCalculado", "valorNegociado", status, observacoes,
+          "createdById", "createdAt", "updatedAt"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'CONFIRMADO', $10, $11, NOW(), NOW())`,
+        [
+          agendamentoId,
         quadraId,
+        usuarioIdFinal, // Vincular ao usuário se o atleta for cadastrado
         atletaId,
-        dataHoraNormalizada.toISOString(),
+        dataHoraUTC.toISOString(),
         duracaoMinutos,
-        valorHora,
-        valorCalculado,
-        observacoes || null,
-      ]
-    );
+          valorHora,
+          valorCalculado,
+          valorNegociado,
+          observacoes || null,
+          usuarioIdFinal, // createdById - usar o mesmo usuarioId se disponível, senão NULL
+        ]
+      );
+    } catch (error: any) {
+      // Se createdById não existe ou é opcional, tentar sem ele
+      if (error.message?.includes('createdById') || error.code === '42703') {
+        await query(
+          `INSERT INTO "Agendamento" (
+            id, "quadraId", "usuarioId", "atletaId", "dataHora", duracao,
+            "valorHora", "valorCalculado", "valorNegociado", status, observacoes,
+            "createdAt", "updatedAt"
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'CONFIRMADO', $10, NOW(), NOW())`,
+          [
+            agendamentoId,
+            quadraId,
+            usuarioIdFinal,
+            atletaId,
+            dataHoraUTC.toISOString(),
+            duracaoMinutos,
+            valorHora,
+            valorCalculado,
+            valorNegociado,
+            observacoes || null,
+          ]
+        );
+      } else {
+        throw error;
+      }
+    }
 
     // Buscar agendamento criado para retorno
     const agendamentoResult = await query(
@@ -225,9 +297,27 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Erro ao criar agendamento público:', error);
+    console.error('Detalhes do erro:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      table: error.table,
+      column: error.column,
+    });
     return withCors(
       NextResponse.json(
-        { mensagem: 'Erro ao criar agendamento', erro: error.message },
+        { 
+          mensagem: 'Erro ao criar agendamento', 
+          erro: error.message,
+          detalhes: process.env.NODE_ENV === 'development' ? {
+            code: error.code,
+            detail: error.detail,
+            constraint: error.constraint,
+            table: error.table,
+            column: error.column,
+          } : undefined
+        },
         { status: 500 }
       ),
       request
