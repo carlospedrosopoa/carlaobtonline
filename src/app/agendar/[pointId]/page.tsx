@@ -436,8 +436,7 @@ export default function AgendarPublicoPage() {
 
           {/* Modal de sucesso */}
           {sucesso && (
-<<<<<<< HEAD
-            <div className="mb-6 p-6 bg-green-50 border-2 border-green-300 rounded-lg relative">
+            <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
               <button
                 onClick={() => {
                   setSucesso(false);
