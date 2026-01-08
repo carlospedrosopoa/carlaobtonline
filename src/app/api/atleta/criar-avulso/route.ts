@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     const dataNascimentoPadrao = new Date('2000-01-01');
 
     await query(
-      `INSERT INTO "Atleta" (id, nome, "dataNascimento", fone, "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt") 
-       VALUES ($1, $2, $3, $4, NULL, $5, NOW(), NOW())`,
-      [id, nome.trim(), dataNascimentoPadrao, fone || null, pointId]
+      `INSERT INTO "Atleta" (id, nome, "dataNascimento", fone, "usuarioId", "pointIdPrincipal", "aceitaLembretesAgendamento", "createdAt", "updatedAt") 
+       VALUES ($1, $2, $3, $4, NULL, $5, $6, NOW(), NOW())`,
+      [id, nome.trim(), dataNascimentoPadrao, fone || null, pointId, true]
     );
 
     // Vincular atleta à arena

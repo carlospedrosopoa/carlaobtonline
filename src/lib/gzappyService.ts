@@ -326,7 +326,7 @@ Quadra: ${agendamento.quadra}
 Data: ${dataFormatada}
 Horário: ${horaFormatada}
 Duração: ${duracaoTexto}
-Cliente: ${agendamento.cliente}${agendamento.telefone ? `\nTelefone: ${agendamento.telefone}` : ''}
+Atleta: ${agendamento.cliente}${agendamento.telefone ? `\nTelefone: ${agendamento.telefone}` : ''}
 
 Agendamento confirmado com sucesso! ✅`;
 
@@ -383,7 +383,7 @@ export async function notificarCancelamentoAgendamento(
 Quadra: ${agendamento.quadra}
 Data: ${dataFormatada}
 Horário: ${horaFormatada}
-Cliente: ${agendamento.cliente}
+Atleta: ${agendamento.cliente}
 
 O agendamento foi cancelado.`;
 
@@ -454,6 +454,75 @@ Olá! Infelizmente seu agendamento foi cancelado pela arena.
 🕐 *Horário:* ${horaFormatada}
 
 Entre em contato com a arena para mais informações ou reagendar.`;
+
+  return await enviarMensagemGzappy({
+    destinatario: telefoneFormatado,
+    mensagem,
+    tipo: 'texto',
+  }, pointId);
+}
+
+/**
+ * Envia notificação de confirmação de novo agendamento para o atleta via Gzappy
+ * Usado quando um novo agendamento é criado e o perfil não é temporário
+ */
+export async function notificarAtletaNovoAgendamento(
+  telefoneAtleta: string,
+  pointId: string,
+  agendamento: {
+    quadra: string;
+    arena: string;
+    dataHora: string;
+    duracao: number;
+  }
+): Promise<boolean> {
+  if (!telefoneAtleta || telefoneAtleta.trim() === '') {
+    console.log('Atleta não possui telefone cadastrado para notificação de confirmação');
+    return false;
+  }
+
+  // Formatar número para formato internacional
+  const telefoneFormatado = formatarNumeroGzappy(telefoneAtleta);
+
+  // Extrair data e hora diretamente da string ISO, igual a agenda faz
+  let dataFormatada: string;
+  let horaFormatada: string;
+  
+  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    // Fallback se o formato não for o esperado
+    const dataHora = new Date(agendamento.dataHora);
+    const ano = dataHora.getFullYear();
+    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataHora.getDate()).padStart(2, '0');
+    const hora = String(dataHora.getHours()).padStart(2, '0');
+    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  } else {
+    // Extrair diretamente da string ISO (mesmo método usado na agenda)
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  }
+
+  const horas = Math.floor(agendamento.duracao / 60);
+  const minutos = agendamento.duracao % 60;
+  const duracaoTexto = horas > 0 
+    ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
+    : `${minutos}min`;
+
+  const mensagem = `✅ *Agendamento Confirmado*
+
+Olá! Seu agendamento foi confirmado com sucesso!
+
+🏸 *Quadra:* ${agendamento.quadra}
+🏢 *Arena:* ${agendamento.arena}
+📅 *Data:* ${dataFormatada}
+🕐 *Horário:* ${horaFormatada}
+⏱️ *Duração:* ${duracaoTexto}
+
+Te esperamos! 🎾`;
 
   return await enviarMensagemGzappy({
     destinatario: telefoneFormatado,

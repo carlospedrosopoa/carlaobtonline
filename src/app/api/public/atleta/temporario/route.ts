@@ -217,9 +217,9 @@ export async function POST(request: NextRequest) {
     // Agora temos usuarioIdFinal válido, podemos criar o atleta
     try {
       await query(
-        `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-        [atletaId, nome.trim(), telefoneNormalizado, dataNascimentoPadrao, usuarioIdFinal, pointId]
+        `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "aceitaLembretesAgendamento", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+        [atletaId, nome.trim(), telefoneNormalizado, dataNascimentoPadrao, usuarioIdFinal, pointId, true]
       );
       console.log(`[ATLETA TEMPORÁRIO] Atleta criado com sucesso: ${atletaId} vinculado ao usuário ${usuarioIdFinal}`);
     } catch (error: any) {

@@ -354,7 +354,7 @@ export default function AgendarPublicoPage() {
           atletaId: atletaIdFinal,
           usuarioId: usuarioIdFromUrl, // Passar usuarioId da URL se disponível
           pointId, // Passar pointId para validação de segurança
-          observacoes: `Agendamento público - ${nome}`,
+          observacoes: `Agendamento pelo site da ${arena?.nome || 'arena'}`,
         }),
       });
 

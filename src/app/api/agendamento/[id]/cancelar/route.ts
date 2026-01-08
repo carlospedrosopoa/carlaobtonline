@@ -191,7 +191,7 @@ export async function POST(
 
     // Enviar notificações Gzappy (em background, não bloqueia a resposta)
     if (agendamentoRetorno.quadra?.point?.id) {
-      const clienteNome = agendamentoRetorno.atleta?.nome || agendamentoRetorno.nomeAvulso || agendamentoRetorno.usuario?.name || 'Cliente';
+      const clienteNome = agendamentoRetorno.atleta?.nome || agendamentoRetorno.nomeAvulso || agendamentoRetorno.usuario?.name || 'Atleta';
       
       // Não aguardar a resposta do Gzappy para não bloquear a API
       import('@/lib/gzappyService').then(({ 

@@ -122,7 +122,7 @@ export async function POST(
     }
 
     // Obter nome do cliente
-    const clienteNome = agendamento.atleta_nome || agendamento.usuario_name || 'Cliente';
+    const clienteNome = agendamento.atleta_nome || agendamento.usuario_name || 'Atleta';
     const clienteTelefone = agendamento.atleta_fone || '';
 
     // Usar telefone da arena (Point) como WhatsApp

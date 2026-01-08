@@ -30,8 +30,8 @@ export async function criarAtleta(usuarioId: string, dados: {
     : null;
   
   await query(
-    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "esportePreferido", "esportesPratica", "pointIdPrincipal", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())',
-    [id, dados.nome, dataNasc, dados.categoria || null, dados.genero || null, dados.fone || null, dados.fotoUrl || null, usuarioId, dados.esportePreferido || null, esportesPraticaJson, dados.pointIdPrincipal || null]
+    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "esportePreferido", "esportesPratica", "pointIdPrincipal", "aceitaLembretesAgendamento", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())',
+    [id, dados.nome, dataNasc, dados.categoria || null, dados.genero || null, dados.fone || null, dados.fotoUrl || null, usuarioId, dados.esportePreferido || null, esportesPraticaJson, dados.pointIdPrincipal || null, true]
   );
   
   // Inserir arenas frequentes

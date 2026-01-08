@@ -170,8 +170,8 @@ export const createUserIncompleto = async (
     const pointIdPrincipal = pointIdGestor || null;
     
     await query(
-      'INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())',
-      [atletaId, name, telefoneNormalizado, dataNascimentoPadrao, id, pointIdPrincipal]
+      'INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "aceitaLembretesAgendamento", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())',
+      [atletaId, name, telefoneNormalizado, dataNascimentoPadrao, id, pointIdPrincipal, true]
     );
     
     // Adicionar nas arenas que frequenta (se houver arena)

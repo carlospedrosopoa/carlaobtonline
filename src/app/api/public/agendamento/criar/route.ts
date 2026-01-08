@@ -269,16 +269,59 @@ export async function POST(request: NextRequest) {
       `SELECT 
         a.id, a."quadraId", a."atletaId", a."dataHora", a.duracao,
         a."valorHora", a."valorCalculado", a.status, a.observacoes,
-        q.nome as "quadra_nome",
-        at.nome as "atleta_nome"
+        q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
+        p.nome as "point_nome",
+        at.nome as "atleta_nome", at.fone as "atleta_fone", 
+        at."usuarioId" as "atleta_usuarioId", at."aceitaLembretesAgendamento" as "atleta_aceitaLembretes"
        FROM "Agendamento" a
        LEFT JOIN "Quadra" q ON a."quadraId" = q.id
+       LEFT JOIN "Point" p ON q."pointId" = p.id
        LEFT JOIN "Atleta" at ON a."atletaId" = at.id
        WHERE a.id = $1`,
       [agendamentoId]
     );
 
     const agendamento = agendamentoResult.rows[0];
+
+    // Enviar notificação de confirmação para o atleta se o perfil não for temporário
+    if (agendamento.atleta_fone && agendamento.atleta_usuarioId && agendamento.quadra_pointId && agendamento.point_nome) {
+      // Verificar se não é perfil temporário e se aceita lembretes
+      const aceitaLembretes = agendamento.atleta_aceitaLembretes === true;
+      
+      if (aceitaLembretes) {
+        // Buscar email do usuário para verificar se é temporário
+        // Não aguardar a resposta para não bloquear a API
+        (async () => {
+          try {
+            const userResult = await query('SELECT email FROM "User" WHERE id = $1', [agendamento.atleta_usuarioId]);
+            if (userResult.rows.length > 0) {
+              const userEmail = userResult.rows[0].email;
+              // Verificar se não é email temporário
+              const isEmailTemporario = userEmail && (
+                userEmail.startsWith('temp_') && userEmail.endsWith('@pendente.local')
+              );
+
+              if (!isEmailTemporario) {
+                // Importar e enviar confirmação para o atleta
+                const { notificarAtletaNovoAgendamento } = await import('@/lib/gzappyService');
+                await notificarAtletaNovoAgendamento(
+                  agendamento.atleta_fone,
+                  agendamento.quadra_pointId,
+                  {
+                    quadra: agendamento.quadra_nome,
+                    arena: agendamento.point_nome,
+                    dataHora: agendamento.dataHora,
+                    duracao: agendamento.duracao,
+                  }
+                );
+              }
+            }
+          } catch (err: any) {
+            console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);
+          }
+        })();
+      }
+    }
 
     return withCors(
       NextResponse.json({

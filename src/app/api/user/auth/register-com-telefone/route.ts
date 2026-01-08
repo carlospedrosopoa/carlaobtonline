@@ -145,9 +145,9 @@ export async function POST(request: NextRequest) {
       
       const atletaIdNovo = uuidv4();
       await query(
-        `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-        [atletaIdNovo, name, telefoneNormalizado, dataNascimentoPadrao.toISOString().split('T')[0], userId]
+        `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "aceitaLembretesAgendamento", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        [atletaIdNovo, name, telefoneNormalizado, dataNascimentoPadrao.toISOString().split('T')[0], userId, true]
       );
     }
 
