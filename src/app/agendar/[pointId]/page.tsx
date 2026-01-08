@@ -1,13 +1,14 @@
 // app/agendar/[pointId]/page.tsx - Página pública de agendamento
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Calendar, Clock, MapPin, User, Phone, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Calendar, Clock, MapPin, User, Phone, CheckCircle, XCircle, Loader2, X, MessageCircle } from 'lucide-react';
 
 interface Arena {
   id: string;
   nome: string;
+  logoUrl?: string;
 }
 
 interface Quadra {
@@ -24,46 +25,80 @@ interface HorariosDisponiveisResponse {
 export default function AgendarPublicoPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const pointId = params?.pointId as string;
+  // Aceitar tanto 'usuarioId' quanto 'usuariold' (typo comum) para compatibilidade
+  const usuarioIdFromUrl = searchParams?.get('usuarioId') || searchParams?.get('usuariold') || null;
 
   const [arena, setArena] = useState<Arena | null>(null);
   const [quadras, setQuadras] = useState<Quadra[]>([]);
-  const [dataSelecionada, setDataSelecionada] = useState('');
+  const [quadrasDisponiveis, setQuadrasDisponiveis] = useState<Quadra[]>([]);
+  const [quadraSelecionada, setQuadraSelecionada] = useState<string>('');
+  // Inicializar com a data de hoje
+  const hoje = new Date().toISOString().split('T')[0];
+  const [dataSelecionada, setDataSelecionada] = useState(hoje);
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
   const [carregandoHorarios, setCarregandoHorarios] = useState(false);
+  const [carregandoQuadras, setCarregandoQuadras] = useState(false);
   
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [duracao, setDuracao] = useState(60);
+  const [esporteSelecionado, setEsporteSelecionado] = useState<string>('');
+  const [esportesDisponiveis, setEsportesDisponiveis] = useState<string[]>([]);
   
+  const [buscandoAtleta, setBuscandoAtleta] = useState(false);
   const [criandoAtleta, setCriandoAtleta] = useState(false);
   const [criandoAgendamento, setCriandoAgendamento] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
   const [atletaId, setAtletaId] = useState<string | null>(null);
+  const nomeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (pointId) {
       carregarArena();
+      carregarEsportes();
     }
   }, [pointId]);
 
+  const carregarEsportes = async () => {
+    try {
+      const response = await fetch(`/api/public/point/${pointId}/esportes`);
+      if (response.ok) {
+        const data = await response.json();
+        setEsportesDisponiveis(data.esportes || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar esportes:', error);
+    }
+  };
+
+  // Resetar quando mudar data ou duração
   useEffect(() => {
-    if (dataSelecionada && pointId) {
-      buscarHorariosDisponiveis();
-    } else {
+    if (!dataSelecionada) {
       setHorariosDisponiveis([]);
       setHorarioSelecionado('');
+      setQuadraSelecionada('');
+      setQuadrasDisponiveis([]);
     }
-  }, [dataSelecionada, pointId, duracao]);
+  }, [dataSelecionada, duracao]);
+
+  // Rebuscar quadras quando mudar esporte e já tiver horário selecionado
+  useEffect(() => {
+    if (horarioSelecionado) {
+      buscarQuadrasDisponiveis(horarioSelecionado);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esporteSelecionado]);
 
   const carregarArena = async () => {
     try {
       const response = await fetch(`/api/public/point/${pointId}`);
       if (response.ok) {
         const data = await response.json();
-        setArena({ id: data.id, nome: data.nome });
+        setArena({ id: data.id, nome: data.nome, logoUrl: data.logoUrl });
       } else {
         const errorData = await response.json();
         setErro(errorData.mensagem || 'Arena não encontrada');
@@ -76,15 +111,20 @@ export default function AgendarPublicoPage() {
 
   const buscarHorariosDisponiveis = async () => {
     if (!dataSelecionada || !pointId) return;
+    
+    // Se há esportes disponíveis, esporte é obrigatório
+    if (esportesDisponiveis.length > 0 && !esporteSelecionado) {
+      setErro('Selecione um esporte para buscar horários disponíveis');
+      return;
+    }
 
     setCarregandoHorarios(true);
     setErro('');
     setHorarioSelecionado('');
 
     try {
-      const response = await fetch(
-        `/api/public/agendamento/horarios-disponiveis?pointId=${pointId}&data=${dataSelecionada}&duracao=${duracao}`
-      );
+      const url = `/api/public/agendamento/horarios-disponiveis?pointId=${pointId}&data=${dataSelecionada}&duracao=${duracao}${esporteSelecionado ? `&esporte=${encodeURIComponent(esporteSelecionado)}` : ''}`;
+      const response = await fetch(url);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -93,8 +133,11 @@ export default function AgendarPublicoPage() {
 
       const data: HorariosDisponiveisResponse = await response.json();
       setHorariosDisponiveis(data.horarios);
-      setQuadras(data.quadras);
+      setQuadras(data.quadras); // Manter todas as quadras para referência
       setArena(data.arena);
+      setHorarioSelecionado(''); // Resetar horário selecionado
+      setQuadraSelecionada(''); // Resetar quadra selecionada
+      setQuadrasDisponiveis([]); // Limpar quadras disponíveis até selecionar horário
     } catch (error: any) {
       console.error('Erro ao buscar horários:', error);
       setErro(error.message || 'Erro ao buscar horários disponíveis');
@@ -102,6 +145,43 @@ export default function AgendarPublicoPage() {
     } finally {
       setCarregandoHorarios(false);
     }
+  };
+
+  const buscarQuadrasDisponiveis = async (horario: string) => {
+    if (!dataSelecionada || !pointId || !horario) return;
+
+    setCarregandoQuadras(true);
+    setErro('');
+    setQuadraSelecionada(''); // Resetar seleção de quadra
+
+    try {
+      const url = `/api/public/agendamento/quadras-disponiveis?pointId=${pointId}&data=${dataSelecionada}&horario=${horario}&duracao=${duracao}${esporteSelecionado ? `&esporte=${encodeURIComponent(esporteSelecionado)}` : ''}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.mensagem || 'Erro ao buscar quadras disponíveis');
+      }
+
+      const data = await response.json();
+      setQuadrasDisponiveis(data.quadras);
+      
+      // Selecionar primeira quadra automaticamente se houver apenas uma
+      if (data.quadras.length === 1) {
+        setQuadraSelecionada(data.quadras[0].id);
+      }
+    } catch (error: any) {
+      console.error('Erro ao buscar quadras disponíveis:', error);
+      setErro(error.message || 'Erro ao buscar quadras disponíveis');
+      setQuadrasDisponiveis([]);
+    } finally {
+      setCarregandoQuadras(false);
+    }
+  };
+
+  const handleHorarioClick = (horario: string) => {
+    setHorarioSelecionado(horario);
+    buscarQuadrasDisponiveis(horario);
   };
 
   const formatarTelefone = (value: string) => {
@@ -119,6 +199,74 @@ export default function AgendarPublicoPage() {
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatarTelefone(e.target.value);
     setTelefone(formatted);
+    // Resetar atletaId e nome quando telefone mudar
+    if (atletaId) {
+      setAtletaId(null);
+      setNome('');
+    }
+  };
+
+  const buscarAtletaPorTelefone = async (telefoneParaBuscar: string) => {
+    const telefoneNormalizado = telefoneParaBuscar.replace(/\D/g, '');
+    
+    // Só buscar se tiver pelo menos 10 dígitos
+    if (telefoneNormalizado.length < 10) {
+      return;
+    }
+
+    setBuscandoAtleta(true);
+    setErro('');
+
+    try {
+      const response = await fetch(
+        `/api/public/atleta/buscar-por-telefone?telefone=${encodeURIComponent(telefoneNormalizado)}`
+      );
+
+      if (!response.ok) {
+        // Se não encontrou, não é erro - apenas não tem atleta cadastrado
+        if (response.status === 404) {
+          // Atleta não encontrado - usuário vai preencher nome
+          setAtletaId(null);
+          if (!nome.trim()) {
+            setNome('');
+          }
+          return;
+        }
+        throw new Error('Erro ao buscar atleta');
+      }
+
+      const data = await response.json();
+      
+      if (data.encontrado && data.atleta) {
+        // Atleta encontrado - preencher nome e atletaId automaticamente
+        setNome(data.atleta.nome);
+        setAtletaId(data.atleta.id);
+        // Posicionar cursor no campo nome após buscar
+        setTimeout(() => {
+          nomeInputRef.current?.focus();
+        }, 100);
+      } else {
+        // Atleta não encontrado - manter nome se já foi preenchido
+        setAtletaId(null);
+        if (!nome.trim()) {
+          setNome('');
+        }
+        // Posicionar cursor no campo nome mesmo quando não encontrou
+        setTimeout(() => {
+          nomeInputRef.current?.focus();
+        }, 100);
+      }
+    } catch (error: any) {
+      console.error('Erro ao buscar atleta:', error);
+      // Não mostrar erro - apenas deixar usuário preencher manualmente
+      setAtletaId(null);
+      // Posicionar cursor no campo nome mesmo em caso de erro
+      setTimeout(() => {
+        nomeInputRef.current?.focus();
+      }, 100);
+    } finally {
+      setBuscandoAtleta(false);
+    }
   };
 
   const criarAtletaTemporario = async () => {
@@ -138,12 +286,18 @@ export default function AgendarPublicoPage() {
           nome: nome.trim(),
           telefone: telefone.replace(/\D/g, ''), // Remove formatação
           pointId,
+          usuarioId: usuarioIdFromUrl, // Passar usuarioId da URL se disponível
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.mensagem || 'Erro ao criar perfil temporário');
+        // Melhorar mensagem de erro se não tiver usuarioId
+        let mensagemErro = errorData.mensagem || 'Erro ao criar perfil temporário';
+        if (mensagemErro.includes('usuarioId') && !usuarioIdFromUrl) {
+          mensagemErro = 'É necessário informar um usuarioId válido. Verifique se o link está correto ou faça login primeiro.';
+        }
+        throw new Error(mensagemErro);
       }
 
       const data = await response.json();
@@ -158,13 +312,21 @@ export default function AgendarPublicoPage() {
     }
   };
 
-  const criarAgendamento = async () => {
+  const criarAgendamento = async (atletaIdParaUsar?: string | null) => {
     if (!dataSelecionada || !horarioSelecionado) {
       setErro('Selecione data e horário');
       return;
     }
 
-    if (!atletaId) {
+    if (!quadraSelecionada) {
+      setErro('Selecione uma quadra');
+      return;
+    }
+
+    // Usar o atletaId passado como parâmetro ou do estado
+    const atletaIdFinal = atletaIdParaUsar || atletaId;
+    
+    if (!atletaIdFinal) {
       setErro('Erro: perfil temporário não foi criado');
       return;
     }
@@ -178,8 +340,8 @@ export default function AgendarPublicoPage() {
     setErro('');
 
     try {
-      // Usar a primeira quadra disponível (ou poderia ter seleção de quadra)
-      const quadraId = quadras[0].id;
+      // Usar a quadra selecionada pelo usuário
+      const quadraId = quadraSelecionada;
       const dataHora = `${dataSelecionada}T${horarioSelecionado}:00`;
 
       const response = await fetch('/api/public/agendamento/criar', {
@@ -189,7 +351,9 @@ export default function AgendarPublicoPage() {
           quadraId,
           dataHora,
           duracao,
-          atletaId,
+          atletaId: atletaIdFinal,
+          usuarioId: usuarioIdFromUrl, // Passar usuarioId da URL se disponível
+          pointId, // Passar pointId para validação de segurança
           observacoes: `Agendamento público - ${nome}`,
         }),
       });
@@ -201,16 +365,6 @@ export default function AgendarPublicoPage() {
 
       const data = await response.json();
       setSucesso(true);
-      
-      // Limpar formulário após sucesso
-      setTimeout(() => {
-        setNome('');
-        setTelefone('');
-        setDataSelecionada('');
-        setHorarioSelecionado('');
-        setAtletaId(null);
-        setSucesso(false);
-      }, 5000);
     } catch (error: any) {
       console.error('Erro ao criar agendamento:', error);
       setErro(error.message || 'Erro ao criar agendamento');
@@ -224,21 +378,31 @@ export default function AgendarPublicoPage() {
     setErro('');
 
     try {
-      // Se ainda não tem atletaId, criar primeiro
+      // Se já tem atletaId (encontrado pela busca de telefone), usar ele diretamente
+      // Se não tem, criar atleta temporário primeiro
       let atletaIdFinal = atletaId;
       if (!atletaIdFinal) {
+        // Validar se tem nome e telefone para criar
+        if (!nome.trim() || !telefone.trim()) {
+          setErro('Preencha nome e telefone');
+          return;
+        }
+        // Criar atleta temporário
         atletaIdFinal = await criarAtletaTemporario();
+        // Garantir que o estado foi atualizado
+        if (atletaIdFinal) {
+          setAtletaId(atletaIdFinal);
+        }
       }
 
-      // Criar agendamento
-      await criarAgendamento();
+      // Criar agendamento passando o atletaIdFinal diretamente
+      await criarAgendamento(atletaIdFinal);
     } catch (error) {
       // Erro já foi tratado nas funções
     }
   };
 
-  // Data mínima: hoje
-  const hoje = new Date().toISOString().split('T')[0];
+  // Data mínima: hoje (já definida acima)
   // Data máxima: 30 dias a partir de hoje
   const dataMaxima = new Date();
   dataMaxima.setDate(dataMaxima.getDate() + 30);
@@ -250,6 +414,15 @@ export default function AgendarPublicoPage() {
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
           {/* Header */}
           <div className="text-center mb-8">
+            {arena?.logoUrl && (
+              <div className="flex justify-center mb-4">
+                <img
+                  src={arena.logoUrl}
+                  alt={`Logo ${arena.nome}`}
+                  className="h-20 w-auto object-contain"
+                />
+              </div>
+            )}
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Agendar Quadra
             </h1>
@@ -263,13 +436,41 @@ export default function AgendarPublicoPage() {
 
           {/* Mensagem de sucesso */}
           {sucesso && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-green-900">Agendamento realizado com sucesso!</p>
-                <p className="text-sm text-green-700">
-                  Você receberá uma confirmação em breve.
-                </p>
+            <div className="mb-6 p-6 bg-green-50 border-2 border-green-300 rounded-lg relative">
+              <button
+                onClick={() => {
+                  setSucesso(false);
+                  // Limpar formulário ao fechar
+                  setNome('');
+                  setTelefone('');
+                  setDataSelecionada('');
+                  setHorarioSelecionado('');
+                  setQuadraSelecionada('');
+                  setHorariosDisponiveis([]);
+                  setQuadrasDisponiveis([]);
+                  setAtletaId(null);
+                }}
+                className="absolute top-3 right-3 text-green-600 hover:text-green-800 transition-colors"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-start gap-3 pr-8">
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-green-900 text-lg mb-2">
+                    Agendamento realizado com sucesso!
+                  </p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-green-700 flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4" />
+                      Você receberá uma confirmação por WhatsApp em breve.
+                    </p>
+                    <p className="text-xs text-green-600 mt-2">
+                      Clique no botão X acima para fechar e fazer um novo agendamento.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -292,31 +493,56 @@ export default function AgendarPublicoPage() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome Completo *
+                  Telefone *
                 </label>
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Seu nome completo"
-                />
+                <div className="relative">
+                  <input
+                    type="tel"
+                    value={telefone}
+                    onChange={handleTelefoneChange}
+                    onBlur={() => {
+                      if (telefone.trim()) {
+                        buscarAtletaPorTelefone(telefone);
+                      }
+                    }}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent pr-10"
+                    placeholder="(00) 00000-0000"
+                    maxLength={15}
+                  />
+                  {buscandoAtleta && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                    </div>
+                  )}
+                </div>
+                {atletaId && (
+                  <p className="mt-1 text-sm text-green-600 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    Atleta encontrado! Nome preenchido automaticamente.
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Telefone *
+                  Nome Completo *
                 </label>
                 <input
-                  type="tel"
-                  value={telefone}
-                  onChange={handleTelefoneChange}
+                  ref={nomeInputRef}
+                  type="text"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="(00) 00000-0000"
-                  maxLength={15}
+                  disabled={buscandoAtleta}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder={atletaId ? "Nome do atleta" : "Seu nome completo"}
                 />
+                {atletaId && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Você pode editar o nome se necessário
+                  </p>
+                )}
               </div>
             </div>
 
@@ -326,6 +552,38 @@ export default function AgendarPublicoPage() {
                 <Calendar className="w-5 h-5" />
                 Data e Horário
               </h2>
+
+              {/* Filtro de esporte - deve vir antes de buscar horários */}
+              {esportesDisponiveis.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Esporte *
+                  </label>
+                  <select
+                    value={esporteSelecionado}
+                    onChange={(e) => {
+                      setEsporteSelecionado(e.target.value);
+                      // Limpar horários e quadras quando mudar esporte
+                      setHorariosDisponiveis([]);
+                      setHorarioSelecionado('');
+                      setQuadraSelecionada('');
+                      setQuadrasDisponiveis([]);
+                    }}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    <option value="">Selecione um esporte</option>
+                    {esportesDisponiveis.map((esporte) => (
+                      <option key={esporte} value={esporte}>
+                        {esporte}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Selecione o esporte para ver os horários disponíveis
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -360,8 +618,32 @@ export default function AgendarPublicoPage() {
                 </div>
               </div>
 
-              {/* Horários disponíveis */}
+              {/* Botão para buscar horários */}
               {dataSelecionada && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={buscarHorariosDisponiveis}
+                    disabled={carregandoHorarios || !dataSelecionada || (esportesDisponiveis.length > 0 && !esporteSelecionado)}
+                    className="w-full py-2 px-4 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {carregandoHorarios ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Buscando horários...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-5 h-5" />
+                        Buscar Horários Disponíveis
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Horários disponíveis */}
+              {dataSelecionada && horariosDisponiveis.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Horário Disponível *
@@ -371,17 +653,17 @@ export default function AgendarPublicoPage() {
                       <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
                       <span className="ml-2 text-gray-600">Buscando horários...</span>
                     </div>
-                  ) : horariosDisponiveis.length === 0 ? (
+                  ) : horariosDisponiveis.length === 0 && dataSelecionada ? (
                     <p className="text-sm text-gray-500 py-4 text-center">
-                      {dataSelecionada ? 'Nenhum horário disponível para esta data' : 'Selecione uma data'}
+                      Nenhum horário disponível para esta data e duração. Tente outra data ou duração.
                     </p>
-                  ) : (
+                  ) : horariosDisponiveis.length > 0 ? (
                     <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                       {horariosDisponiveis.map((horario) => (
                         <button
                           key={horario}
                           type="button"
-                          onClick={() => setHorarioSelecionado(horario)}
+                          onClick={() => handleHorarioClick(horario)}
                           className={`px-3 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
                             horarioSelecionado === horario
                               ? 'bg-emerald-600 text-white border-emerald-600'
@@ -393,6 +675,45 @@ export default function AgendarPublicoPage() {
                         </button>
                       ))}
                     </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Seleção de quadra - aparece apenas após selecionar horário */}
+              {horarioSelecionado && (
+                <div>
+                  {carregandoQuadras ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                      <span className="ml-2 text-gray-600">Buscando quadras disponíveis...</span>
+                    </div>
+                  ) : quadrasDisponiveis.length > 0 ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Quadra Disponível *
+                      </label>
+                      <select
+                        value={quadraSelecionada}
+                        onChange={(e) => setQuadraSelecionada(e.target.value)}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      >
+                        <option value="">Selecione uma quadra</option>
+                        {quadrasDisponiveis.map((quadra) => (
+                          <option key={quadra.id} value={quadra.id}>
+                            {quadra.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        {esporteSelecionado 
+                          ? `Nenhuma quadra disponível para ${esporteSelecionado} no horário selecionado. Tente outro horário ou esporte.`
+                          : 'Nenhuma quadra disponível para o horário selecionado. Tente outro horário.'}
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -401,13 +722,18 @@ export default function AgendarPublicoPage() {
             {/* Botão de submit */}
             <button
               type="submit"
-              disabled={criandoAtleta || criandoAgendamento || !dataSelecionada || !horarioSelecionado || !nome.trim() || !telefone.trim()}
+              disabled={buscandoAtleta || criandoAtleta || criandoAgendamento || !dataSelecionada || !horarioSelecionado || !quadraSelecionada || !nome.trim() || !telefone.trim() || sucesso}
               className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {(criandoAtleta || criandoAgendamento) ? (
+              {criandoAtleta ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  {criandoAtleta ? 'Criando perfil...' : 'Agendando...'}
+                  Criando perfil...
+                </>
+              ) : criandoAgendamento ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Confirmando agendamento...
                 </>
               ) : (
                 <>

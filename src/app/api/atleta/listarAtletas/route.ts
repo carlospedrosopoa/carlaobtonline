@@ -19,7 +19,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { user } = authResult;
-    const resultado = await listarAtletas(user);
+    
+    // Obter parâmetro de busca da query string
+    const { searchParams } = new URL(request.url);
+    const busca = searchParams.get('busca') || '';
+    
+    const resultado = await listarAtletas(user, busca);
 
     const response = NextResponse.json(
       resultado,

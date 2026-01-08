@@ -51,13 +51,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Buscar quadras ativas da arena
+    // Obter esporte do parâmetro (opcional)
+    const esporte = searchParams.get('esporte');
+
+    // Buscar quadras ativas da arena (ordenadas alfabeticamente)
     const quadrasResult = await query(
-      'SELECT id, nome, "pointId", ativo FROM "Quadra" WHERE "pointId" = $1 AND ativo = true',
+      'SELECT id, nome, "pointId", ativo, "tiposEsporte" FROM "Quadra" WHERE "pointId" = $1 AND ativo = true ORDER BY nome ASC',
       [pointId]
     );
 
-    const quadras = quadrasResult.rows;
+    let quadras = quadrasResult.rows;
+    
+    // Filtrar por esporte se informado
+    if (esporte) {
+      quadras = quadras.filter((quadra: any) => {
+        let tiposEsporteArray: string[] = [];
+        
+        if (!quadra.tiposEsporte) {
+          return false; // Quadra sem tipos de esporte não aparece no filtro
+        }
+        
+        // Parse do JSON se for string
+        if (Array.isArray(quadra.tiposEsporte)) {
+          tiposEsporteArray = quadra.tiposEsporte;
+        } else if (typeof quadra.tiposEsporte === 'string') {
+          try {
+            tiposEsporteArray = JSON.parse(quadra.tiposEsporte);
+          } catch (e) {
+            return false; // Erro ao fazer parse, excluir
+          }
+        }
+        
+        // Verificar se a quadra atende o esporte selecionado
+        return tiposEsporteArray.some((tipo: string) => 
+          tipo && tipo.trim().toLowerCase() === esporte.toLowerCase()
+        );
+      });
+    }
     if (quadras.length === 0) {
       return withCors(
         NextResponse.json({ 

@@ -57,24 +57,53 @@ export async function criarAtleta(usuarioId: string, dados: {
   };
 }
 
-export async function listarAtletas(usuario: { id: string; role: string; pointIdGestor?: string | null }) {
+export async function listarAtletas(usuario: { id: string; role: string; pointIdGestor?: string | null }, busca: string = "") {
   let atletas: any[] = [];
+  
+  // Normalizar busca removendo acentuação e caracteres especiais
+  const buscaNormalizada = busca
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  
+  // Para busca de telefone, remover também caracteres especiais
+  const buscaTelefone = buscaNormalizada.replace(/[^\d]/g, '');
+  
+  const parametroBusca = buscaNormalizada ? `%${buscaNormalizada}%` : null;
+  const parametroBuscaTelefone = buscaTelefone ? `%${buscaTelefone}%` : null;
   
   // ADMIN vê todos os atletas
   if (usuario.role === "ADMIN") {
     // Usar o mesmo padrão de cards de clientes: underscore nos aliases
     // Remover DISTINCT para evitar problemas com campos do JOIN
-    const result = await query(
-      `SELECT a.*, 
+    let querySQL = `SELECT a.*, 
               u.id as "usuario_id", 
               u.name as "usuario_name", 
               u.email as "usuario_email", 
               u.role as "usuario_role" 
        FROM "Atleta" a 
-       LEFT JOIN "User" u ON a."usuarioId" = u.id 
-       ORDER BY a.nome ASC`,
-      []
-    );
+       LEFT JOIN "User" u ON a."usuarioId" = u.id`;
+    
+    const params: any[] = [];
+    
+    if (parametroBusca) {
+      querySQL += ` WHERE (
+         LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE $1
+         OR LOWER(u.email) LIKE $1`;
+      params.push(parametroBusca);
+      
+      if (parametroBuscaTelefone) {
+        querySQL += ` OR REPLACE(REPLACE(REPLACE(REPLACE(a.fone, '(', ''), ')', ''), '-', ''), ' ', '') LIKE $2`;
+        params.push(parametroBuscaTelefone);
+      }
+      
+      querySQL += `)`;
+    }
+    
+    querySQL += ` ORDER BY a.nome ASC`;
+    
+    const result = await query(querySQL, params);
     
     atletas = result.rows.map((row: any) => {
       // Usar o mesmo padrão de cards de clientes
@@ -108,8 +137,7 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
   else if (usuario.role === "ORGANIZER" && usuario.pointIdGestor) {
     // Usar o mesmo padrão de cards de clientes: underscore nos aliases
     // Usar DISTINCT ON para evitar duplicação quando atleta tem múltiplas arenas frequentes
-    const result = await query(
-      `SELECT DISTINCT ON (a.id) a.*, 
+    let querySQL = `SELECT DISTINCT ON (a.id) a.*, 
               u.id as "usuario_id", 
               u.name as "usuario_name", 
               u.email as "usuario_email", 
@@ -117,10 +145,27 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
        LEFT JOIN "AtletaPoint" ap ON a.id = ap."atletaId"
-       WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" = $1)
-       ORDER BY a.id, a.nome ASC`,
-      [usuario.pointIdGestor]
-    );
+       WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" = $1)`;
+    
+    const params: any[] = [usuario.pointIdGestor];
+    
+    if (parametroBusca) {
+      querySQL += ` AND (
+         LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE $${params.length + 1}
+         OR LOWER(u.email) LIKE $${params.length + 1}`;
+      params.push(parametroBusca);
+      
+      if (parametroBuscaTelefone) {
+        querySQL += ` OR REPLACE(REPLACE(REPLACE(REPLACE(a.fone, '(', ''), ')', ''), '-', ''), ' ', '') LIKE $${params.length + 1}`;
+        params.push(parametroBuscaTelefone);
+      }
+      
+      querySQL += `)`;
+    }
+    
+    querySQL += ` ORDER BY a.id, a.nome ASC`;
+    
+    const result = await query(querySQL, params);
     
     atletas = result.rows.map((row: any) => {
       // Usar o mesmo padrão de cards de clientes
@@ -153,18 +198,34 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
   } else {
     // USER comum vê apenas seus próprios atletas
     // Usar o mesmo padrão de cards de clientes: underscore nos aliases
-    const result = await query(
-      `SELECT a.*, 
+    let querySQL = `SELECT a.*, 
               u.id as "usuario_id", 
               u.name as "usuario_name", 
               u.email as "usuario_email", 
               u.role as "usuario_role" 
        FROM "Atleta" a 
        LEFT JOIN "User" u ON a."usuarioId" = u.id 
-       WHERE a."usuarioId" = $1
-       ORDER BY a.nome ASC`,
-      [usuario.id]
-    );
+       WHERE a."usuarioId" = $1`;
+    
+    const params: any[] = [usuario.id];
+    
+    if (parametroBusca) {
+      querySQL += ` AND (
+         LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE $${params.length + 1}
+         OR LOWER(u.email) LIKE $${params.length + 1}`;
+      params.push(parametroBusca);
+      
+      if (parametroBuscaTelefone) {
+        querySQL += ` OR REPLACE(REPLACE(REPLACE(REPLACE(a.fone, '(', ''), ')', ''), '-', ''), ' ', '') LIKE $${params.length + 1}`;
+        params.push(parametroBuscaTelefone);
+      }
+      
+      querySQL += `)`;
+    }
+    
+    querySQL += ` ORDER BY a.nome ASC`;
+    
+    const result = await query(querySQL, params);
     
     atletas = result.rows.map((row: any) => {
       // Usar o mesmo padrão de cards de clientes
