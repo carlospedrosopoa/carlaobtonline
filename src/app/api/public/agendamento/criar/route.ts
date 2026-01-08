@@ -186,28 +186,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Buscar valor da quadra (se houver tabela de preços)
-    // A tabela TabelaPreco só tem quadraId, não pointId
-    let valorHora = null;
+    // Calcular valores (buscar tabela de preços da quadra)
+    // Usar a mesma lógica do agendamento principal: considerar horários específicos
+    let valorHora: number | null = null;
+    let valorCalculado: number | null = null;
+
     try {
-      const precoResult = await query(
-        `SELECT "valorHora" FROM "TabelaPreco"
-         WHERE "quadraId" = $1
-           AND ativo = true
-         ORDER BY "createdAt" DESC
-         LIMIT 1`,
+      const tabelaPrecoResult = await query(
+        `SELECT "valorHora", "valorHoraAula", "inicioMinutoDia", "fimMinutoDia"
+         FROM "TabelaPreco"
+         WHERE "quadraId" = $1 AND ativo = true
+         ORDER BY "inicioMinutoDia" ASC`,
         [quadraId]
       );
 
-      if (precoResult.rows.length > 0) {
-        valorHora = parseFloat(precoResult.rows[0].valorHora) || null;
+      if (tabelaPrecoResult.rows.length > 0) {
+        // Usar hora local (sem conversão de timezone)
+        const horaAgendamento = hora * 60 + minuto;
+        const precoAplicavel = tabelaPrecoResult.rows.find((tp: any) => {
+          return horaAgendamento >= tp.inicioMinutoDia && horaAgendamento < tp.fimMinutoDia;
+        });
+
+        if (precoAplicavel) {
+          // Para agendamento público, usar valorHora (não é aula)
+          valorHora = parseFloat(precoAplicavel.valorHora) || null;
+          valorCalculado = valorHora ? (valorHora * duracaoMinutos) / 60 : null;
+        }
       }
     } catch (error) {
       // Se não houver tabela de preços, continua sem valor
       console.warn('Erro ao buscar preço:', error);
     }
-
-    const valorCalculado = valorHora ? (valorHora * duracaoMinutos) / 60 : null;
 
     // Criar agendamento
     // Se o atleta tem usuarioId, vincular ao usuário (como se fosse feito pelo app do atleta)
@@ -315,15 +324,23 @@ export async function POST(request: NextRequest) {
             ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
             : `${minutos}min`;
 
-          const mensagemArena = `🏸 *Novo Agendamento Confirmado*
+          const nomeArena = agendamento.point_nome || 'Arena';
+          const valorFormatado = agendamento.valorCalculado
+            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(agendamento.valorCalculado)
+            : 'N/A';
 
-Quadra: ${agendamento.quadra_nome}
-Data: ${dataFormatada}
-Horário: ${horaFormatada}
-Duração: ${duracaoTexto}
-Atleta: ${agendamento.atleta_nome}${agendamento.atleta_fone ? `\nTelefone: ${agendamento.atleta_fone}` : ''}
+          const mensagemArena = `*${nomeArena}*
 
-Agendamento confirmado com sucesso! ✅`;
+✅ *Agendamento Confirmado*
+
+👤 *Atleta:* ${agendamento.atleta_nome}
+🔍 *Quadra:* ${agendamento.quadra_nome}
+📅 *Data:* ${dataFormatada}
+🕐 *Horário:* ${horaFormatada}
+⏱️ *Duração:* ${duracaoTexto}
+💰 *Valor:* ${valorFormatado}
+
+Esperamos você! 🎾`;
 
           await enviarMensagemGzappy({
             destinatario: telefoneFormatado,

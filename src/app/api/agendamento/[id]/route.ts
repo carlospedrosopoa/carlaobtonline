@@ -276,7 +276,7 @@ export async function PUT(
     let agendamentoCheck;
     try {
       agendamentoCheck = await query(
-        'SELECT "usuarioId", "quadraId", "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
+        'SELECT "usuarioId", "quadraId", "atletaId", "status", "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
         [id]
       );
     } catch (error: any) {
@@ -284,13 +284,13 @@ export async function PUT(
       if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || error.message?.includes('ehAula') || error.message?.includes('professorId')) {
         try {
           agendamentoCheck = await query(
-            'SELECT "usuarioId", "quadraId", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
+            'SELECT "usuarioId", "quadraId", "atletaId", "status", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
             [id]
           );
         } catch (error2: any) {
           if (error2.message?.includes('ehAula') || error2.message?.includes('professorId')) {
             agendamentoCheck = await query(
-              'SELECT "usuarioId", "quadraId" FROM "Agendamento" WHERE id = $1',
+              'SELECT "usuarioId", "quadraId", "atletaId", "status" FROM "Agendamento" WHERE id = $1',
               [id]
             );
             // Adicionar valores padrão
@@ -657,10 +657,36 @@ export async function PUT(
       paramCount++;
     }
 
+    // Se atletaId foi alterado, buscar o usuarioId do atleta para atualizar também
+    let usuarioIdNovoAtleta: string | null = null;
+    if (atletaId !== undefined && atletaId !== agendamentoAtual.atletaId) {
+      if (atletaId) {
+        // Buscar usuarioId do atleta
+        const atletaResult = await query(
+          'SELECT "usuarioId" FROM "Atleta" WHERE id = $1',
+          [atletaId]
+        );
+        if (atletaResult.rows.length > 0) {
+          usuarioIdNovoAtleta = atletaResult.rows[0].usuarioId || null;
+        }
+      } else {
+        // Se atletaId foi removido (null), usuarioId também deve ser null
+        usuarioIdNovoAtleta = null;
+      }
+    }
+
     if (atletaId !== undefined) {
       updates.push(`"atletaId" = $${paramCount}`);
       paramsUpdate.push(atletaId || null);
       paramCount++;
+      
+      // Se o atleta foi alterado, atualizar também o usuarioId
+      // usuarioIdNovoAtleta só será setado se atletaId foi realmente alterado
+      if (usuarioIdNovoAtleta !== null || (atletaId !== agendamentoAtual.atletaId)) {
+        updates.push(`"usuarioId" = $${paramCount}`);
+        paramsUpdate.push(usuarioIdNovoAtleta);
+        paramCount++;
+      }
     }
 
     if (nomeAvulso !== undefined) {
@@ -864,9 +890,14 @@ export async function PUT(
       }
       
       // 4. Gerar novos agendamentos recorrentes baseados nos dados atualizados
+      // Se o atleta foi alterado, usar o novo usuarioId do atleta
+      const usuarioIdParaRecorrencia = (atletaId !== undefined && atletaId !== dadosAtuais.atletaId) 
+        ? usuarioIdNovoAtleta 
+        : dadosAtuais.usuarioId;
+      
       const dadosBase = {
         quadraId: quadraIdFinal,
-        usuarioId: dadosAtuais.usuarioId,
+        usuarioId: usuarioIdParaRecorrencia,
         atletaId: atletaId !== undefined ? atletaId : dadosAtuais.atletaId,
         nomeAvulso: nomeAvulso !== undefined ? nomeAvulso : dadosAtuais.nomeAvulso,
         telefoneAvulso: telefoneAvulso !== undefined ? telefoneAvulso : dadosAtuais.telefoneAvulso,

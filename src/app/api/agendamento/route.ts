@@ -1170,6 +1170,8 @@ export async function POST(request: NextRequest) {
             cliente: clienteNome,
             telefone: clienteTelefone,
             duracao: agendamento.duracao,
+            valor: agendamento.valorNegociado || agendamento.valorCalculado,
+            nomeArena: agendamento.quadra.point.nome,
           }
         ).catch((err) => {
           console.error('Erro ao enviar notificação Gzappy para gestor (não crítico):', err);
@@ -1201,15 +1203,22 @@ export async function POST(request: NextRequest) {
             ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
             : `${minutos}min`;
 
-          const mensagemArena = `🏸 *Novo Agendamento Confirmado*
+          const valorFormatado = (agendamento.valorNegociado || agendamento.valorCalculado) 
+            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(agendamento.valorNegociado || agendamento.valorCalculado || 0)
+            : 'N/A';
 
-Quadra: ${agendamento.quadra.nome}
-Data: ${dataFormatada}
-Horário: ${horaFormatada}
-Duração: ${duracaoTexto}
-Atleta: ${clienteNome}${clienteTelefone ? `\nTelefone: ${clienteTelefone}` : ''}
+          const mensagemArena = `*${agendamento.quadra.point.nome || 'Arena'}*
 
-Agendamento confirmado com sucesso! ✅`;
+✅ *Agendamento Confirmado*
+
+👤 *Atleta:* ${clienteNome}
+🔍 *Quadra:* ${agendamento.quadra.nome}
+📅 *Data:* ${dataFormatada}
+🕐 *Horário:* ${horaFormatada}
+⏱️ *Duração:* ${duracaoTexto}
+💰 *Valor:* ${valorFormatado}
+
+Esperamos você! 🎾`;
 
           enviarMensagemGzappy({
             destinatario: telefoneFormatado,
@@ -1251,6 +1260,8 @@ Agendamento confirmado com sucesso! ✅`;
                       arena: agendamento.quadra.point.nome,
                       dataHora: agendamento.dataHora,
                       duracao: agendamento.duracao,
+                      valor: agendamento.valorNegociado || agendamento.valorCalculado,
+                      nomeAtleta: clienteNome,
                     }
                   ).catch((err) => {
                     console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);

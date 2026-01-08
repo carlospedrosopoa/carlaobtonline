@@ -284,6 +284,19 @@ export async function obterWhatsAppGestor(pointId: string): Promise<string | nul
 }
 
 /**
+ * Formata valor em reais para exibição
+ */
+function formatarValor(valor: number | null | undefined): string {
+  if (valor === null || valor === undefined) {
+    return 'N/A';
+  }
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(valor);
+}
+
+/**
  * Envia notificação de novo agendamento para o gestor via Gzappy
  */
 export async function notificarNovoAgendamento(
@@ -294,6 +307,8 @@ export async function notificarNovoAgendamento(
     cliente: string;
     telefone?: string | null;
     duracao: number;
+    valor?: number | null;
+    nomeArena?: string;
   }
 ): Promise<boolean> {
   const whatsappGestor = await obterWhatsAppGestor(pointId);
@@ -303,16 +318,27 @@ export async function notificarNovoAgendamento(
     return false;
   }
 
-  const dataHora = new Date(agendamento.dataHora);
-  const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-  const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  // Extrair data e hora diretamente da string ISO
+  let dataFormatada: string;
+  let horaFormatada: string;
+  
+  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    const dataHora = new Date(agendamento.dataHora);
+    dataFormatada = dataHora.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } else {
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    dataFormatada = `${dia}/${mes}/${ano}`;
+    horaFormatada = `${hora}:${minuto}`;
+  }
 
   const horas = Math.floor(agendamento.duracao / 60);
   const minutos = agendamento.duracao % 60;
@@ -320,15 +346,31 @@ export async function notificarNovoAgendamento(
     ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
     : `${minutos}min`;
 
-  const mensagem = `🏸 *Novo Agendamento Confirmado*
+  // Obter nome da arena se não foi fornecido
+  let nomeArena = agendamento.nomeArena;
+  if (!nomeArena) {
+    try {
+      const result = await query('SELECT nome FROM "Point" WHERE id = $1', [pointId]);
+      if (result.rows.length > 0) {
+        nomeArena = result.rows[0].nome;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar nome da arena:', error);
+    }
+  }
 
-Quadra: ${agendamento.quadra}
-Data: ${dataFormatada}
-Horário: ${horaFormatada}
-Duração: ${duracaoTexto}
-Atleta: ${agendamento.cliente}${agendamento.telefone ? `\nTelefone: ${agendamento.telefone}` : ''}
+  const valorFormatado = formatarValor(agendamento.valor);
 
-Agendamento confirmado com sucesso! ✅`;
+  const mensagem = `${nomeArena ? `*${nomeArena}*\n\n` : ''}✅ *Agendamento Confirmado*
+
+👤 *Atleta:* ${agendamento.cliente}
+🔍 *Quadra:* ${agendamento.quadra}
+📅 *Data:* ${dataFormatada}
+🕐 *Horário:* ${horaFormatada}
+⏱️ *Duração:* ${duracaoTexto}
+💰 *Valor:* ${valorFormatado}
+
+Esperamos você! 🎾`;
 
   return await enviarMensagemGzappy({
     destinatario: whatsappGestor,
@@ -474,6 +516,8 @@ export async function notificarAtletaNovoAgendamento(
     arena: string;
     dataHora: string;
     duracao: number;
+    valor?: number | null;
+    nomeAtleta?: string;
   }
 ): Promise<boolean> {
   if (!telefoneAtleta || telefoneAtleta.trim() === '') {
@@ -512,17 +556,21 @@ export async function notificarAtletaNovoAgendamento(
     ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
     : `${minutos}min`;
 
-  const mensagem = `✅ *Agendamento Confirmado*
+  const valorFormatado = formatarValor(agendamento.valor);
+  const nomeAtleta = agendamento.nomeAtleta || 'Atleta';
 
-Olá! Seu agendamento foi confirmado com sucesso!
+  const mensagem = `*${agendamento.arena}*
 
-🏸 *Quadra:* ${agendamento.quadra}
-🏢 *Arena:* ${agendamento.arena}
+✅ *Agendamento Confirmado*
+
+👤 *Atleta:* ${nomeAtleta}
+🔍 *Quadra:* ${agendamento.quadra}
 📅 *Data:* ${dataFormatada}
 🕐 *Horário:* ${horaFormatada}
 ⏱️ *Duração:* ${duracaoTexto}
+💰 *Valor:* ${valorFormatado}
 
-Te esperamos! 🎾`;
+Esperamos você! 🎾`;
 
   return await enviarMensagemGzappy({
     destinatario: telefoneFormatado,
