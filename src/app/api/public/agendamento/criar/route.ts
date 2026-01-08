@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
         a.id, a."quadraId", a."atletaId", a."dataHora", a.duracao,
         a."valorHora", a."valorCalculado", a.status, a.observacoes,
         q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
-        p.nome as "point_nome",
+        p.nome as "point_nome", p.telefone as "point_telefone",
         at.nome as "atleta_nome", at.fone as "atleta_fone", 
         at."usuarioId" as "atleta_usuarioId", at."aceitaLembretesAgendamento" as "atleta_aceitaLembretes"
        FROM "Agendamento" a
@@ -283,45 +283,63 @@ export async function POST(request: NextRequest) {
 
     const agendamento = agendamentoResult.rows[0];
 
-    // Enviar notificação de confirmação para o atleta se o perfil não for temporário
-    if (agendamento.atleta_fone && agendamento.atleta_usuarioId && agendamento.quadra_pointId && agendamento.point_nome) {
-      // Verificar se não é perfil temporário e se aceita lembretes
-      const aceitaLembretes = agendamento.atleta_aceitaLembretes === true;
-      
-      if (aceitaLembretes) {
-        // Buscar email do usuário para verificar se é temporário
-        // Não aguardar a resposta para não bloquear a API
-        (async () => {
-          try {
-            const userResult = await query('SELECT email FROM "User" WHERE id = $1', [agendamento.atleta_usuarioId]);
-            if (userResult.rows.length > 0) {
-              const userEmail = userResult.rows[0].email;
-              // Verificar se não é email temporário
-              const isEmailTemporario = userEmail && (
-                userEmail.startsWith('temp_') && userEmail.endsWith('@pendente.local')
-              );
+    // Enviar notificações (em background, não bloqueia a resposta)
+    (async () => {
+      try {
+        const gzappyService = await import('@/lib/gzappyService');
+        const { formatarNumeroGzappy, enviarMensagemGzappy } = gzappyService;
 
-              if (!isEmailTemporario) {
-                // Importar e enviar confirmação para o atleta
-                const { notificarAtletaNovoAgendamento } = await import('@/lib/gzappyService');
-                await notificarAtletaNovoAgendamento(
-                  agendamento.atleta_fone,
-                  agendamento.quadra_pointId,
-                  {
-                    quadra: agendamento.quadra_nome,
-                    arena: agendamento.point_nome,
-                    dataHora: agendamento.dataHora,
-                    duracao: agendamento.duracao,
-                  }
-                );
-              }
-            }
-          } catch (err: any) {
-            console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);
+        // Enviar mensagem para o telefone da arena (sempre, para qualquer agendamento novo)
+        if (agendamento.point_telefone && agendamento.quadra_pointId) {
+          const telefoneArena = agendamento.point_telefone;
+          const telefoneFormatado = formatarNumeroGzappy(telefoneArena);
+          
+          // Extrair data e hora
+          const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+          let dataFormatada: string;
+          let horaFormatada: string;
+          
+          if (matchDataHora) {
+            const [, ano, mes, dia, hora, minuto] = matchDataHora;
+            dataFormatada = `${dia}/${mes}/${ano}`;
+            horaFormatada = `${hora}:${minuto}`;
+          } else {
+            const dataHora = new Date(agendamento.dataHora);
+            dataFormatada = dataHora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            horaFormatada = dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
           }
-        })();
+
+          const horas = Math.floor(agendamento.duracao / 60);
+          const minutos = agendamento.duracao % 60;
+          const duracaoTexto = horas > 0 
+            ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
+            : `${minutos}min`;
+
+          const mensagemArena = `🏸 *Novo Agendamento Confirmado*
+
+Quadra: ${agendamento.quadra_nome}
+Data: ${dataFormatada}
+Horário: ${horaFormatada}
+Duração: ${duracaoTexto}
+Atleta: ${agendamento.atleta_nome}${agendamento.atleta_fone ? `\nTelefone: ${agendamento.atleta_fone}` : ''}
+
+Agendamento confirmado com sucesso! ✅`;
+
+          await enviarMensagemGzappy({
+            destinatario: telefoneFormatado,
+            mensagem: mensagemArena,
+            tipo: 'texto',
+          }, agendamento.quadra_pointId).catch((err: any) => {
+            console.error('Erro ao enviar notificação Gzappy para telefone da arena (não crítico):', err);
+          });
+        }
+
+        // Nota: Na rota pública não enviamos mensagem para o atleta, apenas para o telefone da arena
+        // O atleta já recebe confirmação visual na tela ao criar o agendamento
+      } catch (err: any) {
+        console.error('Erro ao enviar notificações Gzappy (não crítico):', err);
       }
-    }
+    })();
 
     return withCors(
       NextResponse.json({
