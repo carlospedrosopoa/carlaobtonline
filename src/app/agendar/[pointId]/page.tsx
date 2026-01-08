@@ -434,8 +434,9 @@ export default function AgendarPublicoPage() {
             )}
           </div>
 
-          {/* Mensagem de sucesso */}
+          {/* Modal de sucesso */}
           {sucesso && (
+<<<<<<< HEAD
             <div className="mb-6 p-6 bg-green-50 border-2 border-green-300 rounded-lg relative">
               <button
                 onClick={() => {
@@ -470,6 +471,88 @@ export default function AgendarPublicoPage() {
                       Clique no botão X acima para fechar e fazer um novo agendamento.
                     </p>
                   </div>
+=======
+            <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative animate-in fade-in zoom-in">
+                <button
+                  onClick={() => {
+                    setSucesso(false);
+                    // Limpar formulário ao fechar
+                    setNome('');
+                    setTelefone('');
+                    setDataSelecionada(hoje);
+                    setHorarioSelecionado('');
+                    setQuadraSelecionada('');
+                    setHorariosDisponiveis([]);
+                    setQuadrasDisponiveis([]);
+                    setAtletaId(null);
+                    setEsporteSelecionado('');
+                  }}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Fechar"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                
+                <div className="text-center">
+                  {/* Logo da arena */}
+                  {arena?.logoUrl && (
+                    <div className="flex justify-center mb-6">
+                      <img
+                        src={arena.logoUrl}
+                        alt={`Logo ${arena.nome}`}
+                        className="h-24 w-auto object-contain"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Ícone de sucesso */}
+                  <div className="flex justify-center mb-4">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-12 h-12 text-green-600" />
+                    </div>
+                  </div>
+                  
+                  {/* Título */}
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    Agendamento Confirmado!
+                  </h2>
+                  
+                  {/* Mensagem */}
+                  <p className="text-gray-600 mb-6">
+                    Seu agendamento foi realizado com sucesso.
+                  </p>
+                  
+                  {/* Informação sobre WhatsApp */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-center gap-2 text-green-700">
+                      <MessageCircle className="w-5 h-5" />
+                      <p className="text-sm font-medium">
+                        Você receberá uma confirmação por WhatsApp em breve.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Botão de fechar */}
+                  <button
+                    onClick={() => {
+                      setSucesso(false);
+                      // Limpar formulário ao fechar
+                      setNome('');
+                      setTelefone('');
+                      setDataSelecionada(hoje);
+                      setHorarioSelecionado('');
+                      setQuadraSelecionada('');
+                      setHorariosDisponiveis([]);
+                      setQuadrasDisponiveis([]);
+                      setAtletaId(null);
+                      setEsporteSelecionado('');
+                    }}
+                    className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+                  >
+                    Fazer Novo Agendamento
+                  </button>
+>>>>>>> c588128 (feat: modal de confirmaÃ§Ã£o de agendamento com logo da arena)
                 </div>
               </div>
             </div>
