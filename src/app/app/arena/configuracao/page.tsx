@@ -3,7 +3,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { pointService, type Point } from '@/services/agendamentoService';
+import { pointService } from '@/services/agendamentoService';
+import type { Point } from '@/types/agendamento';
 import { Settings, Save, Upload, X, MapPin, Loader2 } from 'lucide-react';
 
 export default function ConfiguracaoArenaPage() {
