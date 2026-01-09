@@ -115,62 +115,39 @@ async function atualizarRankingAtleta(
     derrotasIncremento = 1;
   }
   
-  // Verificar se já existe ranking para este atleta nesta panelinha
-  const rankingExistente = await query(
-    `SELECT id FROM "RankingPanelinha" 
-     WHERE "panelinhaId" = $1 AND "atletaId" = $2`,
-    [panelinhaId, atletaId]
+  // Usar INSERT ... ON CONFLICT DO UPDATE para evitar SELECT + INSERT/UPDATE
+  // Existe uma constraint UNIQUE em (panelinhaId, atletaId)
+  await query(
+    `INSERT INTO "RankingPanelinha" (
+      id, "panelinhaId", "atletaId", "pontuacao", "vitorias", "derrotas", 
+      "derrotasTieBreak", "partidasJogadas", "saldoGames", "gamesFeitos", 
+      "gamesSofridos", "ultimaAtualizacao"
+    ) VALUES (
+      gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, 1, $7, $8, $9, NOW()
+    )
+    ON CONFLICT ("panelinhaId", "atletaId")
+    DO UPDATE SET
+      "pontuacao" = "RankingPanelinha"."pontuacao" + EXCLUDED."pontuacao",
+      "vitorias" = "RankingPanelinha"."vitorias" + EXCLUDED."vitorias",
+      "derrotas" = "RankingPanelinha"."derrotas" + EXCLUDED."derrotas",
+      "derrotasTieBreak" = "RankingPanelinha"."derrotasTieBreak" + EXCLUDED."derrotasTieBreak",
+      "partidasJogadas" = "RankingPanelinha"."partidasJogadas" + 1,
+      "gamesFeitos" = "RankingPanelinha"."gamesFeitos" + EXCLUDED."gamesFeitos",
+      "gamesSofridos" = "RankingPanelinha"."gamesSofridos" + EXCLUDED."gamesSofridos",
+      "saldoGames" = ("RankingPanelinha"."gamesFeitos" + EXCLUDED."gamesFeitos") - ("RankingPanelinha"."gamesSofridos" + EXCLUDED."gamesSofridos"),
+      "ultimaAtualizacao" = NOW()`,
+    [
+      panelinhaId,
+      atletaId,
+      pontosGanhos,
+      vitoriasIncremento,
+      derrotasIncremento,
+      derrotasTieBreakIncremento,
+      gamesFeitos - gamesSofridos, // saldoGames inicial
+      gamesFeitos,
+      gamesSofridos,
+    ]
   );
-  
-  if (rankingExistente.rows.length === 0) {
-    // Criar novo ranking
-    await query(
-      `INSERT INTO "RankingPanelinha" (
-        id, "panelinhaId", "atletaId", "pontuacao", "vitorias", "derrotas", 
-        "derrotasTieBreak", "partidasJogadas", "saldoGames", "gamesFeitos", 
-        "gamesSofridos", "ultimaAtualizacao"
-      ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, 1, $7, $8, $9, NOW()
-      )`,
-      [
-        panelinhaId,
-        atletaId,
-        pontosGanhos,
-        vitoriasIncremento,
-        derrotasIncremento,
-        derrotasTieBreakIncremento,
-        gamesFeitos - gamesSofridos, // saldoGames
-        gamesFeitos,
-        gamesSofridos,
-      ]
-    );
-  } else {
-    // Atualizar ranking existente
-    await query(
-      `UPDATE "RankingPanelinha"
-       SET 
-         "pontuacao" = "pontuacao" + $1,
-         "vitorias" = "vitorias" + $2,
-         "derrotas" = "derrotas" + $3,
-         "derrotasTieBreak" = "derrotasTieBreak" + $4,
-         "partidasJogadas" = "partidasJogadas" + 1,
-         "gamesFeitos" = "gamesFeitos" + $5,
-         "gamesSofridos" = "gamesSofridos" + $6,
-         "saldoGames" = "gamesFeitos" + $5 - ("gamesSofridos" + $6),
-         "ultimaAtualizacao" = NOW()
-       WHERE "panelinhaId" = $7 AND "atletaId" = $8`,
-      [
-        pontosGanhos,
-        vitoriasIncremento,
-        derrotasIncremento,
-        derrotasTieBreakIncremento,
-        gamesFeitos,
-        gamesSofridos,
-        panelinhaId,
-        atletaId,
-      ]
-    );
-  }
 }
 
 /**
@@ -178,51 +155,46 @@ async function atualizarRankingAtleta(
  * Útil quando o placar de uma partida é atualizado
  */
 export async function recalcularRankingCompleto(panelinhaId: string): Promise<void> {
-  // Buscar todos os membros da panelinha
-  const membrosResult = await query(
-    `SELECT "atletaId" FROM "PanelinhaAtleta" WHERE "panelinhaId" = $1`,
+  // Zerar todos os rankings da panelinha de uma vez
+  await query(
+    `UPDATE "RankingPanelinha"
+     SET 
+       "pontuacao" = 0,
+       "vitorias" = 0,
+       "derrotas" = 0,
+       "derrotasTieBreak" = 0,
+       "partidasJogadas" = 0,
+       "saldoGames" = 0,
+       "gamesFeitos" = 0,
+       "gamesSofridos" = 0,
+       "ultimaAtualizacao" = NOW()
+     WHERE "panelinhaId" = $1`,
     [panelinhaId]
   );
 
-  // Zerar ou criar rankings para todos os membros
-  for (const row of membrosResult.rows) {
-    const rankingExistente = await query(
-      `SELECT id FROM "RankingPanelinha" 
-       WHERE "panelinhaId" = $1 AND "atletaId" = $2`,
-      [panelinhaId, row.atletaId]
-    );
-
-    if (rankingExistente.rows.length === 0) {
-      // Criar ranking zerado
-      await query(
-        `INSERT INTO "RankingPanelinha" (
-          id, "panelinhaId", "atletaId", "pontuacao", "vitorias", "derrotas", 
-          "derrotasTieBreak", "partidasJogadas", "saldoGames", "gamesFeitos", 
-          "gamesSofridos", "ultimaAtualizacao"
-        ) VALUES (
-          gen_random_uuid()::text, $1, $2, 0, 0, 0, 0, 0, 0, 0, 0, NOW()
-        )`,
-        [panelinhaId, row.atletaId]
-      );
-    } else {
-      // Zerar ranking existente
-      await query(
-        `UPDATE "RankingPanelinha"
-         SET 
-           "pontuacao" = 0,
-           "vitorias" = 0,
-           "derrotas" = 0,
-           "derrotasTieBreak" = 0,
-           "partidasJogadas" = 0,
-           "saldoGames" = 0,
-           "gamesFeitos" = 0,
-           "gamesSofridos" = 0,
-           "ultimaAtualizacao" = NOW()
-         WHERE "panelinhaId" = $1 AND "atletaId" = $2`,
-        [panelinhaId, row.atletaId]
-      );
-    }
-  }
+  // Criar rankings zerados para membros que ainda não têm ranking
+  // usando INSERT ... ON CONFLICT para evitar duplicatas
+  await query(
+    `INSERT INTO "RankingPanelinha" (
+      id, "panelinhaId", "atletaId", "pontuacao", "vitorias", "derrotas", 
+      "derrotasTieBreak", "partidasJogadas", "saldoGames", "gamesFeitos", 
+      "gamesSofridos", "ultimaAtualizacao"
+    )
+    SELECT 
+      gen_random_uuid()::text, 
+      $1, 
+      pa."atletaId", 
+      0, 0, 0, 0, 0, 0, 0, 0, 
+      NOW()
+    FROM "PanelinhaAtleta" pa
+    WHERE pa."panelinhaId" = $1
+      AND NOT EXISTS (
+        SELECT 1 FROM "RankingPanelinha" r 
+        WHERE r."panelinhaId" = $1 AND r."atletaId" = pa."atletaId"
+      )
+    ON CONFLICT DO NOTHING`,
+    [panelinhaId]
+  );
 
   // Buscar todas as partidas da panelinha que têm placar
   const partidasResult = await query(
@@ -245,24 +217,24 @@ export async function recalcularRankingCompleto(panelinhaId: string): Promise<vo
  * Recalcula as posições de todos os atletas no ranking da panelinha
  */
 export async function recalcularPosicoesRanking(panelinhaId: string): Promise<void> {
-  // Buscar todos os rankings ordenados por pontuação e saldo
-  const rankings = await query(
-    `SELECT id, "atletaId", "pontuacao", "saldoGames", "gamesFeitos"
-     FROM "RankingPanelinha"
-     WHERE "panelinhaId" = $1
-     ORDER BY "pontuacao" DESC, "saldoGames" DESC, "gamesFeitos" DESC`,
+  // Atualizar todas as posições em uma única query usando ROW_NUMBER()
+  await query(
+    `UPDATE "RankingPanelinha" r
+     SET 
+       "posicao" = sub.posicao,
+       "ultimaAtualizacao" = NOW()
+     FROM (
+       SELECT 
+         id,
+         ROW_NUMBER() OVER (
+           ORDER BY "pontuacao" DESC, "saldoGames" DESC, "gamesFeitos" DESC
+         ) as posicao
+       FROM "RankingPanelinha"
+       WHERE "panelinhaId" = $1
+     ) sub
+     WHERE r.id = sub.id`,
     [panelinhaId]
   );
-  
-  // Atualizar posições
-  for (let i = 0; i < rankings.rows.length; i++) {
-    await query(
-      `UPDATE "RankingPanelinha"
-       SET "posicao" = $1, "ultimaAtualizacao" = NOW()
-       WHERE id = $2`,
-      [i + 1, rankings.rows[i].id]
-    );
-  }
 }
 
 /**

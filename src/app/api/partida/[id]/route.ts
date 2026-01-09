@@ -38,7 +38,9 @@ export async function PUT(
     }
 
     // Verificar se o usuário tem permissão para atualizar esta partida
-    // Um usuário só pode atualizar placar de partidas onde ele participa
+    // ADMIN: pode atualizar qualquer partida
+    // ORGANIZER: pode atualizar partidas vinculadas a panelinhas da sua arena
+    // USER: só pode atualizar partidas onde ele participa
     const { user } = authResult;
     const atletaIds = [
       partida.atleta1?.id,
@@ -47,30 +49,54 @@ export async function PUT(
       partida.atleta4?.id,
     ].filter(Boolean);
 
-    // Se o usuário não é ADMIN, verificar se ele participa da partida
+    // Se o usuário não é ADMIN, verificar permissões
     if (user.role !== 'ADMIN') {
-      // Buscar o atleta do usuário
-      const { query } = await import('@/lib/db');
-      const atletaResult = await query(
-        'SELECT id FROM "Atleta" WHERE "usuarioId" = $1',
-        [user.id]
-      );
-
-      if (atletaResult.rows.length === 0) {
-        const errorResponse = NextResponse.json(
-          { mensagem: 'Você precisa ter um perfil de atleta para atualizar placar' },
-          { status: 403 }
+      // ORGANIZER: verificar se a partida está vinculada a uma panelinha da sua arena
+      if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+        // Verificar se a partida está vinculada a uma panelinha que tem membros da arena
+        const partidaCheck = await query(
+          `SELECT 1
+           FROM "PartidaPanelinha" pp
+           INNER JOIN "Panelinha" p ON pp."panelinhaId" = p.id
+           INNER JOIN "PanelinhaAtleta" pa ON p.id = pa."panelinhaId"
+           INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+           WHERE pp."partidaId" = $1
+           AND a."pointIdPrincipal" = $2
+           LIMIT 1`,
+          [id, user.pointIdGestor]
         );
-        return withCors(errorResponse, request);
-      }
 
-      const atletaIdUsuario = atletaResult.rows[0].id;
-      if (!atletaIds.includes(atletaIdUsuario)) {
-        const errorResponse = NextResponse.json(
-          { mensagem: 'Você não tem permissão para atualizar o placar desta partida' },
-          { status: 403 }
+        if (partidaCheck.rows.length === 0) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Você não tem permissão para atualizar o placar desta partida' },
+            { status: 403 }
+          );
+          return withCors(errorResponse, request);
+        }
+        // ORGANIZER tem acesso - continuar
+      } else {
+        // USER: verificar se ele participa da partida
+        const atletaResult = await query(
+          'SELECT id FROM "Atleta" WHERE "usuarioId" = $1',
+          [user.id]
         );
-        return withCors(errorResponse, request);
+
+        if (atletaResult.rows.length === 0) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Você precisa ter um perfil de atleta para atualizar placar' },
+            { status: 403 }
+          );
+          return withCors(errorResponse, request);
+        }
+
+        const atletaIdUsuario = atletaResult.rows[0].id;
+        if (!atletaIds.includes(atletaIdUsuario)) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Você não tem permissão para atualizar o placar desta partida' },
+            { status: 403 }
+          );
+          return withCors(errorResponse, request);
+        }
       }
     }
 

@@ -23,7 +23,69 @@ export async function GET(
     const { user } = authResult;
     const { id } = await params;
 
-    // Buscar atleta do usuário
+    // Se for ORGANIZER, verificar acesso através da arena
+    if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+      // Verificar se a panelinha tem membros da arena do ORGANIZER
+      const panelinhaCheck = await query(
+        `SELECT p.id, p.nome, p.descricao, p."esporte", p."atletaIdCriador", p."createdAt", p."updatedAt"
+         FROM "Panelinha" p
+         WHERE p.id = $1
+         AND EXISTS (
+           SELECT 1 
+           FROM "PanelinhaAtleta" pa
+           INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+           WHERE pa."panelinhaId" = p.id
+           AND a."pointIdPrincipal" = $2
+         )`,
+        [id, user.pointIdGestor]
+      );
+
+      if (panelinhaCheck.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Panelinha não encontrada ou você não tem acesso a esta panelinha' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      // Buscar membros da panelinha
+      const membrosResult = await query(
+        `SELECT 
+          a.id, a.nome, a."fotoUrl", a.fone, a."dataNascimento", a.genero, a.categoria
+         FROM "PanelinhaAtleta" pa
+         INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+         WHERE pa."panelinhaId" = $1
+         ORDER BY a.nome`,
+        [id]
+      );
+
+      const row = panelinhaCheck.rows[0];
+      const panelinha = {
+        id: row.id,
+        nome: row.nome,
+        descricao: row.descricao,
+        esporte: row.esporte,
+        atletaIdCriador: row.atletaIdCriador,
+        ehCriador: false, // ORGANIZER nunca é criador
+        totalMembros: membrosResult.rows.length,
+        membros: membrosResult.rows.map((m: any) => ({
+          id: m.id,
+          nome: m.nome,
+          fotoUrl: m.fotoUrl,
+          telefone: m.fone,
+          dataNascimento: m.dataNascimento,
+          genero: m.genero,
+          categoria: m.categoria,
+        })),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      };
+
+      const response = NextResponse.json(panelinha);
+      return withCors(response, request);
+    }
+
+    // Para USER: buscar atleta e verificar acesso normalmente
     const atleta = await verificarAtletaUsuario(user.id);
     if (!atleta) {
       const errorResponse = NextResponse.json(
@@ -33,7 +95,37 @@ export async function GET(
       return withCors(errorResponse, request);
     }
 
-    // Buscar panelinha
+    // Verificar se a panelinha existe e se o atleta é membro ou criador
+    const panelinhaCheck = await query(
+      `SELECT p.id, p.nome, p.descricao, p."esporte", p."atletaIdCriador", p."createdAt", p."updatedAt",
+              (p."atletaIdCriador" = $1) as "ehCriador",
+              EXISTS (
+                SELECT 1 FROM "PanelinhaAtleta" pa 
+                WHERE pa."panelinhaId" = p.id AND pa."atletaId" = $1
+              ) as "ehMembro"
+       FROM "Panelinha" p
+       WHERE p.id = $2`,
+      [atleta.id, id]
+    );
+
+    if (panelinhaCheck.rows.length === 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Panelinha não encontrada' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const checkRow = panelinhaCheck.rows[0];
+    if (!checkRow.ehCriador && !checkRow.ehMembro) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Você não tem acesso a esta panelinha' },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    // Buscar panelinha com todos os membros
     const sql = `
       SELECT 
         p.id,

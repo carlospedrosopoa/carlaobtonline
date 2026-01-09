@@ -91,7 +91,8 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
     {
       label: 'Atletas',
       items: [
-        { to: '/app/arena/atletas', label: 'Lista de Atletas' },
+        { to: '/app/arena/atletas', label: 'Atletas Vinculados' },
+        { to: '/app/arena/panelinhas', label: 'Panelinhas' },
       ],
     },
     {
@@ -110,6 +111,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       label: 'Administração',
       items: [
         { to: '/app/arena/colaboradores', label: 'Colaboradores' },
+        { to: '/app/arena/configuracao', label: 'Configuração' },
       ],
     },
   ];

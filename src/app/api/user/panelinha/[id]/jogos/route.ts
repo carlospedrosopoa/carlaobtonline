@@ -24,42 +24,69 @@ export async function GET(
     const { user } = authResult;
     const { id: panelinhaId } = await params;
 
-    // Buscar atleta do usuário
-    const atleta = await verificarAtletaUsuario(user.id);
-    if (!atleta) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Você ainda não possui um perfil de atleta' },
-        { status: 404 }
+    // Se for ORGANIZER, verificar acesso através da arena
+    if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+      // Verificar se a panelinha tem membros da arena do ORGANIZER
+      const panelinhaCheck = await query(
+        `SELECT p.id
+         FROM "Panelinha" p
+         WHERE p.id = $1
+         AND EXISTS (
+           SELECT 1 
+           FROM "PanelinhaAtleta" pa
+           INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+           WHERE pa."panelinhaId" = p.id
+           AND a."pointIdPrincipal" = $2
+         )`,
+        [panelinhaId, user.pointIdGestor]
       );
-      return withCors(errorResponse, request);
-    }
 
-    // Verificar se a panelinha existe e se o atleta é membro
-    const panelinhaCheck = await query(
-      `SELECT p.id,
-         EXISTS(
-           SELECT 1 FROM "PanelinhaAtleta" pa 
-           WHERE pa."panelinhaId" = p.id AND pa."atletaId" = $1
-         ) as "ehMembro"
-       FROM "Panelinha" p
-       WHERE p.id = $2`,
-      [atleta.id, panelinhaId]
-    );
+      if (panelinhaCheck.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Panelinha não encontrada ou você não tem acesso a esta panelinha' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+      // ORGANIZER tem acesso - continuar para buscar jogos
+    } else {
+      // Para USER: buscar atleta e verificar acesso normalmente
+      const atleta = await verificarAtletaUsuario(user.id);
+      if (!atleta) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Você ainda não possui um perfil de atleta' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
 
-    if (panelinhaCheck.rows.length === 0) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Panelinha não encontrada' },
-        { status: 404 }
+      // Verificar se a panelinha existe e se o atleta é membro
+      const panelinhaCheck = await query(
+        `SELECT p.id,
+           EXISTS(
+             SELECT 1 FROM "PanelinhaAtleta" pa 
+             WHERE pa."panelinhaId" = p.id AND pa."atletaId" = $1
+           ) as "ehMembro"
+         FROM "Panelinha" p
+         WHERE p.id = $2`,
+        [atleta.id, panelinhaId]
       );
-      return withCors(errorResponse, request);
-    }
 
-    if (!panelinhaCheck.rows[0].ehMembro) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Você não tem permissão para ver os jogos desta panelinha' },
-        { status: 403 }
-      );
-      return withCors(errorResponse, request);
+      if (panelinhaCheck.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Panelinha não encontrada' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      if (!panelinhaCheck.rows[0].ehMembro) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Você não tem permissão para ver os jogos desta panelinha' },
+          { status: 403 }
+        );
+        return withCors(errorResponse, request);
+      }
     }
 
     // Buscar jogos da panelinha
@@ -184,66 +211,129 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Buscar atleta do usuário
-    const atleta = await verificarAtletaUsuario(user.id);
-    if (!atleta) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Você ainda não possui um perfil de atleta' },
-        { status: 404 }
+    // Se for ORGANIZER, verificar acesso através da arena
+    if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+      // Verificar se a panelinha tem membros da arena do ORGANIZER
+      const panelinhaCheck = await query(
+        `SELECT p.id
+         FROM "Panelinha" p
+         WHERE p.id = $1
+         AND EXISTS (
+           SELECT 1 
+           FROM "PanelinhaAtleta" pa
+           INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+           WHERE pa."panelinhaId" = p.id
+           AND a."pointIdPrincipal" = $2
+         )`,
+        [panelinhaId, user.pointIdGestor]
       );
-      return withCors(errorResponse, request);
+
+      if (panelinhaCheck.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Panelinha não encontrada ou você não tem acesso a esta panelinha' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      // Verificar se todos os atletas são membros da panelinha e pertencem à arena
+      const atletasIds = [atleta1Id, atleta2Id, atleta3Id, atleta4Id].filter(Boolean) as string[];
+      const membrosCheck = await query(
+        `SELECT pa."atletaId", a."pointIdPrincipal"
+         FROM "PanelinhaAtleta" pa
+         INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+         WHERE pa."panelinhaId" = $1 AND pa."atletaId" = ANY($2::text[])`,
+        [panelinhaId, atletasIds]
+      );
+
+      if (membrosCheck.rows.length !== atletasIds.length) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Todos os atletas devem ser membros da panelinha' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      // Verificar se todos os atletas pertencem à arena do ORGANIZER
+      const atletasForaArena = membrosCheck.rows.filter((row: any) => row.pointIdPrincipal !== user.pointIdGestor);
+      if (atletasForaArena.length > 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Todos os atletas devem pertencer à sua arena' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      // ORGANIZER pode criar jogos - continuar
+    } else {
+      // Para USER: buscar atleta e verificar acesso normalmente
+      const atleta = await verificarAtletaUsuario(user.id);
+      if (!atleta) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Você ainda não possui um perfil de atleta' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      // Verificar se a panelinha existe e se o atleta é membro
+      const panelinhaCheck = await query(
+        `SELECT p.id,
+           EXISTS(
+             SELECT 1 FROM "PanelinhaAtleta" pa 
+             WHERE pa."panelinhaId" = p.id AND pa."atletaId" = $1
+           ) as "ehMembro"
+         FROM "Panelinha" p
+         WHERE p.id = $2`,
+        [atleta.id, panelinhaId]
+      );
+
+      if (panelinhaCheck.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Panelinha não encontrada' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      if (!panelinhaCheck.rows[0].ehMembro) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Você não tem permissão para criar jogos nesta panelinha' },
+          { status: 403 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      // Verificar se todos os atletas são membros da panelinha
+      const atletasIds = [atleta1Id, atleta2Id, atleta3Id, atleta4Id].filter(Boolean) as string[];
+      const membrosCheck = await query(
+        `SELECT "atletaId" 
+         FROM "PanelinhaAtleta" 
+         WHERE "panelinhaId" = $1 AND "atletaId" = ANY($2::text[])`,
+        [panelinhaId, atletasIds]
+      );
+
+      if (membrosCheck.rows.length !== atletasIds.length) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Todos os atletas devem ser membros da panelinha' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
     }
 
-    // Verificar se a panelinha existe e se o atleta é membro
-    const panelinhaCheck = await query(
-      `SELECT p.id,
-         EXISTS(
-           SELECT 1 FROM "PanelinhaAtleta" pa 
-           WHERE pa."panelinhaId" = p.id AND pa."atletaId" = $1
-         ) as "ehMembro"
-       FROM "Panelinha" p
-       WHERE p.id = $2`,
-      [atleta.id, panelinhaId]
-    );
-
-    if (panelinhaCheck.rows.length === 0) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Panelinha não encontrada' },
-        { status: 404 }
-      );
-      return withCors(errorResponse, request);
-    }
-
-    if (!panelinhaCheck.rows[0].ehMembro) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Você não tem permissão para criar jogos nesta panelinha' },
-        { status: 403 }
-      );
-      return withCors(errorResponse, request);
-    }
-
-    // Verificar se todos os atletas são membros da panelinha
+    // Criar partida (funciona para ambos USER e ORGANIZER)
     const atletasIds = [atleta1Id, atleta2Id, atleta3Id, atleta4Id].filter(Boolean) as string[];
-    const membrosCheck = await query(
-      `SELECT "atletaId" 
-       FROM "PanelinhaAtleta" 
-       WHERE "panelinhaId" = $1 AND "atletaId" = ANY($2::text[])`,
-      [panelinhaId, atletasIds]
-    );
-
-    if (membrosCheck.rows.length !== atletasIds.length) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Todos os atletas devem ser membros da panelinha' },
-        { status: 400 }
-      );
-      return withCors(errorResponse, request);
-    }
+    // Usar pointIdGestor do ORGANIZER se disponível, senão usar pointId do body
+    const pointIdFinal = (user.role === 'ORGANIZER' && user.pointIdGestor) 
+      ? user.pointIdGestor 
+      : (pointId || null);
 
     // Criar partida
     const partida = await criarPartida({
       data,
       local,
-      pointId: pointId || null,
+      pointId: pointIdFinal,
       atleta1Id,
       atleta2Id,
       atleta3Id: atleta3Id || null,

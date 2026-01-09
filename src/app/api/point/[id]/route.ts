@@ -107,6 +107,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Extrair id dos params primeiro
+    const { id } = await params;
+    
     // Verificar autenticação
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
@@ -117,17 +120,33 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    // Verificar permissões (apenas ADMIN pode atualizar points)
-    if (usuario.role !== 'ADMIN') {
+    // Verificar permissões: ADMIN pode atualizar qualquer point, ORGANIZER apenas sua própria arena
+    if (usuario.role === 'ADMIN') {
+      // ADMIN pode atualizar qualquer point - sem restrição
+    } else if (usuario.role === 'ORGANIZER') {
+      // ORGANIZER só pode atualizar sua própria arena (pointIdGestor)
+      if (usuario.pointIdGestor !== id) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Você só pode atualizar as configurações da sua própria arena' },
+          { status: 403 }
+        );
+        return withCors(errorResponse, request);
+      }
+    } else {
+      // USER não pode atualizar
       const errorResponse = NextResponse.json(
-        { mensagem: 'Apenas administradores podem atualizar estabelecimentos' },
+        { mensagem: 'Apenas administradores e gestores podem atualizar estabelecimentos' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
     }
 
-    const { id } = await params;
     const body = await request.json();
+    
+    // Para ORGANIZER, apenas permitir atualizar campos de configuração (não campos administrativos)
+    // ADMIN pode atualizar tudo
+    const isOrganizer = usuario.role === 'ORGANIZER';
+    
     const { 
       nome, endereco, telefone, email, descricao, logoUrl, cardTemplateUrl, latitude, longitude, ativo,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
@@ -135,6 +154,15 @@ export async function PUT(
       enviarLembretesAgendamento, antecedenciaLembrete,
       infinitePayHandle
     } = body;
+
+    // ORGANIZER não pode alterar campos administrativos
+    if (isOrganizer) {
+      // Ignorar campos que ORGANIZER não pode alterar
+      const camposRestritos = ['ativo', 'assinante', 'whatsappAccessToken', 'whatsappPhoneNumberId', 
+                                'whatsappBusinessAccountId', 'whatsappApiVersion', 'whatsappAtivo',
+                                'gzappyApiKey', 'gzappyInstanceId', 'gzappyAtivo', 'infinitePayHandle'];
+      // Esses campos serão ignorados na atualização para ORGANIZER
+    }
 
     if (!nome) {
       const errorResponse = NextResponse.json(
@@ -268,52 +296,82 @@ export async function PUT(
       ? cardTemplateUrlProcessada 
       : (cardTemplateUrl !== undefined ? cardTemplateUrl : (pointExistente.rows.length > 0 ? pointExistente.rows[0].cardTemplateUrl : null));
 
+    // Para ORGANIZER, buscar valores atuais apenas para manter campos administrativos inalterados
+    // Para ADMIN, usar valores do body
+    let pointAtual: any = { rows: [] };
+    if (isOrganizer) {
+      // ORGANIZER: buscar apenas campos básicos para manter ativo inalterado
+      try {
+        pointAtual = await query(
+          'SELECT ativo FROM "Point" WHERE id = $1',
+          [id]
+        );
+      } catch (error: any) {
+        console.error('Erro ao buscar point atual:', error);
+      }
+    }
+
+    const ativoFinal = isOrganizer 
+      ? (pointAtual.rows.length > 0 ? pointAtual.rows[0].ativo : true) 
+      : (ativo ?? true);
+    const whatsappAccessTokenFinal = isOrganizer ? null : (whatsappAccessToken || null);
+    const whatsappPhoneNumberIdFinal = isOrganizer ? null : (whatsappPhoneNumberId || null);
+    const whatsappBusinessAccountIdFinal = isOrganizer ? null : (whatsappBusinessAccountId || null);
+    const whatsappApiVersionFinal = isOrganizer ? 'v21.0' : (whatsappApiVersion || 'v21.0');
+    const whatsappAtivoFinal = isOrganizer ? false : (whatsappAtivo ?? false);
+    const gzappyApiKeyFinal = isOrganizer ? null : (gzappyApiKey || null);
+    const gzappyInstanceIdFinal = isOrganizer ? null : (gzappyInstanceId || null);
+    const gzappyAtivoFinal = isOrganizer ? false : (gzappyAtivo ?? false);
+    const infinitePayHandleFinal = isOrganizer ? null : (infinitePayHandle || null);
+
     // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
     try {
-      result = await query(
-        `UPDATE "Point"
-         SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9, ativo = $10,
-             "whatsappAccessToken" = $11, "whatsappPhoneNumberId" = $12, "whatsappBusinessAccountId" = $13, 
-             "whatsappApiVersion" = $14, "whatsappAtivo" = $15,
-             "gzappyApiKey" = $16, "gzappyInstanceId" = $17, "gzappyAtivo" = $18,
-             "enviarLembretesAgendamento" = $19, "antecedenciaLembrete" = $20, 
-             "infinitePayHandle" = $21, "updatedAt" = NOW()
-         WHERE id = $22
-         RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-                   "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
-                   "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
-                   "enviarLembretesAgendamento", "antecedenciaLembrete",
-                   "infinitePayHandle",
-                   "createdAt", "updatedAt"`,
-        [
-          nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
-          cardTemplateUrlFinal, latitude || null, longitude || null, ativo ?? true,
-          whatsappAccessToken || null, whatsappPhoneNumberId || null, whatsappBusinessAccountId || null,
-          whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
-          gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
-          enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
-          infinitePayHandle || null,
-          id
-        ]
-      );
-    } catch (error: any) {
-      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
-      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, atualizando sem eles');
-        result = await query(
-          `UPDATE "Point"
-           SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9, ativo = $10, "updatedAt" = NOW()
-           WHERE id = $11
-           RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-                     "createdAt", "updatedAt"`,
-          [
-            nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
-            cardTemplateUrlFinal, latitude || null, longitude || null, ativo ?? true,
-            id
-          ]
-        );
-        // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
+      if (isOrganizer) {
+        // ORGANIZER: atualizar apenas campos permitidos (sem credenciais administrativas)
+        // Tentar primeiro com campos de lembrete
+        try {
+          result = await query(
+            `UPDATE "Point"
+             SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9,
+                 "enviarLembretesAgendamento" = $10, "antecedenciaLembrete" = $11, "updatedAt" = NOW()
+             WHERE id = $12
+             RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+                       "enviarLembretesAgendamento", "antecedenciaLembrete",
+                       "createdAt", "updatedAt"`,
+            [
+              nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
+              cardTemplateUrlFinal, latitude || null, longitude || null,
+              enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
+              id
+            ]
+          );
+        } catch (errorOrg: any) {
+          // Se campos de lembrete não existem, atualizar sem eles
+          if (errorOrg.message?.includes('enviarLembretesAgendamento') || errorOrg.message?.includes('antecedenciaLembrete') || errorOrg.code === '42703') {
+            console.log('⚠️ Campos de lembrete não encontrados, atualizando sem eles');
+            result = await query(
+              `UPDATE "Point"
+               SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9, "updatedAt" = NOW()
+               WHERE id = $10
+               RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+                         "createdAt", "updatedAt"`,
+              [
+                nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
+                cardTemplateUrlFinal, latitude || null, longitude || null,
+                id
+              ]
+            );
+            // Adicionar campos de lembrete como false/null para compatibilidade
+            if (result.rows.length > 0) {
+              result.rows[0].enviarLembretesAgendamento = false;
+              result.rows[0].antecedenciaLembrete = 8;
+            }
+          } else {
+            throw errorOrg;
+          }
+        }
+        // Adicionar campos administrativos como null/false para compatibilidade (ORGANIZER não pode ver/alterar)
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
@@ -325,9 +383,109 @@ export async function PUT(
             gzappyApiKey: null,
             gzappyInstanceId: null,
             gzappyAtivo: false,
-            enviarLembretesAgendamento: false,
-            antecedenciaLembrete: 8,
+            infinitePayHandle: null,
           };
+        }
+      } else {
+        // ADMIN: atualizar todos os campos
+        result = await query(
+          `UPDATE "Point"
+           SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9, ativo = $10,
+               "whatsappAccessToken" = $11, "whatsappPhoneNumberId" = $12, "whatsappBusinessAccountId" = $13, 
+               "whatsappApiVersion" = $14, "whatsappAtivo" = $15,
+               "gzappyApiKey" = $16, "gzappyInstanceId" = $17, "gzappyAtivo" = $18,
+               "enviarLembretesAgendamento" = $19, "antecedenciaLembrete" = $20, 
+               "infinitePayHandle" = $21, "updatedAt" = NOW()
+           WHERE id = $22
+           RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+                     "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
+                     "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
+                     "enviarLembretesAgendamento", "antecedenciaLembrete",
+                     "infinitePayHandle",
+                     "createdAt", "updatedAt"`,
+          [
+            nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
+            cardTemplateUrlFinal, latitude || null, longitude || null, ativoFinal,
+            whatsappAccessTokenFinal, whatsappPhoneNumberIdFinal, whatsappBusinessAccountIdFinal,
+            whatsappApiVersionFinal, whatsappAtivoFinal,
+            gzappyApiKeyFinal, gzappyInstanceIdFinal, gzappyAtivoFinal,
+            enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
+            infinitePayHandleFinal,
+            id
+          ]
+        );
+      }
+    } catch (error: any) {
+      // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
+      if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.message?.includes('enviarLembretesAgendamento') || error.message?.includes('antecedenciaLembrete') || error.code === '42703') {
+        console.log('⚠️ Alguns campos não encontrados, atualizando sem eles');
+        try {
+          // Tentar com campos de lembrete
+          result = await query(
+            `UPDATE "Point"
+             SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, "cardTemplateUrl" = $7, latitude = $8, longitude = $9, ativo = $10, "updatedAt" = NOW()
+             WHERE id = $11
+             RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+                       "createdAt", "updatedAt"`,
+            [
+              nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
+              cardTemplateUrlFinal, latitude || null, longitude || null, ativoFinal,
+              id
+            ]
+          );
+          // Adicionar campos faltantes como null/false para compatibilidade
+          if (result.rows.length > 0) {
+            result.rows[0] = {
+              ...result.rows[0],
+              whatsappAccessToken: null,
+              whatsappPhoneNumberId: null,
+              whatsappBusinessAccountId: null,
+              whatsappApiVersion: 'v21.0',
+              whatsappAtivo: false,
+              gzappyApiKey: null,
+              gzappyInstanceId: null,
+              gzappyAtivo: false,
+              enviarLembretesAgendamento: isOrganizer ? (enviarLembretesAgendamento ?? false) : false,
+              antecedenciaLembrete: isOrganizer ? (antecedenciaLembrete || null) : 8,
+              infinitePayHandle: null,
+            };
+          }
+        } catch (error2: any) {
+          // Se ainda falhar, tentar sem campos opcionais
+          if (error2.message?.includes('cardTemplateUrl') || error2.code === '42703') {
+            result = await query(
+              `UPDATE "Point"
+               SET nome = $1, endereco = $2, telefone = $3, email = $4, descricao = $5, "logoUrl" = $6, latitude = $7, longitude = $8, ativo = $9, "updatedAt" = NOW()
+               WHERE id = $10
+               RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+                         "createdAt", "updatedAt"`,
+              [
+                nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
+                latitude || null, longitude || null, ativoFinal,
+                id
+              ]
+            );
+            // Adicionar campos faltantes como null/false para compatibilidade
+            if (result.rows.length > 0) {
+              result.rows[0] = {
+                ...result.rows[0],
+                cardTemplateUrl: null,
+                whatsappAccessToken: null,
+                whatsappPhoneNumberId: null,
+                whatsappBusinessAccountId: null,
+                whatsappApiVersion: 'v21.0',
+                whatsappAtivo: false,
+                gzappyApiKey: null,
+                gzappyInstanceId: null,
+                gzappyAtivo: false,
+                enviarLembretesAgendamento: isOrganizer ? (enviarLembretesAgendamento ?? false) : false,
+                antecedenciaLembrete: isOrganizer ? (antecedenciaLembrete || null) : 8,
+                infinitePayHandle: null,
+              };
+            }
+          } else {
+            throw error2;
+          }
         }
       } else {
         throw error;

@@ -290,7 +290,23 @@ export async function POST(request: NextRequest) {
       [agendamentoId]
     );
 
+    if (!agendamentoResult.rows || agendamentoResult.rows.length === 0) {
+      console.error('[Agendamento Público] Agendamento não encontrado após criação:', agendamentoId);
+      return withCors(
+        NextResponse.json({ mensagem: 'Erro ao buscar agendamento criado' }, { status: 500 }),
+        request
+      );
+    }
+
     const agendamento = agendamentoResult.rows[0];
+    
+    console.log('[Agendamento Público] Dados do agendamento buscado:', {
+      id: agendamento.id,
+      quadraPointId: agendamento.quadra_pointId,
+      pointTelefone: agendamento.point_telefone,
+      pointNome: agendamento.point_nome,
+      atletaNome: agendamento.atleta_nome,
+    });
 
     // Enviar notificações (em background, não bloqueia a resposta)
     (async () => {
@@ -298,10 +314,24 @@ export async function POST(request: NextRequest) {
         const gzappyService = await import('@/lib/gzappyService');
         const { formatarNumeroGzappy, enviarMensagemGzappy } = gzappyService;
 
+        console.log('[Agendamento Público] Verificando dados para envio de notificação:', {
+          temPointTelefone: !!agendamento.point_telefone,
+          pointTelefone: agendamento.point_telefone,
+          temQuadraPointId: !!agendamento.quadra_pointId,
+          quadraPointId: agendamento.quadra_pointId,
+          atletaNome: agendamento.atleta_nome,
+        });
+
         // Enviar mensagem para o telefone da arena (sempre, para qualquer agendamento novo)
         if (agendamento.point_telefone && agendamento.quadra_pointId) {
           const telefoneArena = agendamento.point_telefone;
           const telefoneFormatado = formatarNumeroGzappy(telefoneArena);
+          
+          console.log('[Agendamento Público] Enviando mensagem para telefone da arena:', {
+            telefoneOriginal: telefoneArena,
+            telefoneFormatado: telefoneFormatado,
+            pointId: agendamento.quadra_pointId,
+          });
           
           // Extrair data e hora
           const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -342,19 +372,28 @@ export async function POST(request: NextRequest) {
 
 Esperamos você! 🎾`;
 
-          await enviarMensagemGzappy({
+          console.log('[Agendamento Público] Mensagem preparada:', mensagemArena.substring(0, 100) + '...');
+
+          const resultadoEnvio = await enviarMensagemGzappy({
             destinatario: telefoneFormatado,
             mensagem: mensagemArena,
             tipo: 'texto',
-          }, agendamento.quadra_pointId).catch((err: any) => {
-            console.error('Erro ao enviar notificação Gzappy para telefone da arena (não crítico):', err);
+          }, agendamento.quadra_pointId);
+          
+          console.log('[Agendamento Público] Resultado do envio:', resultadoEnvio);
+        } else {
+          console.warn('[Agendamento Público] Não foi possível enviar mensagem:', {
+            motivo: !agendamento.point_telefone ? 'Telefone da arena não cadastrado' : 'PointId não encontrado',
+            pointTelefone: agendamento.point_telefone,
+            quadraPointId: agendamento.quadra_pointId,
           });
         }
 
         // Nota: Na rota pública não enviamos mensagem para o atleta, apenas para o telefone da arena
         // O atleta já recebe confirmação visual na tela ao criar o agendamento
       } catch (err: any) {
-        console.error('Erro ao enviar notificações Gzappy (não crítico):', err);
+        console.error('[Agendamento Público] Erro ao enviar notificações Gzappy:', err);
+        console.error('[Agendamento Público] Stack trace:', err.stack);
       }
     })();
 

@@ -18,9 +18,79 @@ export async function GET(request: NextRequest) {
 
     const { user } = authResult;
     
-    console.log('[PANELINHA] User ID:', user.id);
+    console.log('[PANELINHA] User ID:', user.id, 'Role:', user.role);
     
-    // Buscar atleta do usuário
+    // Se for ORGANIZER, buscar panelinhas da sua arena
+    if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+      console.log('[PANELINHA] ORGANIZER buscando panelinhas da arena:', user.pointIdGestor);
+      // Buscar panelinhas onde pelo menos um membro pertence à arena do ORGANIZER
+      const sql = `
+        SELECT DISTINCT ON (p.id)
+          p.id,
+          p.nome,
+          p.descricao,
+          p."esporte",
+          p."atletaIdCriador",
+          p."createdAt",
+          p."updatedAt",
+          -- Nome do criador
+          ac.nome as "criadorNome",
+          -- ORGANIZER não é criador, mas tem acesso de gestor
+          false as "ehCriador",
+          -- Contar membros
+          COALESCE((
+            SELECT COUNT(*) 
+            FROM "PanelinhaAtleta" pa 
+            WHERE pa."panelinhaId" = p.id
+          ), 0) as "totalMembros",
+          -- Buscar membros com fotos
+          COALESCE((
+            SELECT json_agg(
+              json_build_object(
+                'id', a.id,
+                'nome', a.nome,
+                'fotoUrl', a."fotoUrl"
+              )
+            )
+            FROM "PanelinhaAtleta" pa2
+            INNER JOIN "Atleta" a ON pa2."atletaId" = a.id
+            WHERE pa2."panelinhaId" = p.id
+            LIMIT 4
+          )::text, '[]')::json as "membros"
+        FROM "Panelinha" p
+        LEFT JOIN "Atleta" ac ON p."atletaIdCriador" = ac.id
+        WHERE EXISTS (
+          SELECT 1 
+          FROM "PanelinhaAtleta" pa
+          INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+          WHERE pa."panelinhaId" = p.id
+          AND a."pointIdPrincipal" = $1
+        )
+        ORDER BY p.id, p."updatedAt" DESC NULLS LAST
+      `;
+
+      const result = await query(sql, [user.pointIdGestor]);
+      console.log('[PANELINHA] Query ORGANIZER executada. Resultados:', result.rows.length);
+      
+      const panelinhas = result.rows.map((row: any) => ({
+        id: row.id,
+        nome: row.nome,
+        descricao: row.descricao,
+        esporte: row.esporte,
+        atletaIdCriador: row.atletaIdCriador,
+        criadorNome: row.criadorNome || 'Desconhecido',
+        ehCriador: false, // ORGANIZER nunca é criador, mas tem acesso de gestor
+        totalMembros: parseInt(row.totalMembros) || 0,
+        membros: row.membros || [],
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+
+      const response = NextResponse.json({ panelinhas });
+      return withCors(response, request);
+    }
+    
+    // Para USER: buscar atleta e panelinhas normalmente
     const atleta = await verificarAtletaUsuario(user.id);
     console.log('[PANELINHA] Atleta encontrado:', atleta ? { id: atleta.id, nome: atleta.nome } : 'null');
     
@@ -44,6 +114,8 @@ export async function GET(request: NextRequest) {
         p."atletaIdCriador",
         p."createdAt",
         p."updatedAt",
+        -- Nome do criador
+        ac.nome as "criadorNome",
         -- Verificar se o atleta é o criador
         (p."atletaIdCriador" = $1) as "ehCriador",
         -- Contar membros
@@ -67,6 +139,7 @@ export async function GET(request: NextRequest) {
           LIMIT 4
         )::text, '[]')::json as "membros"
       FROM "Panelinha" p
+      LEFT JOIN "Atleta" ac ON p."atletaIdCriador" = ac.id
       WHERE p."atletaIdCriador" = $1
          OR EXISTS (
            SELECT 1 
@@ -88,6 +161,7 @@ export async function GET(request: NextRequest) {
       descricao: row.descricao,
       esporte: row.esporte,
       atletaIdCriador: row.atletaIdCriador,
+      criadorNome: row.criadorNome || 'Desconhecido',
       ehCriador: row.ehCriador,
       totalMembros: parseInt(row.totalMembros) || 0,
       membros: row.membros || [],

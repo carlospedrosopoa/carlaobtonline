@@ -20,6 +20,7 @@ export async function GET(
     }
 
     const { id } = await params;
+    const { user } = authResult;
     
     // Verificar se deve forçar regeneração (query parameter ?refresh=true ou ?nocache=true)
     const searchParams = request.nextUrl.searchParams;
@@ -34,6 +35,102 @@ export async function GET(
         { status: 404 }
       );
       return withCors(errorResponse, request);
+    }
+
+    // Verificar se o usuário tem permissão para ver o card desta partida
+    // ADMIN: pode ver qualquer card
+    // ORGANIZER: pode ver cards de partidas vinculadas a panelinhas da sua arena
+    // USER: pode ver cards de partidas onde ele participa
+    console.log('[Card] Verificando permissões - User role:', user.role, 'pointIdGestor:', user.pointIdGestor);
+    
+    if (user.role !== 'ADMIN') {
+      // ORGANIZER: verificar se a partida está vinculada a uma panelinha da sua arena
+      if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+        console.log('[Card] Verificando acesso ORGANIZER para partida:', id);
+        
+        // Verificar se a partida está vinculada a uma panelinha que tem membros da arena
+        const partidaCheck = await query(
+          `SELECT 1
+           FROM "PartidaPanelinha" pp
+           INNER JOIN "Panelinha" p ON pp."panelinhaId" = p.id
+           INNER JOIN "PanelinhaAtleta" pa ON p.id = pa."panelinhaId"
+           INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+           WHERE pp."partidaId" = $1
+           AND a."pointIdPrincipal" = $2
+           LIMIT 1`,
+          [id, user.pointIdGestor]
+        );
+
+        console.log('[Card] Resultado da verificação ORGANIZER:', partidaCheck.rows.length > 0 ? 'Acesso permitido' : 'Acesso negado');
+
+        if (partidaCheck.rows.length === 0) {
+          // Se não encontrou via panelinha, verificar se algum atleta da partida pertence à arena
+          const atletaIds = [
+            partida.atleta1?.id,
+            partida.atleta2?.id,
+            partida.atleta3?.id,
+            partida.atleta4?.id,
+          ].filter(Boolean) as string[];
+
+          if (atletaIds.length > 0) {
+            const atletaCheck = await query(
+              `SELECT 1 FROM "Atleta" 
+               WHERE id = ANY($1::uuid[]) 
+               AND "pointIdPrincipal" = $2
+               LIMIT 1`,
+              [atletaIds, user.pointIdGestor]
+            );
+
+            console.log('[Card] Verificação alternativa por atleta:', atletaCheck.rows.length > 0 ? 'Acesso permitido' : 'Acesso negado');
+
+            if (atletaCheck.rows.length === 0) {
+              const errorResponse = NextResponse.json(
+                { mensagem: 'Você não tem permissão para ver o card desta partida' },
+                { status: 403 }
+              );
+              return withCors(errorResponse, request);
+            }
+          } else {
+            const errorResponse = NextResponse.json(
+              { mensagem: 'Você não tem permissão para ver o card desta partida' },
+              { status: 403 }
+            );
+            return withCors(errorResponse, request);
+          }
+        }
+        // ORGANIZER tem acesso - continuar
+      } else if (user.role === 'USER') {
+        console.log('[Card] Verificando acesso USER para partida:', id);
+        // USER: verificar se ele participa da partida
+        const atletaIds = [
+          partida.atleta1?.id,
+          partida.atleta2?.id,
+          partida.atleta3?.id,
+          partida.atleta4?.id,
+        ].filter(Boolean) as string[];
+
+        const atletaResult = await query(
+          'SELECT id FROM "Atleta" WHERE "usuarioId" = $1',
+          [user.id]
+        );
+
+        if (atletaResult.rows.length === 0) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Você precisa ter um perfil de atleta para ver o card' },
+            { status: 403 }
+          );
+          return withCors(errorResponse, request);
+        }
+
+        const atletaIdUsuario = atletaResult.rows[0].id;
+        if (!atletaIds.includes(atletaIdUsuario)) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Você não tem permissão para ver o card desta partida' },
+            { status: 403 }
+          );
+          return withCors(errorResponse, request);
+        }
+      }
     }
 
     // Validar que a partida tem pelo menos 2 atletas
