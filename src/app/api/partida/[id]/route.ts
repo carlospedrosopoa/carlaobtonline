@@ -185,6 +185,124 @@ export async function PUT(
   }
 }
 
+// DELETE /api/partida/[id] - Deletar partida (apenas criador)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authResult = await requireAuth(request);
+    
+    if (authResult instanceof NextResponse) {
+      return withCors(authResult, request);
+    }
+
+    const { user } = authResult;
+    const { id } = await params;
+
+    // Verificar se a partida existe e buscar informações
+    const partidaCheck = await query(
+      `SELECT p.id, p."createdById", p."atleta1Id", p."atleta2Id", p."atleta3Id", p."atleta4Id"
+       FROM "Partida" p
+       WHERE p.id = $1`,
+      [id]
+    );
+
+    if (partidaCheck.rows.length === 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Partida não encontrada' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const partida = partidaCheck.rows[0];
+
+    // Verificar permissões
+    // ADMIN: pode deletar qualquer partida
+    // ORGANIZER: pode deletar partidas vinculadas a panelinhas da sua arena
+    // USER: só pode deletar partidas que ele criou
+    if (user.role !== 'ADMIN') {
+      if (user.role === 'ORGANIZER' && user.pointIdGestor) {
+        // Verificar se a partida está vinculada a uma panelinha que tem membros da arena
+        const partidaCheck = await query(
+          `SELECT 1
+           FROM "PartidaPanelinha" pp
+           INNER JOIN "Panelinha" p ON pp."panelinhaId" = p.id
+           INNER JOIN "PanelinhaAtleta" pa ON p.id = pa."panelinhaId"
+           INNER JOIN "Atleta" a ON pa."atletaId" = a.id
+           WHERE pp."partidaId" = $1
+           AND a."pointIdPrincipal" = $2
+           LIMIT 1`,
+          [id, user.pointIdGestor]
+        );
+
+        if (partidaCheck.rows.length === 0) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Você não tem permissão para deletar esta partida' },
+            { status: 403 }
+          );
+          return withCors(errorResponse, request);
+        }
+        // ORGANIZER tem acesso - continuar
+      } else {
+        // USER: verificar se ele criou a partida
+        if (partida.createdById !== user.id) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Apenas o criador da partida pode deletá-la' },
+            { status: 403 }
+          );
+          return withCors(errorResponse, request);
+        }
+      }
+    }
+
+    // Buscar todas as panelinhas vinculadas a esta partida para recalcular rankings
+    const panelinhasResult = await query(
+      'SELECT "panelinhaId" FROM "PartidaPanelinha" WHERE "partidaId" = $1',
+      [id]
+    );
+
+    // Remover vínculos com panelinhas
+    await query(
+      'DELETE FROM "PartidaPanelinha" WHERE "partidaId" = $1',
+      [id]
+    );
+
+    // Deletar a partida
+    await query(
+      'DELETE FROM "Partida" WHERE id = $1',
+      [id]
+    );
+
+    // Recalcular ranking de cada panelinha que tinha esta partida
+    for (const row of panelinhasResult.rows) {
+      try {
+        await recalcularRankingCompleto(row.panelinhaId);
+      } catch (error: any) {
+        console.error(`[DELETE PARTIDA] Erro ao recalcular ranking da panelinha ${row.panelinhaId}:`, error);
+        // Não falha a deleção se o ranking falhar
+      }
+    }
+
+    const response = NextResponse.json({
+      mensagem: 'Partida deletada com sucesso',
+    });
+
+    return withCors(response, request);
+  } catch (error: any) {
+    console.error('Erro ao deletar partida:', error);
+    const errorResponse = NextResponse.json(
+      { 
+        mensagem: 'Erro ao deletar partida',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
+      { status: 500 }
+    );
+    return withCors(errorResponse, request);
+  }
+}
+
 // Suportar requisições OPTIONS (preflight)
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);

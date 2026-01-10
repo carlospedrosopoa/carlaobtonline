@@ -80,6 +80,7 @@ export default function PanelinhaDetalhesPage({ params }: { params: Promise<{ id
   const [formJogo, setFormJogo] = useState({
     data: '',
     local: '',
+    pointId: '',
     atleta1Id: '',
     atleta2Id: '',
     atleta3Id: '',
@@ -146,6 +147,7 @@ export default function PanelinhaDetalhesPage({ params }: { params: Promise<{ id
     setFormJogo({
       data: hoje.toISOString().slice(0, 16),
       local: usuario?.pointIdGestor ? 'Arena' : '',
+      pointId: usuario?.pointIdGestor || '',
       atleta1Id: '',
       atleta2Id: '',
       atleta3Id: '',
@@ -205,6 +207,11 @@ export default function PanelinhaDetalhesPage({ params }: { params: Promise<{ id
       return;
     }
 
+    if (!formJogo.pointId) {
+      setErro('A seleção da arena é obrigatória');
+      return;
+    }
+
     // Se tem 4 atletas, todos são obrigatórios
     if ((formJogo.atleta3Id || formJogo.atleta4Id) && (!formJogo.atleta3Id || !formJogo.atleta4Id)) {
       setErro('Para duplas, selecione 4 atletas (2 por time)');
@@ -218,7 +225,7 @@ export default function PanelinhaDetalhesPage({ params }: { params: Promise<{ id
       const payload: any = {
         data: formJogo.data,
         local: formJogo.local,
-        pointId: usuario?.pointIdGestor || null,
+        pointId: formJogo.pointId,
         atleta1Id: formJogo.atleta1Id,
         atleta2Id: formJogo.atleta2Id,
         atleta3Id: formJogo.atleta3Id || null,
@@ -932,17 +939,34 @@ export default function PanelinhaDetalhesPage({ params }: { params: Promise<{ id
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Local *
+                    Arena *
                   </label>
-                  <input
-                    type="text"
-                    value={formJogo.local}
-                    onChange={(e) => setFormJogo({ ...formJogo, local: e.target.value })}
+                  <select
+                    value={formJogo.pointId}
+                    onChange={(e) => setFormJogo({ ...formJogo, pointId: e.target.value })}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
-                    placeholder="Local do jogo"
-                  />
+                  >
+                    <option value="">Selecione a arena</option>
+                    {usuario?.pointIdGestor && (
+                      <option value={usuario.pointIdGestor}>Arena</option>
+                    )}
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Local *
+                </label>
+                <input
+                  type="text"
+                  value={formJogo.local}
+                  onChange={(e) => setFormJogo({ ...formJogo, local: e.target.value })}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                  placeholder="Local do jogo (ex: Quadra 1, Quadra Central)"
+                />
               </div>
 
               <div className="border-t border-gray-200 pt-4">

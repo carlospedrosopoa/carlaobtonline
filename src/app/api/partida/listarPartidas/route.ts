@@ -15,30 +15,46 @@ export async function GET(request: NextRequest) {
 
     const partidas = await listarPartidas();
 
-    // Buscar panelinhas vinculadas a cada partida
-    const partidasComPanelinhas = await Promise.all(
-      partidas.map(async (partida: any) => {
-        const panelinhasResult = await query(
-          `SELECT 
-            pp."panelinhaId",
-            p.nome as "panelinhaNome",
-            p."esporte" as "panelinhaEsporte"
-          FROM "PartidaPanelinha" pp
-          INNER JOIN "Panelinha" p ON pp."panelinhaId" = p.id
-          WHERE pp."partidaId" = $1`,
-          [partida.id]
-        );
+    // Otimização: Buscar todas as panelinhas de uma vez usando uma única query
+    // Em vez de fazer N queries (uma para cada partida), fazemos apenas 1 query
+    const partidasIds = partidas.map((p: any) => p.id);
+    
+    let panelinhasPorPartida: Record<string, any[]> = {};
+    
+    if (partidasIds.length > 0) {
+      // Buscar todas as panelinhas vinculadas às partidas em uma única query
+      const panelinhasResult = await query(
+        `SELECT 
+          pp."partidaId",
+          pp."panelinhaId",
+          p.nome as "panelinhaNome",
+          p."esporte" as "panelinhaEsporte"
+        FROM "PartidaPanelinha" pp
+        INNER JOIN "Panelinha" p ON pp."panelinhaId" = p.id
+        WHERE pp."partidaId" = ANY($1::text[])`,
+        [partidasIds]
+      );
 
-        return {
-          ...partida,
-          panelinhas: panelinhasResult.rows.map((row: any) => ({
-            id: row.panelinhaId,
-            nome: row.panelinhaNome,
-            esporte: row.panelinhaEsporte,
-          })),
-        };
-      })
-    );
+      // Agrupar panelinhas por partidaId
+      panelinhasPorPartida = panelinhasResult.rows.reduce((acc: Record<string, any[]>, row: any) => {
+        if (!acc[row.partidaId]) {
+          acc[row.partidaId] = [];
+        }
+        acc[row.partidaId].push({
+          id: row.panelinhaId,
+          nome: row.panelinhaNome,
+          esporte: row.panelinhaEsporte,
+        });
+        return acc;
+      }, {});
+    }
+
+    // Mapear partidas com suas panelinhas (ou array vazio se não tiver)
+    const partidasComPanelinhas = partidas.map((partida: any) => ({
+      ...partida,
+      createdById: partida.createdById || null,
+      panelinhas: panelinhasPorPartida[partida.id] || [],
+    }));
 
     const response = NextResponse.json(
       partidasComPanelinhas,
