@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
           "infinitePayHandle",
-          assinante, "createdAt", "updatedAt"
+          assinante, "pagamentoOnlineAtivo", "createdAt", "updatedAt"
         FROM "Point"
         ${whereClause}
         ORDER BY nome ASC`
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
           result = await query(
             `SELECT 
               id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-              assinante, "createdAt", "updatedAt"
+              assinante, "pagamentoOnlineAtivo", "createdAt", "updatedAt"
             FROM "Point"
             ${whereClause}
             ORDER BY nome ASC`
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
             result = await query(
               `SELECT 
                 id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
-                assinante, "createdAt", "updatedAt"
+                assinante, "pagamentoOnlineAtivo", "createdAt", "updatedAt"
               FROM "Point"
               ${whereClause}
               ORDER BY nome ASC`
@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
           antecedenciaLembrete: 8,
           infinitePayHandle: null,
           assinante: row.assinante ?? false,
+          pagamentoOnlineAtivo: row.pagamentoOnlineAtivo ?? false,
         }));
       } else {
         throw error;

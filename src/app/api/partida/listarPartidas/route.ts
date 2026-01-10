@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     const partidasComPanelinhas = partidas.map((partida: any) => ({
       ...partida,
       createdById: partida.createdById || null,
+      criadorNome: partida.criadorNome || null,
+      criadorEmail: partida.criadorEmail || null,
       panelinhas: panelinhasPorPartida[partida.id] || [],
     }));
 

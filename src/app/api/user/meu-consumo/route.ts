@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     let sql = `SELECT 
       c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
       c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdBy", c."fechadoAt", c."fechadoBy",
-      p.nome as "point_nome", p."logoUrl" as "point_logoUrl"
+      p.nome as "point_nome", p."logoUrl" as "point_logoUrl", p."pagamentoOnlineAtivo" as "point_pagamentoOnlineAtivo"
     FROM "CardCliente" c
     INNER JOIN "Point" p ON c."pointId" = p.id
     WHERE c."usuarioId" = $1`;
@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
         pointId: row.pointId,
         pointNome: row.point_nome,
         pointLogoUrl: row.point_logoUrl || null,
+        pointPagamentoOnlineAtivo: row.point_pagamentoOnlineAtivo ?? false,
         numeroCard: row.numeroCard,
         status: row.status,
         observacoes: row.observacoes,

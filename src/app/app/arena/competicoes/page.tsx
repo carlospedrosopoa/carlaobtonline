@@ -128,6 +128,23 @@ export default function CompeticoesPage() {
     });
   };
 
+  const formatarPeriodo = (competicao: Competicao) => {
+    if (competicao.tipo === 'SUPER_8') {
+      if (competicao.dataInicio && competicao.dataFim) {
+        const dataInicio = formatarData(competicao.dataInicio);
+        const dataFim = formatarData(competicao.dataFim);
+        return `${dataInicio} a ${dataFim}`;
+      } else if (competicao.dataInicio) {
+        return `A partir de ${formatarData(competicao.dataInicio)}`;
+      } else if (competicao.dataFim) {
+        return `Até ${formatarData(competicao.dataFim)}`;
+      }
+      return 'Período não definido';
+    }
+    // Para outros tipos, mostrar apenas data de início se existir
+    return competicao.dataInicio ? formatarData(competicao.dataInicio) : '—';
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
       CRIADA: { label: 'Criada', className: 'bg-gray-100 text-gray-800' },
@@ -256,10 +273,10 @@ export default function CompeticoesPage() {
                     <span>{competicao.quadra.nome}</span>
                   </div>
                 )}
-                {competicao.dataInicio && (
+                {(competicao.dataInicio || competicao.dataFim || competicao.tipo === 'SUPER_8') && (
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    <span>{formatarData(competicao.dataInicio)}</span>
+                    <span>{formatarPeriodo(competicao)}</span>
                   </div>
                 )}
                 {competicao.atletasParticipantes && (
