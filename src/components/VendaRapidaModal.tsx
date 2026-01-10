@@ -31,6 +31,14 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
 
+  // Função para normalizar texto removendo acentuação
+  const normalizarTexto = (texto: string): string => {
+    return texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  };
+
   // Produtos e formas de pagamento (cache)
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
@@ -284,11 +292,11 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
 
   const produtosFiltrados = useMemo(() => {
     if (!buscaProduto) return [];
-    const buscaLower = buscaProduto.toLowerCase();
+    const buscaNormalizada = normalizarTexto(buscaProduto);
     return produtos.filter(
       (produto) =>
-        produto.nome.toLowerCase().includes(buscaLower) ||
-        produto.descricao?.toLowerCase().includes(buscaLower)
+        normalizarTexto(produto.nome).includes(buscaNormalizada) ||
+        (produto.descricao && normalizarTexto(produto.descricao).includes(buscaNormalizada))
     );
   }, [produtos, buscaProduto]);
 
