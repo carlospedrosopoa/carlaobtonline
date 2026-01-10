@@ -45,6 +45,11 @@ export const pointService = {
     const res = await api.put(`/point/${id}/assinante`, { assinante });
     return res.data;
   },
+
+  atualizarPagamentoOnline: async (id: string, pagamentoOnlineAtivo: boolean): Promise<{ mensagem: string; point: Point }> => {
+    const res = await api.put(`/point/${id}/pagamento-online`, { pagamentoOnlineAtivo });
+    return res.data;
+  },
 };
 
 // ========== QUADRAS ==========

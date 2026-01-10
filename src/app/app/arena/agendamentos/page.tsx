@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
@@ -365,6 +366,7 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
 }
 
 export default function ArenaAgendamentosPage() {
+  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -497,12 +499,9 @@ export default function ArenaAgendamentosPage() {
   };
 
   const handleSelecionarHorario = (data: string, hora: string, duracao: number) => {
-    setDataInicialModal(data);
-    setHoraInicialModal(hora);
-    setDuracaoInicialModal(duracao);
     setModalHorariosAberto(false);
-    setAgendamentoEditando(null);
-    setModalEditarAberto(true);
+    // Redirecionar para a página de novo agendamento com os parâmetros
+    router.push(`/app/arena/agendamentos/novo?data=${encodeURIComponent(data)}&hora=${encodeURIComponent(hora)}&duracao=${duracao}`);
   };
 
   // Obter pointIds permitidos (para organizador, apenas o pointIdGestor; para admin, todos)

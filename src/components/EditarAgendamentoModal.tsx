@@ -33,6 +33,7 @@ interface EditarAgendamentoModalProps {
   quadraIdInicial?: string; // Para pré-selecionar uma quadra ao criar novo agendamento
   dataInicial?: string; // Para pré-preencher a data ao criar novo agendamento (formato: YYYY-MM-DD)
   horaInicial?: string; // Para pré-preencher a hora ao criar novo agendamento (formato: HH:mm)
+  duracaoInicial?: number; // Para pré-preencher a duração ao criar novo agendamento (em minutos)
 }
 
 export default function EditarAgendamentoModal({
@@ -43,6 +44,7 @@ export default function EditarAgendamentoModal({
   quadraIdInicial,
   dataInicial,
   horaInicial,
+  duracaoInicial,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
   // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou próprios)
@@ -181,9 +183,16 @@ export default function EditarAgendamentoModal({
         setCarregandoAtletas(false);
         setProfessores(professoresData);
       }
-      // Se for ORGANIZER, carregar quadras diretamente
-      if (isOrganizer && quadrasData.length > 0) {
-        setQuadras((quadrasData as any[]).filter((q: any) => q.ativo));
+      // Se for ORGANIZER, definir pointId
+      if (isOrganizer && usuario?.pointIdGestor) {
+        setPointId(usuario.pointIdGestor);
+        // Se não temos filtro de horário, carregar quadras diretamente aqui
+        // Se temos filtro, o useEffect vai carregar com o filtro
+        if (!dataInicial || !horaInicial || !duracaoInicial) {
+          if (quadrasData.length > 0) {
+            setQuadras((quadrasData as any[]).filter((q: any) => q.ativo));
+          }
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -206,6 +215,9 @@ export default function EditarAgendamentoModal({
         }
         if (horaInicial) {
           setHora(horaInicial);
+        }
+        if (duracaoInicial) {
+          setDuracao(duracaoInicial);
         }
         
         // Se houver quadraIdInicial, pré-selecionar após carregar dados
@@ -238,10 +250,28 @@ export default function EditarAgendamentoModal({
   }, [agendamentoCompleto]);
 
   useEffect(() => {
-    if (pointId && !isOrganizer) {
-      carregarQuadras(pointId);
+    if (pointId) {
+      // Se temos dataInicial, horaInicial e duracaoInicial, sempre usar carregarQuadras para aplicar o filtro
+      if (dataInicial && horaInicial && duracaoInicial) {
+        carregarQuadras(pointId);
+      } else if (!isOrganizer) {
+        // Para não-organizadores, sempre carregar quadras normalmente
+        carregarQuadras(pointId);
+      }
+      // Para organizadores sem filtro, as quadras já foram carregadas em carregarDados
     }
-  }, [pointId]);
+  }, [pointId, dataInicial, horaInicial, duracaoInicial, isOrganizer]);
+
+  // Recarregar quadras quando os valores iniciais forem setados no estado
+  useEffect(() => {
+    if (pointId && data && hora && duracao && dataInicial && horaInicial && duracaoInicial) {
+      // Verificar se os valores do estado coincidem com os valores iniciais
+      if (data === dataInicial && hora === horaInicial && duracao === duracaoInicial) {
+        // Valores já foram setados, recarregar quadras com filtro
+        carregarQuadras(pointId);
+      }
+    }
+  }, [data, hora, duracao, pointId]);
 
   useEffect(() => {
     if (quadraId && data) {
@@ -577,10 +607,134 @@ export default function EditarAgendamentoModal({
     }
   };
 
+  const quadraEstaLivreNoHorario = (
+    quadra: any,
+    dataHorario: string,
+    horaHorario: string,
+    duracaoHorario: number,
+    agendamentos: Agendamento[],
+    bloqueios: any[],
+  ): boolean => {
+    const diaStr = dataHorario;
+    const [hStr, mStr] = horaHorario.split(':');
+    const slotInicioMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+    const slotFimMin = slotInicioMin + duracaoHorario;
+
+    // Verificar conflito com agendamentos usando apenas data + minutos (sem Date/Timezone)
+    const temAgendamento = agendamentos.some((ag) => {
+      if (ag.quadraId !== quadra.id || !ag.dataHora) return false;
+      const [dataPart, horaPart] = ag.dataHora.split('T');
+      if (dataPart !== diaStr) return false;
+
+      const [hAgStr, mAgStr] = horaPart.substring(0, 5).split(':');
+      const agInicioMin = parseInt(hAgStr, 10) * 60 + parseInt(mAgStr, 10);
+      const agFimMin = agInicioMin + ag.duracao;
+
+      return !(slotFimMin <= agInicioMin || slotInicioMin >= agFimMin);
+    });
+
+    if (temAgendamento) return false;
+
+    // Verificar conflito com bloqueios, também em minutos
+    const temBloqueio = bloqueios.some((bloqueio) => {
+      if (!bloqueio.ativo) return false;
+
+      const afetaQuadra =
+        bloqueio.quadraIds === null ? quadra.pointId === bloqueio.pointId : bloqueio.quadraIds.includes(quadra.id);
+      if (!afetaQuadra) return false;
+
+      const inicioBloqueioDia = bloqueio.dataInicio.slice(0, 10);
+      const fimBloqueioDia = bloqueio.dataFim.slice(0, 10);
+      if (diaStr < inicioBloqueioDia || diaStr > fimBloqueioDia) return false;
+
+      // Sem horário específico: dia inteiro bloqueado
+      if (bloqueio.horaInicio == null && bloqueio.horaFim == null) return true;
+
+      const bloqueioInicioMin = bloqueio.horaInicio ?? 0;
+      const bloqueioFimMin = bloqueio.horaFim ?? 24 * 60;
+
+      return !(slotFimMin <= bloqueioInicioMin || slotInicioMin >= bloqueioFimMin);
+    });
+
+    if (temBloqueio) return false;
+
+    return true;
+  };
+
   const carregarQuadras = async (pointId: string) => {
     try {
-      const data = await quadraService.listar(pointId);
-      setQuadras(data.filter((q: any) => q.ativo));
+      const todasQuadras = await quadraService.listar(pointId);
+      const quadrasAtivas = todasQuadras.filter((q: any) => q.ativo);
+
+      // Se temos dataInicial, horaInicial e duracaoInicial, filtrar apenas quadras disponíveis
+      if (dataInicial && horaInicial && duracaoInicial) {
+        try {
+          const dataInicioDia = `${dataInicial}T00:00:00`;
+          const dataFimDia = `${dataInicial}T23:59:59`;
+
+          console.log('[EditarAgendamentoModal] Filtrando quadras disponíveis:', {
+            dataInicial,
+            horaInicial,
+            duracaoInicial,
+            pointId,
+            dataInicioDia,
+            dataFimDia,
+          });
+
+          const [agendamentosDia, bloqueiosDia] = await Promise.all([
+            agendamentoService.listar({
+              dataInicio: dataInicioDia,
+              dataFim: dataFimDia,
+              status: 'CONFIRMADO',
+            }),
+            bloqueioAgendaService.listar({
+              dataInicio: dataInicioDia,
+              dataFim: dataFimDia,
+              apenasAtivos: true,
+            }),
+          ]);
+
+          console.log('[EditarAgendamentoModal] Agendamentos e bloqueios carregados:', {
+            agendamentosCount: agendamentosDia.length,
+            bloqueiosCount: bloqueiosDia.length,
+            agendamentos: agendamentosDia.map((ag: any) => ({
+              id: ag.id,
+              quadraId: ag.quadraId,
+              dataHora: ag.dataHora,
+              duracao: ag.duracao,
+            })),
+          });
+
+          // Filtrar apenas quadras disponíveis para o horário selecionado
+          const quadrasDisponiveis = quadrasAtivas.filter((quadra: any) => {
+            const estaLivre = quadraEstaLivreNoHorario(
+              quadra,
+              dataInicial,
+              horaInicial,
+              duracaoInicial,
+              agendamentosDia,
+              bloqueiosDia,
+            );
+            console.log(`[EditarAgendamentoModal] Quadra ${quadra.nome} (${quadra.id}): ${estaLivre ? 'LIVRE' : 'OCUPADA'}`);
+            return estaLivre;
+          });
+
+          console.log('[EditarAgendamentoModal] Quadras disponíveis:', {
+            total: quadrasAtivas.length,
+            disponiveis: quadrasDisponiveis.length,
+            disponiveisIds: quadrasDisponiveis.map((q: any) => q.id),
+          });
+
+          setQuadras(quadrasDisponiveis);
+        } catch (error) {
+          console.error('Erro ao verificar disponibilidade das quadras:', error);
+          // Em caso de erro, mostrar todas as quadras ativas
+          setQuadras(quadrasAtivas);
+        }
+      } else {
+        // Se não temos horário selecionado, mostrar todas as quadras ativas
+        setQuadras(quadrasAtivas);
+      }
     } catch (error) {
       console.error('Erro ao carregar quadras:', error);
     }
@@ -732,71 +886,77 @@ export default function EditarAgendamentoModal({
     }
 
     // Verificar conflitos com agendamentos existentes
-    for (const ag of agendamentosExistentes) {
-      // Se estamos editando um agendamento, garantir que não estamos comparando com ele mesmo
-      if (agendamento && ag.id === agendamento.id) {
-        continue;
-      }
-
-      // Se estamos editando e mantendo o mesmo horário/data/duração, ignorar qualquer
-      // agendamento que tenha exatamente o mesmo horário (pode ser o próprio agendamento
-      // que ainda está na lista por algum motivo, especialmente quando mudamos a quadra)
-      if (agendamento) {
-        const agendamentoDataHoraStr = agendamento.dataHora;
-        const agendamentoDataPart = agendamentoDataHoraStr.split('T')[0];
-        const agendamentoHoraMatch = agendamentoDataHoraStr.match(/T(\d{2}):(\d{2})/);
-        const agDataPart = ag.dataHora.split('T')[0];
-        const agHoraMatch = ag.dataHora.match(/T(\d{2}):(\d{2})/);
-        
-        // Se o horário selecionado é o mesmo do agendamento atual E o agendamento na lista
-        // tem o mesmo horário/data/duração, ignorar (provavelmente é o próprio agendamento)
-        if (
-          agendamentoDataPart === data &&
-          agendamentoHoraMatch &&
-          agendamentoHoraMatch[1] === hora.split(':')[0] &&
-          agendamentoHoraMatch[2] === hora.split(':')[1] &&
-          agendamento.duracao === duracao &&
-          agendamentoDataPart === agDataPart &&
-          agendamentoHoraMatch && agHoraMatch &&
-          agendamentoHoraMatch[1] === agHoraMatch[1] &&
-          agendamentoHoraMatch[2] === agHoraMatch[2] &&
-          agendamento.duracao === ag.duracao
-        ) {
+    // Se estamos editando um agendamento e o usuário é ORGANIZER, permitir conflitos com outros agendamentos
+    // (apenas bloqueios ainda serão verificados)
+    const permitirConflitoAgendamento = agendamento && isOrganizer;
+    
+    if (!permitirConflitoAgendamento) {
+      for (const ag of agendamentosExistentes) {
+        // Se estamos editando um agendamento, garantir que não estamos comparando com ele mesmo
+        if (agendamento && ag.id === agendamento.id) {
           continue;
         }
-      }
 
-      // Extrair hora/minuto diretamente da string ISO sem conversão de timezone
-      // Isso evita problemas de fuso horário
-      const agDataHoraStr = ag.dataHora;
-      const agDataPart = agDataHoraStr.split('T')[0];
-      const agHoraMatch = agDataHoraStr.match(/T(\d{2}):(\d{2})/);
-      
-      // Verificar se é o mesmo dia
-      if (agDataPart !== data) {
-        continue; // Diferentes dias, não há conflito
-      }
-      
-      if (!agHoraMatch) {
-        continue; // Não foi possível extrair hora
-      }
-      
-      // Extrair hora e minuto do agendamento existente diretamente da string
-      const agHoraNum = parseInt(agHoraMatch[1], 10);
-      const agMinutoNum = parseInt(agHoraMatch[2], 10);
-      const agMinutosInicio = agHoraNum * 60 + agMinutoNum;
-      const agMinutosFim = agMinutosInicio + ag.duracao;
-      
-      // Comparar com os minutos do horário selecionado
-      if (
-        minutosInicio < agMinutosFim && minutosFim > agMinutosInicio
-      ) {
-        // Formatar horários para exibição
-        const inicio = `${agHoraNum.toString().padStart(2, '0')}:${agMinutoNum.toString().padStart(2, '0')}`;
-        const agHoraFim = Math.floor(agMinutosFim / 60) % 24;
-        const agMinutoFim = agMinutosFim % 60;
-        const fim = `${agHoraFim.toString().padStart(2, '0')}:${agMinutoFim.toString().padStart(2, '0')}`;
-        return `Conflito com agendamento existente das ${inicio} às ${fim}`;
+        // Se estamos editando e mantendo o mesmo horário/data/duração, ignorar qualquer
+        // agendamento que tenha exatamente o mesmo horário (pode ser o próprio agendamento
+        // que ainda está na lista por algum motivo, especialmente quando mudamos a quadra)
+        if (agendamento) {
+          const agendamentoDataHoraStr = agendamento.dataHora;
+          const agendamentoDataPart = agendamentoDataHoraStr.split('T')[0];
+          const agendamentoHoraMatch = agendamentoDataHoraStr.match(/T(\d{2}):(\d{2})/);
+          const agDataPart = ag.dataHora.split('T')[0];
+          const agHoraMatch = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+          
+          // Se o horário selecionado é o mesmo do agendamento atual E o agendamento na lista
+          // tem o mesmo horário/data/duração, ignorar (provavelmente é o próprio agendamento)
+          if (
+            agendamentoDataPart === data &&
+            agendamentoHoraMatch &&
+            agendamentoHoraMatch[1] === hora.split(':')[0] &&
+            agendamentoHoraMatch[2] === hora.split(':')[1] &&
+            agendamento.duracao === duracao &&
+            agendamentoDataPart === agDataPart &&
+            agendamentoHoraMatch && agHoraMatch &&
+            agendamentoHoraMatch[1] === agHoraMatch[1] &&
+            agendamentoHoraMatch[2] === agHoraMatch[2] &&
+            agendamento.duracao === ag.duracao
+          ) {
+            continue;
+          }
+        }
+
+        // Extrair hora/minuto diretamente da string ISO sem conversão de timezone
+        // Isso evita problemas de fuso horário
+        const agDataHoraStr = ag.dataHora;
+        const agDataPart = agDataHoraStr.split('T')[0];
+        const agHoraMatch = agDataHoraStr.match(/T(\d{2}):(\d{2})/);
+        
+        // Verificar se é o mesmo dia
+        if (agDataPart !== data) {
+          continue; // Diferentes dias, não há conflito
+        }
+        
+        if (!agHoraMatch) {
+          continue; // Não foi possível extrair hora
+        }
+        
+        // Extrair hora e minuto do agendamento existente diretamente da string
+        const agHoraNum = parseInt(agHoraMatch[1], 10);
+        const agMinutoNum = parseInt(agHoraMatch[2], 10);
+        const agMinutosInicio = agHoraNum * 60 + agMinutoNum;
+        const agMinutosFim = agMinutosInicio + ag.duracao;
+        
+        // Comparar com os minutos do horário selecionado
+        if (
+          minutosInicio < agMinutosFim && minutosFim > agMinutosInicio
+        ) {
+          // Formatar horários para exibição
+          const inicio = `${agHoraNum.toString().padStart(2, '0')}:${agMinutoNum.toString().padStart(2, '0')}`;
+          const agHoraFim = Math.floor(agMinutosFim / 60) % 24;
+          const agMinutoFim = agMinutosFim % 60;
+          const fim = `${agHoraFim.toString().padStart(2, '0')}:${agMinutoFim.toString().padStart(2, '0')}`;
+          return `Conflito com agendamento existente das ${inicio} às ${fim}`;
+        }
       }
     }
 

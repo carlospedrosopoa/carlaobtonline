@@ -118,12 +118,14 @@ export async function listarPartidas() {
      a1.nome as "atleta1Nome", a1.id as "atleta1Id", 
      a2.nome as "atleta2Nome", a2.id as "atleta2Id",
      a3.nome as "atleta3Nome", a3.id as "atleta3Id", 
-     a4.nome as "atleta4Nome", a4.id as "atleta4Id"
+     a4.nome as "atleta4Nome", a4.id as "atleta4Id",
+     u.name as "criadorNome", u.email as "criadorEmail"
      FROM "Partida" p
      LEFT JOIN "Atleta" a1 ON p."atleta1Id" = a1.id
      LEFT JOIN "Atleta" a2 ON p."atleta2Id" = a2.id
      LEFT JOIN "Atleta" a3 ON p."atleta3Id" = a3.id
      LEFT JOIN "Atleta" a4 ON p."atleta4Id" = a4.id
+     LEFT JOIN "User" u ON p."createdById" = u.id
      ORDER BY p."createdAt" DESC`,
     []
   );
@@ -134,6 +136,8 @@ export async function listarPartidas() {
     atleta2: row.atleta2Nome ? { id: row.atleta2Id, nome: row.atleta2Nome } : null,
     atleta3: row.atleta3Nome ? { id: row.atleta3Id, nome: row.atleta3Nome } : null,
     atleta4: row.atleta4Nome ? { id: row.atleta4Id, nome: row.atleta4Nome } : null,
+    criadorNome: row.criadorNome || null,
+    criadorEmail: row.criadorEmail || null,
   }));
 
   return partidas;
@@ -145,12 +149,14 @@ export async function buscarPartidaPorId(partidaId: string) {
      a1.nome as "atleta1Nome", a1.id as "atleta1Id", 
      a2.nome as "atleta2Nome", a2.id as "atleta2Id",
      a3.nome as "atleta3Nome", a3.id as "atleta3Id", 
-     a4.nome as "atleta4Nome", a4.id as "atleta4Id"
+     a4.nome as "atleta4Nome", a4.id as "atleta4Id",
+     u.name as "criadorNome", u.email as "criadorEmail"
      FROM "Partida" p
      LEFT JOIN "Atleta" a1 ON p."atleta1Id" = a1.id
      LEFT JOIN "Atleta" a2 ON p."atleta2Id" = a2.id
      LEFT JOIN "Atleta" a3 ON p."atleta3Id" = a3.id
      LEFT JOIN "Atleta" a4 ON p."atleta4Id" = a4.id
+     LEFT JOIN "User" u ON p."createdById" = u.id
      WHERE p.id = $1`,
     [partidaId]
   );
@@ -167,6 +173,8 @@ export async function buscarPartidaPorId(partidaId: string) {
     atleta2: partida.atleta2Nome ? { id: partida.atleta2Id, nome: partida.atleta2Nome } : null,
     atleta3: partida.atleta3Nome ? { id: partida.atleta3Id, nome: partida.atleta3Nome } : null,
     atleta4: partida.atleta4Nome ? { id: partida.atleta4Id, nome: partida.atleta4Nome } : null,
+    criadorNome: partida.criadorNome || null,
+    criadorEmail: partida.criadorEmail || null,
   };
 }
 
@@ -187,6 +195,34 @@ export async function atualizarPlacar(partidaId: string, placar: {
       placar.tiebreakTime2 || null,
       partidaId,
     ]
+  );
+  
+  // Retornar partida completa com atletas
+  return await buscarPartidaPorId(partidaId);
+}
+
+export async function confirmarPlacar(partidaId: string, userId: string) {
+  // Verificar se a partida existe e se o usuário é o criador
+  const partida = await buscarPartidaPorId(partidaId);
+  if (!partida) {
+    throw new Error('Partida não encontrada');
+  }
+
+  if (partida.createdById !== userId) {
+    throw new Error('Apenas o criador da partida pode confirmar o placar');
+  }
+
+  // Verificar se a partida tem placar
+  if (partida.gamesTime1 === null || partida.gamesTime2 === null) {
+    throw new Error('A partida precisa ter um placar para ser confirmada');
+  }
+
+  // Atualizar campos de confirmação
+  await query(
+    `UPDATE "Partida" 
+     SET "placarConfirmado" = TRUE, "placarConfirmadoPor" = $1, "placarConfirmadoEm" = NOW(), "updatedAt" = NOW()
+     WHERE id = $2`,
+    [userId, partidaId]
   );
   
   // Retornar partida completa com atletas

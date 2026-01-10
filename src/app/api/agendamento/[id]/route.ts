@@ -533,7 +533,11 @@ export async function PUT(
         [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal]
       );
 
-      if (conflitos.rows.length > 0) {
+      // Permitir que ORGANIZER altere agendamentos para horários ocupados (apenas na edição, nunca na criação)
+      // ADMIN também pode fazer isso
+      const podeBypassConflito = (usuario.role === 'ORGANIZER' || usuario.role === 'ADMIN') && agendamentoAtual;
+      
+      if (conflitos.rows.length > 0 && !podeBypassConflito) {
         const errorResponse = NextResponse.json(
           { mensagem: 'Já existe um agendamento confirmado neste horário para esta quadra' },
           { status: 400 }

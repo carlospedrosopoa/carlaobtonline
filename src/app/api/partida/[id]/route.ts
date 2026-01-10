@@ -49,6 +49,16 @@ export async function PUT(
       partida.atleta4?.id,
     ].filter(Boolean);
 
+    // Verificar se o placar está confirmado e se o usuário pode alterar
+    // Se o placar está confirmado, apenas o criador pode alterar
+    if (partida.placarConfirmado && partida.createdById !== user.id && user.role !== 'ADMIN') {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'O placar foi confirmado e não pode mais ser alterado. Apenas o criador da partida pode alterar um placar confirmado.' },
+        { status: 403 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     // Se o usuário não é ADMIN, verificar permissões
     if (user.role !== 'ADMIN') {
       // ORGANIZER: verificar se a partida está vinculada a uma panelinha da sua arena

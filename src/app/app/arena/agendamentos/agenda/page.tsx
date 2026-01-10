@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
@@ -15,6 +16,7 @@ import { gzappyService } from '@/services/gzappyService';
 import { api } from '@/lib/api';
 
 export default function ArenaAgendaSemanalPage() {
+  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -1597,10 +1599,8 @@ export default function ArenaAgendaSemanalPage() {
         duracaoInicial={60}
         onSelecionarHorario={(data, hora, duracao) => {
           setModalQuadrasDisponiveisAberto(false);
-          setDataInicialModal(data);
-          setHoraInicialModal(hora);
-          setAgendamentoEditando(null);
-          setModalEditarAberto(true);
+          // Redirecionar para a página de novo agendamento com os parâmetros
+          router.push(`/app/arena/agendamentos/novo?data=${encodeURIComponent(data)}&hora=${encodeURIComponent(hora)}&duracao=${duracao}`);
         }}
         pointIdsPermitidos={
           isAdmin ? undefined : isOrganizer && usuario?.pointIdGestor ? [usuario.pointIdGestor] : []

@@ -483,6 +483,35 @@ export default function AdminPointsPage() {
                   </button>
                 </div>
 
+                {/* Indicador Pagamento Online */}
+                <div className="flex items-center justify-between mb-3 px-2 py-1 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-green-600" />
+                    <span className="text-xs font-medium text-green-700">Pagamento Online</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const novoValor = !point.pagamentoOnlineAtivo;
+                        await pointService.atualizarPagamentoOnline(point.id, novoValor);
+                        await carregarPoints();
+                      } catch (error: any) {
+                        console.error('Erro ao atualizar pagamento online:', error);
+                        alert(error?.response?.data?.mensagem || 'Erro ao atualizar flag de pagamento online');
+                      }
+                    }}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      point.pagamentoOnlineAtivo ? 'bg-green-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        point.pagamentoOnlineAtivo ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => abrirModal(point)}
