@@ -14,6 +14,7 @@ export async function criarPartida(dados: {
   gamesTime2?: number | null;
   tiebreakTime1?: number | null;
   tiebreakTime2?: number | null;
+  createdById?: string | null;
 }) {
   // Valida que os atletas existem
   const atletasIds = [dados.atleta1Id, dados.atleta2Id, dados.atleta3Id, dados.atleta4Id].filter(Boolean) as string[];
@@ -26,24 +27,64 @@ export async function criarPartida(dados: {
   }
 
   const partidaId = uuidv4();
-  await query(
-    `INSERT INTO "Partida" (id, data, local, "pointId", "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id", "gamesTime1", "gamesTime2", "tiebreakTime1", "tiebreakTime2", "createdAt", "updatedAt") 
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
-    [
-      partidaId,
-      new Date(dados.data),
-      dados.local,
-      dados.pointId || null,
-      dados.atleta1Id,
-      dados.atleta2Id,
-      dados.atleta3Id || null,
-      dados.atleta4Id || null,
-      dados.gamesTime1 || null,
-      dados.gamesTime2 || null,
-      dados.tiebreakTime1 || null,
-      dados.tiebreakTime2 || null,
-    ]
-  );
+  
+  // Log para debug
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[criarPartida] Tentando criar partida com createdById:', dados.createdById);
+  }
+  
+  // Tentar inserir com createdById se o campo existir
+  try {
+    await query(
+      `INSERT INTO "Partida" (id, data, local, "pointId", "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id", "gamesTime1", "gamesTime2", "tiebreakTime1", "tiebreakTime2", "createdById", "createdAt", "updatedAt") 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
+      [
+        partidaId,
+        new Date(dados.data),
+        dados.local,
+        dados.pointId || null,
+        dados.atleta1Id,
+        dados.atleta2Id,
+        dados.atleta3Id || null,
+        dados.atleta4Id || null,
+        dados.gamesTime1 || null,
+        dados.gamesTime2 || null,
+        dados.tiebreakTime1 || null,
+        dados.tiebreakTime2 || null,
+        dados.createdById || null,
+      ]
+    );
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[criarPartida] Partida criada com sucesso com createdById:', dados.createdById);
+    }
+  } catch (error: any) {
+    // Se o campo createdById não existir, inserir sem ele (compatibilidade)
+    if (error.message?.includes('createdById') || error.code === '42703' || error.message?.includes('column "createdById" does not exist')) {
+      console.warn('[criarPartida] Campo createdById não existe na tabela. Inserindo sem ele. Execute a migração!');
+      await query(
+        `INSERT INTO "Partida" (id, data, local, "pointId", "atleta1Id", "atleta2Id", "atleta3Id", "atleta4Id", "gamesTime1", "gamesTime2", "tiebreakTime1", "tiebreakTime2", "createdAt", "updatedAt") 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
+        [
+          partidaId,
+          new Date(dados.data),
+          dados.local,
+          dados.pointId || null,
+          dados.atleta1Id,
+          dados.atleta2Id,
+          dados.atleta3Id || null,
+          dados.atleta4Id || null,
+          dados.gamesTime1 || null,
+          dados.gamesTime2 || null,
+          dados.tiebreakTime1 || null,
+          dados.tiebreakTime2 || null,
+        ]
+      );
+    } else {
+      console.error('[criarPartida] Erro ao criar partida:', error);
+      throw error;
+    }
+  }
   
   const result = await query(
     `SELECT p.*, 

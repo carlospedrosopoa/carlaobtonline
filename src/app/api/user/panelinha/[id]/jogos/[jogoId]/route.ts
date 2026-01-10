@@ -32,7 +32,7 @@ export async function DELETE(
       return withCors(errorResponse, request);
     }
 
-    // Verificar se a panelinha existe e se o atleta é o criador
+    // Verificar se a panelinha existe
     const panelinhaCheck = await query(
       `SELECT p.id, p."atletaIdCriador"
        FROM "Panelinha" p
@@ -48,15 +48,37 @@ export async function DELETE(
       return withCors(errorResponse, request);
     }
 
-    if (panelinhaCheck.rows[0].atletaIdCriador !== atleta.id) {
+    // Verificar se o jogo existe e buscar informações da partida
+    const partidaCheck = await query(
+      `SELECT p.id, p."createdById", p."atleta1Id", p."atleta2Id", p."atleta3Id", p."atleta4Id"
+       FROM "Partida" p
+       WHERE p.id = $1`,
+      [jogoId]
+    );
+
+    if (partidaCheck.rows.length === 0) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Apenas o criador da panelinha pode deletar jogos' },
+        { mensagem: 'Jogo não encontrado' },
+        { status: 404 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const partida = partidaCheck.rows[0];
+    
+    // Verificar se o atleta é o criador da partida OU o criador da panelinha
+    const atletaEhCriadorPartida = partida.createdById === user.id;
+    const atletaEhCriadorPanelinha = panelinhaCheck.rows[0].atletaIdCriador === atleta.id;
+    
+    if (!atletaEhCriadorPartida && !atletaEhCriadorPanelinha) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Apenas o criador do jogo ou o criador da panelinha podem deletar jogos' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
     }
 
-    // Verificar se o jogo existe e está vinculado à panelinha
+    // Verificar se o jogo está vinculado à panelinha
     const jogoCheck = await query(
       `SELECT pp.id
        FROM "PartidaPanelinha" pp
