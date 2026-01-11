@@ -21,23 +21,33 @@ export async function GET(request: NextRequest) {
     let sql = `SELECT 
       q.id, q.nome, q."pointId", q.tipo, q.capacidade, q.ativo, 
       q."tiposEsporte", q."createdAt", q."updatedAt",
-      p.id as "point_id", p.nome as "point_nome"
+      p.id as "point_id", p.nome as "point_nome", p."agendaOnlineAtivo"
     FROM "Quadra" q
     LEFT JOIN "Point" p ON q."pointId" = p.id`;
 
     const params: any[] = [];
     let paramCount = 1;
+    const whereConditions: string[] = [];
 
     // Se for ORGANIZER, mostrar apenas quadras da sua arena
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
-      sql += ` WHERE q."pointId" = $${paramCount}`;
+      whereConditions.push(`q."pointId" = $${paramCount}`);
       params.push(usuario.pointIdGestor);
       paramCount++;
     } else if (pointId) {
       // ADMIN pode filtrar por pointId se quiser
-      sql += ` WHERE q."pointId" = $${paramCount}`;
+      whereConditions.push(`q."pointId" = $${paramCount}`);
       params.push(pointId);
       paramCount++;
+    }
+
+    // Para USER (atletas), filtrar apenas arenas com agenda online ativa
+    if (usuario.role === 'USER') {
+      whereConditions.push(`p."agendaOnlineAtivo" = true`);
+    }
+
+    if (whereConditions.length > 0) {
+      sql += ` WHERE ${whereConditions.join(' AND ')}`;
     }
 
     sql += ` ORDER BY q.nome ASC`;
