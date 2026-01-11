@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withCors } from '@/lib/cors';
 import { query } from '@/lib/db';
+import { enviarMensagemWhatsApp, formatarNumeroWhatsApp } from '@/lib/whatsappService';
 
 // POST /api/user/pagamento/infinite-pay/callback - Webhook do Infinite Pay
 // Esta rota será chamada pelo Infinite Pay quando o pagamento for aprovado
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Buscar pagamento pelo order_nsu (orderId)
     const pagamentoResult = await query(
-      `SELECT p.*, c."usuarioId", c."valorTotal", c.id as "cardId"
+      `SELECT p.*, c."usuarioId", c."valorTotal", c.id as "cardId", c."pointId"
        FROM "PagamentoInfinitePay" p
        INNER JOIN "CardCliente" c ON p."cardId" = c.id
        WHERE p."orderId" = $1`,
@@ -156,6 +157,56 @@ export async function POST(request: NextRequest) {
             [pagamento.usuarioId, pagamento.cardId]
           );
           console.log('[INFINITE PAY WEBHOOK] Card fechado com sucesso');
+        }
+
+        // Enviar WhatsApp para a arena informando o pagamento
+        try {
+          if (pagamento.pointId) {
+            // Buscar telefone da arena
+            const pointResult = await query(
+              `SELECT telefone, nome FROM "Point" WHERE id = $1`,
+              [pagamento.pointId]
+            );
+
+            if (pointResult.rows.length > 0 && pointResult.rows[0].telefone) {
+              const telefoneArena = pointResult.rows[0].telefone;
+              const nomeArena = pointResult.rows[0].nome || 'Arena';
+              
+              // Formatar valor do pagamento
+              const valorFormatado = new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+              }).format(valorPago);
+
+              const mensagem = `💰 *Pagamento Online Recebido*
+
+Valor: ${valorFormatado}
+Método: Infinite Pay${capture_method ? ` (${capture_method})` : ''}
+Order ID: ${order_nsu}${transaction_nsu ? `\nTransaction ID: ${transaction_nsu}` : ''}
+
+Pagamento recebido com sucesso! ✅`;
+
+              const enviado = await enviarMensagemWhatsApp(
+                {
+                  destinatario: formatarNumeroWhatsApp(telefoneArena),
+                  mensagem,
+                  tipo: 'texto',
+                },
+                pagamento.pointId
+              );
+
+              if (enviado) {
+                console.log('[INFINITE PAY WEBHOOK] WhatsApp enviado para a arena:', telefoneArena);
+              } else {
+                console.warn('[INFINITE PAY WEBHOOK] Falha ao enviar WhatsApp para a arena:', telefoneArena);
+              }
+            } else {
+              console.log('[INFINITE PAY WEBHOOK] Arena não possui telefone cadastrado para envio de WhatsApp');
+            }
+          }
+        } catch (error: any) {
+          // Não bloquear o processamento do pagamento se houver erro no WhatsApp
+          console.error('[INFINITE PAY WEBHOOK] Erro ao enviar WhatsApp para a arena:', error);
         }
       } else {
         console.log('[INFINITE PAY WEBHOOK] Pagamento já existe no card para order_nsu:', order_nsu);
