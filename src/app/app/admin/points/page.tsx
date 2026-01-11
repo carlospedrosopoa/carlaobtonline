@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { pointService } from '@/services/agendamentoService';
 import type { Point, CriarPointPayload } from '@/types/agendamento';
-import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff, Crown, CreditCard, Database, GitBranch } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Phone, Mail, CheckCircle, XCircle, MessageCircle, Eye, EyeOff, Crown, CreditCard, Calendar, Database, GitBranch } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function AdminPointsPage() {
@@ -507,6 +507,35 @@ export default function AdminPointsPage() {
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                         point.pagamentoOnlineAtivo ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Indicador Agenda Online */}
+                <div className="flex items-center justify-between mb-3 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-700">Agenda Online</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const novoValor = !point.agendaOnlineAtivo;
+                        await pointService.atualizarAgendaOnline(point.id, novoValor);
+                        await carregarPoints();
+                      } catch (error: any) {
+                        console.error('Erro ao atualizar agenda online:', error);
+                        alert(error?.response?.data?.mensagem || 'Erro ao atualizar flag de agenda online');
+                      }
+                    }}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      point.agendaOnlineAtivo ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        point.agendaOnlineAtivo ? 'translate-x-5' : 'translate-x-1'
                       }`}
                     />
                   </button>

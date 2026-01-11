@@ -22,7 +22,7 @@ export async function GET(
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
           "infinitePayHandle",
-          assinante, "createdAt", "updatedAt"
+          assinante, "pagamentoOnlineAtivo", "agendaOnlineAtivo", "createdAt", "updatedAt"
         FROM "Point"
         WHERE id = $1`,
         [id]
@@ -36,7 +36,7 @@ export async function GET(
           result = await query(
             `SELECT 
               id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-              assinante, "createdAt", "updatedAt"
+              assinante, "pagamentoOnlineAtivo", "agendaOnlineAtivo", "createdAt", "updatedAt"
             FROM "Point"
             WHERE id = $1`,
             [id]
@@ -48,7 +48,7 @@ export async function GET(
             result = await query(
               `SELECT 
                 id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
-                assinante, "createdAt", "updatedAt"
+                assinante, "pagamentoOnlineAtivo", "agendaOnlineAtivo", "createdAt", "updatedAt"
               FROM "Point"
               WHERE id = $1`,
               [id]
@@ -74,6 +74,8 @@ export async function GET(
             antecedenciaLembrete: 8,
             infinitePayHandle: null,
             assinante: result.rows[0].assinante ?? false,
+            pagamentoOnlineAtivo: result.rows[0].pagamentoOnlineAtivo ?? false,
+            agendaOnlineAtivo: result.rows[0].agendaOnlineAtivo ?? false,
           };
         }
       } else {

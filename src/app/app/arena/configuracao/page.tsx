@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { pointService } from '@/services/agendamentoService';
 import type { Point } from '@/types/agendamento';
-import { Settings, Save, Upload, X, MapPin, Loader2 } from 'lucide-react';
+import { Settings, Save, Upload, X, MapPin, Loader2, CreditCard, Calendar } from 'lucide-react';
 
 export default function ConfiguracaoArenaPage() {
   const { usuario } = useAuth();
@@ -27,6 +27,8 @@ export default function ConfiguracaoArenaPage() {
     cardTemplateUrl: null as string | null,
     enviarLembretesAgendamento: false,
     antecedenciaLembrete: 8,
+    pagamentoOnlineAtivo: false,
+    agendaOnlineAtivo: false,
   });
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -59,6 +61,8 @@ export default function ConfiguracaoArenaPage() {
         cardTemplateUrl: arena.cardTemplateUrl || null,
         enviarLembretesAgendamento: arena.enviarLembretesAgendamento || false,
         antecedenciaLembrete: arena.antecedenciaLembrete || 8,
+        pagamentoOnlineAtivo: arena.pagamentoOnlineAtivo || false,
+        agendaOnlineAtivo: arena.agendaOnlineAtivo || false,
       });
 
       setLogoPreview(arena.logoUrl || null);
@@ -429,6 +433,85 @@ export default function ConfiguracaoArenaPage() {
               <p className="mt-2 text-xs text-gray-500">
                 Este template será usado para gerar os cards de jogos das competições.
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Configurações de Pagamento Online e Agenda Online */}
+        <div className="border-b border-gray-200 pb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Configurações Online</h2>
+          
+          <div className="space-y-4">
+            {/* Toggle Pagamento Online */}
+            <div className="flex items-center justify-between px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <CreditCard className="w-5 h-5 text-green-600" />
+                <div>
+                  <label className="text-sm font-medium text-gray-900">Pagamento Online</label>
+                  <p className="text-xs text-gray-500">Permitir pagamento online via Infinite Pay</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!usuario?.pointIdGestor) return;
+                  try {
+                    const novoValor = !form.pagamentoOnlineAtivo;
+                    await pointService.atualizarPagamentoOnline(usuario.pointIdGestor, novoValor);
+                    setForm({ ...form, pagamentoOnlineAtivo: novoValor });
+                    setSucesso('Configuração atualizada com sucesso!');
+                    setTimeout(() => setSucesso(''), 3000);
+                  } catch (error: any) {
+                    console.error('Erro ao atualizar pagamento online:', error);
+                    setErro(error?.response?.data?.mensagem || 'Erro ao atualizar configuração de pagamento online');
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  form.pagamentoOnlineAtivo ? 'bg-green-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    form.pagamentoOnlineAtivo ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Toggle Agenda Online */}
+            <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <div>
+                  <label className="text-sm font-medium text-gray-900">Agenda Online</label>
+                  <p className="text-xs text-gray-500">Permitir novos agendamentos pelo appatleta</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!usuario?.pointIdGestor) return;
+                  try {
+                    const novoValor = !form.agendaOnlineAtivo;
+                    await pointService.atualizarAgendaOnline(usuario.pointIdGestor, novoValor);
+                    setForm({ ...form, agendaOnlineAtivo: novoValor });
+                    setSucesso('Configuração atualizada com sucesso!');
+                    setTimeout(() => setSucesso(''), 3000);
+                  } catch (error: any) {
+                    console.error('Erro ao atualizar agenda online:', error);
+                    setErro(error?.response?.data?.mensagem || 'Erro ao atualizar configuração de agenda online');
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  form.agendaOnlineAtivo ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    form.agendaOnlineAtivo ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
         </div>

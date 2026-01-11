@@ -50,6 +50,11 @@ export const pointService = {
     const res = await api.put(`/point/${id}/pagamento-online`, { pagamentoOnlineAtivo });
     return res.data;
   },
+
+  atualizarAgendaOnline: async (id: string, agendaOnlineAtivo: boolean): Promise<{ mensagem: string; point: Point }> => {
+    const res = await api.put(`/point/${id}/agenda-online`, { agendaOnlineAtivo });
+    return res.data;
+  },
 };
 
 // ========== QUADRAS ==========

@@ -39,8 +39,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verificar se o point existe e está ativo
-    const pointResult = await query('SELECT id, nome, ativo FROM "Point" WHERE id = $1', [pointId]);
+    // Verificar se o point existe, está ativo e tem agenda online ativa
+    let pointResult;
+    try {
+      pointResult = await query('SELECT id, nome, ativo, "agendaOnlineAtivo" FROM "Point" WHERE id = $1', [pointId]);
+    } catch (error: any) {
+      // Se a coluna agendaOnlineAtivo não existir ainda, usar query sem ela
+      if (error.message?.includes('agendaOnlineAtivo') || error.message?.includes('column') || error.code === '42703') {
+        pointResult = await query('SELECT id, nome, ativo FROM "Point" WHERE id = $1', [pointId]);
+      } else {
+        throw error;
+      }
+    }
+
     if (pointResult.rows.length === 0) {
       return withCors(
         NextResponse.json({ mensagem: 'Arena não encontrada' }, { status: 404 }),
@@ -52,6 +63,14 @@ export async function GET(request: NextRequest) {
     if (!point.ativo) {
       return withCors(
         NextResponse.json({ mensagem: 'Arena não está ativa' }, { status: 400 }),
+        request
+      );
+    }
+
+    // Verificar se a arena tem agenda online ativa (se a coluna existir)
+    if (point.agendaOnlineAtivo !== undefined && !point.agendaOnlineAtivo) {
+      return withCors(
+        NextResponse.json({ mensagem: 'Arena não possui agenda online ativa' }, { status: 400 }),
         request
       );
     }

@@ -41,14 +41,10 @@ export async function POST(request: NextRequest) {
 
     // Buscar pagamento pelo order_nsu (orderId)
     const pagamentoResult = await query(
-      `SELECT p.*, c."usuarioId", c."valorTotal",
-              COALESCE(SUM(p2.valor), 0) as "totalPago"
+      `SELECT p.*, c."usuarioId", c."valorTotal", c.id as "cardId"
        FROM "PagamentoInfinitePay" p
        INNER JOIN "CardCliente" c ON p."cardId" = c.id
-       LEFT JOIN "PagamentoCard" p2 ON p2."cardId" = c.id 
-         AND (p2."infinitePayOrderId" IS NULL OR p2."infinitePayOrderId" != p."orderId")
-       WHERE p."orderId" = $1
-       GROUP BY p.id, c.id`,
+       WHERE p."orderId" = $1`,
       [order_nsu]
     );
 
@@ -63,6 +59,17 @@ export async function POST(request: NextRequest) {
     }
 
     const pagamento = pagamentoResult.rows[0];
+
+    // Buscar total pago do card (excluindo este pagamento se já existir)
+    const totalPagoResult = await query(
+      `SELECT COALESCE(SUM(valor), 0) as "totalPago"
+       FROM "PagamentoCard"
+       WHERE "cardId" = $1
+         AND ("infinitePayOrderId" IS NULL OR "infinitePayOrderId" != $2)`,
+      [pagamento.cardId, order_nsu]
+    );
+    
+    const totalPago = parseFloat(totalPagoResult.rows[0].totalPago || '0');
 
     // Atualizar status do pagamento (webhook só é chamado quando aprovado)
     await query(
@@ -84,6 +91,8 @@ export async function POST(request: NextRequest) {
       );
 
       if (pagamentoExistente.rows.length === 0) {
+        console.log('[INFINITE PAY WEBHOOK] Criando pagamento no card para order_nsu:', order_nsu);
+        
         // Buscar forma de pagamento Infinite Pay ou criar uma padrão
         let formaPagamentoId = await query(
           'SELECT id FROM "FormaPagamento" WHERE nome ILIKE $1 LIMIT 1',
@@ -91,6 +100,7 @@ export async function POST(request: NextRequest) {
         );
 
         if (formaPagamentoId.rows.length === 0) {
+          console.log('[INFINITE PAY WEBHOOK] Criando forma de pagamento Infinite Pay');
           // Criar forma de pagamento se não existir
           const novaForma = await query(
             `INSERT INTO "FormaPagamento" (id, nome, tipo, "createdAt")
@@ -104,6 +114,7 @@ export async function POST(request: NextRequest) {
         // Criar pagamento no card
         // paid_amount está em centavos, converter para reais
         const valorPago = (paid_amount || amount) / 100;
+        console.log('[INFINITE PAY WEBHOOK] Valor pago:', valorPago, 'CardId:', pagamento.cardId);
         
         const pagamentoCard = await query(
           `INSERT INTO "PagamentoCard" (
@@ -125,11 +136,15 @@ export async function POST(request: NextRequest) {
           ]
         );
 
-        // Verificar se o card deve ser fechado
-        const totalPago = parseFloat(pagamento.totalPago) + valorPago;
-        const valorTotal = parseFloat(pagamento.valorTotal);
+        console.log('[INFINITE PAY WEBHOOK] Pagamento criado no card com ID:', pagamentoCard.rows[0].id);
 
-        if (totalPago >= valorTotal) {
+        // Verificar se o card deve ser fechado
+        const novoTotalPago = totalPago + valorPago;
+        const valorTotal = parseFloat(pagamento.valorTotal);
+        console.log('[INFINITE PAY WEBHOOK] Total pago:', novoTotalPago, 'Valor total:', valorTotal);
+
+        if (novoTotalPago >= valorTotal) {
+          console.log('[INFINITE PAY WEBHOOK] Fechando card', pagamento.cardId);
           // Fechar o card
           await query(
             `UPDATE "CardCliente"
@@ -140,7 +155,10 @@ export async function POST(request: NextRequest) {
              WHERE id = $2`,
             [pagamento.usuarioId, pagamento.cardId]
           );
+          console.log('[INFINITE PAY WEBHOOK] Card fechado com sucesso');
         }
+      } else {
+        console.log('[INFINITE PAY WEBHOOK] Pagamento já existe no card para order_nsu:', order_nsu);
       }
     }
 
