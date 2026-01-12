@@ -271,8 +271,8 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
 
   // Verificar se o formulário está válido para habilitar o botão
   const formularioValido = useMemo(() => {
-    // Deve ter itens no carrinho
-    if (carrinho.length === 0) return false;
+    // Permitir criar comanda sem itens - itens são opcionais
+    // if (carrinho.length === 0) return false;
     
     // Cliente deve estar informado
     if (tipoCliente === 'cadastrado' && !usuarioId) return false;
@@ -284,11 +284,12 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
       if (!valorPagamento || valorPagamento.trim() === '') return false;
       const valor = parseFloat(valorPagamento);
       if (isNaN(valor) || valor <= 0) return false;
-      if (valor > valorTotalCarrinho) return false;
+      // Permitir pagamento mesmo sem itens (valorTotalCarrinho será 0)
+      if (valorTotalCarrinho > 0 && valor > valorTotalCarrinho) return false;
     }
     
     return true;
-  }, [carrinho.length, tipoCliente, usuarioId, nomeAvulso, incluirPagamento, formaPagamentoId, valorPagamento, valorTotalCarrinho]);
+  }, [tipoCliente, usuarioId, nomeAvulso, incluirPagamento, formaPagamentoId, valorPagamento, valorTotalCarrinho]);
 
   const produtosFiltrados = useMemo(() => {
     if (!buscaProduto) return [];
@@ -307,10 +308,11 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
     }
 
     // Validações
-    if (carrinho.length === 0) {
-      setErro('Adicione pelo menos um item');
-      return;
-    }
+    // Permitir criar comanda sem itens - itens são opcionais
+    // if (carrinho.length === 0) {
+    //   setErro('Adicione pelo menos um item');
+    //   return;
+    // }
 
     if (tipoCliente === 'cadastrado' && !usuarioId) {
       setErro('Selecione um cliente cadastrado');
@@ -803,9 +805,7 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
             className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title={
               !formularioValido
-                ? carrinho.length === 0
-                  ? 'Adicione pelo menos um item ao carrinho'
-                  : tipoCliente === 'avulso' && (!nomeAvulso || nomeAvulso.trim() === '')
+                ? tipoCliente === 'avulso' && (!nomeAvulso || nomeAvulso.trim() === '')
                   ? 'Informe o nome do cliente'
                   : tipoCliente === 'cadastrado' && !usuarioId
                   ? 'Selecione um cliente cadastrado'
@@ -813,7 +813,7 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                   ? 'Selecione uma forma de pagamento'
                   : incluirPagamento && (!valorPagamento || parseFloat(valorPagamento) <= 0)
                   ? 'Informe um valor válido para o pagamento'
-                  : incluirPagamento && parseFloat(valorPagamento) > valorTotalCarrinho
+                  : incluirPagamento && valorTotalCarrinho > 0 && parseFloat(valorPagamento) > valorTotalCarrinho
                   ? 'O valor do pagamento não pode ser maior que o total'
                   : 'Preencha todos os campos obrigatórios'
                 : ''

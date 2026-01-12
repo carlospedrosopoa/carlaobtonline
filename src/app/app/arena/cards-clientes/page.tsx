@@ -13,7 +13,7 @@ import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosC
 import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
-import { formaPagamentoService, pagamentoCardService } from '@/services/gestaoArenaService';
+import { formaPagamentoService, pagamentoCardService, contaCorrenteService } from '@/services/gestaoArenaService';
 import type { FormaPagamento } from '@/types/gestaoArena';
 import InputMonetario from '@/components/InputMonetario';
 
@@ -38,6 +38,8 @@ export default function CardsClientesPage() {
   const [formaPagamentoSelecionada, setFormaPagamentoSelecionada] = useState<Record<string, string>>({});
   const [valorRecebido, setValorRecebido] = useState<Record<string, number | null>>({});
   const [processandoPagamento, setProcessandoPagamento] = useState<Record<string, boolean>>({});
+  // Estado para armazenar saldos das contas correntes: chave = `${usuarioId}-${pointId}`
+  const [saldosContaCorrente, setSaldosContaCorrente] = useState<Record<string, number>>({});
   
   // Carregar preferência de visualização do localStorage
   const [visualizacao, setVisualizacao] = useState<'lista' | 'cards'>(() => {
@@ -123,12 +125,58 @@ export default function CardsClientesPage() {
       );
       
       console.log('[carregarCards] Cards recebidos:', Array.isArray(data) ? data.length : 'não é array', data);
-      setCards(Array.isArray(data) ? data : []);
+      const cardsArray = Array.isArray(data) ? data : [];
+      setCards(cardsArray);
+      
+      // Carregar saldos das contas correntes após carregar os cards
+      await carregarSaldosContaCorrente(cardsArray);
     } catch (error) {
       console.error('Erro ao carregar cards:', error);
       setCards([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const carregarSaldosContaCorrente = async (cards: CardCliente[]) => {
+    if (!usuario?.pointIdGestor) return;
+    
+    try {
+      // Coletar todos os usuarioId únicos dos cards que têm usuário vinculado
+      const usuarioIds = new Set<string>();
+      cards.forEach((card) => {
+        if (card.usuarioId) {
+          usuarioIds.add(card.usuarioId);
+        }
+      });
+
+      if (usuarioIds.size === 0) {
+        setSaldosContaCorrente({});
+        return;
+      }
+
+      // Buscar saldos para cada usuário na arena do gestor
+      const saldosMap: Record<string, number> = {};
+      
+      await Promise.all(
+        Array.from(usuarioIds).map(async (usuarioId) => {
+          try {
+            const contas = await contaCorrenteService.listar(usuario.pointIdGestor, usuarioId);
+            // Encontrar a conta da arena do gestor
+            const conta = contas.find((c) => c.pointId === usuario.pointIdGestor);
+            if (conta && conta.saldo !== 0) {
+              saldosMap[`${usuarioId}-${usuario.pointIdGestor}`] = conta.saldo;
+            }
+          } catch (error) {
+            // Ignorar erros individuais (conta pode não existir)
+            console.log(`Conta corrente não encontrada para usuário ${usuarioId}`);
+          }
+        })
+      );
+
+      setSaldosContaCorrente(saldosMap);
+    } catch (error) {
+      console.error('Erro ao carregar saldos de conta corrente:', error);
     }
   };
 
@@ -525,7 +573,24 @@ export default function CardsClientesPage() {
                   <td className="px-4 py-4">
                     {card.usuario ? (
                       <div>
-                        <div className="font-semibold text-gray-900">{card.usuario.name}</div>
+                        <div className="font-semibold text-gray-900 flex items-center gap-2">
+                          {card.usuario.name}
+                          {card.usuarioId && usuario?.pointIdGestor && (() => {
+                            const saldo = saldosContaCorrente[`${card.usuarioId}-${usuario.pointIdGestor}`];
+                            if (saldo !== undefined && saldo !== 0) {
+                              return (
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  saldo > 0 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : 'bg-red-100 text-red-700'
+                                }`}>
+                                  CC: {formatarMoeda(saldo)}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                         {card.usuario.email && (
                           <div className="text-xs text-gray-500">{card.usuario.email}</div>
                         )}
@@ -648,7 +713,24 @@ export default function CardsClientesPage() {
               <div className="mb-3">
                 {card.usuario ? (
                   <div>
-                    <div className="font-semibold text-gray-900">{card.usuario.name}</div>
+                    <div className="font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
+                      {card.usuario.name}
+                      {card.usuarioId && usuario?.pointIdGestor && (() => {
+                        const saldo = saldosContaCorrente[`${card.usuarioId}-${usuario.pointIdGestor}`];
+                        if (saldo !== undefined && saldo !== 0) {
+                          return (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              saldo > 0 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              CC: {formatarMoeda(saldo)}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                     {card.usuario.email && (
                       <div className="text-xs text-gray-500">{card.usuario.email}</div>
                     )}
@@ -737,10 +819,39 @@ export default function CardsClientesPage() {
                       
                       {/* Botões de Formas de Pagamento */}
                       <div className="flex flex-wrap gap-2">
-                        {formasPagamento.map((forma) => {
+                        {formasPagamento
+                          .sort((a, b) => {
+                            // Ordem: Pix, Débito, Crédito, Dinheiro, Online (Infinite Pay), Conta Corrente
+                            const ordem: Record<string, number> = {
+                              'pix': 1,
+                              'cartão de débito': 2,
+                              'cartao de debito': 2,
+                              'débito': 2,
+                              'debito': 2,
+                              'cartão de crédito': 3,
+                              'cartao de credito': 3,
+                              'crédito': 3,
+                              'credito': 3,
+                              'dinheiro': 4,
+                              'cash': 4,
+                              'infinite pay': 5,
+                              'online': 5,
+                              'conta corrente': 6,
+                            };
+                            const nomeA = a.nome.toLowerCase();
+                            const nomeB = b.nome.toLowerCase();
+                            const ordemA = ordem[nomeA] || 999;
+                            const ordemB = ordem[nomeB] || 999;
+                            return ordemA - ordemB;
+                          })
+                          .map((forma) => {
                           const selecionada = formaPagamentoSelecionada[card.id] === forma.id;
                           const isDinheiro = forma.nome?.toLowerCase().includes('dinheiro') || 
                                            forma.nome?.toLowerCase().includes('cash');
+                          // Remover "Cartão de" do nome para exibição
+                          const nomeExibicao = forma.nome
+                            .replace(/^cartão de /i, '')
+                            .replace(/^cartao de /i, '');
                           return (
                             <button
                               key={forma.id}
@@ -762,7 +873,7 @@ export default function CardsClientesPage() {
                                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
                               }`}
                             >
-                              {forma.nome}
+                              {nomeExibicao}
                             </button>
                           );
                         })}

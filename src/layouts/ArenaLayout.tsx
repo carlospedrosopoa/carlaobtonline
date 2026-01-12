@@ -66,11 +66,12 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       items: [{ to: '/app/arena/cards-clientes', label: 'Comandas de Clientes' }],
     },
     {
-      label: 'Fluxo de Caixa',
+      label: 'Financeiro',
       items: [
         { to: '/app/arena/fluxo-caixa', label: 'Fluxo de Caixa' },
         { to: '/app/arena/historico-caixa', label: 'Histórico de Caixa' },
         { to: '/app/arena/dashboard-caixa', label: 'Dashboard do Caixa' },
+        { to: '/app/arena/conta-corrente', label: 'Contas Correntes' },
       ],
     },
     {

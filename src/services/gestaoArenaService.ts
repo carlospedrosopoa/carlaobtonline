@@ -488,3 +488,87 @@ export const colaboradorService = {
   },
 };
 
+// ========== CONTA CORRENTE ==========
+export interface ContaCorrenteCliente {
+  id: string;
+  usuarioId: string;
+  pointId: string;
+  saldo: number;
+  createdAt: string;
+  updatedAt: string;
+  usuario: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  point: {
+    id: string;
+    nome: string;
+  };
+}
+
+export interface MovimentacaoContaCorrente {
+  id: string;
+  contaCorrenteId: string;
+  tipo: 'CREDITO' | 'DEBITO';
+  valor: number;
+  justificativa: string;
+  pagamentoCardId: string | null;
+  createdAt: string;
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  card: {
+    id: string;
+    numeroCard: number;
+  } | null;
+}
+
+export interface CriarMovimentacaoPayload {
+  tipo: 'CREDITO' | 'DEBITO';
+  valor: number;
+  justificativa: string;
+}
+
+export const contaCorrenteService = {
+  listar: async (pointId?: string, usuarioId?: string): Promise<ContaCorrenteCliente[]> => {
+    const params = new URLSearchParams();
+    if (pointId) params.append('pointId', pointId);
+    if (usuarioId) params.append('usuarioId', usuarioId);
+    const query = params.toString();
+    const res = await api.get(`/gestao-arena/conta-corrente${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+
+  obter: async (id: string): Promise<ContaCorrenteCliente> => {
+    const res = await api.get(`/gestao-arena/conta-corrente/${id}`);
+    return res.data;
+  },
+
+  obterPorUsuario: async (usuarioId: string): Promise<ContaCorrenteCliente[]> => {
+    const res = await api.get(`/gestao-arena/conta-corrente/usuario/${usuarioId}`);
+    return res.data;
+  },
+
+  listarMovimentacoes: async (contaCorrenteId: string): Promise<MovimentacaoContaCorrente[]> => {
+    const res = await api.get(`/gestao-arena/conta-corrente/${contaCorrenteId}/movimentacao`);
+    return res.data;
+  },
+
+  criarMovimentacao: async (contaCorrenteId: string, payload: CriarMovimentacaoPayload): Promise<MovimentacaoContaCorrente> => {
+    const res = await api.post(`/gestao-arena/conta-corrente/${contaCorrenteId}/movimentacao`, payload);
+    return res.data;
+  },
+
+  atualizarMovimentacao: async (contaCorrenteId: string, movimentacaoId: string, payload: CriarMovimentacaoPayload): Promise<MovimentacaoContaCorrente> => {
+    const res = await api.put(`/gestao-arena/conta-corrente/${contaCorrenteId}/movimentacao/${movimentacaoId}`, payload);
+    return res.data;
+  },
+
+  excluirMovimentacao: async (contaCorrenteId: string, movimentacaoId: string): Promise<void> => {
+    await api.delete(`/gestao-arena/conta-corrente/${contaCorrenteId}/movimentacao/${movimentacaoId}`);
+  },
+};
+
