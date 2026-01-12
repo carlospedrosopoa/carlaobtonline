@@ -22,6 +22,28 @@ interface Atleta {
   usuarioId: string;
 }
 
+type VinculoPreview =
+  | {
+      tipo: 'existente_com_usuario';
+      atletaId: string;
+      usuarioId: string;
+      nome: string;
+      telefone: string;
+      email: string | null;
+    }
+  | {
+      tipo: 'existente_sem_usuario';
+      atletaId: string;
+      nome: string;
+      telefone: string;
+      email: string | null;
+    }
+  | {
+      tipo: 'novo';
+      nome: string;
+      telefone: string;
+    };
+
 export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess }: CriarEditarCardModalProps) {
   const { usuario } = useAuth();
   const [tipoCliente, setTipoCliente] = useState<'cadastrado' | 'avulso'>('cadastrado');
@@ -37,6 +59,9 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
   const [mostrarModalExcluir, setMostrarModalExcluir] = useState(false);
   const [senhaExclusao, setSenhaExclusao] = useState('');
   const [excluindo, setExcluindo] = useState(false);
+  const [vinculandoCliente, setVinculandoCliente] = useState(false);
+  const [vinculoPreview, setVinculoPreview] = useState<VinculoPreview | null>(null);
+  const [nomeAvulsoAntesPreview, setNomeAvulsoAntesPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -61,6 +86,8 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
         setBuscaAtleta('');
       }
       setErro('');
+      setVinculoPreview(null);
+      setNomeAvulsoAntesPreview(null);
       carregarAtletas();
     }
   }, [isOpen, card]);
@@ -91,6 +118,161 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
       console.error('Erro ao carregar atletas:', error);
     } finally {
       setCarregandoAtletas(false);
+    }
+  };
+
+  const normalizarTelefone = (telefone: string) => telefone.replace(/\D/g, '');
+
+  const prepararVinculo = async () => {
+    if (!usuario?.pointIdGestor) return;
+
+    const telefoneNormalizado = normalizarTelefone(telefoneAvulso);
+    if (telefoneNormalizado.length < 10) {
+      setErro('Informe um telefone válido para criar/vincular o atleta');
+      return;
+    }
+
+    if (!nomeAvulso.trim()) {
+      setErro('Informe o nome do cliente avulso antes de criar/vincular');
+      return;
+    }
+
+    try {
+      setVinculandoCliente(true);
+      setErro('');
+
+      try {
+        const resBusca = await api.post('/user/atleta/buscar-por-telefone', {
+          telefone: telefoneNormalizado,
+        });
+        const atletaId = resBusca.data?.id as string | undefined;
+        const usuarioId = resBusca.data?.usuarioId as string | null | undefined;
+        const nome = (resBusca.data?.nome as string | undefined) || nomeAvulso.trim();
+        const telefone = (resBusca.data?.telefone as string | undefined) || telefoneNormalizado;
+        const email = (resBusca.data?.email as string | null | undefined) ?? null;
+
+        if (!nomeAvulsoAntesPreview) {
+          setNomeAvulsoAntesPreview(nomeAvulso);
+        }
+        setNomeAvulso(nome);
+
+        if (usuarioId) {
+          setVinculoPreview({
+            tipo: 'existente_com_usuario',
+            atletaId: atletaId || '',
+            usuarioId,
+            nome,
+            telefone,
+            email,
+          });
+        } else {
+          setVinculoPreview({
+            tipo: 'existente_sem_usuario',
+            atletaId: atletaId || '',
+            nome,
+            telefone,
+            email,
+          });
+        }
+      } catch (err: any) {
+        const codigo = err?.response?.data?.codigo;
+        const status = err?.response?.status;
+        if (codigo === 'ATLETA_NAO_ENCONTRADO' || status === 404) {
+          setVinculoPreview({
+            tipo: 'novo',
+            nome: nomeAvulso.trim(),
+            telefone: telefoneNormalizado,
+          });
+        } else {
+          throw err;
+        }
+      }
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao criar/vincular atleta');
+    } finally {
+      setVinculandoCliente(false);
+    }
+  };
+
+  const cancelarPreviewVinculo = () => {
+    setVinculoPreview(null);
+    if (nomeAvulsoAntesPreview !== null) {
+      setNomeAvulso(nomeAvulsoAntesPreview);
+      setNomeAvulsoAntesPreview(null);
+    }
+  };
+
+  const confirmarVinculo = async () => {
+    if (!usuario?.pointIdGestor) return;
+    if (!vinculoPreview) return;
+
+    try {
+      setVinculandoCliente(true);
+      setErro('');
+
+      const telefoneNormalizado = normalizarTelefone(telefoneAvulso);
+      if (telefoneNormalizado.length < 10) {
+        setErro('Informe um telefone válido');
+        return;
+      }
+
+      let usuarioId: string | null = null;
+      let atletaId: string | null = null;
+
+      if (vinculoPreview.tipo === 'existente_com_usuario') {
+        usuarioId = vinculoPreview.usuarioId;
+        atletaId = vinculoPreview.atletaId || null;
+      }
+
+      if (vinculoPreview.tipo === 'existente_sem_usuario' || vinculoPreview.tipo === 'novo') {
+        const resCriar = await api.post('/user/criar-incompleto', {
+          name: nomeAvulso.trim(),
+          telefone: telefoneNormalizado,
+        });
+        usuarioId = resCriar.data?.usuario?.id ?? null;
+        atletaId = resCriar.data?.usuario?.atletaId ?? null;
+      }
+
+      if (!usuarioId) {
+        setErro('Não foi possível obter o usuário para vincular');
+        return;
+      }
+
+      if (atletaId) {
+        try {
+          await api.post(`/atleta/${atletaId}/vincular-arena`);
+        } catch (err: any) {
+          const codigo = err?.response?.data?.codigo;
+          if (codigo !== 'ATLETA_JA_VINCULADO') {
+            throw err;
+          }
+        }
+      }
+
+      if (card) {
+        await cardClienteService.atualizar(card.id, {
+          usuarioId,
+          nomeAvulso: null,
+          telefoneAvulso: null,
+        });
+        onSuccess();
+        onClose();
+        return;
+      }
+
+      await carregarAtletas();
+      setVinculoPreview(null);
+      setNomeAvulsoAntesPreview(null);
+      setTipoCliente('cadastrado');
+      setAtletaSelecionado(usuarioId);
+      setBuscaAtleta('');
+      setNomeAvulso('');
+      setTelefoneAvulso('');
+      alert('Cliente vinculado e comanda atualizada!');
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao confirmar vínculo');
+    } finally {
+      setVinculandoCliente(false);
     }
   };
 
@@ -311,13 +493,78 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                <input
-                  type="text"
-                  value={telefoneAvulso}
-                  onChange={(e) => setTelefoneAvulso(e.target.value)}
-                  placeholder="(00) 00000-0000"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={telefoneAvulso}
+                    onChange={(e) => setTelefoneAvulso(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={prepararVinculo}
+                    disabled={
+                      vinculandoCliente ||
+                      salvando ||
+                      excluindo ||
+                      normalizarTelefone(telefoneAvulso).length < 10 ||
+                      !nomeAvulso.trim()
+                    }
+                    className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Criar/vincular atleta e converter para cliente cadastrado"
+                  >
+                    {vinculandoCliente ? '...' : 'Buscar'}
+                  </button>
+                </div>
+
+                {vinculoPreview && (
+                  <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    {vinculoPreview.tipo === 'existente_com_usuario' && (
+                      <div className="text-sm text-emerald-900">
+                        <div className="font-semibold">Atleta encontrado</div>
+                        <div>{vinculoPreview.nome}</div>
+                        {vinculoPreview.email && <div className="text-emerald-800">{vinculoPreview.email}</div>}
+                        <div className="mt-2 text-emerald-800">Converter esta comanda para cliente cadastrado?</div>
+                      </div>
+                    )}
+
+                    {vinculoPreview.tipo === 'existente_sem_usuario' && (
+                      <div className="text-sm text-emerald-900">
+                        <div className="font-semibold">Atleta encontrado (sem usuário do app)</div>
+                        <div>{vinculoPreview.nome}</div>
+                        <div className="mt-2 text-emerald-800">Será criado um usuário para este telefone e a comanda será convertida.</div>
+                      </div>
+                    )}
+
+                    {vinculoPreview.tipo === 'novo' && (
+                      <div className="text-sm text-emerald-900">
+                        <div className="font-semibold">Nenhum atleta encontrado</div>
+                        <div className="mt-2 text-emerald-800">Será criado um novo atleta/usuário com:</div>
+                        <div className="mt-1">{vinculoPreview.nome}</div>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={cancelarPreviewVinculo}
+                        disabled={vinculandoCliente}
+                        className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-white disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmarVinculo}
+                        disabled={vinculandoCliente}
+                        className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        Confirmar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
