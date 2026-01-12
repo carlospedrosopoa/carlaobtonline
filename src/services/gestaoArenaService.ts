@@ -532,6 +532,13 @@ export interface CriarMovimentacaoPayload {
   justificativa: string;
 }
 
+export interface AbrirContaCorrentePayload {
+  usuarioId: string;
+  pointId?: string;
+  creditoInicial?: number;
+  justificativa?: string;
+}
+
 export const contaCorrenteService = {
   listar: async (pointId?: string, usuarioId?: string): Promise<ContaCorrenteCliente[]> => {
     const params = new URLSearchParams();
@@ -539,6 +546,11 @@ export const contaCorrenteService = {
     if (usuarioId) params.append('usuarioId', usuarioId);
     const query = params.toString();
     const res = await api.get(`/gestao-arena/conta-corrente${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+
+  abrir: async (payload: AbrirContaCorrentePayload): Promise<ContaCorrenteCliente> => {
+    const res = await api.post('/gestao-arena/conta-corrente', payload);
     return res.data;
   },
 
