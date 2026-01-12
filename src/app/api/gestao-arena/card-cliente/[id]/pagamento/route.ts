@@ -218,7 +218,7 @@ export async function POST(
 
     // Verificar se a forma de pagamento existe
     const formaPagamentoResult = await query(
-      'SELECT id, ativo FROM "FormaPagamento" WHERE id = $1',
+      'SELECT id, nome, ativo FROM "FormaPagamento" WHERE id = $1',
       [formaPagamentoId]
     );
 
@@ -238,18 +238,40 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Verificar se há uma abertura de caixa aberta
-    const aberturaAbertaResult = await query(
-      'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
-      [card.pointId, 'ABERTA']
-    );
+    const formaPagamento = formaPagamentoResult.rows[0];
+    const isContaCorrente = formaPagamento.nome?.toLowerCase().includes('conta corrente') || false;
 
-    if (aberturaAbertaResult.rows.length === 0) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
-        { status: 400 }
+    // Se for Conta Corrente, verificar se o card tem usuário vinculado
+    if (isContaCorrente) {
+      const cardComUsuarioResult = await query(
+        'SELECT "usuarioId" FROM "CardCliente" WHERE id = $1',
+        [cardId]
       );
-      return withCors(errorResponse, request);
+      
+      if (!cardComUsuarioResult.rows[0]?.usuarioId) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Não é possível usar Conta Corrente em cards sem cliente vinculado' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+    }
+
+    // Se for Conta Corrente, não precisa de abertura de caixa
+    // Se não for, verificar se há uma abertura de caixa aberta
+    if (!isContaCorrente) {
+      const aberturaAbertaResult = await query(
+        'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+        [card.pointId, 'ABERTA']
+      );
+
+      if (aberturaAbertaResult.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
     }
 
     // Calcular total já pago
@@ -314,12 +336,16 @@ export async function POST(
       }
     }
 
-    // Buscar abertura de caixa aberta atual
-    const aberturaResult = await query(
-      'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
-      [card.pointId, 'ABERTA']
-    );
-    const aberturaCaixaId = aberturaResult.rows.length > 0 ? aberturaResult.rows[0].id : null;
+    // Se for Conta Corrente, não precisa de abertura de caixa
+    // Se não for, buscar abertura de caixa aberta atual
+    let aberturaCaixaId = null;
+    if (!isContaCorrente) {
+      const aberturaResult = await query(
+        'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+        [card.pointId, 'ABERTA']
+      );
+      aberturaCaixaId = aberturaResult.rows.length > 0 ? aberturaResult.rows[0].id : null;
+    }
 
     // Inserir pagamento
     const pagamentoResult = await query(
@@ -342,6 +368,72 @@ export async function POST(
           [pagamentoId, itemId]
         );
       }
+    }
+
+    // Se for Conta Corrente, criar débito na conta corrente em vez de movimentar caixa
+    if (isContaCorrente) {
+      const cardComUsuarioResult = await query(
+        'SELECT "usuarioId" FROM "CardCliente" WHERE id = $1',
+        [cardId]
+      );
+      const usuarioId = cardComUsuarioResult.rows[0].usuarioId;
+
+      // Buscar ou criar conta corrente
+      let contaCorrenteResult = await query(
+        'SELECT id, saldo FROM "ContaCorrenteCliente" WHERE "usuarioId" = $1 AND "pointId" = $2',
+        [usuarioId, card.pointId]
+      );
+
+      let contaCorrenteId: string;
+      if (contaCorrenteResult.rows.length === 0) {
+        // Criar conta corrente se não existir
+        const novaContaResult = await query(
+          `INSERT INTO "ContaCorrenteCliente" (id, "usuarioId", "pointId", saldo, "createdAt", "updatedAt")
+           VALUES (gen_random_uuid()::text, $1, $2, 0, NOW(), NOW())
+           RETURNING id, saldo`,
+          [usuarioId, card.pointId]
+        );
+        contaCorrenteId = novaContaResult.rows[0].id;
+      } else {
+        contaCorrenteId = contaCorrenteResult.rows[0].id;
+      }
+
+      // Criar justificativa com informações do pagamento
+      const itensInfo = itemIds && itemIds.length > 0 
+        ? await query(
+            `SELECT p.nome, ic.quantidade, ic."precoUnitario", ic."precoTotal"
+             FROM "ItemCard" ic
+             LEFT JOIN "Produto" p ON ic."produtoId" = p.id
+             WHERE ic.id = ANY($1::text[])`,
+            [itemIds]
+          )
+        : { rows: [] };
+
+      const itensDescricao = itensInfo.rows.length > 0
+        ? itensInfo.rows.map((item: any) => 
+            `${item.quantidade}x ${item.nome || 'Produto'} - R$ ${parseFloat(item.precoTotal).toFixed(2)}`
+          ).join(', ')
+        : 'Pagamento parcial do card';
+
+      const justificativa = `Débito de pagamento - Card #${card.numeroCard} - ${itensDescricao}${observacoes ? ` - ${observacoes}` : ''}`;
+
+      // Criar movimentação de débito
+      await query(
+        `INSERT INTO "MovimentacaoContaCorrente" (
+          id, "contaCorrenteId", tipo, valor, justificativa, "pagamentoCardId", "createdById", "createdAt"
+        ) VALUES (
+          gen_random_uuid()::text, $1, 'DEBITO', $2, $3, $4, $5, NOW()
+        )`,
+        [contaCorrenteId, valor, justificativa, pagamentoId, usuario.id]
+      );
+
+      // Atualizar saldo da conta corrente (subtrair o valor)
+      await query(
+        `UPDATE "ContaCorrenteCliente"
+         SET saldo = saldo - $1, "updatedAt" = NOW()
+         WHERE id = $2`,
+        [valor, contaCorrenteId]
+      );
     }
 
     // Não criar entrada manual - a API de fluxo de caixa busca pagamentos de cards diretamente

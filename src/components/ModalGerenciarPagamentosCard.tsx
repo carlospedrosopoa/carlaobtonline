@@ -624,23 +624,51 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Forma de Pagamento *</label>
                 <div className="flex flex-wrap gap-2">
-                  {formasPagamento.map((forma) => {
-                    const selecionada = formaPagamentoSelecionada === forma.id;
-                    return (
-                      <button
-                        key={forma.id}
-                        type="button"
-                        onClick={() => setFormaPagamentoSelecionada(forma.id)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                          selecionada
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
-                        }`}
-                      >
-                        {forma.nome}
-                      </button>
-                    );
-                  })}
+                  {formasPagamento
+                    .sort((a, b) => {
+                      // Ordem: Pix, Débito, Crédito, Dinheiro, Online, Conta Corrente
+                      const ordem: Record<string, number> = {
+                        'pix': 1,
+                        'cartão de débito': 2,
+                        'cartao de debito': 2,
+                        'débito': 2,
+                        'debito': 2,
+                        'cartão de crédito': 3,
+                        'cartao de credito': 3,
+                        'crédito': 3,
+                        'credito': 3,
+                        'dinheiro': 4,
+                        'infinite pay': 5,
+                        'online': 5,
+                        'conta corrente': 6,
+                      };
+                      const nomeA = a.nome.toLowerCase();
+                      const nomeB = b.nome.toLowerCase();
+                      const ordemA = ordem[nomeA] || 999;
+                      const ordemB = ordem[nomeB] || 999;
+                      return ordemA - ordemB;
+                    })
+                    .map((forma) => {
+                      const selecionada = formaPagamentoSelecionada === forma.id;
+                      // Remover "Cartão de" do nome para exibição
+                      const nomeExibicao = forma.nome
+                        .replace(/^cartão de /i, '')
+                        .replace(/^cartao de /i, '');
+                      return (
+                        <button
+                          key={forma.id}
+                          type="button"
+                          onClick={() => setFormaPagamentoSelecionada(forma.id)}
+                          className={`px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                            selecionada
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                          }`}
+                        >
+                          {nomeExibicao}
+                        </button>
+                      );
+                    })}
                 </div>
                 {formaPagamentoSelecionada === '' && (
                   <p className="mt-2 text-xs text-red-500">Selecione uma forma de pagamento.</p>
