@@ -140,6 +140,7 @@ export default function CardsClientesPage() {
 
   const carregarSaldosContaCorrente = async (cards: CardCliente[]) => {
     if (!usuario?.pointIdGestor) return;
+    const pointIdGestor = usuario.pointIdGestor;
     
     try {
       // Coletar todos os usuarioId únicos dos cards que têm usuário vinculado
@@ -161,11 +162,11 @@ export default function CardsClientesPage() {
       await Promise.all(
         Array.from(usuarioIds).map(async (usuarioId) => {
           try {
-            const contas = await contaCorrenteService.listar(usuario.pointIdGestor, usuarioId);
+            const contas = await contaCorrenteService.listar(pointIdGestor, usuarioId);
             // Encontrar a conta da arena do gestor
-            const conta = contas.find((c) => c.pointId === usuario.pointIdGestor);
+            const conta = contas.find((c) => c.pointId === pointIdGestor);
             if (conta && conta.saldo !== 0) {
-              saldosMap[`${usuarioId}-${usuario.pointIdGestor}`] = conta.saldo;
+              saldosMap[`${usuarioId}-${pointIdGestor}`] = conta.saldo;
             }
           } catch (error) {
             // Ignorar erros individuais (conta pode não existir)
