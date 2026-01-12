@@ -201,7 +201,7 @@ export async function POST(
       createdAt: movimentacaoResult.rows[0].createdAt,
       createdBy: {
         id: usuario.id,
-        name: usuario.name,
+        name: usuario.nome,
         email: usuario.email,
       },
     };
