@@ -719,3 +719,39 @@ export const historicoAtletaArenaService = {
   },
 };
 
+export type DashboardOperacionalData = {
+  periodo: { dataInicio: string; dataFim: string };
+  agendamentos: {
+    total: number;
+    totalMinutos: number;
+    duracaoRanking: Array<{ duracao: number; quantidade: number; totalMinutos: number }>;
+    porTurno: Array<{ turno: string; quantidade: number; totalMinutos: number }>;
+    porDiaSemana: Array<{ diaSemana: number; quantidade: number; totalMinutos: number }>;
+    horariosMaisVendidos: Array<{ hora: number; quantidade: number; totalMinutos: number }>;
+  };
+  comandas: {
+    totalItens: number;
+    faturamento: number;
+    totalComandas: number;
+    ticketMedio: number;
+    topProdutos: Array<{
+      produtoId: string;
+      nome: string;
+      categoria: string;
+      quantidade: number;
+      valorTotal: number;
+    }>;
+  };
+};
+
+export const dashboardOperacionalService = {
+  obter: async (pointId: string, dataInicio: string, dataFim: string): Promise<DashboardOperacionalData> => {
+    const params = new URLSearchParams();
+    params.set('pointId', pointId);
+    params.set('dataInicio', dataInicio);
+    params.set('dataFim', dataFim);
+    const res = await api.get(`/gestao-arena/dashboard-operacional?${params.toString()}`);
+    return res.data;
+  },
+};
+
