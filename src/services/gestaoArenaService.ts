@@ -532,6 +532,78 @@ export interface CriarMovimentacaoPayload {
   justificativa: string;
 }
 
+export type AtletaHistoricoArena = {
+  id: string;
+  nome: string;
+  fone: string | null;
+  usuarioId: string | null;
+  usuario: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  } | null;
+};
+
+export type HistoricoAtletaResumo = {
+  atleta: {
+    id: string;
+    nome: string;
+    fone: string | null;
+    usuarioId: string;
+    email: string | null;
+  };
+  consumo: { total: number; quantidade: number };
+  pagamentos: { total: number; quantidade: number };
+  contaCorrente: { saldo: number };
+  agendamentos: { total: number; quantidade: number };
+};
+
+export type HistoricoAtletaConsumoItem = {
+  id: string;
+  createdAt: string;
+  quantidade: number;
+  precoUnitario: number;
+  precoTotal: number;
+  observacoes: string | null;
+  produto: { id: string; nome: string } | null;
+  card: { id: string; numeroCard: number };
+};
+
+export type HistoricoAtletaPagamento = {
+  id: string;
+  createdAt: string;
+  valor: number;
+  observacoes: string | null;
+  formaPagamento: { id: string; nome: string; tipo: string } | null;
+  card: { id: string; numeroCard: number };
+};
+
+export type HistoricoAtletaContaCorrente = {
+  saldo: number;
+  movimentacoes: Array<{
+    id: string;
+    tipo: 'CREDITO' | 'DEBITO';
+    valor: number;
+    justificativa: string;
+    pagamentoCardId: string | null;
+    createdAt: string;
+    createdBy: { id: string; name: string; email: string } | null;
+    card: { id: string; numeroCard: number } | null;
+  }>;
+};
+
+export type HistoricoAtletaAgendamento = {
+  id: string;
+  dataHora: string;
+  duracao: number;
+  status: string;
+  observacoes: string | null;
+  valorCalculado: number | null;
+  valorNegociado: number | null;
+  quadra: { id: string; nome: string } | null;
+  usuario: { id: string; name: string; email: string } | null;
+};
+
 export interface AbrirContaCorrentePayload {
   usuarioId: string;
   pointId?: string;
@@ -581,6 +653,69 @@ export const contaCorrenteService = {
 
   excluirMovimentacao: async (contaCorrenteId: string, movimentacaoId: string): Promise<void> => {
     await api.delete(`/gestao-arena/conta-corrente/${contaCorrenteId}/movimentacao/${movimentacaoId}`);
+  },
+};
+
+export const historicoAtletaArenaService = {
+  buscarAtletas: async (pointId: string, q: string): Promise<AtletaHistoricoArena[]> => {
+    const params = new URLSearchParams();
+    params.set('pointId', pointId);
+    if (q) params.set('q', q);
+    const res = await api.get(`/gestao-arena/historico-atleta/atletas?${params.toString()}`);
+    return res.data;
+  },
+
+  obterResumo: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaResumo> => {
+    const params = new URLSearchParams();
+    params.set('pointId', pointId);
+    if (dataInicio) params.set('dataInicio', dataInicio);
+    if (dataFim) params.set('dataFim', dataFim);
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/resumo?${params.toString()}`);
+    return res.data;
+  },
+
+  listarConsumo: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaConsumoItem[]> => {
+    const params = new URLSearchParams();
+    params.set('pointId', pointId);
+    if (dataInicio) params.set('dataInicio', dataInicio);
+    if (dataFim) params.set('dataFim', dataFim);
+    params.set('limit', '100');
+    params.set('offset', '0');
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/consumo?${params.toString()}`);
+    return res.data;
+  },
+
+  listarPagamentos: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaPagamento[]> => {
+    const params = new URLSearchParams();
+    params.set('pointId', pointId);
+    if (dataInicio) params.set('dataInicio', dataInicio);
+    if (dataFim) params.set('dataFim', dataFim);
+    params.set('limit', '100');
+    params.set('offset', '0');
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/pagamentos?${params.toString()}`);
+    return res.data;
+  },
+
+  obterContaCorrente: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaContaCorrente> => {
+    const params = new URLSearchParams();
+    params.set('pointId', pointId);
+    if (dataInicio) params.set('dataInicio', dataInicio);
+    if (dataFim) params.set('dataFim', dataFim);
+    params.set('limit', '100');
+    params.set('offset', '0');
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/conta-corrente?${params.toString()}`);
+    return res.data;
+  },
+
+  listarAgendamentos: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaAgendamento[]> => {
+    const params = new URLSearchParams();
+    params.set('pointId', pointId);
+    if (dataInicio) params.set('dataInicio', dataInicio);
+    if (dataFim) params.set('dataFim', dataFim);
+    params.set('limit', '100');
+    params.set('offset', '0');
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/agendamentos?${params.toString()}`);
+    return res.data;
   },
 };
 
