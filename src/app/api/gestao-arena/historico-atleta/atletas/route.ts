@@ -40,13 +40,13 @@ export async function GET(request: NextRequest) {
 
     const qLower = q.toLowerCase();
     const qDigits = q.replace(/\D/g, '');
+    const hasDigits = qDigits.length >= 2;
 
     const baseWhere = `WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" IS NOT NULL)`;
     const filtroBusca = q
       ? ` AND (
         LOWER(a.nome) LIKE $2 OR
-        LOWER(u.email) LIKE $2 OR
-        REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') LIKE $3
+        LOWER(u.email) LIKE $2${hasDigits ? " OR REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') LIKE $3" : ''}
       )`
       : '';
 
@@ -67,17 +67,18 @@ export async function GET(request: NextRequest) {
     FROM "Atleta" a
     LEFT JOIN "User" u ON u.id = a."usuarioId"
     WHERE a."pointIdPrincipal" = $1
-    ${q ? ` AND (
+    ${
+      q
+        ? ` AND (
       LOWER(a.nome) LIKE $2 OR
-      LOWER(u.email) LIKE $2 OR
-      REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') LIKE $3
-    )` : ''}
+      LOWER(u.email) LIKE $2${hasDigits ? " OR REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') LIKE $3" : ''}
+    )`
+        : ''
+    }
     ORDER BY a.nome ASC
     LIMIT 30`;
 
-    const params = q
-      ? [pointId, `%${qLower}%`, `%${qDigits}%`]
-      : [pointId];
+    const params = q ? [pointId, `%${qLower}%`, ...(hasDigits ? [`%${qDigits}%`] : [])] : [pointId];
 
     let result;
     try {
