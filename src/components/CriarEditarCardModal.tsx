@@ -13,6 +13,7 @@ interface CriarEditarCardModalProps {
   card: CardCliente | null;
   onClose: () => void;
   onSuccess: (cardCriado?: CardCliente) => void; // Retorna o card criado para abrir o modal de venda
+  readOnly?: boolean;
 }
 
 interface Atleta {
@@ -44,8 +45,9 @@ type VinculoPreview =
       telefone: string;
     };
 
-export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess }: CriarEditarCardModalProps) {
+export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess, readOnly }: CriarEditarCardModalProps) {
   const { usuario } = useAuth();
+  const isReadOnly = Boolean(readOnly);
   const [tipoCliente, setTipoCliente] = useState<'cadastrado' | 'avulso'>('cadastrado');
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [buscaAtleta, setBuscaAtleta] = useState('');
@@ -277,6 +279,10 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
   };
 
   const salvar = async () => {
+    if (isReadOnly) {
+      onClose();
+      return;
+    }
     if (!usuario?.pointIdGestor) return;
 
     // Validações
@@ -330,6 +336,7 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
   };
 
   const excluirCard = async () => {
+    if (isReadOnly) return;
     if (!card) return;
 
     if (!senhaExclusao) {
@@ -394,6 +401,7 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
         )}
 
         <div className="space-y-4">
+          <fieldset disabled={isReadOnly || salvando || excluindo} className="space-y-4">
           {/* Tipo de Cliente */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Cliente</label>
@@ -581,10 +589,18 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
             />
           </div>
 
+          {isReadOnly && (
+            <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+              Modo somente leitura.
+            </div>
+          )}
+
+          </fieldset>
+
           {/* Botões */}
           <div className="flex flex-col gap-3 pt-4">
             <div className="flex gap-3">
-              {card && (
+              {!isReadOnly && card && (
                 <button
                   onClick={() => setMostrarModalExcluir(true)}
                   disabled={salvando || excluindo}
@@ -598,15 +614,17 @@ export default function CriarEditarCardModal({ isOpen, card, onClose, onSuccess 
                 onClick={onClose}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
-                Cancelar
+                {isReadOnly ? 'Fechar' : 'Cancelar'}
               </button>
-              <button
-                onClick={salvar}
-                disabled={salvando || excluindo}
-                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {salvando ? 'Salvando...' : 'Salvar'}
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={salvar}
+                  disabled={salvando || excluindo}
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {salvando ? 'Salvando...' : 'Salvar'}
+                </button>
+              )}
             </div>
 
             {/* Modal de confirmação de exclusão */}

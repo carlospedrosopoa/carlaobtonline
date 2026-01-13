@@ -34,6 +34,7 @@ interface EditarAgendamentoModalProps {
   dataInicial?: string; // Para pré-preencher a data ao criar novo agendamento (formato: YYYY-MM-DD)
   horaInicial?: string; // Para pré-preencher a hora ao criar novo agendamento (formato: HH:mm)
   duracaoInicial?: number; // Para pré-preencher a duração ao criar novo agendamento (em minutos)
+  readOnly?: boolean;
 }
 
 export default function EditarAgendamentoModal({
@@ -45,12 +46,14 @@ export default function EditarAgendamentoModal({
   dataInicial,
   horaInicial,
   duracaoInicial,
+  readOnly,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
   // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou próprios)
   const isAdmin = isAdminContext;
   const isOrganizer = isOrganizerContext;
   const canGerenciarAgendamento = isAdmin || isOrganizer;
+  const isReadOnly = Boolean(readOnly);
 
   const [points, setPoints] = useState<any[]>([]);
   const [quadras, setQuadras] = useState<any[]>([]);
@@ -1400,7 +1403,8 @@ export default function EditarAgendamentoModal({
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={isReadOnly ? (e) => e.preventDefault() : handleSubmit} className="space-y-6">
+            <fieldset disabled={isReadOnly} className="space-y-6">
             {/* Seleção de Atleta (modo atleta) */}
             {canGerenciarAgendamento && modo === 'atleta' && (
               <div>
@@ -2210,7 +2214,7 @@ export default function EditarAgendamentoModal({
 
 
             {/* Botão Gerar Cards - apenas para agendamentos existentes com valor e com cliente vinculado */}
-            {agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && 
+            {!isReadOnly && agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && 
              (agendamento.atletaId || agendamento.nomeAvulso || (agendamento.atletasParticipantes && agendamento.atletasParticipantes.length > 0)) && (
               <div className="mt-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                 <div className="flex items-start gap-3">
@@ -2311,7 +2315,7 @@ export default function EditarAgendamentoModal({
             )}
 
             {/* Flag para manter na tela após salvar (apenas para gestores em modo criação) */}
-            {canGerenciarAgendamento && !agendamento && (
+            {!isReadOnly && canGerenciarAgendamento && !agendamento && (
               <div className="pt-4 pb-2 border-t border-gray-200">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -2330,6 +2334,8 @@ export default function EditarAgendamentoModal({
               </div>
             )}
 
+            </fieldset>
+
             <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
               <button
                 type="button"
@@ -2337,28 +2343,30 @@ export default function EditarAgendamentoModal({
                 disabled={salvando}
                 className="w-full sm:w-auto px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 text-gray-800 font-medium transition-colors disabled:opacity-50"
               >
-                Cancelar
+                {isReadOnly ? 'Fechar' : 'Cancelar'}
               </button>
-              <button
-                type="submit"
-                disabled={salvando || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
-                className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title={agendamento && !temAlteracoes ? 'Não há alterações para salvar' : ''}
-              >
-                {salvando ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Salvando...
-                  </span>
-                ) : agendamento ? (
-                  'Salvar Alterações'
-                ) : (
-                  'Criar Agendamento'
-                )}
-              </button>
+              {!isReadOnly && (
+                <button
+                  type="submit"
+                  disabled={salvando || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
+                  className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title={agendamento && !temAlteracoes ? 'Não há alterações para salvar' : ''}
+                >
+                  {salvando ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Salvando...
+                    </span>
+                  ) : agendamento ? (
+                    'Salvar Alterações'
+                  ) : (
+                    'Criar Agendamento'
+                  )}
+                </button>
+              )}
             </div>
           </form>
         </Dialog.Panel>

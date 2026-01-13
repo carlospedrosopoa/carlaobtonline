@@ -15,11 +15,13 @@ interface GerenciarCardModalProps {
   onClose: () => void;
   onSuccess: (cardAtualizado?: CardCliente) => void;
   onEditar?: () => void;
+  readOnly?: boolean;
 }
 
-export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, onEditar }: GerenciarCardModalProps) {
+export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, onEditar, readOnly }: GerenciarCardModalProps) {
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const canGerenciarCard = isAdmin || isOrganizer;
+  const isReadOnly = Boolean(readOnly);
   const [cardCompleto, setCardCompleto] = useState<CardCliente | null>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
@@ -186,6 +188,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalItem = () => {
+    if (isReadOnly) return;
     setProdutoSelecionado('');
     setBuscaProduto('');
     setQuantidadeItem(1);
@@ -241,6 +244,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const removerItem = (itemId: string) => {
+    if (isReadOnly) return;
     if (!cardCompleto || !confirm('Tem certeza que deseja remover este item?')) return;
 
     // Encontrar o item para verificar se é novo ou já existe no backend
@@ -257,6 +261,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const iniciarEdicaoObservacoes = (itemId: string) => {
+    if (isReadOnly) return;
     const item = itensLocais.find((i) => i.id === itemId);
     setItemEditandoObservacoes(itemId);
     setNovasObservacoesItem(item?.observacoes || '');
@@ -268,6 +273,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const salvarObservacoesItem = (itemId: string) => {
+    if (isReadOnly) return;
     setItensLocais((prev) =>
       prev.map((item) =>
         item.id === itemId
@@ -281,6 +287,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalPagamento = () => {
+    if (isReadOnly) return;
     setFormaPagamentoSelecionada('');
     setValorPagamento(null);
     setObservacoesPagamento('');
@@ -331,6 +338,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const adicionarPagamento = () => {
+    if (isReadOnly) return;
     if (!cardCompleto || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0) {
       setErro('Preencha todos os campos obrigatórios');
       return;
@@ -363,6 +371,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const removerPagamento = (pagamentoId: string) => {
+    if (isReadOnly) return;
     if (!cardCompleto || !confirm('Tem certeza que deseja remover este pagamento?')) return;
 
     // Encontrar o pagamento para verificar se é novo ou já existe no backend
@@ -379,6 +388,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const salvarAlteracoes = async (fecharAposSalvar: boolean = false) => {
+    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     try {
@@ -512,6 +522,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const fecharCard = async () => {
+    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     // Se há alterações não salvas, perguntar se quer salvar antes de fechar
@@ -565,6 +576,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const cancelarCard = async () => {
+    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     // Confirmação rigorosa para evitar cliques acidentais
@@ -586,6 +598,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalExcluir = () => {
+    if (isReadOnly) return;
     setSenhaExclusao('');
     setErroExclusao('');
     setModalExcluirAberto(true);
@@ -598,6 +611,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const excluirCard = async () => {
+    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     if (!senhaExclusao.trim()) {
@@ -632,6 +646,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalConfirmarSenha = () => {
+    if (isReadOnly) return;
     setSenhaConfirmacao('');
     setErroSenha('');
     setModalConfirmarSenhaAberto(true);
@@ -644,6 +659,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const reabrirCard = async () => {
+    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     if (!senhaConfirmacao.trim()) {
@@ -778,7 +794,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     <div className="text-sm text-gray-500">Cliente não informado</div>
                   )}
                 </div>
-                {cardCompleto.status === 'ABERTO' && onEditar && (
+                {!isReadOnly && cardCompleto.status === 'ABERTO' && onEditar && (
                   <button
                     onClick={() => {
                       onClose();
@@ -865,7 +881,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   <ShoppingCart className="w-5 h-5" />
                   Itens
                 </h3>
-                {cardCompleto.status === 'ABERTO' && (
+                {!isReadOnly && cardCompleto.status === 'ABERTO' && (
                   <button
                     onClick={abrirModalItem}
                     className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
@@ -936,7 +952,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                                   Sem observações
                                 </div>
                               )}
-                              {cardCompleto.status === 'ABERTO' && (
+                              {!isReadOnly && cardCompleto.status === 'ABERTO' && (
                                 <button
                                   onClick={() => iniciarEdicaoObservacoes(item.id)}
                                   className="px-1.5 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -959,7 +975,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                             </div>
                           )}
                         </div>
-                        {cardCompleto.status === 'ABERTO' && (
+                        {!isReadOnly && cardCompleto.status === 'ABERTO' && (
                           <button
                             onClick={() => removerItem(item.id)}
                             className="ml-3 p-1 text-red-600 hover:bg-red-50 rounded"
@@ -985,7 +1001,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   <CreditCard className="w-5 h-5" />
                   Pagamentos
                 </h3>
-                {cardCompleto.status === 'ABERTO' && (
+                {!isReadOnly && cardCompleto.status === 'ABERTO' && (
                   <button
                     onClick={abrirModalPagamento}
                     className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
@@ -1042,7 +1058,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="font-semibold text-green-600">{formatarMoeda(pagamento.valor)}</div>
-                            {cardCompleto.status === 'ABERTO' && (
+                            {!isReadOnly && cardCompleto.status === 'ABERTO' && (
                               <button
                                 onClick={() => removerPagamento(pagamento.id)}
                                 className="p-1 text-red-600 hover:bg-red-50 rounded"
@@ -1085,7 +1101,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
 
             {/* Ações */}
-            {cardCompleto && (() => {
+            {!isReadOnly && cardCompleto && (() => {
               const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
               const valorTotalLocal = valorTotalItens;
               const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
@@ -1177,7 +1193,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         ) : null}
 
         {/* Modal Adicionar Item */}
-        {modalItemAberto && (
+        {!isReadOnly && modalItemAberto && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Adicionar Item</h3>
@@ -1321,7 +1337,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         )}
 
         {/* Modal Adicionar Pagamento */}
-        {modalPagamentoAberto && (
+        {!isReadOnly && modalPagamentoAberto && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Adicionar Pagamento</h3>
@@ -1502,8 +1518,8 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         )}
 
         {/* Modal Confirmar Senha para Reabrir Comanda */}
-        {modalConfirmarSenhaAberto && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        {!isReadOnly && modalConfirmarSenhaAberto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Confirmar Senha</h3>
               <p className="text-sm text-gray-600 mb-4">
@@ -1558,8 +1574,8 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         )}
 
         {/* Modal Excluir Comanda */}
-        {modalExcluirAberto && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        {!isReadOnly && modalExcluirAberto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Excluir Comanda</h3>
               <p className="text-sm text-gray-600 mb-4">
