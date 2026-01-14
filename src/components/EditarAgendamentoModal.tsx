@@ -131,6 +131,7 @@ export default function EditarAgendamentoModal({
   const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros (não usado mais, mas mantido para compatibilidade)
   const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente (não usado mais, mas mantido para compatibilidade)
   const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
+  const [gerarCardsAoSalvar, setGerarCardsAoSalvar] = useState(false);
   const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
   const inputBuscaAtletaRef = useRef<HTMLInputElement>(null); // Ref para o campo de busca de atleta
@@ -430,6 +431,7 @@ export default function EditarAgendamentoModal({
     setBuscaAtletasParticipantes('');
     setParticipantesCompletos([]);
     setManterNaTela(false); // Resetar flag ao resetar formulário
+    setGerarCardsAoSalvar(false);
     setEhAula(false);
     setProfessorId('');
     // Limpar campos de recorrência
@@ -1219,6 +1221,59 @@ export default function EditarAgendamentoModal({
 
       // Executar salvamento diretamente (sem modal de confirmação)
       // A lógica de aplicar aos futuros foi removida - sempre edita apenas o agendamento atual
+      const temValorParaCards = Boolean((valorNegociado ?? valorCalculado) && Number(valorNegociado ?? valorCalculado) > 0);
+      const temClienteParaCards = Boolean(atletaId || nomeAvulso || atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0);
+      const podeGerarCards = !isReadOnly && canGerenciarAgendamento && temValorParaCards && temClienteParaCards;
+
+      const executarGeracaoCards = async (agendamentoId: string): Promise<boolean> => {
+        try {
+          setGerandoCards(true);
+          setErro('');
+          const resultado = await agendamentoService.gerarCards(agendamentoId);
+          const valorTotal = typeof resultado.valorTotal === 'number' ? resultado.valorTotal : parseFloat(resultado.valorTotal) || 0;
+          const valorPorCliente = typeof resultado.valorPorCliente === 'number' ? resultado.valorPorCliente : parseFloat(resultado.valorPorCliente) || 0;
+          const totalClientes = resultado.totalClientes || 0;
+          const totalCardsCriados = resultado.totalCardsCriados || 0;
+          const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
+
+          let mensagemDetalhada = `${resultado.mensagem}\n\n`;
+          mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
+          mensagemDetalhada += `Valor por cliente: R$ ${valorPorCliente.toFixed(2)}\n`;
+          mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
+          if (totalCardsCriados > 0) {
+            mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
+          }
+          if (totalCardsAtualizados > 0) {
+            mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
+          }
+          alert(mensagemDetalhada);
+          return true;
+        } catch (error: any) {
+          const isNetworkError =
+            error?.message?.includes('Failed to fetch') ||
+            error?.message?.includes('NetworkError') ||
+            error?.message?.includes('cancelada');
+
+          let mensagemErro =
+            error?.response?.data?.mensagem ||
+            error?.data?.mensagem ||
+            error?.message ||
+            'Erro ao gerar cards';
+
+          if (isNetworkError) {
+            mensagemErro = 'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
+          }
+
+          setErro(mensagemErro);
+          if (!error?.response?.data?.cards && !error?.data?.cards) {
+            alert(`Erro: ${mensagemErro}`);
+          }
+          return false;
+        } finally {
+          setGerandoCards(false);
+        }
+      };
+
       if (agendamento) {
         // Modo edição
         setSalvando(true);
@@ -1254,6 +1309,7 @@ export default function EditarAgendamentoModal({
           });
           
           onSuccess();
+          if (gerarCardsAoSalvar && podeGerarCards) await executarGeracaoCards(agendamentoAtualizado.id);
           onClose();
         } catch (error: any) {
           console.error('Erro ao atualizar agendamento:', error);
@@ -1279,8 +1335,11 @@ export default function EditarAgendamentoModal({
             valorNegociado: novoAgendamento.valorNegociado,
           });
           
-          // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
-          if (manterNaTela && canGerenciarAgendamento) {
+          if (gerarCardsAoSalvar && podeGerarCards) {
+            onSuccess();
+            await executarGeracaoCards(novoAgendamento.id);
+            onClose();
+          } else if (manterNaTela && canGerenciarAgendamento) {
             // Limpar apenas seleção de quadras e participantes
             setQuadraId('');
             setAtletasParticipantesIds([]);
@@ -1328,6 +1387,12 @@ export default function EditarAgendamentoModal({
   };
 
   const conflito = verificarConflito();
+
+  const podeGerarCardsAoSalvar = useMemo(() => {
+    const temValor = Boolean((valorNegociado ?? valorCalculado) && Number(valorNegociado ?? valorCalculado) > 0);
+    const temCliente = Boolean(atletaId || nomeAvulso || atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0);
+    return !isReadOnly && canGerenciarAgendamento && temValor && temCliente;
+  }, [isReadOnly, canGerenciarAgendamento, valorNegociado, valorCalculado, atletaId, nomeAvulso, atletasParticipantesIds.length, participantesAvulsos.length]);
 
   const formatCurrency = (v: number | null) =>
     v == null
@@ -2334,6 +2399,28 @@ export default function EditarAgendamentoModal({
               </div>
             )}
 
+            {!isReadOnly && canGerenciarAgendamento && (
+              <div className="pt-4 pb-2 border-t border-gray-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={gerarCardsAoSalvar}
+                    onChange={(e) => setGerarCardsAoSalvar(e.target.checked)}
+                    disabled={!podeGerarCardsAoSalvar || salvando || gerandoCards}
+                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 disabled:opacity-50"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Gerar cards ao salvar
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-6">
+                  {podeGerarCardsAoSalvar
+                    ? 'Se marcado, ao salvar o agendamento o sistema cria/atualiza as comandas automaticamente.'
+                    : 'Informe cliente e valor (calculado ou negociado) para habilitar esta opção.'}
+                </p>
+              </div>
+            )}
+
             </fieldset>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
@@ -2348,7 +2435,7 @@ export default function EditarAgendamentoModal({
               {!isReadOnly && (
                 <button
                   type="submit"
-                  disabled={salvando || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
+                  disabled={salvando || gerandoCards || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
                   className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title={agendamento && !temAlteracoes ? 'Não há alterações para salvar' : ''}
                 >
