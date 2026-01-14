@@ -115,6 +115,14 @@ export default function DashboardOperacionalArenaPage() {
       totalMinutos: r.totalMinutos,
     }));
 
+    const fatDows = Array.from({ length: 7 }).map((_, i) => {
+      const row = com?.faturamentoPorDiaSemana?.find((x) => x.diaSemana === i);
+      return {
+        dia: DIAS_SEMANA[i],
+        valorTotal: row?.valorTotal || 0,
+      };
+    });
+
     const topDuracao = ag?.duracaoRanking?.[0] || null;
 
     return {
@@ -132,6 +140,7 @@ export default function DashboardOperacionalArenaPage() {
       dows,
       duracoes,
       horarios,
+      fatDows,
       produtos: com?.topProdutos || [],
     };
   }, [dados]);
@@ -167,7 +176,7 @@ export default function DashboardOperacionalArenaPage() {
         <KpisSkeleton />
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <KpiCard
               titulo="Agendamentos"
               valor={String(view.kpis.totalAgendamentos)}
@@ -191,6 +200,12 @@ export default function DashboardOperacionalArenaPage() {
               valor={formatarMoeda(view.kpis.ticketMedio)}
               subtitulo={view.kpis.totalComandas ? `Comandas: ${view.kpis.totalComandas}` : '—'}
               icon={<Receipt className="w-5 h-5" />}
+            />
+            <KpiCard
+              titulo="Faturamento (comandas)"
+              valor={formatarMoeda(view.kpis.faturamento)}
+              subtitulo={view.kpis.totalComandas ? `Média: ${formatarMoeda(view.kpis.faturamento / Math.max(1, view.kpis.totalComandas))} por comanda` : '—'}
+              icon={<TrendingUp className="w-5 h-5" />}
             />
           </div>
 
@@ -241,6 +256,18 @@ export default function DashboardOperacionalArenaPage() {
                   <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Bar dataKey="quantidade" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardGrafico>
+
+            <CardGrafico title="Faturamento por dia da semana (comandas)">
+              <ResponsiveContainer width="100%" height="100%" minHeight={240}>
+                <BarChart data={view.fatDows} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="dia" />
+                  <YAxis />
+                  <Tooltip formatter={(v: any) => formatarMoeda(Number(v) || 0)} />
+                  <Bar dataKey="valorTotal" fill="#ef4444" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardGrafico>

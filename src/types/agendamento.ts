@@ -249,6 +249,7 @@ export interface FiltrosAgendamento {
   dataInicio?: string;
   dataFim?: string;
   status?: StatusAgendamento;
+  duracao?: number;
   apenasMeus?: boolean;
 }
 

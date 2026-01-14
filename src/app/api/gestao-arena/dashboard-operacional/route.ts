@@ -200,9 +200,23 @@ export async function GET(request: NextRequest) {
       FROM card_totals
     `;
 
+    const faturamentoPorDiaSemanaSql = `
+      SELECT
+        EXTRACT(DOW FROM (i."createdAt" AT TIME ZONE 'America/Sao_Paulo'))::int as "diaSemana",
+        COALESCE(SUM(i."precoTotal"), 0)::numeric as "valorTotal"
+      FROM "ItemCard" i
+      JOIN "CardCliente" c ON c.id = i."cardId"
+      WHERE c."pointId" = $1
+        AND c.status <> 'CANCELADO'
+        AND i."createdAt" >= $2
+        AND i."createdAt" <= $3
+      GROUP BY 1
+      ORDER BY 1
+    `;
+
     const params = [pointId, dataInicio.toISOString(), dataFim.toISOString()];
 
-    const [kpisAg, duracoes, turnos, dows, horarios, topProdutos, kpisComandas, ticketMedio] = await Promise.all([
+    const [kpisAg, duracoes, turnos, dows, horarios, topProdutos, kpisComandas, ticketMedio, fatDows] = await Promise.all([
       query(kpisAgendamentoSql, params),
       query(duracaoRankingSql, params),
       query(porTurnoSql, params),
@@ -211,6 +225,7 @@ export async function GET(request: NextRequest) {
       query(produtosSql, params),
       query(comandasKpisSql, params),
       query(ticketMedioSql, params),
+      query(faturamentoPorDiaSemanaSql, params),
     ]);
 
     const ag = kpisAg.rows?.[0] || { total: 0, totalMinutos: 0 };
@@ -251,6 +266,10 @@ export async function GET(request: NextRequest) {
         faturamento: Number(kc.faturamento) || 0,
         totalComandas: Number(tm.totalComandas) || 0,
         ticketMedio: Number(tm.ticketMedio) || 0,
+        faturamentoPorDiaSemana: fatDows.rows.map((r: any) => ({
+          diaSemana: Number(r.diaSemana) || 0,
+          valorTotal: Number(r.valorTotal) || 0,
+        })),
         topProdutos: topProdutos.rows.map((r: any) => ({
           produtoId: String(r.produtoId),
           nome: String(r.nome),
