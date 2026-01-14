@@ -94,6 +94,7 @@ export const agendamentoService = {
     if (filtros?.dataInicio) params.push(`dataInicio=${filtros.dataInicio}`);
     if (filtros?.dataFim) params.push(`dataFim=${filtros.dataFim}`);
     if (filtros?.status) params.push(`status=${filtros.status}`);
+    if (typeof filtros?.duracao === 'number') params.push(`duracao=${filtros.duracao}`);
     if (filtros?.apenasMeus) params.push(`apenasMeus=true`);
 
     const queryString = params.length > 0 ? `?${params.join("&")}` : "";
@@ -219,5 +220,4 @@ export const bloqueioAgendaService = {
     await api.delete(`/bloqueio-agenda/${id}`);
   },
 };
-
 

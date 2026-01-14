@@ -15,8 +15,22 @@ export async function GET(request: NextRequest) {
     const dataInicio = searchParams.get('dataInicio');
     const dataFim = searchParams.get('dataFim');
     const status = searchParams.get('status');
+    const duracaoParam = searchParams.get('duracao');
     const apenasMeus = searchParams.get('apenasMeus') === 'true';
     const incluirPassados = searchParams.get('incluirPassados') === 'true';
+
+    let duracao: number | null = null;
+    if (duracaoParam && duracaoParam.trim() !== '') {
+      const n = Number(duracaoParam);
+      if (!Number.isFinite(n) || n <= 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'duracao inválida' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+      duracao = n;
+    }
 
     // Obter usuário autenticado
     const usuario = await getUsuarioFromRequest(request);
@@ -124,6 +138,12 @@ export async function GET(request: NextRequest) {
     if (status) {
       sql += ` AND a.status = $${paramCount}`;
       params.push(status);
+      paramCount++;
+    }
+
+    if (duracao !== null) {
+      sql += ` AND a.duracao = $${paramCount}`;
+      params.push(duracao);
       paramCount++;
     }
 
@@ -272,6 +292,12 @@ export async function GET(request: NextRequest) {
         if (status) {
           sql += ` AND a.status = $${paramCount}`;
           paramsFallback.push(status);
+          paramCount++;
+        }
+
+        if (duracao !== null) {
+          sql += ` AND a.duracao = $${paramCount}`;
+          paramsFallback.push(duracao);
           paramCount++;
         }
         if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
