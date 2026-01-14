@@ -22,6 +22,35 @@ const getAllowedOrigins = (): string[] => {
       origins.push(origin);
     }
   });
+
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) {
+    const origin = `https://${vercelUrl}`;
+    if (!origins.includes(origin)) {
+      origins.push(origin);
+    }
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    try {
+      const origin = new URL(appUrl).origin;
+      if (!origins.includes(origin)) {
+        origins.push(origin);
+      }
+    } catch {}
+  }
+
+  const defaultProdOrigins = [
+    'https://playnaquadra.com.br',
+    'https://appatleta.playnaquadra.com.br',
+    'https://atleta.playnaquadra.com.br',
+  ];
+  defaultProdOrigins.forEach((origin) => {
+    if (!origins.includes(origin)) {
+      origins.push(origin);
+    }
+  });
   
   return origins;
 };
@@ -45,20 +74,24 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
     origin.startsWith('http://127.0.0.1:')
   );
   
-  // Debug: logs para diagnóstico de CORS
-  console.log('[CORS DEBUG] Origin recebida:', origin);
-  console.log('[CORS DEBUG] Origens permitidas:', allowedOrigins);
-  console.log('[CORS DEBUG] NODE_ENV:', process.env.NODE_ENV);
-  console.log('[CORS DEBUG] É localhost?', isLocalhost);
+  const debug = process.env.NODE_ENV !== 'production';
+  if (debug) {
+    console.log('[CORS DEBUG] Origin recebida:', origin);
+    console.log('[CORS DEBUG] Origens permitidas:', allowedOrigins);
+    console.log('[CORS DEBUG] NODE_ENV:', process.env.NODE_ENV);
+    console.log('[CORS DEBUG] É localhost?', isLocalhost);
+  }
   
   // Verifica se a origem está na lista de permitidas
   // Sempre permite localhost, mesmo que não esteja na lista
   const isAllowed = isLocalhost || allowedOrigins.includes(origin) || allowedOrigins.includes('*');
   
-  console.log('[CORS DEBUG] Origem permitida?', isAllowed);
-  console.log('[CORS DEBUG] Match exato?', allowedOrigins.includes(origin));
-  console.log('[CORS DEBUG] allowedOrigins.length:', allowedOrigins.length);
-  console.log('[CORS DEBUG] envOrigins existe?', !!process.env.ALLOWED_ORIGINS);
+  if (debug) {
+    console.log('[CORS DEBUG] Origem permitida?', isAllowed);
+    console.log('[CORS DEBUG] Match exato?', allowedOrigins.includes(origin));
+    console.log('[CORS DEBUG] allowedOrigins.length:', allowedOrigins.length);
+    console.log('[CORS DEBUG] envOrigins existe?', !!process.env.ALLOWED_ORIGINS);
+  }
   
   // Se não está permitida E há origens configuradas (exceto apenas localhost), bloqueia
   // Se não há origens configuradas (apenas localhost), também bloqueia (segurança)
@@ -66,13 +99,17 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
   
   if (!isAllowed) {
     // Origem não permitida - retorna headers vazios (será bloqueado pelo browser)
-    console.log('[CORS DEBUG] ❌ Origem NÃO permitida - bloqueando requisição');
-    console.log('[CORS DEBUG] Tem origens não-localhost?', hasNonLocalhostOrigins);
+    if (debug) {
+      console.log('[CORS DEBUG] ❌ Origem NÃO permitida - bloqueando requisição');
+      console.log('[CORS DEBUG] Tem origens não-localhost?', hasNonLocalhostOrigins);
+    }
     return {};
   }
   
   if (isAllowed) {
-    console.log('[CORS DEBUG] ✅ Origem permitida - adicionando headers CORS');
+    if (debug) {
+      console.log('[CORS DEBUG] ✅ Origem permitida - adicionando headers CORS');
+    }
   }
 
   // Headers CORS para origem permitida
@@ -116,4 +153,3 @@ export function withCors(
 
   return response;
 }
-
