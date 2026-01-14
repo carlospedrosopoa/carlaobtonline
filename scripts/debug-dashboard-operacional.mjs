@@ -186,6 +186,20 @@ async function main() {
     FROM card_totals
   `;
 
+  const faturamentoPorDiaSemanaSql = `
+    SELECT
+      EXTRACT(DOW FROM (i."createdAt" AT TIME ZONE 'America/Sao_Paulo'))::int as "diaSemana",
+      COALESCE(SUM(i."precoTotal"), 0)::numeric as "valorTotal"
+    FROM "ItemCard" i
+    JOIN "CardCliente" c ON c.id = i."cardId"
+    WHERE c."pointId" = $1
+      AND c.status <> 'CANCELADO'
+      AND i."createdAt" >= $2
+      AND i."createdAt" <= $3
+    GROUP BY 1
+    ORDER BY 1
+  `;
+
   await runOne('kpisAgendamento', kpisAgendamentoSql, params);
   await runOne('duracaoRanking', duracaoRankingSql, params);
   await runOne('porTurno', porTurnoSql, params);
@@ -194,6 +208,7 @@ async function main() {
   await runOne('produtos', produtosSql, params);
   await runOne('comandasKpis', comandasKpisSql, params);
   await runOne('ticketMedio', ticketMedioSql, params);
+  await runOne('faturamentoPorDiaSemana', faturamentoPorDiaSemanaSql, params);
 }
 
 main()

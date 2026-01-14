@@ -734,6 +734,7 @@ export type DashboardOperacionalData = {
     faturamento: number;
     totalComandas: number;
     ticketMedio: number;
+    faturamentoPorDiaSemana: Array<{ diaSemana: number; valorTotal: number }>;
     topProdutos: Array<{
       produtoId: string;
       nome: string;

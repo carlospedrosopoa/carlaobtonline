@@ -82,8 +82,8 @@ export function FiltrosPeriodo({
 
 export function KpisSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="bg-white rounded-lg shadow p-4 animate-pulse">
           <div className="h-4 bg-gray-100 rounded w-2/3" />
           <div className="h-8 bg-gray-100 rounded w-1/2 mt-3" />
