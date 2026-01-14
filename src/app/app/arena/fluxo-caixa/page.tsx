@@ -455,6 +455,12 @@ export default function FluxoCaixaPage() {
               <p className="text-sm text-gray-600">
                 Aberto em {formatarData(aberturaAtual.dataAbertura)}
               </p>
+              <div className="mt-2">
+                <p className="text-xs font-semibold text-gray-700">Observações da abertura</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {aberturaAtual.observacoes?.trim() ? aberturaAtual.observacoes : '—'}
+                </p>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full sm:w-auto">
               <div>
@@ -1011,6 +1017,13 @@ export default function FluxoCaixaPage() {
                     {formatarMoeda(aberturaAtual.saldoAtual || 0)}
                   </span>
                 </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-xs font-semibold text-gray-700">Observações da abertura</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {aberturaAtual.observacoes?.trim() ? aberturaAtual.observacoes : '—'}
+                </p>
               </div>
 
               <div>
