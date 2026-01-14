@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { AtualizarCentroCustoPayload } from '@/types/gestaoArena';
+
+// OPTIONS /api/gestao-arena/centro-custo/[id] - Preflight CORS
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/centro-custo/[id] - Obter centro de custo
 export async function GET(
@@ -12,10 +19,11 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -26,30 +34,34 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Centro de custo não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const centroCusto = result.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, centroCusto.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este centro de custo' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
-    return NextResponse.json(centroCusto);
+    const response = NextResponse.json(centroCusto);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao obter centro de custo:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao obter centro de custo', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -61,17 +73,19 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para atualizar centros de custo' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -83,20 +97,22 @@ export async function PUT(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Centro de custo não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const centroCustoAtual = existe.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, centroCustoAtual.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este centro de custo' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -106,11 +122,12 @@ export async function PUT(
         [centroCustoAtual.pointId, body.nome, id]
       );
 
-      if (nomeExiste.rows.length > 0) {
-        return NextResponse.json(
+    if (nomeExiste.rows.length > 0) {
+        const errorResponse = NextResponse.json(
           { mensagem: 'Já existe um centro de custo com este nome nesta arena' },
           { status: 400 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -135,10 +152,11 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Nenhum campo para atualizar' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -152,13 +170,15 @@ export async function PUT(
       values
     );
 
-    return NextResponse.json(result.rows[0]);
+    const response = NextResponse.json(result.rows[0]);
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao atualizar centro de custo:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao atualizar centro de custo', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 
@@ -170,17 +190,19 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para deletar centros de custo' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const { id } = await params;
@@ -191,20 +213,22 @@ export async function DELETE(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Centro de custo não encontrado' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const centroCusto = existe.rows[0];
 
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, centroCusto.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a este centro de custo' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
@@ -215,21 +239,24 @@ export async function DELETE(
     );
 
     if (saidas.rows.length > 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não é possível deletar este centro de custo pois ele está sendo utilizado em saídas de caixa' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     await query('DELETE FROM "CentroCusto" WHERE id = $1', [id]);
 
-    return NextResponse.json({ mensagem: 'Centro de custo deletado com sucesso' });
+    const response = NextResponse.json({ mensagem: 'Centro de custo deletado com sucesso' });
+    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao deletar centro de custo:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao deletar centro de custo', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
 

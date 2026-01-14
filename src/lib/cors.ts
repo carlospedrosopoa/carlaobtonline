@@ -43,6 +43,7 @@ const getAllowedOrigins = (): string[] => {
 
   const defaultProdOrigins = [
     'https://playnaquadra.com.br',
+    'https://www.playnaquadra.com.br',
     'https://appatleta.playnaquadra.com.br',
     'https://atleta.playnaquadra.com.br',
   ];
