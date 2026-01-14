@@ -84,7 +84,19 @@ export async function GET(request: NextRequest) {
       WITH base AS (
         SELECT
           a.duracao::int as duracao,
-          EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int as hora
+          EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int as hora,
+          CASE
+            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 6 AND 11 THEN 'Manhã'
+            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 12 AND 17 THEN 'Tarde'
+            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 18 AND 23 THEN 'Noite'
+            ELSE 'Madrugada'
+          END as turno,
+          CASE
+            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 6 AND 11 THEN 1
+            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 12 AND 17 THEN 2
+            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 18 AND 23 THEN 3
+            ELSE 4
+          END as turno_ordem
         FROM "Agendamento" a
         JOIN "Quadra" q ON q.id = a."quadraId"
         WHERE q."pointId" = $1
@@ -93,23 +105,12 @@ export async function GET(request: NextRequest) {
           AND a."dataHora" <= $3
       )
       SELECT
-        CASE
-          WHEN hora BETWEEN 6 AND 11 THEN 'Manhã'
-          WHEN hora BETWEEN 12 AND 17 THEN 'Tarde'
-          WHEN hora BETWEEN 18 AND 23 THEN 'Noite'
-          ELSE 'Madrugada'
-        END as turno,
+        turno,
         COUNT(*)::int as quantidade,
         COALESCE(SUM(duracao), 0)::int as "totalMinutos"
       FROM base
-      GROUP BY 1
-      ORDER BY
-        CASE
-          WHEN turno = 'Manhã' THEN 1
-          WHEN turno = 'Tarde' THEN 2
-          WHEN turno = 'Noite' THEN 3
-          ELSE 4
-        END
+      GROUP BY turno, turno_ordem
+      ORDER BY turno_ordem
     `;
 
     const porDiaSemanaSql = `
