@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { pointService, quadraService, tabelaPrecoService } from '@/services/agendamentoService';
 import type { Point, Quadra, TabelaPreco } from '@/types/agendamento';
 import { AlertCircle, Clock, MapPin, Plus, Trash2, Edit3, Check, X } from 'lucide-react';
+import InputMonetario from '@/components/InputMonetario';
 
 function formatCurrency(value: number | null | undefined) {
   if (value == null) return '—';
@@ -41,8 +42,8 @@ export default function AdminTabelaPrecoPage() {
 
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFim, setHoraFim] = useState('');
-  const [valorHora, setValorHora] = useState('');
-  const [valorHoraAula, setValorHoraAula] = useState('');
+  const [valorHora, setValorHora] = useState<number | null>(null);
+  const [valorHoraAula, setValorHoraAula] = useState<number | null>(null);
   const [ativo, setAtivo] = useState(true);
 
   useEffect(() => {
@@ -110,8 +111,8 @@ export default function AdminTabelaPrecoPage() {
     setEditandoId(null);
     setHoraInicio('');
     setHoraFim('');
-    setValorHora('');
-    setValorHoraAula('');
+    setValorHora(null);
+    setValorHoraAula(null);
     setAtivo(true);
     setErro('');
   };
@@ -128,8 +129,7 @@ export default function AdminTabelaPrecoPage() {
     if (isNaN(minIni) || isNaN(minFim)) return 'Horário inválido';
     if (minFim <= minIni) return 'Horário final deve ser maior que o inicial';
 
-    const valor = parseFloat(valorHora.replace(',', '.'));
-    if (isNaN(valor) || valor <= 0) return 'Informe um valor/hora válido maior que zero';
+    if (valorHora === null || valorHora <= 0) return 'Informe um valor/hora válido maior que zero';
 
     return null;
   };
@@ -138,8 +138,8 @@ export default function AdminTabelaPrecoPage() {
     setEditandoId(faixa.id);
     setHoraInicio(minutosParaHora(faixa.inicioMinutoDia));
     setHoraFim(minutosParaHora(faixa.fimMinutoDia));
-    setValorHora(faixa.valorHora.toString().replace('.', ','));
-    setValorHoraAula(faixa.valorHoraAula ? faixa.valorHoraAula.toString().replace('.', ',') : '');
+    setValorHora(faixa.valorHora);
+    setValorHoraAula(faixa.valorHoraAula ?? null);
     setAtivo(faixa.ativo);
     setErro('');
   };
@@ -156,8 +156,8 @@ export default function AdminTabelaPrecoPage() {
 
     if (!quadraSelecionada) return;
 
-    const valor = parseFloat(valorHora.replace(',', '.'));
-    const valorAula = valorHoraAula.trim() ? parseFloat(valorHoraAula.replace(',', '.')) : null;
+    const valor = valorHora ?? 0;
+    const valorAula = valorHoraAula;
 
     setSalvando(true);
     try {
@@ -450,16 +450,12 @@ export default function AdminTabelaPrecoPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Valor/hora - Atleta (R$)
                   </label>
-                  <input
-                    type="text"
+                  <InputMonetario
                     value={valorHora}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d,.-]/g, '');
-                      setValorHora(raw);
-                    }}
+                    onChange={setValorHora}
                     placeholder="Ex: 80,00"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    min={0.01}
                   />
                 </div>
 
@@ -467,15 +463,11 @@ export default function AdminTabelaPrecoPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Valor/hora - Aula (R$) <span className="text-gray-500 text-xs">(opcional)</span>
                   </label>
-                  <input
-                    type="text"
+                  <InputMonetario
                     value={valorHoraAula}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d,.-]/g, '');
-                      setValorHoraAula(raw);
-                    }}
+                    onChange={setValorHoraAula}
                     placeholder="Ex: 100,00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    min={0.01}
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Se vazio, usa o valor de atleta

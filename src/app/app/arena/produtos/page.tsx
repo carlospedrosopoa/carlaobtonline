@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { produtoService } from '@/services/gestaoArenaService';
 import type { Produto, CriarProdutoPayload, AtualizarProdutoPayload } from '@/types/gestaoArena';
 import { Plus, Search, Package, Edit, Trash2, CheckCircle, XCircle, DollarSign, Zap } from 'lucide-react';
+import InputMonetario from '@/components/InputMonetario';
 
 export default function ProdutosPage() {
   const { usuario } = useAuth();
@@ -356,27 +357,27 @@ export default function ProdutosPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Venda *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <InputMonetario
                     value={form.precoVenda}
-                    onChange={(e) => setForm({ ...form, precoVenda: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="0.00"
+                    onChange={(valor) => setForm({ ...form, precoVenda: valor || 0 })}
+                    placeholder="0,00"
+                    min={0.01}
+                    required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Custo</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.precoCusto || ''}
-                    onChange={(e) => setForm({ ...form, precoCusto: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="0.00"
+                  <InputMonetario
+                    value={form.precoCusto ?? null}
+                    onChange={(valor) =>
+                      setForm({
+                        ...form,
+                        precoCusto: valor === null ? undefined : valor,
+                      })
+                    }
+                    placeholder="0,00"
+                    min={0}
                   />
                 </div>
               </div>

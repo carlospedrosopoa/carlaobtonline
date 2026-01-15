@@ -1,5 +1,6 @@
 // app/api/agendamento/[id]/route.ts - Rotas de API para Agendamento individual (GET, PUT, DELETE)
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
@@ -803,15 +804,12 @@ export async function PUT(
     }
     
     const dadosAtuais = agendamentoDataAtual.rows[0];
-    // Normalizar dataHora para garantir que seja tratada como UTC
-    // normalizarDataHora retorna string ISO, então converter para Date
     const dataHoraAtualRecorrenciaStr = normalizarDataHora(dadosAtuais.dataHora);
     const dataHoraAtualRecorrencia = new Date(dataHoraAtualRecorrenciaStr);
     const recorrenciaIdAtual = dadosAtuais.recorrenciaId || null;
     
     console.log('[API] dataHoraAtualRecorrencia (após normalizarDataHora):', dataHoraAtualRecorrencia.toISOString(), 'timestamp:', dataHoraAtualRecorrencia.getTime());
     
-    // Se há recorrência e o usuário quer aplicar a todos os futuros E há nova configuração de recorrência
     console.log('[API] Verificando condições:', {
       temRecorrenciaAtual,
       aplicarARecorrencia,
@@ -820,9 +818,8 @@ export async function PUT(
       recorrenciaIdAtual,
     });
     
-    if (temRecorrenciaAtual && aplicarARecorrencia && recorrencia && recorrencia.tipo) {
+    if (aplicarARecorrencia && recorrencia && recorrencia.tipo) {
       console.log('[API] Entrando no bloco: Recriar recorrência');
-      // 1. Deletar todos os agendamentos futuros da recorrência atual (exceto o atual)
       if (recorrenciaIdAtual) {
         await query(
           `DELETE FROM "Agendamento"
@@ -833,7 +830,6 @@ export async function PUT(
         );
       }
       
-      // 2. Preparar dados atualizados para gerar novas recorrências
       const dataHoraFinal = dataHora ? (() => {
         const [dataPart, horaPart] = dataHora.split('T');
         const [ano, mes, dia] = dataPart.split('-').map(Number);
@@ -846,7 +842,6 @@ export async function PUT(
       const valorCalculadoFinal = valorCalculado !== null ? valorCalculado : dadosAtuais.valorCalculado;
       const valorNegociadoFinal = valorNegociado !== null ? valorNegociado : dadosAtuais.valorNegociado;
       
-      // 3. Atualizar o agendamento atual primeiro
       paramsUpdate.push(id);
       
       // Construir RETURNING de forma segura (sem campos que podem não existir)
@@ -912,9 +907,27 @@ export async function PUT(
         observacoes: observacoes !== undefined ? observacoes : dadosAtuais.observacoes,
       };
       
-      // Buscar o novo recorrenciaId do agendamento atualizado
       const agendamentoAtualizado = result.rows[0];
-      const novoRecorrenciaId = agendamentoAtualizado.recorrenciaId || recorrenciaIdAtual;
+      let novoRecorrenciaId = agendamentoAtualizado.recorrenciaId || recorrenciaIdAtual;
+      
+      if (!novoRecorrenciaId) {
+        novoRecorrenciaId = randomUUID();
+        try {
+          await query(
+            'UPDATE "Agendamento" SET "recorrenciaId" = $1, "recorrenciaConfig" = $2 WHERE id = $3',
+            [novoRecorrenciaId, JSON.stringify(recorrencia), id]
+          );
+        } catch (error: any) {
+          const message = String(error.message || '');
+          const isMissingOptionalColumnsError =
+            (message.includes('recorrenciaId') && message.toLowerCase().includes('does not exist')) ||
+            (message.includes('recorrenciaConfig') && message.toLowerCase().includes('does not exist'));
+
+          if (!isMissingOptionalColumnsError) {
+            throw error;
+          }
+        }
+      }
       
       // Gerar agendamentos recorrentes (a partir do próximo, já que o atual já existe)
       const agendamentosRecorrentes = gerarAgendamentosRecorrentes(dataHoraFinal, recorrencia, dadosBase);
@@ -986,34 +999,40 @@ export async function PUT(
           );
           return result.rows[0].id;
         } catch (error: any) {
-          if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
-            const result = await query(
-              `INSERT INTO "Agendamento" (
-                id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
-                "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-                status, observacoes, "createdAt", "updatedAt"
-              )
-              VALUES (
-                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
-              )
-              RETURNING id`,
-              [
-                dadosBase.quadraId,
-                dadosBase.usuarioId,
-                dadosBase.atletaId,
-                dadosBase.nomeAvulso,
-                dadosBase.telefoneAvulso,
-                dataHoraAgendamento.toISOString(),
-                dadosBase.duracao,
-                dadosBase.valorHora,
-                dadosBase.valorCalculado,
-                dadosBase.valorNegociado,
-                dadosBase.observacoes,
-              ]
-            );
-            return result.rows[0].id;
+          const message = String(error.message || '');
+          const isMissingOptionalColumnsError =
+            (message.includes('recorrenciaId') && message.toLowerCase().includes('does not exist')) ||
+            (message.includes('recorrenciaConfig') && message.toLowerCase().includes('does not exist'));
+
+          if (!isMissingOptionalColumnsError) {
+            throw error;
           }
-          throw error;
+
+          const result = await query(
+            `INSERT INTO "Agendamento" (
+              id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+              "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+              status, observacoes, "createdAt", "updatedAt"
+            )
+            VALUES (
+              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
+            )
+            RETURNING id`,
+            [
+              dadosBase.quadraId,
+              dadosBase.usuarioId,
+              dadosBase.atletaId,
+              dadosBase.nomeAvulso,
+              dadosBase.telefoneAvulso,
+              dataHoraAgendamento.toISOString(),
+              dadosBase.duracao,
+              dadosBase.valorHora,
+              dadosBase.valorCalculado,
+              dadosBase.valorNegociado,
+              dadosBase.observacoes,
+            ]
+          );
+          return result.rows[0].id;
         }
       };
       

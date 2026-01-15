@@ -390,6 +390,15 @@ export default function ArenaAgendamentosPage() {
   const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent || (navigator as any).vendor || '';
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    if (isMobile) {
+      router.replace('/app/arena/agendamentos/agenda-mobile');
+    }
+  }, [router]);
+
+  useEffect(() => {
     carregarDados();
   }, []);
 
