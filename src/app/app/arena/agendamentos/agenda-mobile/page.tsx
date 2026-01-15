@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import type { Quadra, Agendamento } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Edit, User, Users, UserPlus, Plus, Search, GraduationCap } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw, User, Users, UserPlus, Plus, Search, GraduationCap } from 'lucide-react';
 
 export default function ArenaAgendaMobilePage() {
   const { usuario, isAdmin, isOrganizer } = useAuth();
@@ -26,16 +26,16 @@ export default function ArenaAgendaMobilePage() {
     return hoje;
   });
 
-  // Gerar array de dias (7 dias a partir da data selecionada)
-  const dias = useMemo(() => {
-    const diasArray = [];
-    for (let i = 0; i < 7; i++) {
-      const data = new Date(dataSelecionada);
-      data.setDate(dataSelecionada.getDate() + i);
-      diasArray.push(data);
-    }
-    return diasArray;
-  }, [dataSelecionada]);
+  const formatarIntervalo = (dataHoraStr: string, duracaoMin: number) => {
+    const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+    if (!match) return '';
+    const horaInicio = parseInt(match[1], 10);
+    const minInicio = parseInt(match[2], 10);
+    const totalFim = horaInicio * 60 + minInicio + (duracaoMin || 0);
+    const horaFim = Math.floor(totalFim / 60) % 24;
+    const minFim = totalFim % 60;
+    return `${String(horaInicio).padStart(2, '0')}:${String(minInicio).padStart(2, '0')} - ${String(horaFim).padStart(2, '0')}:${String(minFim).padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     carregarDados();
@@ -139,7 +139,7 @@ export default function ArenaAgendaMobilePage() {
     }
 
     // Ordenar por horário
-    return agendamentosFiltrados.sort((a, b) => {
+    return [...agendamentosFiltrados].sort((a, b) => {
       const matchA = a.dataHora.match(/T(\d{2}):(\d{2})/);
       const matchB = b.dataHora.match(/T(\d{2}):(\d{2})/);
       if (!matchA || !matchB) return 0;
@@ -153,11 +153,39 @@ export default function ArenaAgendaMobilePage() {
     return data.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
   };
 
-  const formatarHora = (dataHoraStr: string) => {
-    const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
-    if (!match) return '';
-    return `${match[1]}:${match[2]}`;
+  const getAgendamentosAgrupadosPorQuadra = (dia: Date) => {
+    const lista = getAgendamentosPorDia(dia);
+    const map = new Map<string, { quadraId: string; nome: string; itens: Agendamento[] }>();
+
+    for (const ag of lista) {
+      const quadraId = ag.quadraId || ag.quadra?.id || 'sem-quadra';
+      const nome = (ag.quadra?.nome || quadras.find((q) => q.id === quadraId)?.nome || 'Sem quadra').toUpperCase();
+      const item = map.get(quadraId);
+      if (item) {
+        item.itens.push(ag);
+      } else {
+        map.set(quadraId, { quadraId, nome, itens: [ag] });
+      }
+    }
+
+    const grupos = Array.from(map.values());
+    const ordemQuadras = new Map(quadras.map((q, idx) => [q.id, idx] as const));
+    grupos.sort((a, b) => {
+      const oa = ordemQuadras.get(a.quadraId);
+      const ob = ordemQuadras.get(b.quadraId);
+      if (oa != null && ob != null) return oa - ob;
+      if (oa != null) return -1;
+      if (ob != null) return 1;
+      return a.nome.localeCompare(b.nome);
+    });
+
+    return grupos;
   };
+
+  const gruposPorQuadra = useMemo(
+    () => getAgendamentosAgrupadosPorQuadra(dataSelecionada),
+    [dataSelecionada, agendamentos, filtroNome, quadras]
+  );
 
   const getNomeCliente = (agendamento: Agendamento) => {
     if (agendamento.ehAula && agendamento.professor?.usuario?.name) {
@@ -214,9 +242,9 @@ export default function ArenaAgendaMobilePage() {
   const navegarDias = (direcao: 'anterior' | 'proxima') => {
     const novaData = new Date(dataSelecionada);
     if (direcao === 'proxima') {
-      novaData.setDate(dataSelecionada.getDate() + 7);
+      novaData.setDate(dataSelecionada.getDate() + 1);
     } else {
-      novaData.setDate(dataSelecionada.getDate() - 7);
+      novaData.setDate(dataSelecionada.getDate() - 1);
     }
     novaData.setHours(0, 0, 0, 0);
     setDataSelecionada(novaData);
@@ -228,7 +256,7 @@ export default function ArenaAgendaMobilePage() {
     setDataSelecionada(hoje);
   };
 
-  const handleEditar = (agendamento: Agendamento) => {
+  const handleAbrirAgendamento = (agendamento: Agendamento) => {
     setAgendamentoEditando(agendamento);
     setModalEditarAberto(true);
   };
@@ -317,103 +345,85 @@ export default function ArenaAgendaMobilePage() {
         </div>
       </div>
 
-      {/* Lista de dias */}
-      <div className="px-4 py-4 space-y-4">
-        {dias.map((dia, index) => {
-          const agendamentosDoDia = getAgendamentosPorDia(dia);
-          const hoje = new Date();
-          hoje.setHours(0, 0, 0, 0);
-          const isHoje = dia.getTime() === hoje.getTime();
+      {/* Lista agrupada por quadra */}
+      <div className="px-4 py-4">
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b bg-gray-50 border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <span className="font-semibold text-gray-700">{formatarData(dataSelecionada)}</span>
+              </div>
+              {(isAdmin || isOrganizer) && (
+                <button
+                  onClick={() => handleNovoAgendamento(dataSelecionada)}
+                  className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                  title="Novo agendamento"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
 
-          return (
-            <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden">
-              {/* Cabeçalho do dia */}
-              <div className={`px-4 py-3 border-b ${isHoje ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className={`w-4 h-4 ${isHoje ? 'text-blue-600' : 'text-gray-500'}`} />
-                      <span className={`font-semibold ${isHoje ? 'text-blue-700' : 'text-gray-700'}`}>
-                        {formatarData(dia)}
-                      </span>
-                      {isHoje && (
-                        <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full">Hoje</span>
-                      )}
+          {gruposPorQuadra.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-gray-500">Nenhum agendamento neste dia</div>
+          ) : (
+            <div className="bg-gray-100">
+              {gruposPorQuadra.map((grupo) => (
+                <div key={grupo.quadraId}>
+                  <div className="px-4 py-2 bg-gray-200 border-y border-gray-300">
+                    <div className="text-center text-xs font-bold tracking-wide text-emerald-700">
+                      {grupo.nome}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">{agendamentosDoDia.length} agendamento(s)</span>
-                    {(isAdmin || isOrganizer) && (
-                      <button
-                        onClick={() => handleNovoAgendamento(dia)}
-                        className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                        title="Novo agendamento"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    )}
+                  <div className="divide-y divide-gray-300">
+                    {grupo.itens.map((agendamento) => {
+                      const ehRecorrente = Boolean(agendamento.recorrenciaId);
+                      const podeEditar = isAdmin || isOrganizer;
+
+                      return (
+                        <button
+                          key={agendamento.id}
+                          type="button"
+                          onClick={() => {
+                            if (podeEditar) handleAbrirAgendamento(agendamento);
+                          }}
+                          disabled={!podeEditar}
+                          className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:hover:bg-gray-50"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0">
+                              {ehRecorrente ? (
+                                <RefreshCw className="w-4 h-4 text-teal-600" />
+                              ) : (
+                                <span className="inline-block w-3 h-3 rounded-full bg-orange-500" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-900 text-sm">
+                                  {formatarIntervalo(agendamento.dataHora, agendamento.duracao)}
+                                </span>
+                                {getTipoBadge(agendamento)}
+                              </div>
+                              <div className="text-sm text-gray-900 truncate">
+                                {getNomeCliente(agendamento)}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0">
+                              <ChevronRight className="w-5 h-5 text-gray-500" />
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-
-              {/* Lista de agendamentos do dia */}
-              <div className="divide-y divide-gray-100">
-                {agendamentosDoDia.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm text-gray-500">
-                    Nenhum agendamento neste dia
-                  </div>
-                ) : (
-                  agendamentosDoDia.map((agendamento) => (
-                    <div
-                      key={agendamento.id}
-                      className="px-4 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <span className="font-semibold text-gray-900 text-sm">
-                              {formatarHora(agendamento.dataHora)}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              ({Math.floor(agendamento.duracao / 60)}h{agendamento.duracao % 60 > 0 ? ` ${agendamento.duracao % 60}min` : ''})
-                            </span>
-                            {getTipoBadge(agendamento)}
-                          </div>
-                          
-                          <div className="mb-1.5">
-                            <div className="font-medium text-gray-900 text-sm truncate">
-                              {getNomeCliente(agendamento)}
-                            </div>
-                            <div className="text-xs text-gray-600 truncate">
-                              {agendamento.quadra?.nome || '—'}
-                            </div>
-                          </div>
-
-                          {agendamento.observacoes && (
-                            <div className="text-xs text-gray-500 mt-1 line-clamp-2">
-                              {agendamento.observacoes}
-                            </div>
-                          )}
-                        </div>
-
-                        {(isAdmin || isOrganizer) && (
-                          <button
-                            onClick={() => handleEditar(agendamento)}
-                            className="p-2 rounded-lg hover:bg-gray-200 text-gray-600 flex-shrink-0"
-                            title="Editar"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              ))}
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
 
       {/* Botão flutuante para novo agendamento */}
