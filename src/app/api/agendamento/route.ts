@@ -835,9 +835,14 @@ export async function POST(request: NextRequest) {
         );
         return result.rows[0].id;
       } catch (error: any) {
-        // Se os campos de recorrência, ehAula ou professorId não existem, tentar sem eles
-        if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || 
-            error.message?.includes('ehAula') || error.message?.includes('professorId')) {
+        const message = String(error.message || '');
+        const isMissingOptionalColumnsError =
+          (message.includes('recorrenciaId') && message.toLowerCase().includes('does not exist')) ||
+          (message.includes('recorrenciaConfig') && message.toLowerCase().includes('does not exist')) ||
+          (message.includes('ehAula') && message.toLowerCase().includes('does not exist')) ||
+          (message.includes('professorId') && message.toLowerCase().includes('does not exist'));
+
+        if (isMissingOptionalColumnsError) {
           // Tentar com apenas campos básicos (sem recorrência, ehAula e professorId)
           try {
             const result = await query(

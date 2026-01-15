@@ -30,7 +30,6 @@ export default function CurrencyInput({
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Converter número para formato brasileiro (R$ 0,00)
   const formatToBrazilian = (num: number): string => {
     if (num === 0 || !num) return '';
     return new Intl.NumberFormat('pt-BR', {
@@ -39,17 +38,14 @@ export default function CurrencyInput({
     }).format(num);
   };
 
-  // Converter centavos (número inteiro) para reais (número decimal)
   const centavosToReais = (centavos: number): number => {
     return centavos / 100;
   };
 
-  // Converter reais (número decimal) para centavos (número inteiro)
   const reaisToCentavos = (reais: number): number => {
     return Math.round(reais * 100);
   };
 
-  // Atualizar displayValue quando value mudar externamente (apenas quando não está focado)
   useEffect(() => {
     if (!isFocused) {
       if (value > 0) {
@@ -62,23 +58,15 @@ export default function CurrencyInput({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
-    
-    // Remover tudo exceto números
     const numbersOnly = inputValue.replace(/\D/g, '');
-    
-    // Se estiver vazio, limpar
     if (numbersOnly === '') {
       setDisplayValue('');
       onChange(0);
       return;
     }
 
-    // Os últimos 2 dígitos são sempre centavos
-    // Exemplo: 6000 → 60,00 | 15050 → 150,50 | 5 → 0,05
     const centavos = parseInt(numbersOnly, 10);
     const reais = centavosToReais(centavos);
-    
-    // Validar min/max
     let finalValue = reais;
     if (min !== undefined && finalValue < min) {
       finalValue = min;
@@ -87,34 +75,23 @@ export default function CurrencyInput({
       finalValue = max;
     }
 
-    // Durante a digitação, mostrar apenas os números (sem formatação)
-    // Usar requestAnimationFrame para garantir que o estado seja atualizado no próximo frame
+    const formatted = formatToBrazilian(finalValue);
+
     requestAnimationFrame(() => {
-      setDisplayValue(numbersOnly);
-      
-      // Manter cursor no final após atualizar o valor
+      setDisplayValue(formatted);
       setTimeout(() => {
         if (inputRef.current) {
-          const length = numbersOnly.length;
+          const length = formatted.length;
           inputRef.current.setSelectionRange(length, length);
         }
       }, 0);
     });
-    
-    // Chamar onChange com o valor em reais
+
     onChange(finalValue);
   };
 
   const handleFocus = () => {
     setIsFocused(true);
-    // Ao focar, mostrar apenas os centavos (sem formatação)
-    if (value > 0) {
-      const centavos = reaisToCentavos(value);
-      setDisplayValue(centavos.toString());
-    } else {
-      setDisplayValue('');
-    }
-    // Manter o cursor no final do input
     setTimeout(() => {
       if (inputRef.current) {
         const length = inputRef.current.value.length;
@@ -125,7 +102,6 @@ export default function CurrencyInput({
 
   const handleBlur = () => {
     setIsFocused(false);
-    // Ao perder o foco, formatar o valor
     if (value > 0) {
       setDisplayValue(formatToBrazilian(value));
     } else {
@@ -153,12 +129,6 @@ export default function CurrencyInput({
         inputMode="numeric"
         pattern="[0-9]*"
       />
-      {isFocused && displayValue && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-medium">
-          = {formatToBrazilian(centavosToReais(parseInt(displayValue.replace(/\D/g, '') || '0', 10)))}
-        </div>
-      )}
     </div>
   );
 }
-

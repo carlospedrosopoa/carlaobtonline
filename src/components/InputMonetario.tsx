@@ -1,7 +1,7 @@
 // components/InputMonetario.tsx - Componente de input para valores monetários
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface InputMonetarioProps {
   value: number | null;
@@ -29,113 +29,79 @@ export default function InputMonetario({
   id,
 }: InputMonetarioProps) {
   const [displayValue, setDisplayValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Converter valor numérico para string formatada apenas quando não está editando
-  const [isEditing, setIsEditing] = useState(false);
+  const formatToBrazilian = (num: number): string => {
+    if (!num) return '';
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num);
+  };
 
   useEffect(() => {
-    if (!isEditing) {
-      if (value === null || value === undefined) {
-        setDisplayValue('');
+    if (!isFocused) {
+      if (value !== null && value !== undefined && value > 0) {
+        setDisplayValue(formatToBrazilian(value));
       } else {
-        // Formatar como moeda brasileira apenas quando não está editando
-        const formatted = new Intl.NumberFormat('pt-BR', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(value);
-        setDisplayValue(formatted);
+        setDisplayValue('');
       }
     }
-  }, [value, isEditing]);
+  }, [value, isFocused]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let inputValue = e.target.value;
+    const inputValue = e.target.value;
+    const numbersOnly = inputValue.replace(/\D/g, '');
 
-    // Remover tudo exceto números, vírgula e ponto
-    inputValue = inputValue.replace(/[^\d,.]/g, '');
-
-    // Substituir ponto por vírgula (padrão brasileiro)
-    inputValue = inputValue.replace(/\./g, ',');
-
-    // Garantir apenas uma vírgula
-    const parts = inputValue.split(',');
-    if (parts.length > 2) {
-      inputValue = parts[0] + ',' + parts.slice(1).join('');
-    }
-
-    // Limitar a 2 casas decimais após a vírgula
-    if (parts.length === 2 && parts[1].length > 2) {
-      inputValue = parts[0] + ',' + parts[1].substring(0, 2);
-    }
-
-    // Se o usuário está digitando apenas números sem vírgula, permitir digitação livre
-    // A formatação será aplicada no blur
-    setDisplayValue(inputValue);
-
-    // Converter para número
-    if (inputValue === '' || inputValue === ',') {
+    if (numbersOnly === '') {
+      setDisplayValue('');
       onChange(null);
-    } else {
-      // Se não tem vírgula, tratar como número inteiro (será formatado no blur)
-      let numericValue: number;
-      if (inputValue.includes(',')) {
-        numericValue = parseFloat(inputValue.replace(',', '.'));
-      } else {
-        // Se está digitando apenas números, tratar como valor inteiro
-        // Exemplo: "500" = 500.00, "50" = 50.00
-        numericValue = parseFloat(inputValue);
-      }
-      
-      if (!isNaN(numericValue)) {
-        // Aplicar validações de min/max
-        let finalValue = numericValue;
-        if (min !== undefined && finalValue < min) {
-          finalValue = min;
-        }
-        if (max !== undefined && finalValue > max) {
-          finalValue = max;
-        }
-        onChange(finalValue);
-      } else {
-        onChange(null);
-      }
+      return;
     }
+
+    const centavos = parseInt(numbersOnly, 10);
+    let reais = centavos / 100;
+
+    let finalValue = reais;
+    if (min !== undefined && finalValue < min) {
+      finalValue = min;
+    }
+    if (max !== undefined && finalValue > max) {
+      finalValue = max;
+    }
+
+    const formatted = formatToBrazilian(finalValue);
+
+    requestAnimationFrame(() => {
+      setDisplayValue(formatted);
+      setTimeout(() => {
+        if (inputRef.current) {
+          const length = formatted.length;
+          inputRef.current.setSelectionRange(length, length);
+        }
+      }, 0);
+    });
+
+    onChange(finalValue);
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    setTimeout(() => {
+      if (inputRef.current) {
+        const length = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    }, 0);
   };
 
   const handleBlur = () => {
-    setIsEditing(false);
-    // Ao sair do campo, formatar o valor exibido sempre com 2 casas decimais
-    if (value !== null && value !== undefined) {
-      const formatted = new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-      setDisplayValue(formatted);
+    setIsFocused(false);
+    if (value !== null && value !== undefined && value > 0) {
+      setDisplayValue(formatToBrazilian(value));
     } else {
       setDisplayValue('');
-    }
-  };
-
-  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    setIsEditing(true);
-    // Ao focar, mostrar valor numérico simples para facilitar edição
-    if (value !== null && value !== undefined) {
-      // Mostrar valor com vírgula mas sem formatação de milhares
-      const formatted = value.toFixed(2).replace('.', ',');
-      setDisplayValue(formatted);
-    } else {
-      setDisplayValue('');
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Permitir navegação e edição normal
-    if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'].includes(e.key)) {
-      return;
-    }
-    // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-    if (e.ctrlKey || e.metaKey) {
-      return;
     }
   };
 
@@ -152,14 +118,15 @@ export default function InputMonetario({
           R$
         </span>
         <input
+          ref={inputRef}
           id={id}
           type="text"
-          inputMode="decimal"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={displayValue}
           onChange={handleChange}
           onBlur={handleBlur}
           onFocus={handleFocus}
-          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
@@ -171,4 +138,3 @@ export default function InputMonetario({
     </div>
   );
 }
-

@@ -918,7 +918,12 @@ export async function PUT(
             [novoRecorrenciaId, JSON.stringify(recorrencia), id]
           );
         } catch (error: any) {
-          if (!error.message?.includes('recorrenciaId') && !error.message?.includes('recorrenciaConfig')) {
+          const message = String(error.message || '');
+          const isMissingOptionalColumnsError =
+            (message.includes('recorrenciaId') && message.toLowerCase().includes('does not exist')) ||
+            (message.includes('recorrenciaConfig') && message.toLowerCase().includes('does not exist'));
+
+          if (!isMissingOptionalColumnsError) {
             throw error;
           }
         }
@@ -994,34 +999,40 @@ export async function PUT(
           );
           return result.rows[0].id;
         } catch (error: any) {
-          if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
-            const result = await query(
-              `INSERT INTO "Agendamento" (
-                id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
-                "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
-                status, observacoes, "createdAt", "updatedAt"
-              )
-              VALUES (
-                gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
-              )
-              RETURNING id`,
-              [
-                dadosBase.quadraId,
-                dadosBase.usuarioId,
-                dadosBase.atletaId,
-                dadosBase.nomeAvulso,
-                dadosBase.telefoneAvulso,
-                dataHoraAgendamento.toISOString(),
-                dadosBase.duracao,
-                dadosBase.valorHora,
-                dadosBase.valorCalculado,
-                dadosBase.valorNegociado,
-                dadosBase.observacoes,
-              ]
-            );
-            return result.rows[0].id;
+          const message = String(error.message || '');
+          const isMissingOptionalColumnsError =
+            (message.includes('recorrenciaId') && message.toLowerCase().includes('does not exist')) ||
+            (message.includes('recorrenciaConfig') && message.toLowerCase().includes('does not exist'));
+
+          if (!isMissingOptionalColumnsError) {
+            throw error;
           }
-          throw error;
+
+          const result = await query(
+            `INSERT INTO "Agendamento" (
+              id, "quadraId", "usuarioId", "atletaId", "nomeAvulso", "telefoneAvulso",
+              "dataHora", duracao, "valorHora", "valorCalculado", "valorNegociado",
+              status, observacoes, "createdAt", "updatedAt"
+            )
+            VALUES (
+              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'CONFIRMADO', $11, NOW(), NOW()
+            )
+            RETURNING id`,
+            [
+              dadosBase.quadraId,
+              dadosBase.usuarioId,
+              dadosBase.atletaId,
+              dadosBase.nomeAvulso,
+              dadosBase.telefoneAvulso,
+              dataHoraAgendamento.toISOString(),
+              dadosBase.duracao,
+              dadosBase.valorHora,
+              dadosBase.valorCalculado,
+              dadosBase.valorNegociado,
+              dadosBase.observacoes,
+            ]
+          );
+          return result.rows[0].id;
         }
       };
       
