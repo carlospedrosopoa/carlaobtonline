@@ -61,6 +61,13 @@ export default function ArenaAgendaMobilePage() {
     }
   };
 
+  const formatarDataInput = (date: Date) => {
+    const ano = date.getFullYear();
+    const mes = String(date.getMonth() + 1).padStart(2, "0");
+    const dia = String(date.getDate()).padStart(2, "0");
+    return `${ano}-${mes}-${dia}`;
+  };
+
   const carregarAgendamentos = async () => {
     try {
       // Criar datas preservando o dia local mas usando Date.UTC() para consistência
@@ -227,7 +234,7 @@ export default function ArenaAgendaMobilePage() {
 
   const handleNovoAgendamento = (dia?: Date, hora?: string) => {
     if (dia) {
-      const dataStr = dia.toISOString().split('T')[0];
+      const dataStr = formatarDataInput(dia);
       setDataInicialModal(dataStr);
       if (hora) {
         setHoraInicialModal(hora);
@@ -275,7 +282,7 @@ export default function ArenaAgendaMobilePage() {
               <Calendar className="w-4 h-4 text-gray-500" />
               <input
                 type="date"
-                value={dataSelecionada.toISOString().split('T')[0]}
+                value={formatarDataInput(dataSelecionada)}
                 onChange={(e) => {
                   if (e.target.value) {
                     const novaData = new Date(e.target.value);
