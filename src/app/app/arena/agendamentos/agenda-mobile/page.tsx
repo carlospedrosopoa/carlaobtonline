@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import type { Quadra, Agendamento } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, RefreshCw, User, Users, UserPlus, Plus, Search, GraduationCap } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, Search } from 'lucide-react';
 
 export default function ArenaAgendaMobilePage() {
   const { usuario, isAdmin, isOrganizer } = useAuth();
@@ -203,42 +203,6 @@ export default function ArenaAgendaMobilePage() {
     return '—';
   };
 
-  const getTipoBadge = (agendamento: Agendamento) => {
-    const ehAula = agendamento.ehAula || (agendamento.professorId !== null && agendamento.professorId !== undefined);
-    
-    if (ehAula) {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">
-          <GraduationCap className="w-3 h-3" />
-          Aula
-        </span>
-      );
-    }
-    
-    if (agendamento.atletaId && agendamento.atleta) {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
-          <Users className="w-3 h-3" />
-          Atleta
-        </span>
-      );
-    }
-    if (agendamento.nomeAvulso) {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">
-          <UserPlus className="w-3 h-3" />
-          Avulso
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">
-        <User className="w-3 h-3" />
-        Próprio
-      </span>
-    );
-  };
-
   const navegarDias = (direcao: 'anterior' | 'proxima') => {
     const novaData = new Date(dataSelecionada);
     if (direcao === 'proxima') {
@@ -401,14 +365,10 @@ export default function ArenaAgendaMobilePage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-gray-900 text-sm">
-                                  {formatarIntervalo(agendamento.dataHora, agendamento.duracao)}
-                                </span>
-                                {getTipoBadge(agendamento)}
-                              </div>
                               <div className="text-sm text-gray-900 truncate">
-                                {getNomeCliente(agendamento)}
+                                <span className="font-semibold">{formatarIntervalo(agendamento.dataHora, agendamento.duracao)}</span>
+                                <span className="text-gray-400"> · </span>
+                                <span>{getNomeCliente(agendamento)}</span>
                               </div>
                             </div>
                             <div className="flex-shrink-0">
