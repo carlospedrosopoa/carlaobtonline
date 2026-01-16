@@ -1827,8 +1827,9 @@ export default function EditarAgendamentoModal({
                       </div>
                     ))}
                     {participantesCompletos.length > 0 ? (
-                      // Usar dados completos do agendamento
-                      participantesCompletos.map((participante) => (
+                      participantesCompletos
+                        .filter((participante) => participante.atletaId)
+                        .map((participante) => (
                         <div
                           key={participante.id}
                           className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
