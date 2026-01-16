@@ -127,7 +127,6 @@ export default function CurrencyInput({
         required={required}
         disabled={disabled}
         inputMode="numeric"
-        pattern="[0-9]*"
       />
     </div>
   );
