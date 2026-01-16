@@ -137,8 +137,27 @@ export const agendamentoService = {
     return res.data;
   },
 
-  gerarCards: async (id: string): Promise<{ mensagem: string; cards: any[]; cardsAtualizados?: any[]; valorTotal: number; valorPorCliente: number; totalClientes: number; totalCardsCriados?: number; totalCardsAtualizados?: number }> => {
-    const res = await api.post(`/agendamento/${id}/gerar-cards`);
+  gerarCards: async (
+    id: string,
+    payload?: {
+      distribuicoes?: Array<{
+        usuarioId?: string | null;
+        nomeAvulso?: string | null;
+        telefoneAvulso?: string | null;
+        valor: number;
+      }>;
+    },
+  ): Promise<{
+    mensagem: string;
+    cards: any[];
+    cardsAtualizados?: any[];
+    valorTotal: number;
+    valorPorCliente?: number | null;
+    totalClientes: number;
+    totalCardsCriados?: number;
+    totalCardsAtualizados?: number;
+  }> => {
+    const res = await api.post(`/agendamento/${id}/gerar-cards`, payload);
     return res.data;
   },
 };
@@ -220,4 +239,3 @@ export const bloqueioAgendaService = {
     await api.delete(`/bloqueio-agenda/${id}`);
   },
 };
-

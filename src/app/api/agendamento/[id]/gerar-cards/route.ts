@@ -99,37 +99,59 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Lista de clientes para criar cards
-    const clientes: Array<{
+    type Cliente = {
       usuarioId?: string | null;
       nomeAvulso?: string | null;
       telefoneAvulso?: string | null;
-    }> = [];
+      valor?: number;
+    };
 
-    // Buscar atletas participantes e participantes avulsos
-    let participantesResult;
+    const clientes: Cliente[] = [];
+
+    let payload: any = null;
     try {
-      console.log(`[gerar-cards] Buscando participantes para agendamento ${agendamentoId}`);
-      participantesResult = await query(
-        `SELECT 
-          aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso",
-          at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
-          at."usuarioId" as "atleta_usuarioId",
-          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
-        FROM "AgendamentoAtleta" aa
-        LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
-        LEFT JOIN "User" u ON at."usuarioId" = u.id
-        WHERE aa."agendamentoId" = $1`,
-        [agendamentoId]
-      );
-      console.log(`[gerar-cards] Query executada com sucesso. Encontrados ${participantesResult.rows.length} registros.`);
-    } catch (error: any) {
-      // Se os campos nomeAvulso/telefoneAvulso não existem, tentar query sem eles
-      if (error.message?.includes('nomeAvulso') || error.message?.includes('telefoneAvulso') || error.code === '42703') {
-        console.warn('[gerar-cards] Campos nomeAvulso/telefoneAvulso não existem, usando query sem eles');
+      payload = await request.json();
+    } catch {
+      payload = null;
+    }
+
+    const distribuicoes: Array<{
+      usuarioId?: string | null;
+      nomeAvulso?: string | null;
+      telefoneAvulso?: string | null;
+      valor: number;
+    }> | null = Array.isArray(payload?.distribuicoes) ? payload.distribuicoes : null;
+
+    const usandoDistribuicoesPersonalizadas = !!distribuicoes && distribuicoes.length > 0;
+
+    if (usandoDistribuicoesPersonalizadas) {
+      distribuicoes.forEach((dist, index) => {
+        const valorNumero =
+          typeof dist.valor === 'number'
+            ? dist.valor
+            : parseFloat(String(dist.valor).replace(',', '.')) || 0;
+
+        clientes.push({
+          usuarioId: dist.usuarioId ?? null,
+          nomeAvulso: dist.nomeAvulso ?? null,
+          telefoneAvulso: dist.telefoneAvulso ?? null,
+          valor: valorNumero,
+        });
+
+        console.log(`[gerar-cards] Distribuição personalizada ${index + 1}:`, {
+          usuarioId: dist.usuarioId,
+          nomeAvulso: dist.nomeAvulso,
+          telefoneAvulso: dist.telefoneAvulso,
+          valor: valorNumero,
+        });
+      });
+    } else {
+      let participantesResult;
+      try {
+        console.log(`[gerar-cards] Buscando participantes para agendamento ${agendamentoId}`);
         participantesResult = await query(
           `SELECT 
-            aa."atletaId",
+            aa."atletaId", aa."nomeAvulso", aa."telefoneAvulso",
             at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
             at."usuarioId" as "atleta_usuarioId",
             u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
@@ -139,145 +161,151 @@ export async function POST(
           WHERE aa."agendamentoId" = $1`,
           [agendamentoId]
         );
-        // Adicionar campos null para compatibilidade
-        participantesResult.rows = participantesResult.rows.map((row: any) => ({
-          ...row,
+        console.log(`[gerar-cards] Query executada com sucesso. Encontrados ${participantesResult.rows.length} registros.`);
+      } catch (error: any) {
+        if (error.message?.includes('nomeAvulso') || error.message?.includes('telefoneAvulso') || error.code === '42703') {
+          console.warn('[gerar-cards] Campos nomeAvulso/telefoneAvulso não existem, usando query sem eles');
+          participantesResult = await query(
+            `SELECT 
+              aa."atletaId",
+              at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone", 
+              at."usuarioId" as "atleta_usuarioId",
+              u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+            FROM "AgendamentoAtleta" aa
+            LEFT JOIN "Atleta" at ON aa."atletaId" = at.id
+            LEFT JOIN "User" u ON at."usuarioId" = u.id
+            WHERE aa."agendamentoId" = $1`,
+            [agendamentoId]
+          );
+          participantesResult.rows = participantesResult.rows.map((row: any) => ({
+            ...row,
+            nomeAvulso: null,
+            telefoneAvulso: null,
+          }));
+        } else {
+          throw error;
+        }
+      }
+
+      console.log(`[gerar-cards] Participantes encontrados: ${participantesResult.rows.length}`);
+      participantesResult.rows.forEach((row: any, index: number) => {
+        console.log(`[gerar-cards] Participante ${index + 1}:`, {
+          atletaId: row.atletaId,
+          nomeAvulso: row.nomeAvulso,
+          telefoneAvulso: row.telefoneAvulso,
+          atleta_nome: row.atleta_nome,
+          usuario_id: row.usuario_id,
+        });
+      });
+
+      console.log(`[gerar-cards] Clientes antes de adicionar cliente original: ${clientes.length}`);
+
+      if (agendamento.atletaId) {
+        const atletaOriginalResult = await query(
+          `SELECT 
+            at.id, at.nome, at.fone, at."usuarioId",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
+          FROM "Atleta" at
+          LEFT JOIN "User" u ON at."usuarioId" = u.id
+          WHERE at.id = $1`,
+          [agendamento.atletaId]
+        );
+
+        if (atletaOriginalResult.rows.length > 0) {
+          const atletaOriginal = atletaOriginalResult.rows[0];
+          if (atletaOriginal.usuario_id) {
+            clientes.push({
+              usuarioId: atletaOriginal.usuario_id,
+              nomeAvulso: null,
+              telefoneAvulso: null,
+            });
+          } else if (atletaOriginal.nome && atletaOriginal.fone) {
+            clientes.push({
+              usuarioId: null,
+              nomeAvulso: atletaOriginal.nome,
+              telefoneAvulso: atletaOriginal.fone,
+            });
+          }
+        }
+      } else if (agendamento.usuarioId) {
+        clientes.push({
+          usuarioId: agendamento.usuarioId,
           nomeAvulso: null,
           telefoneAvulso: null,
-        }));
-      } else {
-        throw error;
+        });
+      } else if (agendamento.nomeAvulso && agendamento.telefoneAvulso) {
+        clientes.push({
+          usuarioId: null,
+          nomeAvulso: agendamento.nomeAvulso,
+          telefoneAvulso: agendamento.telefoneAvulso,
+        });
       }
+
+      console.log(`[gerar-cards] Processando ${participantesResult.rows.length} participantes...`);
+      participantesResult.rows.forEach((row: any, index: number) => {
+        console.log(`[gerar-cards] Processando participante ${index + 1}:`, {
+          atletaId: row.atletaId,
+          nomeAvulso: row.nomeAvulso,
+          telefoneAvulso: row.telefoneAvulso,
+          atleta_nome: row.atleta_nome,
+          atleta_fone: row.atleta_fone,
+          usuario_id: row.usuario_id,
+        });
+
+        if (!row.atletaId && row.nomeAvulso) {
+          console.log(`[gerar-cards] ✅ Encontrado participante avulso: ${row.nomeAvulso}`);
+          const jaExiste = clientes.some(
+            (c) => !c.usuarioId && c.nomeAvulso === row.nomeAvulso
+          );
+
+          if (!jaExiste) {
+            console.log(`[gerar-cards] ➕ Adicionando participante avulso à lista: ${row.nomeAvulso}`);
+            clientes.push({
+              usuarioId: null,
+              nomeAvulso: row.nomeAvulso,
+              telefoneAvulso: row.telefoneAvulso || null,
+            });
+          } else {
+            console.log(
+              `[gerar-cards] ⚠️ Participante avulso "${row.nomeAvulso}" já existe na lista de clientes`
+            );
+          }
+        } else if (row.usuario_id) {
+          const jaExiste = clientes.some(
+            (c) => c.usuarioId && c.usuarioId === row.usuario_id
+          );
+
+          if (!jaExiste) {
+            clientes.push({
+              usuarioId: row.usuario_id,
+              nomeAvulso: null,
+              telefoneAvulso: null,
+            });
+          }
+        } else if (row.atleta_nome && row.atleta_fone) {
+          const jaExiste = clientes.some(
+            (c) => c.nomeAvulso === row.atleta_nome && c.telefoneAvulso === row.atleta_fone
+          );
+
+          if (!jaExiste) {
+            clientes.push({
+              usuarioId: null,
+              nomeAvulso: row.atleta_nome,
+              telefoneAvulso: row.atleta_fone,
+            });
+          }
+        }
+      });
+
+      console.log(`[gerar-cards] Total de clientes após adicionar participantes: ${clientes.length}`);
+      clientes.forEach((cliente, index) => {
+        console.log(`[gerar-cards] Cliente ${index + 1}:`, {
+          usuarioId: cliente.usuarioId,
+          nomeAvulso: cliente.nomeAvulso,
+          telefoneAvulso: cliente.telefoneAvulso,
+        });
+      });
     }
-
-    console.log(`[gerar-cards] Participantes encontrados: ${participantesResult.rows.length}`);
-    participantesResult.rows.forEach((row: any, index: number) => {
-      console.log(`[gerar-cards] Participante ${index + 1}:`, {
-        atletaId: row.atletaId,
-        nomeAvulso: row.nomeAvulso,
-        telefoneAvulso: row.telefoneAvulso,
-        atleta_nome: row.atleta_nome,
-        usuario_id: row.usuario_id,
-      });
-    });
-
-    console.log(`[gerar-cards] Clientes antes de adicionar cliente original: ${clientes.length}`);
-
-    // Adicionar cliente original
-    if (agendamento.atletaId) {
-      // Buscar dados do atleta original
-      const atletaOriginalResult = await query(
-        `SELECT 
-          at.id, at.nome, at.fone, at."usuarioId",
-          u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email"
-        FROM "Atleta" at
-        LEFT JOIN "User" u ON at."usuarioId" = u.id
-        WHERE at.id = $1`,
-        [agendamento.atletaId]
-      );
-
-      if (atletaOriginalResult.rows.length > 0) {
-        const atletaOriginal = atletaOriginalResult.rows[0];
-        // Se tiver usuarioId, adiciona como cliente tipo user
-        if (atletaOriginal.usuario_id) {
-          clientes.push({
-            usuarioId: atletaOriginal.usuario_id,
-            nomeAvulso: null,
-            telefoneAvulso: null,
-          });
-        } else if (atletaOriginal.nome && atletaOriginal.fone) {
-          // Se não tiver usuarioId, é avulso - criar card para cliente avulso
-          clientes.push({
-            usuarioId: null,
-            nomeAvulso: atletaOriginal.nome,
-            telefoneAvulso: atletaOriginal.fone,
-          });
-        }
-      }
-    } else if (agendamento.usuarioId) {
-      // Usuário direto (sem atleta) - sempre cria card
-      clientes.push({
-        usuarioId: agendamento.usuarioId,
-        nomeAvulso: null,
-        telefoneAvulso: null,
-      });
-    } else if (agendamento.nomeAvulso && agendamento.telefoneAvulso) {
-      // Cliente avulso - criar card para cliente avulso
-      clientes.push({
-        usuarioId: null,
-        nomeAvulso: agendamento.nomeAvulso,
-        telefoneAvulso: agendamento.telefoneAvulso,
-      });
-    }
-
-    // Adicionar atletas participantes e participantes avulsos
-    console.log(`[gerar-cards] Processando ${participantesResult.rows.length} participantes...`);
-    participantesResult.rows.forEach((row: any, index: number) => {
-      console.log(`[gerar-cards] Processando participante ${index + 1}:`, {
-        atletaId: row.atletaId,
-        nomeAvulso: row.nomeAvulso,
-        telefoneAvulso: row.telefoneAvulso,
-        atleta_nome: row.atleta_nome,
-        atleta_fone: row.atleta_fone,
-        usuario_id: row.usuario_id,
-      });
-
-      // Se for participante avulso (sem atletaId, com nomeAvulso)
-      if (!row.atletaId && row.nomeAvulso) {
-        console.log(`[gerar-cards] ✅ Encontrado participante avulso: ${row.nomeAvulso}`);
-        // Verificar se já existe um cliente avulso com o mesmo nome
-        // (telefone pode ser null, então comparamos apenas por nome)
-        const jaExiste = clientes.some(
-          (c) => !c.usuarioId && c.nomeAvulso === row.nomeAvulso
-        );
-
-        if (!jaExiste) {
-          console.log(`[gerar-cards] ➕ Adicionando participante avulso à lista: ${row.nomeAvulso}`);
-          clientes.push({
-            usuarioId: null,
-            nomeAvulso: row.nomeAvulso,
-            telefoneAvulso: row.telefoneAvulso || null,
-          });
-        } else {
-          console.log(`[gerar-cards] ⚠️ Participante avulso "${row.nomeAvulso}" já existe na lista de clientes`);
-        }
-      } else if (row.usuario_id) {
-        // Atleta com usuarioId (tipo user) - verificar se já existe
-        const jaExiste = clientes.some(
-          (c) => c.usuarioId && c.usuarioId === row.usuario_id
-        );
-
-        if (!jaExiste) {
-          clientes.push({
-            usuarioId: row.usuario_id,
-            nomeAvulso: null,
-            telefoneAvulso: null,
-          });
-        }
-      } else if (row.atleta_nome && row.atleta_fone) {
-        // Atleta avulso (sem usuarioId) - criar card para cliente avulso
-        const jaExiste = clientes.some(
-          (c) => c.nomeAvulso === row.atleta_nome && c.telefoneAvulso === row.atleta_fone
-        );
-
-        if (!jaExiste) {
-          clientes.push({
-            usuarioId: null,
-            nomeAvulso: row.atleta_nome,
-            telefoneAvulso: row.atleta_fone,
-          });
-        }
-      }
-    });
-
-    console.log(`[gerar-cards] Total de clientes após adicionar participantes: ${clientes.length}`);
-    clientes.forEach((cliente, index) => {
-      console.log(`[gerar-cards] Cliente ${index + 1}:`, {
-        usuarioId: cliente.usuarioId,
-        nomeAvulso: cliente.nomeAvulso,
-        telefoneAvulso: cliente.telefoneAvulso,
-      });
-    });
 
     if (clientes.length === 0) {
       const errorResponse = NextResponse.json(
@@ -287,8 +315,10 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Calcular valor por cliente (divisão igual)
-    const valorPorCliente = valorTotal / clientes.length;
+    let valorPorCliente: number | null = null;
+    if (!usandoDistribuicoesPersonalizadas) {
+      valorPorCliente = valorTotal / clientes.length;
+    }
 
     // Verificar ou criar produto "Locação"
     let produtoLocacaoResult = await query(
@@ -405,7 +435,7 @@ export async function POST(
           [
             pointId,
             observacoesCard,
-            valorPorCliente,
+            usandoDistribuicoesPersonalizadas ? cliente.valor || 0 : valorPorCliente,
             cliente.usuarioId || null,
             cliente.nomeAvulso || null,
             cliente.telefoneAvulso || null,
@@ -424,14 +454,22 @@ export async function POST(
         ) VALUES (
           gen_random_uuid()::text, $1, $2, 1, $3, $3, $4, NOW(), NOW()
         )`,
-        [card.id, produtoLocacaoId, valorPorCliente, observacoesItem]
+        [
+          card.id,
+          produtoLocacaoId,
+          usandoDistribuicoesPersonalizadas ? cliente.valor || 0 : valorPorCliente,
+          observacoesItem,
+        ]
       );
 
       // Atualizar valorTotal do card (somar ao valor existente se for card antigo)
-      const valorTotalAtual = cardNovo 
-        ? 0 
-        : (typeof card.valorTotal === 'number' ? card.valorTotal : parseFloat(card.valorTotal) || 0);
-      const novoValorTotal = valorTotalAtual + valorPorCliente;
+      const valorTotalAtual = cardNovo
+        ? 0
+        : typeof card.valorTotal === 'number'
+        ? card.valorTotal
+        : parseFloat(card.valorTotal) || 0;
+      const valorAdicionar = usandoDistribuicoesPersonalizadas ? cliente.valor || 0 : valorPorCliente || 0;
+      const novoValorTotal = valorTotalAtual + valorAdicionar;
 
       await query(
         'UPDATE "CardCliente" SET "valorTotal" = $1, "updatedAt" = NOW() WHERE id = $2',
@@ -442,19 +480,19 @@ export async function POST(
         cardsCriados.push({
           id: card.id,
           numeroCard: card.numeroCard,
-          cliente: cliente.usuarioId 
+          cliente: cliente.usuarioId
             ? { tipo: 'usuario', id: cliente.usuarioId }
             : { tipo: 'avulso', nome: cliente.nomeAvulso },
-          valor: valorPorCliente,
+          valor: valorAdicionar,
         });
       } else {
         cardsAtualizados.push({
           id: card.id,
           numeroCard: card.numeroCard,
-          cliente: cliente.usuarioId 
+          cliente: cliente.usuarioId
             ? { tipo: 'usuario', id: cliente.usuarioId }
             : { tipo: 'avulso', nome: cliente.nomeAvulso },
-          valor: valorPorCliente,
+          valor: valorAdicionar,
           valorTotalAnterior: valorTotalAtual,
           valorTotalNovo: novoValorTotal,
         });
@@ -478,7 +516,7 @@ export async function POST(
       cards: cardsCriados,
       cardsAtualizados: cardsAtualizados,
       valorTotal,
-      valorPorCliente,
+      valorPorCliente: valorPorCliente ?? null,
       totalClientes: clientes.length,
       totalCardsCriados: cardsCriados.length,
       totalCardsAtualizados: cardsAtualizados.length,

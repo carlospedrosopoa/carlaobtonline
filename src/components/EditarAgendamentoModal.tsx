@@ -21,8 +21,18 @@ interface Atleta {
   usuario?: {
     id: string;
     name: string;
-    email: string | null;
-  } | null;
+      email: string | null;
+    } | null;
+}
+
+interface ClienteDistribuicao {
+  id: string;
+  usuarioId?: string | null;
+  nomeAvulso?: string | null;
+  telefoneAvulso?: string | null;
+  nomeExibicao: string;
+  tipo: 'titular' | 'participante';
+  valor: number;
 }
 
 interface EditarAgendamentoModalProps {
@@ -135,6 +145,158 @@ export default function EditarAgendamentoModal({
   const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
   const inputBuscaAtletaRef = useRef<HTMLInputElement>(null); // Ref para o campo de busca de atleta
+  const [modalDistribuicaoAberta, setModalDistribuicaoAberta] = useState(false);
+  const [clientesDistribuicao, setClientesDistribuicao] = useState<ClienteDistribuicao[]>([]);
+  const [agendamentoParaGerarCards, setAgendamentoParaGerarCards] = useState<Agendamento | null>(null);
+  const [origemDistribuicao, setOrigemDistribuicao] = useState<'botao' | 'salvar' | null>(null);
+
+  const obterValorTotalAgendamento = (ag?: Agendamento | null): number => {
+    if (!ag) return 0;
+
+    const brutoNegociado = (ag as any).valorNegociado;
+    const brutoCalculado = (ag as any).valorCalculado;
+
+    const valorNegociadoNum =
+      brutoNegociado !== null && brutoNegociado !== undefined
+        ? Number(brutoNegociado)
+        : NaN;
+    const valorCalculadoNum =
+      brutoCalculado !== null && brutoCalculado !== undefined
+        ? Number(brutoCalculado)
+        : NaN;
+
+    const valor =
+      !Number.isNaN(valorNegociadoNum) && valorNegociadoNum > 0
+        ? valorNegociadoNum
+        : !Number.isNaN(valorCalculadoNum) && valorCalculadoNum > 0
+        ? valorCalculadoNum
+        : 0;
+
+    return Number(valor.toFixed(2));
+  };
+
+  const construirClientesDistribuicao = (ag: Agendamento): ClienteDistribuicao[] => {
+    const mapa = new Map<string, Omit<ClienteDistribuicao, 'id' | 'valor'>>();
+
+    const criarChave = (usuarioId?: string | null, nome?: string | null, telefone?: string | null) => {
+      if (usuarioId) return `user:${usuarioId}`;
+      const nomeKey = (nome || '').trim().toLowerCase();
+      const telKey = (telefone || '').replace(/\D/g, '');
+      return `avulso:${nomeKey}:${telKey}`;
+    };
+
+    const adicionar = (dados: {
+      usuarioId?: string | null;
+      nomeAvulso?: string | null;
+      telefoneAvulso?: string | null;
+      nomeExibicao: string;
+      tipo: 'titular' | 'participante';
+    }) => {
+      const chave = criarChave(dados.usuarioId, dados.nomeAvulso, dados.telefoneAvulso);
+      if (mapa.has(chave)) return;
+      mapa.set(chave, {
+        usuarioId: dados.usuarioId ?? null,
+        nomeAvulso: dados.nomeAvulso ?? null,
+        telefoneAvulso: dados.telefoneAvulso ?? null,
+        nomeExibicao: dados.nomeExibicao,
+        tipo: dados.tipo,
+      });
+    };
+
+    if (ag.atletaId && ag.atleta) {
+      if (ag.atleta.usuarioId) {
+        adicionar({
+          usuarioId: ag.atleta.usuarioId,
+          nomeAvulso: null,
+          telefoneAvulso: ag.atleta.fone || null,
+          nomeExibicao: ag.atleta.nome,
+          tipo: 'titular',
+        });
+      } else {
+        adicionar({
+          usuarioId: null,
+          nomeAvulso: ag.atleta.nome,
+          telefoneAvulso: ag.atleta.fone || null,
+          nomeExibicao: ag.atleta.nome,
+          tipo: 'titular',
+        });
+      }
+    } else if (ag.usuarioId && ag.usuario) {
+      adicionar({
+        usuarioId: ag.usuario.id,
+        nomeAvulso: null,
+        telefoneAvulso: null,
+        nomeExibicao: ag.usuario.name,
+        tipo: 'titular',
+      });
+    } else if (ag.nomeAvulso) {
+      adicionar({
+        usuarioId: null,
+        nomeAvulso: ag.nomeAvulso,
+        telefoneAvulso: ag.telefoneAvulso,
+        nomeExibicao: ag.nomeAvulso,
+        tipo: 'titular',
+      });
+    }
+
+    if (Array.isArray(ag.atletasParticipantes)) {
+      ag.atletasParticipantes.forEach((ap) => {
+        if (!ap || !ap.atleta) return;
+        const atleta = ap.atleta;
+        if (atleta.usuarioId) {
+          adicionar({
+            usuarioId: atleta.usuarioId,
+            nomeAvulso: null,
+            telefoneAvulso: atleta.fone || null,
+            nomeExibicao: atleta.nome,
+            tipo: 'participante',
+          });
+        } else {
+          adicionar({
+            usuarioId: null,
+            nomeAvulso: atleta.nome,
+            telefoneAvulso: atleta.fone || null,
+            nomeExibicao: atleta.nome,
+            tipo: 'participante',
+          });
+        }
+      });
+    }
+
+    const clientesBase = Array.from(mapa.values());
+
+    const valorTotalAgendamento = obterValorTotalAgendamento(ag);
+
+    const quantidade = clientesBase.length || 1;
+    const valorBase =
+      quantidade > 0 && valorTotalAgendamento > 0
+        ? Number((valorTotalAgendamento / quantidade).toFixed(2))
+        : 0;
+
+    const somaBase = valorBase * quantidade;
+    let diferenca = Number((valorTotalAgendamento - somaBase).toFixed(2));
+
+    return clientesBase.map((c, index) => {
+      let valor = valorBase;
+      if (index === clientesBase.length - 1) {
+        valor = Number((valorBase + diferenca).toFixed(2));
+      }
+      const chaveId = criarChave(c.usuarioId, c.nomeAvulso, c.telefoneAvulso);
+      return {
+        ...c,
+        id: `${index}-${chaveId}`,
+        valor,
+      };
+    });
+  };
+
+  const abrirModalDistribuicao = (ag: Agendamento, origem: 'botao' | 'salvar') => {
+    const clientes = construirClientesDistribuicao(ag);
+    setClientesDistribuicao(clientes);
+    setAgendamentoParaGerarCards(ag);
+    setOrigemDistribuicao(origem);
+    setModalDistribuicaoAberta(true);
+  };
 
   // Função para normalizar texto removendo acentuação
   const normalizarTexto = (texto: string): string => {
@@ -1219,60 +1381,9 @@ export default function EditarAgendamentoModal({
       console.log('[EditarAgendamentoModal] canGerenciarAgendamento:', canGerenciarAgendamento);
       console.log('[EditarAgendamentoModal] ============================================');
 
-      // Executar salvamento diretamente (sem modal de confirmação)
-      // A lógica de aplicar aos futuros foi removida - sempre edita apenas o agendamento atual
       const temValorParaCards = Boolean((valorNegociado ?? valorCalculado) && Number(valorNegociado ?? valorCalculado) > 0);
       const temClienteParaCards = Boolean(atletaId || nomeAvulso || atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0);
       const podeGerarCards = !isReadOnly && canGerenciarAgendamento && temValorParaCards && temClienteParaCards;
-
-      const executarGeracaoCards = async (agendamentoId: string): Promise<boolean> => {
-        try {
-          setGerandoCards(true);
-          setErro('');
-          const resultado = await agendamentoService.gerarCards(agendamentoId);
-          const valorTotal = typeof resultado.valorTotal === 'number' ? resultado.valorTotal : parseFloat(resultado.valorTotal) || 0;
-          const valorPorCliente = typeof resultado.valorPorCliente === 'number' ? resultado.valorPorCliente : parseFloat(resultado.valorPorCliente) || 0;
-          const totalClientes = resultado.totalClientes || 0;
-          const totalCardsCriados = resultado.totalCardsCriados || 0;
-          const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
-
-          let mensagemDetalhada = `${resultado.mensagem}\n\n`;
-          mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
-          mensagemDetalhada += `Valor por cliente: R$ ${valorPorCliente.toFixed(2)}\n`;
-          mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
-          if (totalCardsCriados > 0) {
-            mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
-          }
-          if (totalCardsAtualizados > 0) {
-            mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
-          }
-          alert(mensagemDetalhada);
-          return true;
-        } catch (error: any) {
-          const isNetworkError =
-            error?.message?.includes('Failed to fetch') ||
-            error?.message?.includes('NetworkError') ||
-            error?.message?.includes('cancelada');
-
-          let mensagemErro =
-            error?.response?.data?.mensagem ||
-            error?.data?.mensagem ||
-            error?.message ||
-            'Erro ao gerar cards';
-
-          if (isNetworkError) {
-            mensagemErro = 'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
-          }
-
-          setErro(mensagemErro);
-          if (!error?.response?.data?.cards && !error?.data?.cards) {
-            alert(`Erro: ${mensagemErro}`);
-          }
-          return false;
-        } finally {
-          setGerandoCards(false);
-        }
-      };
 
       if (agendamento) {
         // Modo edição
@@ -1309,8 +1420,11 @@ export default function EditarAgendamentoModal({
           });
           
           onSuccess();
-          if (gerarCardsAoSalvar && podeGerarCards) await executarGeracaoCards(agendamentoAtualizado.id);
-          onClose();
+          if (gerarCardsAoSalvar && podeGerarCards) {
+            abrirModalDistribuicao(agendamentoAtualizado, 'salvar');
+          } else {
+            onClose();
+          }
         } catch (error: any) {
           console.error('Erro ao atualizar agendamento:', error);
           setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao atualizar agendamento. Tente novamente.');
@@ -1337,8 +1451,7 @@ export default function EditarAgendamentoModal({
           
           if (gerarCardsAoSalvar && podeGerarCards) {
             onSuccess();
-            await executarGeracaoCards(novoAgendamento.id);
-            onClose();
+            abrirModalDistribuicao(novoAgendamento, 'salvar');
           } else if (manterNaTela && canGerenciarAgendamento) {
             // Limpar apenas seleção de quadras e participantes
             setQuadraId('');
@@ -1349,14 +1462,6 @@ export default function EditarAgendamentoModal({
             // Limpar valores calculados (serão recalculados quando selecionar nova quadra)
             setValorHora(null);
             setValorCalculado(null);
-            // Limpar campos de recorrência (cada agendamento deve ser único)
-            setTemRecorrencia(false);
-            setTipoRecorrencia(null);
-            setIntervaloRecorrencia(1);
-            setDiasSemanaRecorrencia([]);
-            setDiaMesRecorrencia(1);
-            setDataFimRecorrencia('');
-            setQuantidadeOcorrencias(12);
             // Limpar erro se houver
             setErro('');
             // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, atletaId, etc)
@@ -1399,10 +1504,137 @@ export default function EditarAgendamentoModal({
       ? '—'
       : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+  const valorTotalAgendamentoDistribuicao = useMemo(
+    () => obterValorTotalAgendamento(agendamentoParaGerarCards),
+    [agendamentoParaGerarCards],
+  );
+
+  const totalDistribuido = useMemo(
+    () => clientesDistribuicao.reduce((soma, c) => soma + (c.valor || 0), 0),
+    [clientesDistribuicao],
+  );
+
+  const diferencaDistribuicao = useMemo(
+    () => Number((valorTotalAgendamentoDistribuicao - totalDistribuido).toFixed(2)),
+    [valorTotalAgendamentoDistribuicao, totalDistribuido],
+  );
+
+  const distribuicaoValida = useMemo(
+    () => Math.abs(diferencaDistribuicao) < 0.01,
+    [diferencaDistribuicao],
+  );
+
+  const temClienteComValor = useMemo(
+    () => clientesDistribuicao.some((c) => (c.valor || 0) > 0),
+    [clientesDistribuicao],
+  );
+
+  const atualizarValorDistribuicao = (id: string, valor: number | null) => {
+    setClientesDistribuicao((atual) =>
+      atual.map((c) => (c.id === id ? { ...c, valor: valor || 0 } : c)),
+    );
+  };
+
+  const executarGeracaoCardsComDistribuicao = async () => {
+    if (!agendamentoParaGerarCards) return;
+    if (!temClienteComValor) return;
+    try {
+      setGerandoCards(true);
+      setErro('');
+
+      const distribuicoesFiltradas = clientesDistribuicao.filter(
+        (c) => (c.valor || 0) > 0,
+      );
+
+      const payload = {
+        distribuicoes: distribuicoesFiltradas.map((c) => ({
+          usuarioId: c.usuarioId ?? null,
+          nomeAvulso: c.nomeAvulso ?? null,
+          telefoneAvulso: c.telefoneAvulso ?? null,
+          valor: c.valor || 0,
+        })),
+      };
+      const resultado = await agendamentoService.gerarCards(agendamentoParaGerarCards.id, payload);
+      const valorTotal =
+        typeof resultado.valorTotal === 'number'
+          ? resultado.valorTotal
+          : parseFloat(String(resultado.valorTotal)) || 0;
+      const valorPorClienteRaw =
+        resultado.valorPorCliente != null
+          ? typeof resultado.valorPorCliente === 'number'
+            ? resultado.valorPorCliente
+            : parseFloat(String(resultado.valorPorCliente)) || 0
+          : null;
+      const totalClientes = resultado.totalClientes || 0;
+      const totalCardsCriados = resultado.totalCardsCriados || 0;
+      const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
+
+      let mensagemDetalhada = `${resultado.mensagem}\n\n`;
+      mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
+      if (valorPorClienteRaw != null) {
+        mensagemDetalhada += `Valor por cliente (padrão): R$ ${valorPorClienteRaw.toFixed(2)}\n`;
+      }
+      mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
+      if (totalCardsCriados > 0) {
+        mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
+      }
+      if (totalCardsAtualizados > 0) {
+        mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
+      }
+      alert(mensagemDetalhada);
+
+      if (typeof window !== 'undefined') {
+        const ua = navigator.userAgent || (navigator as any).vendor || '';
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        if (!isMobile) {
+          window.open('/app/arena/cards-clientes', '_blank');
+        }
+      }
+
+      setModalDistribuicaoAberta(false);
+      setAgendamentoParaGerarCards(null);
+      setOrigemDistribuicao(null);
+      onSuccess();
+      if (origemDistribuicao === 'botao' || !manterNaTela || agendamentoParaGerarCards) {
+        onClose();
+      }
+    } catch (error: any) {
+      const isNetworkError =
+        error?.message?.includes('Failed to fetch') ||
+        error?.message?.includes('NetworkError') ||
+        error?.message?.includes('cancelada');
+
+      let mensagemErro =
+        error?.response?.data?.mensagem ||
+        error?.data?.mensagem ||
+        error?.message ||
+        'Erro ao gerar cards';
+
+      if (isNetworkError) {
+        mensagemErro =
+          'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
+      }
+
+      setErro(mensagemErro);
+      if (!error?.response?.data?.cards && !error?.data?.cards) {
+        alert(`Erro: ${mensagemErro}`);
+      }
+    } finally {
+      setGerandoCards(false);
+    }
+  };
+
+  const handleDialogClose = () => {
+    if (modalDistribuicaoAberta) {
+      return;
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+    <Dialog open={isOpen} onClose={handleDialogClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <Dialog.Panel className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1595,8 +1827,9 @@ export default function EditarAgendamentoModal({
                       </div>
                     ))}
                     {participantesCompletos.length > 0 ? (
-                      // Usar dados completos do agendamento
-                      participantesCompletos.map((participante) => (
+                      participantesCompletos
+                        .filter((participante) => participante.atletaId)
+                        .map((participante) => (
                         <div
                           key={participante.id}
                           className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
@@ -2278,7 +2511,6 @@ export default function EditarAgendamentoModal({
               </div>
 
 
-            {/* Botão Gerar Cards - apenas para agendamentos existentes com valor e com cliente vinculado */}
             {!isReadOnly && agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && 
              (agendamento.atletaId || agendamento.nomeAvulso || (agendamento.atletasParticipantes && agendamento.atletasParticipantes.length > 0)) && (
               <div className="mt-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
@@ -2293,67 +2525,9 @@ export default function EditarAgendamentoModal({
                     </p>
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (!agendamento?.id) return;
-                        if (!confirm('Deseja gerar comandas de cliente para todos os participantes deste agendamento?')) return;
-
-                        try {
-                          setGerandoCards(true);
-                          setErro('');
-                          const resultado = await agendamentoService.gerarCards(agendamento.id);
-                          if (resultado && resultado.mensagem) {
-                            // Garantir que os valores sejam números antes de usar toFixed
-                            const valorTotal = typeof resultado.valorTotal === 'number' ? resultado.valorTotal : parseFloat(resultado.valorTotal) || 0;
-                            const valorPorCliente = typeof resultado.valorPorCliente === 'number' ? resultado.valorPorCliente : parseFloat(resultado.valorPorCliente) || 0;
-                            const totalClientes = resultado.totalClientes || 0;
-                            const totalCardsCriados = resultado.totalCardsCriados || 0;
-                            const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
-                            
-                            let mensagemDetalhada = `${resultado.mensagem}\n\n`;
-                            mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
-                            mensagemDetalhada += `Valor por cliente: R$ ${valorPorCliente.toFixed(2)}\n`;
-                            mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
-                            if (totalCardsCriados > 0) {
-                              mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
-                            }
-                            if (totalCardsAtualizados > 0) {
-                              mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
-                            }
-                            
-                            alert(mensagemDetalhada);
-                            onSuccess();
-                            onClose(); // Fechar o modal após gerar cards com sucesso
-                          } else {
-                            throw new Error('Resposta inválida da API');
-                          }
-                        } catch (error: any) {
-                          console.error('Erro completo ao gerar cards:', error);
-                          
-                          // Verificar se é um erro de rede/timeout
-                          const isNetworkError = error?.message?.includes('Failed to fetch') || 
-                                                 error?.message?.includes('NetworkError') ||
-                                                 error?.message?.includes('cancelada');
-                          
-                          let mensagemErro = error?.response?.data?.mensagem || 
-                                            error?.data?.mensagem || 
-                                            error?.message || 
-                                            'Erro ao gerar cards';
-                          
-                          // Se for erro de rede mas os cards podem ter sido criados, verificar no servidor
-                          if (isNetworkError) {
-                            mensagemErro = 'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
-                            console.warn('Erro de rede ao gerar cards, mas a operação pode ter sido concluída no servidor');
-                          }
-                          
-                          setErro(mensagemErro);
-                          
-                          // Não mostrar alert de erro se os cards foram criados (pode ser um erro de parsing)
-                          if (!error?.response?.data?.cards && !error?.data?.cards) {
-                            alert(`Erro: ${mensagemErro}`);
-                          }
-                        } finally {
-                          setGerandoCards(false);
-                        }
+                      onClick={() => {
+                        if (!agendamento) return;
+                        abrirModalDistribuicao(agendamentoCompleto || agendamento, 'botao');
                       }}
                       disabled={gerandoCards || salvando || temAlteracoes}
                       className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2458,7 +2632,85 @@ export default function EditarAgendamentoModal({
           </form>
         </Dialog.Panel>
       </div>
-
+      {modalDistribuicaoAberta && agendamentoParaGerarCards && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Distribuir valor entre os clientes</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Ajuste o valor que será lançado na comanda de cada atleta ou cliente. A soma deve ser igual ao valor total do agendamento.
+            </p>
+            <div className="space-y-3 mb-4">
+              {clientesDistribuicao.map((cliente) => (
+                <div
+                  key={cliente.id}
+                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-gray-200"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{cliente.nomeExibicao}</p>
+                    <p className="text-xs text-gray-500">
+                      {cliente.tipo === 'titular' ? 'Titular da agenda' : 'Participante'}
+                    </p>
+                  </div>
+                  <div className="w-32">
+                    <InputMonetario
+                      value={cliente.valor}
+                      onChange={(v) => atualizarValorDistribuicao(cliente.id, v)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mb-4 space-y-1 text-sm">
+              <p className="text-gray-700">
+                Valor total do agendamento:{' '}
+                <span className="font-semibold">
+                  {formatCurrency(valorTotalAgendamentoDistribuicao)}
+                </span>
+              </p>
+                <p
+                className={
+                  distribuicaoValida
+                    ? 'text-gray-700'
+                    : 'text-red-600'
+                }
+              >
+                Total distribuído:{' '}
+                <span className="font-semibold">
+                  {formatCurrency(totalDistribuido)}
+                </span>
+                {!distribuicaoValida && (
+                  <span className="ml-1">
+                    (diferença de {formatCurrency(Math.abs(diferencaDistribuicao))})
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-end mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalDistribuicaoAberta(false);
+                  setAgendamentoParaGerarCards(null);
+                  setOrigemDistribuicao(null);
+                }}
+                disabled={gerandoCards}
+                className="w-full sm:w-auto px-6 py-2.5 bg-gray-200 rounded-lg hover:bg-gray-300 text-gray-800 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+                <button
+                  type="button"
+                  onClick={executarGeracaoCardsComDistribuicao}
+                  disabled={gerandoCards || !temClienteComValor}
+                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {gerandoCards ? 'Gerando cards...' : 'Confirmar e gerar cards'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Dialog>
   );
 }
