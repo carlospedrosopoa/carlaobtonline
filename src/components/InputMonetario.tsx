@@ -122,7 +122,6 @@ export default function InputMonetario({
           id={id}
           type="text"
           inputMode="numeric"
-          pattern="[0-9]*"
           value={displayValue}
           onChange={handleChange}
           onBlur={handleBlur}
