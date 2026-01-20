@@ -28,6 +28,7 @@ export default function ArenaAgendaSemanalPage() {
   const [agendamentoEditando, setAgendamentoEditando] = useState<Agendamento | null>(null);
   const [dataInicialModal, setDataInicialModal] = useState<string | undefined>(undefined);
   const [horaInicialModal, setHoraInicialModal] = useState<string | undefined>(undefined);
+  const [quadraIdInicialModal, setQuadraIdInicialModal] = useState<string | undefined>(undefined);
   const [modalCancelarAberto, setModalCancelarAberto] = useState(false);
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
@@ -914,6 +915,7 @@ export default function ArenaAgendaSemanalPage() {
               setAgendamentoEditando(null);
               setDataInicialModal(undefined);
               setHoraInicialModal(undefined);
+              setQuadraIdInicialModal(undefined);
               setModalEditarAberto(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
@@ -1197,12 +1199,23 @@ export default function ArenaAgendaSemanalPage() {
                                     style={{ width: larguraPorQuadra }}
                                     onClick={() => {
                                       if (!temConteudo) {
-                                        const dataHora = new Date(dia);
-                                        dataHora.setHours(slot.hora, slot.minuto, 0, 0);
-                                        setDataInicialModal(dataHora.toISOString());
-                                        setHoraInicialModal(`${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`);
-                                        setAgendamentoEditando(null);
-                                        setModalEditarAberto(true);
+                                        try {
+                                          const ano = dia.getFullYear();
+                                          const mes = String(dia.getMonth() + 1).padStart(2, '0');
+                                          const diaNum = String(dia.getDate()).padStart(2, '0');
+                                          const dataFormatada = `${ano}-${mes}-${diaNum}`; // YYYY-MM-DD para input date
+
+                                          const horaFormatada = `${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`;
+
+                                          setDataInicialModal(dataFormatada);
+                                          setHoraInicialModal(horaFormatada);
+                                          setQuadraIdInicialModal(quadra.id);
+                                          setAgendamentoEditando(null);
+                                          setModalEditarAberto(true);
+                                        } catch (e) {
+                                          console.error('Erro ao obter data/horário da agenda:', e);
+                                          alert('Não foi possível obter a data a partir da agenda. Tente novamente.');
+                                        }
                                       }
                                     }}
                                     title={!temConteudo ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')} - ${quadra.nome}` : ''}
@@ -1546,6 +1559,7 @@ export default function ArenaAgendaSemanalPage() {
           setAgendamentoEditando(null);
           setDataInicialModal(undefined);
           setHoraInicialModal(undefined);
+          setQuadraIdInicialModal(undefined);
         }}
         onSuccess={() => {
           carregarAgendamentos();
@@ -1553,6 +1567,7 @@ export default function ArenaAgendaSemanalPage() {
           // Então só fechamos se não houver flag marcada (comportamento normal)
           // O componente gerencia isso internamente, não precisamos fazer nada aqui
         }}
+        quadraIdInicial={quadraIdInicialModal}
         dataInicial={dataInicialModal}
         horaInicial={horaInicialModal}
       />
