@@ -563,3 +563,24 @@ export interface FiltrosFluxoCaixa {
   tipo?: 'ENTRADA' | 'SAIDA' | 'TODOS';
 }
 
+// ============================================
+// DASHBOARD OPERACIONAL
+// ============================================
+export interface DashboardOperacionalData {
+  kpis: {
+    faturamentoDia: number;
+    faturamentoPendente: number;
+    itensVendidos: number;
+    ticketMedio: number;
+  };
+  graficoHorario: Array<{
+    hora: string;
+    valor: number;
+  }>;
+  produtosMaisVendidos: Array<{
+    produto: string;
+    quantidade: number;
+    valor: number;
+  }>;
+}
+

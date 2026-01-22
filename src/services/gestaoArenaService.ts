@@ -36,6 +36,7 @@ import type {
   CriarAberturaCaixaPayload,
   FecharAberturaCaixaPayload,
   LancamentoFluxoCaixa,
+  DashboardOperacionalData,
 } from "@/types/gestaoArena";
 
 // ========== CARDS DE CLIENTES ==========
@@ -405,6 +406,15 @@ export const fluxoCaixaService = {
     const res = await api.get(`/gestao-arena/fluxo-caixa${query ? `?${query}` : ''}`);
     return res.data;
   },
+};
+
+export const dashboardOperacionalService = {
+  obter: async (pointId: string, dataInicio: string, dataFim: string): Promise<DashboardOperacionalData> => {
+    const res = await api.get('/gestao-arena/dashboard-operacional', {
+      params: { pointId, dataInicio, dataFim }
+    });
+    return res.data;
+  }
 };
 
 // ========== ABERTURA DE CAIXA ==========
