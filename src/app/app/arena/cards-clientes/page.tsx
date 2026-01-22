@@ -1,7 +1,7 @@
 // app/app/arena/cards-clientes/page.tsx - Cards de Clientes
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService } from '@/services/gestaoArenaService';
 import type { CardCliente, StatusCard } from '@/types/gestaoArena';
@@ -10,10 +10,11 @@ import CriarEditarCardModal from '@/components/CriarEditarCardModal';
 import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt } from 'lucide-react';
+import ModalUnificarComanda from '@/components/ModalUnificarComanda';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt, Merge, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
-import { formaPagamentoService, pagamentoCardService, contaCorrenteService } from '@/services/gestaoArenaService';
+import { formaPagamentoService, pagamentoCardService } from '@/services/gestaoArenaService';
 import type { FormaPagamento } from '@/types/gestaoArena';
 import InputMonetario from '@/components/InputMonetario';
 
@@ -30,7 +31,16 @@ export default function CardsClientesPage() {
   const [cardEditando, setCardEditando] = useState<CardCliente | null>(null);
   const [modalItensAberto, setModalItensAberto] = useState(false);
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false);
+  const [modalUnificarAberto, setModalUnificarAberto] = useState(false);
+  const [cardParaUnificar, setCardParaUnificar] = useState<CardCliente | null>(null);
   const [cardGerenciando, setCardGerenciando] = useState<CardCliente | null>(null);
+
+  // Estados de ordenação
+  type SortField = 'numeroCard' | 'cliente' | 'status' | 'valorTotal' | 'totalPago' | 'saldo' | 'data';
+  type SortOrder = 'asc' | 'desc';
+  const [sortField, setSortField] = useState<SortField>('data');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
   const [nomeArena, setNomeArena] = useState<string>('');
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
   // Estados para pagamento rápido por card
@@ -38,8 +48,6 @@ export default function CardsClientesPage() {
   const [formaPagamentoSelecionada, setFormaPagamentoSelecionada] = useState<Record<string, string>>({});
   const [valorRecebido, setValorRecebido] = useState<Record<string, number | null>>({});
   const [processandoPagamento, setProcessandoPagamento] = useState<Record<string, boolean>>({});
-  // Estado para armazenar saldos das contas correntes: chave = `${usuarioId}-${pointId}`
-  const [saldosContaCorrente, setSaldosContaCorrente] = useState<Record<string, number>>({});
   
   // Carregar preferência de visualização do localStorage
   const [visualizacao, setVisualizacao] = useState<'lista' | 'cards'>(() => {
@@ -125,59 +133,12 @@ export default function CardsClientesPage() {
       );
       
       console.log('[carregarCards] Cards recebidos:', Array.isArray(data) ? data.length : 'não é array', data);
-      const cardsArray = Array.isArray(data) ? data : [];
-      setCards(cardsArray);
-      
-      // Carregar saldos das contas correntes após carregar os cards
-      await carregarSaldosContaCorrente(cardsArray);
+      setCards(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar cards:', error);
       setCards([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const carregarSaldosContaCorrente = async (cards: CardCliente[]) => {
-    if (!usuario?.pointIdGestor) return;
-    const pointIdGestor = usuario.pointIdGestor;
-    
-    try {
-      // Coletar todos os usuarioId únicos dos cards que têm usuário vinculado
-      const usuarioIds = new Set<string>();
-      cards.forEach((card) => {
-        if (card.usuarioId) {
-          usuarioIds.add(card.usuarioId);
-        }
-      });
-
-      if (usuarioIds.size === 0) {
-        setSaldosContaCorrente({});
-        return;
-      }
-
-      // Buscar saldos para cada usuário na arena do gestor
-      const saldosMap: Record<string, number> = {};
-      
-      await Promise.all(
-        Array.from(usuarioIds).map(async (usuarioId) => {
-          try {
-            const contas = await contaCorrenteService.listar(pointIdGestor, usuarioId);
-            // Encontrar a conta da arena do gestor
-            const conta = contas.find((c) => c.pointId === pointIdGestor);
-            if (conta && conta.saldo !== 0) {
-              saldosMap[`${usuarioId}-${pointIdGestor}`] = conta.saldo;
-            }
-          } catch (error) {
-            // Ignorar erros individuais (conta pode não existir)
-            console.log(`Conta corrente não encontrada para usuário ${usuarioId}`);
-          }
-        })
-      );
-
-      setSaldosContaCorrente(saldosMap);
-    } catch (error) {
-      console.error('Erro ao carregar saldos de conta corrente:', error);
     }
   };
 
@@ -192,15 +153,79 @@ export default function CardsClientesPage() {
   };
 
 
-  const cardsFiltrados = cards.filter((card) => {
-    const matchBusca = busca === '' || 
-      card.numeroCard.toString().includes(busca) ||
-      card.usuario?.name?.toLowerCase().includes(busca.toLowerCase()) ||
-      card.usuario?.email?.toLowerCase().includes(busca.toLowerCase()) ||
-      card.nomeAvulso?.toLowerCase().includes(busca.toLowerCase()) ||
-      card.telefoneAvulso?.includes(busca);
-    return matchBusca;
-  });
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const cardsFiltrados = useMemo(() => {
+    // 1. Filtrar
+    const listaFiltrada = cards.filter((card) => {
+      const termo = busca.toLowerCase();
+      return (
+        busca === '' || 
+        card.numeroCard.toString().includes(busca) ||
+        card.usuario?.name?.toLowerCase().includes(termo) ||
+        card.usuario?.email?.toLowerCase().includes(termo) ||
+        card.nomeAvulso?.toLowerCase().includes(termo) ||
+        card.telefoneAvulso?.includes(busca)
+      );
+    });
+
+    // 2. Ordenar (usando cópia explícita para evitar mutações indesejadas)
+    return [...listaFiltrada].sort((a, b) => {
+      let valorA: any;
+      let valorB: any;
+
+      switch (sortField) {
+        case 'numeroCard':
+          valorA = a.numeroCard;
+          valorB = b.numeroCard;
+          break;
+        
+        case 'cliente':
+          valorA = (a.usuario?.name || a.nomeAvulso || '').toLowerCase();
+          valorB = (b.usuario?.name || b.nomeAvulso || '').toLowerCase();
+          break;
+        
+        case 'status':
+          valorA = (a.status || '').toLowerCase();
+          valorB = (b.status || '').toLowerCase();
+          break;
+        
+        case 'valorTotal':
+          valorA = a.valorTotal || 0;
+          valorB = b.valorTotal || 0;
+          break;
+        
+        case 'totalPago':
+          valorA = a.totalPago || 0;
+          valorB = b.totalPago || 0;
+          break;
+        
+        case 'saldo':
+          valorA = (a.valorTotal || 0) - (a.totalPago || 0);
+          valorB = (b.valorTotal || 0) - (b.totalPago || 0);
+          break;
+        
+        case 'data':
+          valorA = new Date(a.createdAt || 0).getTime();
+          valorB = new Date(b.createdAt || 0).getTime();
+          break;
+        
+        default:
+          return 0;
+      }
+
+      if (valorA < valorB) return sortOrder === 'asc' ? -1 : 1;
+      if (valorA > valorB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [cards, busca, sortField, sortOrder]);
 
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -451,6 +476,11 @@ export default function CardsClientesPage() {
   };
 
 
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-emerald-600" /> : <ArrowDown className="w-4 h-4 text-emerald-600" />;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -548,13 +578,69 @@ export default function CardsClientesPage() {
             <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Card</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Cliente</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Valor Total</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Total Pago</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Saldo</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Data</th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('numeroCard')}
+                >
+                  <div className="flex items-center gap-1">
+                    Card
+                    <SortIcon field="numeroCard" />
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('cliente')}
+                >
+                  <div className="flex items-center gap-1">
+                    Cliente
+                    <SortIcon field="cliente" />
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-1">
+                    Status
+                    <SortIcon field="status" />
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('valorTotal')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <SortIcon field="valorTotal" />
+                    Valor Total
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('totalPago')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <SortIcon field="totalPago" />
+                    Total Pago
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('saldo')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <SortIcon field="saldo" />
+                    Saldo
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('data')}
+                >
+                  <div className="flex items-center gap-1">
+                    Data
+                    <SortIcon field="data" />
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
@@ -574,24 +660,7 @@ export default function CardsClientesPage() {
                   <td className="px-4 py-4">
                     {card.usuario ? (
                       <div>
-                        <div className="font-semibold text-gray-900 flex items-center gap-2">
-                          {card.usuario.name}
-                          {card.usuarioId && usuario?.pointIdGestor && (() => {
-                            const saldo = saldosContaCorrente[`${card.usuarioId}-${usuario.pointIdGestor}`];
-                            if (saldo !== undefined && saldo !== 0) {
-                              return (
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                  saldo > 0 
-                                    ? 'bg-green-100 text-green-700' 
-                                    : 'bg-red-100 text-red-700'
-                                }`}>
-                                  CC: {formatarMoeda(saldo)}
-                                </span>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
+                        <div className="font-semibold text-gray-900">{card.usuario.name}</div>
                         {card.usuario.email && (
                           <div className="text-xs text-gray-500">{card.usuario.email}</div>
                         )}
@@ -671,6 +740,18 @@ export default function CardsClientesPage() {
                       </button>
                       <button
                         onClick={(e) => {
+                          e.stopPropagation();
+                          setCardParaUnificar(card);
+                          setModalUnificarAberto(true);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-xs font-medium"
+                        title="Unificar com outra comanda"
+                      >
+                        <Merge className="w-4 h-4" />
+                        Unificar
+                      </button>
+                      <button
+                        onClick={(e) => {
                           if (obterTelefoneCliente(card)) {
                             enviarWhatsAppCard(card, e);
                           }
@@ -714,24 +795,7 @@ export default function CardsClientesPage() {
               <div className="mb-3">
                 {card.usuario ? (
                   <div>
-                    <div className="font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
-                      {card.usuario.name}
-                      {card.usuarioId && usuario?.pointIdGestor && (() => {
-                        const saldo = saldosContaCorrente[`${card.usuarioId}-${usuario.pointIdGestor}`];
-                        if (saldo !== undefined && saldo !== 0) {
-                          return (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              saldo > 0 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-red-100 text-red-700'
-                            }`}>
-                              CC: {formatarMoeda(saldo)}
-                            </span>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
+                    <div className="font-semibold text-gray-900">{card.usuario.name}</div>
                     {card.usuario.email && (
                       <div className="text-xs text-gray-500">{card.usuario.email}</div>
                     )}
@@ -820,39 +884,10 @@ export default function CardsClientesPage() {
                       
                       {/* Botões de Formas de Pagamento */}
                       <div className="flex flex-wrap gap-2">
-                        {formasPagamento
-                          .sort((a, b) => {
-                            // Ordem: Pix, Débito, Crédito, Dinheiro, Online (Infinite Pay), Conta Corrente
-                            const ordem: Record<string, number> = {
-                              'pix': 1,
-                              'cartão de débito': 2,
-                              'cartao de debito': 2,
-                              'débito': 2,
-                              'debito': 2,
-                              'cartão de crédito': 3,
-                              'cartao de credito': 3,
-                              'crédito': 3,
-                              'credito': 3,
-                              'dinheiro': 4,
-                              'cash': 4,
-                              'infinite pay': 5,
-                              'online': 5,
-                              'conta corrente': 6,
-                            };
-                            const nomeA = a.nome.toLowerCase();
-                            const nomeB = b.nome.toLowerCase();
-                            const ordemA = ordem[nomeA] || 999;
-                            const ordemB = ordem[nomeB] || 999;
-                            return ordemA - ordemB;
-                          })
-                          .map((forma) => {
+                        {formasPagamento.map((forma) => {
                           const selecionada = formaPagamentoSelecionada[card.id] === forma.id;
                           const isDinheiro = forma.nome?.toLowerCase().includes('dinheiro') || 
                                            forma.nome?.toLowerCase().includes('cash');
-                          // Remover "Cartão de" do nome para exibição
-                          const nomeExibicao = forma.nome
-                            .replace(/^cartão de /i, '')
-                            .replace(/^cartao de /i, '');
                           return (
                             <button
                               key={forma.id}
@@ -874,7 +909,7 @@ export default function CardsClientesPage() {
                                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
                               }`}
                             >
-                              {nomeExibicao}
+                              {forma.nome}
                             </button>
                           );
                         })}
@@ -973,6 +1008,17 @@ export default function CardsClientesPage() {
                 >
                   <DollarSign className="w-4 h-4" />
                   Pagamentos
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCardParaUnificar(card);
+                    setModalUnificarAberto(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-xs font-medium"
+                  title="Unificar"
+                >
+                  <Merge className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => {
@@ -1102,6 +1148,23 @@ export default function CardsClientesPage() {
             } else {
               carregarCards();
             }
+          }}
+        />
+      )}
+
+      {/* Modal Unificar Comanda */}
+      {modalUnificarAberto && cardParaUnificar && (
+        <ModalUnificarComanda
+          isOpen={modalUnificarAberto}
+          cardPrincipal={cardParaUnificar}
+          onClose={() => {
+            setModalUnificarAberto(false);
+            setCardParaUnificar(null);
+          }}
+          onUnificarSucesso={() => {
+            carregarCards();
+            setModalUnificarAberto(false);
+            setCardParaUnificar(null);
           }}
         />
       )}

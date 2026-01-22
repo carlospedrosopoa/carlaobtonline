@@ -136,10 +136,8 @@ export async function GET(request: NextRequest) {
         fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
       FROM "PagamentoCard" p
       INNER JOIN "CardCliente" c ON p."cardId" = c.id
-      INNER JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
-      WHERE c.status != 'CANCELADO'
-        AND p."aberturaCaixaId" IS NOT NULL
-        AND LOWER(fp.nome) NOT LIKE '%conta corrente%'`;
+      LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
+      WHERE c.status != 'CANCELADO'`;
 
       const paramsPagamentos: any[] = [];
       let paramCount = 1;

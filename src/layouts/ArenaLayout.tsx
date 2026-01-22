@@ -66,13 +66,11 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       items: [{ to: '/app/arena/cards-clientes', label: 'Comandas de Clientes' }],
     },
     {
-      label: 'Financeiro',
+      label: 'Fluxo de Caixa',
       items: [
         { to: '/app/arena/fluxo-caixa', label: 'Fluxo de Caixa' },
         { to: '/app/arena/historico-caixa', label: 'Histórico de Caixa' },
         { to: '/app/arena/dashboard-caixa', label: 'Dashboard do Caixa' },
-        { to: '/app/arena/dashboard-operacional', label: 'Dashboard Operacional' },
-        { to: '/app/arena/conta-corrente', label: 'Contas Correntes' },
       ],
     },
     {
@@ -94,8 +92,13 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       label: 'Atletas',
       items: [
         { to: '/app/arena/atletas', label: 'Atletas Vinculados' },
-        { to: '/app/arena/historico-atleta', label: 'Histórico do Atleta' },
         { to: '/app/arena/panelinhas', label: 'Panelinhas' },
+      ],
+    },
+    {
+      label: 'Professores',
+      items: [
+        { to: '/app/arena/professores', label: 'Lista de Professores' },
       ],
     },
     {

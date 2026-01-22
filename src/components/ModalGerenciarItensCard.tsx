@@ -24,14 +24,6 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
 
-  // Função para normalizar texto removendo acentuação
-  const normalizarTexto = (texto: string): string => {
-    return texto
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  };
-
   // Estados para adicionar item
   const [modalItemAberto, setModalItemAberto] = useState(false);
   const [produtoSelecionado, setProdutoSelecionado] = useState('');
@@ -552,10 +544,10 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                   {produtos
                     .filter((produto) => {
                       if (!buscaProduto) return false;
-                      const buscaNormalizada = normalizarTexto(buscaProduto);
+                      const buscaLower = buscaProduto.toLowerCase();
                       return (
-                        normalizarTexto(produto.nome).includes(buscaNormalizada) ||
-                        (produto.descricao && normalizarTexto(produto.descricao).includes(buscaNormalizada))
+                        produto.nome.toLowerCase().includes(buscaLower) ||
+                        produto.descricao?.toLowerCase().includes(buscaLower)
                       );
                     })
                     .map((produto) => (
@@ -581,10 +573,10 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                       </button>
                     ))}
                   {buscaProduto && produtos.filter((produto) => {
-                    const buscaNormalizada = normalizarTexto(buscaProduto);
+                    const buscaLower = buscaProduto.toLowerCase();
                     return (
-                      normalizarTexto(produto.nome).includes(buscaNormalizada) ||
-                      (produto.descricao && normalizarTexto(produto.descricao).includes(buscaNormalizada))
+                      produto.nome.toLowerCase().includes(buscaLower) ||
+                      produto.descricao?.toLowerCase().includes(buscaLower)
                     );
                   }).length === 0 && (
                     <div className="p-4 text-center text-gray-500">Nenhum produto encontrado</div>

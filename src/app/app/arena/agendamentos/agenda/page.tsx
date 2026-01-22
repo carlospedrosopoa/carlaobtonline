@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
@@ -16,7 +15,6 @@ import { gzappyService } from '@/services/gzappyService';
 import { api } from '@/lib/api';
 
 export default function ArenaAgendaSemanalPage() {
-  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -1198,8 +1196,13 @@ export default function ArenaAgendaSemanalPage() {
                                     onClick={() => {
                                       if (!temConteudo) {
                                         const dataHora = new Date(dia);
-                                        dataHora.setHours(slot.hora, slot.minuto, 0, 0);
-                                        setDataInicialModal(dataHora.toISOString());
+                                        // Formatar data localmente (YYYY-MM-DD) para evitar problemas de timezone
+                                        const ano = dataHora.getFullYear();
+                                        const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+                                        const diaMes = String(dataHora.getDate()).padStart(2, '0');
+                                        const dataFormatada = `${ano}-${mes}-${diaMes}`;
+                                        
+                                        setDataInicialModal(dataFormatada);
                                         setHoraInicialModal(`${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`);
                                         setAgendamentoEditando(null);
                                         setModalEditarAberto(true);
@@ -1599,8 +1602,10 @@ export default function ArenaAgendaSemanalPage() {
         duracaoInicial={60}
         onSelecionarHorario={(data, hora, duracao) => {
           setModalQuadrasDisponiveisAberto(false);
-          // Redirecionar para a página de novo agendamento com os parâmetros
-          router.push(`/app/arena/agendamentos/novo?data=${encodeURIComponent(data)}&hora=${encodeURIComponent(hora)}&duracao=${duracao}`);
+          setDataInicialModal(data);
+          setHoraInicialModal(hora);
+          setAgendamentoEditando(null);
+          setModalEditarAberto(true);
         }}
         pointIdsPermitidos={
           isAdmin ? undefined : isOrganizer && usuario?.pointIdGestor ? [usuario.pointIdGestor] : []

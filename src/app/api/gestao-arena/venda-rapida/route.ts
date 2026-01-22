@@ -73,8 +73,14 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    // Permitir criar card sem itens - itens são opcionais
-    // Se não houver itens, o valorTotal será 0 e o card pode ser usado para adicionar itens depois
+    if (!itens || itens.length === 0) {
+      if (client) client.release();
+      const errorResponse = NextResponse.json(
+        { mensagem: 'É necessário adicionar pelo menos um item' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
 
     // Verificar se ORGANIZER tem acesso a este point
     if (usuario.role === 'ORGANIZER') {
@@ -114,9 +120,8 @@ export async function POST(request: NextRequest) {
       let valorTotal = 0;
       const itemIds: string[] = [];
 
-      // 3. Adicionar itens (se houver)
-      if (itens && itens.length > 0) {
-        for (const item of itens) {
+      // 3. Adicionar itens
+      for (const item of itens) {
         // Buscar produto para obter preço se não informado
         const produtoResult = await client.query(
           'SELECT "precoVenda" FROM "Produto" WHERE id = $1 AND "pointId" = $2',
@@ -144,8 +149,7 @@ export async function POST(request: NextRequest) {
           [cardId, item.produtoId, item.quantidade, precoUnitario, precoTotal, item.observacoes || null, usuario.id]
         );
 
-          itemIds.push(itemResult.rows[0].id);
-        }
+        itemIds.push(itemResult.rows[0].id);
       }
 
       // 4. Atualizar valor total do card
@@ -173,18 +177,18 @@ export async function POST(request: NextRequest) {
           return withCors(errorResponse, request);
         }
 
-        // Validar valor do pagamento (só se houver itens)
-        if (valorTotal > 0 && pagamento.valor > valorTotal) {
+        // Validar valor do pagamento
+        if (pagamento.valor > valorTotal) {
           throw new Error(`O valor do pagamento (R$ ${pagamento.valor.toFixed(2)}) não pode ser maior que o valor total (R$ ${valorTotal.toFixed(2)})`);
         }
 
-        // Se não informou itemIds, vincular a todos os itens (se houver)
+        // Se não informou itemIds, vincular a todos os itens
         const itemIdsParaPagamento = pagamento.itemIds && pagamento.itemIds.length > 0 
           ? pagamento.itemIds 
           : itemIds;
 
-        // Validar que os itemIds pertencem ao card (só se houver itens)
-        if (itemIdsParaPagamento.length > 0 && itemIdsParaPagamento.some(id => !itemIds.includes(id))) {
+        // Validar que os itemIds pertencem ao card
+        if (itemIdsParaPagamento.some(id => !itemIds.includes(id))) {
           throw new Error('Um ou mais itens não pertencem a este card');
         }
 
@@ -206,15 +210,13 @@ export async function POST(request: NextRequest) {
 
         pagamentoId = pagamentoResult.rows[0].id;
 
-        // Vincular itens ao pagamento (se houver)
-        if (itemIdsParaPagamento.length > 0) {
-          for (const itemId of itemIdsParaPagamento) {
-            await client.query(
-              `INSERT INTO "PagamentoItem" (id, "pagamentoCardId", "itemCardId", "createdAt")
-               VALUES (gen_random_uuid()::text, $1, $2, NOW())`,
-              [pagamentoId, itemId]
-            );
-          }
+        // Vincular itens ao pagamento
+        for (const itemId of itemIdsParaPagamento) {
+          await client.query(
+            `INSERT INTO "PagamentoItem" (id, "pagamentoCardId", "itemCardId", "createdAt")
+             VALUES (gen_random_uuid()::text, $1, $2, NOW())`,
+            [pagamentoId, itemId]
+          );
         }
 
         // Não criar entrada manual - a API de fluxo de caixa busca pagamentos de cards diretamente

@@ -31,14 +31,6 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
 
-  // Função para normalizar texto removendo acentuação
-  const normalizarTexto = (texto: string): string => {
-    return texto
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  };
-
   // Produtos e formas de pagamento (cache)
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
@@ -271,8 +263,8 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
 
   // Verificar se o formulário está válido para habilitar o botão
   const formularioValido = useMemo(() => {
-    // Permitir criar comanda sem itens - itens são opcionais
-    // if (carrinho.length === 0) return false;
+    // Deve ter itens no carrinho
+    if (carrinho.length === 0) return false;
     
     // Cliente deve estar informado
     if (tipoCliente === 'cadastrado' && !usuarioId) return false;
@@ -284,20 +276,19 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
       if (!valorPagamento || valorPagamento.trim() === '') return false;
       const valor = parseFloat(valorPagamento);
       if (isNaN(valor) || valor <= 0) return false;
-      // Permitir pagamento mesmo sem itens (valorTotalCarrinho será 0)
-      if (valorTotalCarrinho > 0 && valor > valorTotalCarrinho) return false;
+      if (valor > valorTotalCarrinho) return false;
     }
     
     return true;
-  }, [tipoCliente, usuarioId, nomeAvulso, incluirPagamento, formaPagamentoId, valorPagamento, valorTotalCarrinho]);
+  }, [carrinho.length, tipoCliente, usuarioId, nomeAvulso, incluirPagamento, formaPagamentoId, valorPagamento, valorTotalCarrinho]);
 
   const produtosFiltrados = useMemo(() => {
     if (!buscaProduto) return [];
-    const buscaNormalizada = normalizarTexto(buscaProduto);
+    const buscaLower = buscaProduto.toLowerCase();
     return produtos.filter(
       (produto) =>
-        normalizarTexto(produto.nome).includes(buscaNormalizada) ||
-        (produto.descricao && normalizarTexto(produto.descricao).includes(buscaNormalizada))
+        produto.nome.toLowerCase().includes(buscaLower) ||
+        produto.descricao?.toLowerCase().includes(buscaLower)
     );
   }, [produtos, buscaProduto]);
 
@@ -308,11 +299,10 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
     }
 
     // Validações
-    // Permitir criar comanda sem itens - itens são opcionais
-    // if (carrinho.length === 0) {
-    //   setErro('Adicione pelo menos um item');
-    //   return;
-    // }
+    if (carrinho.length === 0) {
+      setErro('Adicione pelo menos um item');
+      return;
+    }
 
     if (tipoCliente === 'cadastrado' && !usuarioId) {
       setErro('Selecione um cliente cadastrado');
@@ -805,7 +795,9 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
             className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title={
               !formularioValido
-                ? tipoCliente === 'avulso' && (!nomeAvulso || nomeAvulso.trim() === '')
+                ? carrinho.length === 0
+                  ? 'Adicione pelo menos um item ao carrinho'
+                  : tipoCliente === 'avulso' && (!nomeAvulso || nomeAvulso.trim() === '')
                   ? 'Informe o nome do cliente'
                   : tipoCliente === 'cadastrado' && !usuarioId
                   ? 'Selecione um cliente cadastrado'
@@ -813,7 +805,7 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                   ? 'Selecione uma forma de pagamento'
                   : incluirPagamento && (!valorPagamento || parseFloat(valorPagamento) <= 0)
                   ? 'Informe um valor válido para o pagamento'
-                  : incluirPagamento && valorTotalCarrinho > 0 && parseFloat(valorPagamento) > valorTotalCarrinho
+                  : incluirPagamento && parseFloat(valorPagamento) > valorTotalCarrinho
                   ? 'O valor do pagamento não pode ser maior que o total'
                   : 'Preencha todos os campos obrigatórios'
                 : ''

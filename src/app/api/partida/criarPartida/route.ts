@@ -43,14 +43,6 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    const { user } = authResult;
-    
-    // Salvar o userId do criador
-    const createdById = user.id;
-    
-    console.log('[criarPartida API] Criando partida com createdById:', createdById);
-    console.log('[criarPartida API] User ID:', user.id, 'User role:', user.role);
-
     const novaPartida = await criarPartida({
       data,
       local,
@@ -63,10 +55,7 @@ export async function POST(request: NextRequest) {
       gamesTime2: gamesTime2 || null,
       tiebreakTime1: tiebreakTime1 || null,
       tiebreakTime2: tiebreakTime2 || null,
-      createdById: createdById || null,
     });
-    
-    console.log('[criarPartida API] Partida criada:', novaPartida.id);
 
     const response = NextResponse.json(
       novaPartida,

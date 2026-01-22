@@ -5,38 +5,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { withCors } from '@/lib/cors';
 
-// GET /api/user/arenas/listar - Listar arenas assinantes ativas com agenda online
-// IMPORTANTE: Esta rota retorna apenas arenas que são assinantes (assinante = true), estão ativas (ativo = true) e têm agenda online ativa (agendaOnlineAtivo = true)
+// GET /api/user/arenas/listar - Listar arenas assinantes ativas
+// IMPORTANTE: Esta rota retorna apenas arenas que são assinantes (assinante = true) e estão ativas
 export async function GET(request: NextRequest) {
   try {
     // Retornar apenas campos públicos (sem tokens WhatsApp, etc)
-    // Filtrar apenas arenas assinantes, ativas e com agenda online ativa
-    let result;
-    try {
-      result = await query(
-        `SELECT 
-          id, nome, endereco, telefone, email, descricao, "logoUrl", 
-          latitude, longitude, ativo, assinante
-        FROM "Point"
-        WHERE assinante = true AND ativo = true AND "agendaOnlineAtivo" = true
-        ORDER BY nome ASC`
-      );
-    } catch (error: any) {
-      // Se a coluna agendaOnlineAtivo não existir ainda, filtrar apenas por assinante e ativo
-      if (error.message?.includes('agendaOnlineAtivo') || error.message?.includes('column') || error.code === '42703') {
-        console.log('⚠️ Coluna agendaOnlineAtivo não encontrada, usando query sem ela');
-        result = await query(
-          `SELECT 
-            id, nome, endereco, telefone, email, descricao, "logoUrl", 
-            latitude, longitude, ativo, assinante
-          FROM "Point"
-          WHERE assinante = true AND ativo = true
-          ORDER BY nome ASC`
-        );
-      } else {
-        throw error;
-      }
-    }
+    // Filtrar apenas arenas assinantes e ativas
+    const result = await query(
+      `SELECT 
+        id, nome, endereco, telefone, email, descricao, "logoUrl", 
+        latitude, longitude, ativo, assinante
+      FROM "Point"
+      WHERE assinante = true AND ativo = true
+      ORDER BY nome ASC`
+    );
 
     const response = NextResponse.json(result.rows);
     return withCors(response, request);

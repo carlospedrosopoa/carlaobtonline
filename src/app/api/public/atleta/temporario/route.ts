@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
 import { v4 as uuidv4 } from 'uuid';
-import bcrypt from 'bcryptjs';
 
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
@@ -62,83 +61,10 @@ export async function POST(request: NextRequest) {
     );
 
     if (atletaExistenteResult.rows.length > 0) {
-      // Atleta já existe
+      // Atleta já existe, atualizar nome se necessário e retornar
       const atletaExistente = atletaExistenteResult.rows[0];
       
-      // Se o atleta não tem usuarioId, criar usuário temporário e vincular
-      if (!atletaExistente.usuarioId) {
-        // Determinar usuarioIdFinal: usar o informado se válido, senão criar usuário temporário
-        let usuarioIdFinal: string | null = null;
-        
-        if (usuarioId) {
-          // Validar se o usuarioId existe no banco
-          const userCheck = await query('SELECT id FROM "User" WHERE id = $1', [usuarioId]);
-          if (userCheck.rows.length > 0) {
-            usuarioIdFinal = usuarioId;
-          }
-        }
-        
-        // Se não tem usuarioId válido, criar usuário temporário com email temporário
-        if (!usuarioIdFinal) {
-          const usuarioTemporarioId = uuidv4();
-          const emailTemporario = `temp_${usuarioTemporarioId}@pendente.local`;
-          
-          // Gerar senha temporária (hash de string aleatória)
-          const senhaTemporariaAleatoria = `temp_${usuarioTemporarioId}_${Date.now()}_${Math.random().toString(36)}`;
-          const senhaTemporaria = await bcrypt.hash(senhaTemporariaAleatoria, 12);
-          
-          console.log(`[ATLETA TEMPORÁRIO] Criando usuário temporário para atleta existente: ${emailTemporario}`);
-          
-          // Criar usuário temporário
-          try {
-            await query(
-              'INSERT INTO "User" (id, name, email, password, role, "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
-              [usuarioTemporarioId, nome.trim(), emailTemporario, senhaTemporaria, 'USER']
-            );
-            console.log(`[ATLETA TEMPORÁRIO] Usuário temporário criado com sucesso: ${usuarioTemporarioId}`);
-            usuarioIdFinal = usuarioTemporarioId;
-          } catch (error: any) {
-            console.error(`[ATLETA TEMPORÁRIO] Erro ao criar usuário temporário:`, error);
-            throw new Error(`Erro ao criar usuário temporário: ${error.message}`);
-          }
-        }
-        
-        // Validar que temos usuarioIdFinal antes de vincular
-        if (!usuarioIdFinal) {
-          console.error('[ATLETA TEMPORÁRIO] ERRO CRÍTICO: usuarioIdFinal é null antes de vincular atleta existente');
-          throw new Error('Erro interno: não foi possível criar usuário temporário');
-        }
-        
-        console.log(`[ATLETA TEMPORÁRIO] Vinculando atleta existente ${atletaExistente.id} ao usuário ${usuarioIdFinal}`);
-        
-        // Vincular o atleta existente ao usuário criado
-        try {
-          await query(
-            `UPDATE "Atleta" 
-             SET "usuarioId" = $1, nome = $2, "updatedAt" = NOW() 
-             WHERE id = $3`,
-            [usuarioIdFinal, nome.trim(), atletaExistente.id]
-          );
-          console.log(`[ATLETA TEMPORÁRIO] Atleta existente vinculado com sucesso ao usuário ${usuarioIdFinal}`);
-        } catch (error: any) {
-          console.error(`[ATLETA TEMPORÁRIO] Erro ao vincular atleta existente:`, error);
-          throw new Error(`Erro ao vincular atleta existente: ${error.message}`);
-        }
-        
-        return withCors(
-          NextResponse.json({
-            id: atletaExistente.id,
-            nome: nome.trim(),
-            telefone: telefoneNormalizado,
-            temporario: true,
-            existente: true,
-            usuarioIdCriado: usuarioIdFinal,
-          }),
-          request
-        );
-      }
-      
-      // Se o atleta já tem usuarioId, apenas atualizar nome se necessário
+      // Se o nome for diferente, atualizar
       if (atletaExistente.nome !== nome.trim()) {
         await query(
           `UPDATE "Atleta" 
@@ -153,7 +79,7 @@ export async function POST(request: NextRequest) {
           id: atletaExistente.id,
           nome: nome.trim(),
           telefone: telefoneNormalizado,
-          temporario: false, // Não é temporário se já tem usuarioId
+          temporario: !atletaExistente.usuarioId, // É temporário se não tiver usuarioId
           existente: true,
         }),
         request
@@ -161,71 +87,47 @@ export async function POST(request: NextRequest) {
     }
 
     // Se não existe, criar novo atleta temporário
-    // A tabela Atleta requer usuarioId NOT NULL, então SEMPRE precisamos criar um usuário temporário
+    // A tabela Atleta requer usuarioId NOT NULL, então precisamos garantir que temos um
     const atletaId = uuidv4();
     const dataNascimentoPadrao = new Date('2000-01-01'); // Data padrão para atletas temporários
     
-    // Determinar usuarioIdFinal: usar o informado se válido, senão criar usuário temporário
+    // Determinar usuarioIdFinal: usar o informado se válido
+    // Se não tiver usuarioId válido, não podemos criar o atleta (constraint NOT NULL)
     let usuarioIdFinal: string | null = null;
     
     if (usuarioId) {
       // Validar se o usuarioId existe no banco
       const userCheck = await query('SELECT id FROM "User" WHERE id = $1', [usuarioId]);
       if (userCheck.rows.length > 0) {
-        // UsuarioId existe e é válido, usar ele
         usuarioIdFinal = usuarioId;
-        console.log(`[ATLETA TEMPORÁRIO] Usando usuarioId existente: ${usuarioId}`);
       } else {
-        // Se usuarioId não existe, criar usuário temporário
-        console.warn(`[ATLETA TEMPORÁRIO] usuarioId ${usuarioId} informado não existe, criando usuário temporário`);
-      }
-    }
-    
-    // Se não tem usuarioId válido, SEMPRE criar usuário temporário com email temporário
-    if (!usuarioIdFinal) {
-      const usuarioTemporarioId = uuidv4();
-      const emailTemporario = `temp_${usuarioTemporarioId}@pendente.local`;
-      
-      // Gerar senha temporária (hash de string aleatória)
-      const senhaTemporariaAleatoria = `temp_${usuarioTemporarioId}_${Date.now()}_${Math.random().toString(36)}`;
-      const senhaTemporaria = await bcrypt.hash(senhaTemporariaAleatoria, 12);
-      
-      console.log(`[ATLETA TEMPORÁRIO] Criando usuário temporário: ${emailTemporario}`);
-      
-      // Criar usuário temporário
-      try {
-        await query(
-          'INSERT INTO "User" (id, name, email, password, role, "createdAt") VALUES ($1, $2, $3, $4, $5, NOW())',
-          [usuarioTemporarioId, nome.trim(), emailTemporario, senhaTemporaria, 'USER']
+        // Se usuarioId não existe, retornar erro
+        return withCors(
+          NextResponse.json(
+            { mensagem: 'usuarioId informado não existe no banco' },
+            { status: 400 }
+          ),
+          request
         );
-        console.log(`[ATLETA TEMPORÁRIO] Usuário temporário criado com sucesso: ${usuarioTemporarioId}`);
-        usuarioIdFinal = usuarioTemporarioId;
-      } catch (error: any) {
-        console.error(`[ATLETA TEMPORÁRIO] Erro ao criar usuário temporário:`, error);
-        throw new Error(`Erro ao criar usuário temporário: ${error.message}`);
       }
+    } else {
+      // Se não tem usuarioId no parâmetro, não podemos criar atleta (constraint NOT NULL)
+      // Retornar erro informando que precisa ter usuarioId
+      return withCors(
+        NextResponse.json(
+          { mensagem: 'É necessário informar um usuarioId válido para criar um atleta. Use um link com usuarioId ou faça login primeiro.' },
+          { status: 400 }
+        ),
+        request
+      );
     }
-    
-    // Validar que temos usuarioIdFinal antes de criar o atleta
-    if (!usuarioIdFinal) {
-      console.error('[ATLETA TEMPORÁRIO] ERRO CRÍTICO: usuarioIdFinal é null antes de criar atleta');
-      throw new Error('Erro interno: não foi possível criar usuário temporário');
-    }
-    
-    console.log(`[ATLETA TEMPORÁRIO] Criando atleta com usuarioId: ${usuarioIdFinal}`);
     
     // Agora temos usuarioIdFinal válido, podemos criar o atleta
-    try {
-      await query(
-        `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "aceitaLembretesAgendamento", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
-        [atletaId, nome.trim(), telefoneNormalizado, dataNascimentoPadrao, usuarioIdFinal, pointId, true]
-      );
-      console.log(`[ATLETA TEMPORÁRIO] Atleta criado com sucesso: ${atletaId} vinculado ao usuário ${usuarioIdFinal}`);
-    } catch (error: any) {
-      console.error(`[ATLETA TEMPORÁRIO] Erro ao criar atleta:`, error);
-      throw new Error(`Erro ao criar atleta: ${error.message}`);
-    }
+    await query(
+      `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+      [atletaId, nome.trim(), telefoneNormalizado, dataNascimentoPadrao, usuarioIdFinal, pointId]
+    );
 
     return withCors(
       NextResponse.json({
