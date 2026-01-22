@@ -37,6 +37,12 @@ import type {
   FecharAberturaCaixaPayload,
   LancamentoFluxoCaixa,
   DashboardOperacionalData,
+  HistoricoAtletaResumo,
+  HistoricoAtletaConsumoItem,
+  HistoricoAtletaPagamento,
+  HistoricoAtletaAgendamento,
+  HistoricoAtletaContaCorrente,
+  AtletaHistoricoArena,
 } from "@/types/gestaoArena";
 
 // ========== CARDS DE CLIENTES ==========
@@ -413,6 +419,56 @@ export const dashboardOperacionalService = {
     const res = await api.get('/gestao-arena/dashboard-operacional', {
       params: { pointId, dataInicio, dataFim }
     });
+    return res.data;
+  }
+};
+
+export const historicoAtletaArenaService = {
+  listarConsumo: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaConsumoItem[]> => {
+    const params = new URLSearchParams();
+    params.append('pointId', pointId);
+    params.append('atletaId', atletaId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    const res = await api.get(`/gestao-arena/historico-atleta/consumo?${params.toString()}`);
+    return res.data;
+  },
+
+  listarPagamentos: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaPagamento[]> => {
+    const params = new URLSearchParams();
+    params.append('pointId', pointId);
+    params.append('atletaId', atletaId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    const res = await api.get(`/gestao-arena/historico-atleta/pagamentos?${params.toString()}`);
+    return res.data;
+  },
+
+  listarAgendamentos: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaAgendamento[]> => {
+    const params = new URLSearchParams();
+    params.append('pointId', pointId);
+    params.append('atletaId', atletaId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    const res = await api.get(`/gestao-arena/historico-atleta/agendamentos?${params.toString()}`);
+    return res.data;
+  },
+
+  obterContaCorrente: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaContaCorrente> => {
+    const params = new URLSearchParams();
+    params.append('pointId', pointId);
+    params.append('atletaId', atletaId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    const res = await api.get(`/gestao-arena/historico-atleta/conta-corrente?${params.toString()}`);
+    return res.data;
+  },
+
+  obterResumo: async (pointId: string, atletaId: string): Promise<HistoricoAtletaResumo> => {
+    const params = new URLSearchParams();
+    params.append('pointId', pointId);
+    params.append('atletaId', atletaId);
+    const res = await api.get(`/gestao-arena/historico-atleta/resumo?${params.toString()}`);
     return res.data;
   }
 };
