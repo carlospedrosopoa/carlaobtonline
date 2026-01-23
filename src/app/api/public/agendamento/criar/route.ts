@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
         quadraId,
         usuarioIdFinal, // Vincular ao usuário se o atleta for cadastrado
         atletaId,
-        dataHoraNormalizada.toISOString(),
+        dataHoraNormalizada, // Já é uma string ISO retornada por normalizarDataHora
         duracaoMinutos,
         valorHora,
         valorCalculado,
