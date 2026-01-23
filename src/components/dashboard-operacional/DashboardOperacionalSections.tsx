@@ -97,7 +97,7 @@ export function KpisSkeleton() {
 export function ProdutosTable({
   produtos,
 }: {
-  produtos: Array<{ produtoId: string; nome: string; categoria: string; quantidade: number; valorTotal: number }>;
+  produtos: Array<{ produto: string; quantidade: number; valorTotal: number }>;
 }) {
   return (
     <div className="bg-white rounded-lg shadow p-4">
@@ -113,16 +113,14 @@ export function ProdutosTable({
             <thead>
               <tr className="text-left text-gray-600 border-b">
                 <th className="py-2 pr-4">Produto</th>
-                <th className="py-2 pr-4">Categoria</th>
                 <th className="py-2 pr-4">Qtd</th>
                 <th className="py-2 pr-0">Valor</th>
               </tr>
             </thead>
             <tbody>
-              {produtos.map((p) => (
-                <tr key={p.produtoId} className="border-b last:border-b-0">
-                  <td className="py-2 pr-4 font-medium text-gray-900">{p.nome}</td>
-                  <td className="py-2 pr-4 text-gray-600">{p.categoria || '—'}</td>
+              {produtos.map((p, index) => (
+                <tr key={index} className="border-b last:border-b-0">
+                  <td className="py-2 pr-4 font-medium text-gray-900">{p.produto}</td>
                   <td className="py-2 pr-4 text-gray-900">{p.quantidade}</td>
                   <td className="py-2 pr-0 text-gray-900">{formatarMoeda(p.valorTotal)}</td>
                 </tr>
