@@ -567,21 +567,22 @@ export interface FiltrosFluxoCaixa {
 // DASHBOARD OPERACIONAL
 // ============================================
 export interface DashboardOperacionalData {
-  kpis: {
-    faturamentoDia: number;
-    faturamentoPendente: number;
-    itensVendidos: number;
-    ticketMedio: number;
+  agendamentos: {
+    total: number;
+    totalMinutos: number;
+    porTurno: Array<{ turno: string; quantidade: number; totalMinutos: number }>;
+    porDiaSemana: Array<{ diaSemana: number; quantidade: number; totalMinutos: number }>;
+    duracaoRanking: Array<{ duracao: number; quantidade: number; totalMinutos: number }>;
+    horariosMaisVendidos: Array<{ hora: number; quantidade: number; totalMinutos: number }>;
   };
-  graficoHorario: Array<{
-    hora: string;
-    valor: number;
-  }>;
-  produtosMaisVendidos: Array<{
-    produto: string;
-    quantidade: number;
-    valor: number;
-  }>;
+  comandas: {
+    totalItens: number;
+    faturamento: number;
+    totalComandas: number;
+    ticketMedio: number;
+    faturamentoPorDiaSemana: Array<{ diaSemana: number; valorTotal: number }>;
+    topProdutos: Array<{ produto: string; quantidade: number; valorTotal: number }>;
+  };
 }
 
 // ============================================
