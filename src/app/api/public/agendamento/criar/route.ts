@@ -114,35 +114,8 @@ export async function POST(request: NextRequest) {
         request
       );
     }
-
-    // Verificar conflitos com bloqueios
-    // BloqueioAgenda usa pointId e quadraIds (JSONB array), não quadraId
-    const bloqueiosResult = await query(
-      `SELECT id, "quadraIds", "dataInicio", "dataFim", "horaInicio", "horaFim"
-       FROM "BloqueioAgenda"
-       WHERE "pointId" = $1
-         AND ativo = true
-         AND "dataInicio" <= $3
-         AND "dataFim" >= $2`,
-      [quadra.pointId, dataHoraNormalizada, dataHoraFim.toISOString()]
-    );
-
-    // Verificar se algum bloqueio afeta esta quadra
-    const temBloqueio = bloqueiosResult.rows.some((bloq: any) => {
-      // Se quadraIds for null ou vazio, bloqueia todas as quadras
-      if (!bloq.quadraIds || (Array.isArray(bloq.quadraIds) && bloq.quadraIds.length === 0)) {
-        // Bloqueia todas as quadras - verificar horário
-        return verificarConflitoHorario(bloq, dataHoraNormalizada, dataHoraFim);
-      }
-      
-      // Se tiver quadraIds, verificar se esta quadra está na lista
-      if (Array.isArray(bloq.quadraIds) && bloq.quadraIds.includes(quadraId)) {
-        return verificarConflitoHorario(bloq, dataHoraNormalizada, dataHoraFim);
-      }
-      
-      return false;
-    });
-
+    
+    // Função auxiliar para verificar conflito de horário
     function verificarConflitoHorario(bloq: any, inicio: Date, fim: Date): boolean {
       const bloqDataInicio = new Date(bloq.dataInicio);
       const bloqDataFim = new Date(bloq.dataFim);
@@ -164,6 +137,36 @@ export async function POST(request: NextRequest) {
       // Se não tem hora específica, bloqueia o dia inteiro
       return true;
     }
+
+    // Verificar conflitos com bloqueios
+    // BloqueioAgenda usa pointId e quadraIds (JSONB array), não quadraId
+    const bloqueiosResult = await query(
+      `SELECT id, "quadraIds", "dataInicio", "dataFim", "horaInicio", "horaFim"
+       FROM "BloqueioAgenda"
+       WHERE "pointId" = $1
+         AND ativo = true
+         AND "dataInicio" <= $3
+         AND "dataFim" >= $2`,
+      [quadra.pointId, dataHoraNormalizada, dataHoraFim.toISOString()]
+    );
+
+    // Verificar se algum bloqueio afeta esta quadra
+    const temBloqueio = bloqueiosResult.rows.some((bloq: any) => {
+      // Se quadraIds for null ou vazio, bloqueia todas as quadras
+      if (!bloq.quadraIds || (Array.isArray(bloq.quadraIds) && bloq.quadraIds.length === 0)) {
+        // Bloqueia todas as quadras - verificar horário
+        // normalizarDataHora retorna string, precisamos passar Date
+        return verificarConflitoHorario(bloq, new Date(dataHoraNormalizada), dataHoraFim);
+      }
+      
+      // Se tiver quadraIds, verificar se esta quadra está na lista
+      if (Array.isArray(bloq.quadraIds) && bloq.quadraIds.includes(quadraId)) {
+        // normalizarDataHora retorna string, precisamos passar Date
+        return verificarConflitoHorario(bloq, new Date(dataHoraNormalizada), dataHoraFim);
+      }
+      
+      return false;
+    });
 
     if (temBloqueio) {
       return withCors(
