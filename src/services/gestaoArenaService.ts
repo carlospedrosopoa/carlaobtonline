@@ -1,6 +1,6 @@
 // src/services/gestaoArenaService.ts
 import { api } from "@/lib/api";
-import type {
+export type {
   CardCliente,
   CriarCardClientePayload,
   CriarVendaRapidaPayload,
