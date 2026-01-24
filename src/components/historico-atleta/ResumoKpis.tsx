@@ -35,28 +35,28 @@ export default function ResumoKpis({
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-xs text-gray-600">Consumo (período)</div>
-        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.consumo.total)}</div>
-        <div className="text-xs text-gray-500 mt-1">{resumo.consumo.quantidade} itens</div>
+        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.totalConsumo)}</div>
+        <div className="text-xs text-gray-500 mt-1">Total em consumo</div>
       </div>
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-xs text-gray-600">Pagamentos (período)</div>
-        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.pagamentos.total)}</div>
-        <div className="text-xs text-gray-500 mt-1">{resumo.pagamentos.quantidade} pagamentos</div>
+        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.totalPago)}</div>
+        <div className="text-xs text-gray-500 mt-1">Total pago</div>
       </div>
       <div className="bg-gray-50 rounded-lg p-4">
-        <div className="text-xs text-gray-600">Saldo conta corrente</div>
+        <div className="text-xs text-gray-600">Saldo Devedor</div>
         <div
           className={`text-lg font-bold mt-1 ${
-            resumo.contaCorrente.saldo >= 0 ? 'text-emerald-700' : 'text-red-700'
+            resumo.saldoDevedor > 0 ? 'text-red-700' : 'text-emerald-700'
           }`}
         >
-          {formatarMoeda(resumo.contaCorrente.saldo)}
+          {formatarMoeda(resumo.saldoDevedor)}
         </div>
       </div>
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-xs text-gray-600">Agendamentos (período)</div>
-        <div className="text-lg font-bold text-gray-900 mt-1">{resumo.agendamentos.quantidade}</div>
-        <div className="text-xs text-gray-500 mt-1">{formatarMoeda(resumo.agendamentos.total)}</div>
+        <div className="text-lg font-bold text-gray-900 mt-1">{resumo.totalAgendamentos}</div>
+        <div className="text-xs text-gray-500 mt-1">Agendamentos realizados</div>
       </div>
     </div>
   );

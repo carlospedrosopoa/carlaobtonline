@@ -26,7 +26,7 @@ export default function TabelaContaCorrente({
   data: HistoricoAtletaContaCorrente | null;
   onDetalhe: (item: any) => void;
 }) {
-  if (!data || data.movimentacoes.length === 0) {
+  if (!data || data.lancamentos.length === 0) {
     return <div className="text-sm text-gray-600">Nenhuma movimentação no período.</div>;
   }
 
@@ -34,8 +34,8 @@ export default function TabelaContaCorrente({
     <div className="space-y-3">
       <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-4">
         <div className="text-sm text-gray-600">Saldo atual</div>
-        <div className={`text-lg font-bold ${data.saldo >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-          {formatarMoeda(data.saldo)}
+        <div className={`text-lg font-bold ${data.saldoAtual >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+          {formatarMoeda(data.saldoAtual)}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -49,14 +49,14 @@ export default function TabelaContaCorrente({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.movimentacoes.map((m) => (
+            {data.lancamentos.map((m) => (
               <tr key={m.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onDetalhe(m)}>
-                <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(m.createdAt)}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(m.data)}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{m.tipo}</td>
                 <td className={`px-4 py-3 text-sm font-semibold text-right ${m.tipo === 'CREDITO' ? 'text-emerald-700' : 'text-red-700'}`}>
                   {formatarMoeda(m.valor)}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-700">{m.justificativa}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{m.descricao}</td>
               </tr>
             ))}
           </tbody>

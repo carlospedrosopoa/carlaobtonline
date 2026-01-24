@@ -53,15 +53,14 @@ export default function TabelaAgendamentos({
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {itens.map((a) => {
-            const valor = a.valorNegociado ?? a.valorCalculado;
             return (
               <tr key={a.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onDetalhe(a)}>
-                <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(a.dataHora)}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{a.quadra?.nome || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(a.data)}</td>
+                <td className="px-4 py-3 text-sm text-gray-900">{a.quadra || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{formatarDuracao(a.duracao)}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{a.status}</td>
                 <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900">
-                  {valor !== null ? formatarMoeda(valor) : '—'}
+                  {a.valor !== null ? formatarMoeda(a.valor) : '—'}
                 </td>
               </tr>
             );

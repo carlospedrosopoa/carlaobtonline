@@ -33,6 +33,7 @@ interface EditarAgendamentoModalProps {
   quadraIdInicial?: string; // Para pré-selecionar uma quadra ao criar novo agendamento
   dataInicial?: string; // Para pré-preencher a data ao criar novo agendamento (formato: YYYY-MM-DD)
   horaInicial?: string; // Para pré-preencher a hora ao criar novo agendamento (formato: HH:mm)
+  readOnly?: boolean;
 }
 
 export default function EditarAgendamentoModal({
@@ -43,12 +44,13 @@ export default function EditarAgendamentoModal({
   quadraIdInicial,
   dataInicial,
   horaInicial,
+  readOnly = false,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
   // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou próprios)
   const isAdmin = isAdminContext;
   const isOrganizer = isOrganizerContext;
-  const canGerenciarAgendamento = isAdmin || isOrganizer;
+  const canGerenciarAgendamento = !readOnly && (isAdmin || isOrganizer);
 
   const [points, setPoints] = useState<any[]>([]);
   const [quadras, setQuadras] = useState<any[]>([]);
@@ -1718,7 +1720,7 @@ export default function EditarAgendamentoModal({
                   value={quadraId}
                   onChange={(e) => setQuadraId(e.target.value)}
                   required
-                  disabled={!pointId && !isOrganizer}
+                  disabled={readOnly || (!pointId && !isOrganizer)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Selecione uma quadra</option>
@@ -2177,8 +2179,9 @@ export default function EditarAgendamentoModal({
                 disabled={salvando}
                 className="w-full sm:w-auto px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 text-gray-800 font-medium transition-colors disabled:opacity-50"
               >
-                Cancelar
+                {readOnly ? 'Fechar' : 'Cancelar'}
               </button>
+              {!readOnly && (
               <button
                 type="submit"
                 disabled={salvando || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
@@ -2199,6 +2202,7 @@ export default function EditarAgendamentoModal({
                   'Criar Agendamento'
                 )}
               </button>
+              )}
             </div>
           </form>
         </Dialog.Panel>
