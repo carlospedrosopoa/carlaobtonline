@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, pagamentoCardService, produtoService, formaPagamentoService } from '@/services/gestaoArenaService';
-import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload } from '@/types/gestaoArena';
+import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload, ItemCard, PagamentoCard } from '@/types/gestaoArena';
 import { api } from '@/lib/api';
 import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search, FileText } from 'lucide-react';
 import InputMonetario from './InputMonetario';
@@ -15,11 +15,12 @@ interface GerenciarCardModalProps {
   onClose: () => void;
   onSuccess: (cardAtualizado?: CardCliente) => void;
   onEditar?: () => void;
+  readOnly?: boolean;
 }
 
-export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, onEditar }: GerenciarCardModalProps) {
+export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, onEditar, readOnly = false }: GerenciarCardModalProps) {
   const { usuario, isAdmin, isOrganizer } = useAuth();
-  const canGerenciarCard = isAdmin || isOrganizer;
+  const canGerenciarCard = !readOnly && (isAdmin || isOrganizer);
   const [cardCompleto, setCardCompleto] = useState<CardCliente | null>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
@@ -138,7 +139,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       // Inicializar itens locais com os itens do backend
       if (cardData.itens) {
         setItensLocais(
-          cardData.itens.map((item) => ({
+          cardData.itens.map((item: ItemCard) => ({
             id: item.id,
             produtoId: item.produtoId,
             quantidade: item.quantidade,
@@ -156,7 +157,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       // Inicializar pagamentos locais com os pagamentos do backend
       if (cardData.pagamentos) {
         setPagamentosLocais(
-          cardData.pagamentos.map((pag) => ({
+          cardData.pagamentos.map((pag: PagamentoCard) => ({
             id: pag.id,
             formaPagamentoId: pag.formaPagamentoId,
             valor: pag.valor,

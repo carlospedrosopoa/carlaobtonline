@@ -124,7 +124,7 @@ export default function FiltrosHistoricoAtleta({
                         className="w-full text-left px-4 py-3 hover:bg-gray-50"
                       >
                         <div className="text-sm font-medium text-gray-900">{a.nome}</div>
-                        <div className="text-xs text-gray-600 mt-0.5">{a.usuario?.email || a.fone || '—'}</div>
+                        <div className="text-xs text-gray-600 mt-0.5">{a.email || a.telefone || '—'}</div>
                       </button>
                     ))
                   )}

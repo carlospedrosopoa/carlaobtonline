@@ -45,11 +45,11 @@ export default function TabelaConsumo({
         <tbody className="bg-white divide-y divide-gray-200">
           {itens.map((i) => (
             <tr key={i.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onDetalhe(i)}>
-              <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(i.createdAt)}</td>
-              <td className="px-4 py-3 text-sm text-gray-900">{i.produto?.nome || 'Item'}</td>
+              <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(i.data)}</td>
+              <td className="px-4 py-3 text-sm text-gray-900">{i.produto || 'Item'}</td>
               <td className="px-4 py-3 text-sm text-gray-700 text-right">{i.quantidade}</td>
-              <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{formatarMoeda(i.precoTotal)}</td>
-              <td className="px-4 py-3 text-sm text-gray-700 text-right">#{i.card.numeroCard}</td>
+              <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{formatarMoeda(i.valorTotal)}</td>
+              <td className="px-4 py-3 text-sm text-gray-700 text-right">#{i.numeroCard}</td>
             </tr>
           ))}
         </tbody>

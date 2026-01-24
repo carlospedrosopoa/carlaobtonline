@@ -1,5 +1,50 @@
 // src/services/gestaoArenaService.ts
 import { api } from "@/lib/api";
+import type {
+  CardCliente,
+  CriarCardClientePayload,
+  CriarVendaRapidaPayload,
+  AtualizarCardClientePayload,
+  Produto,
+  CriarProdutoPayload,
+  AtualizarProdutoPayload,
+  FormaPagamento,
+  CriarFormaPagamentoPayload,
+  AtualizarFormaPagamentoPayload,
+  Fornecedor,
+  CriarFornecedorPayload,
+  AtualizarFornecedorPayload,
+  CategoriaSaida,
+  CriarCategoriaSaidaPayload,
+  AtualizarCategoriaSaidaPayload,
+  CentroCusto,
+  CriarCentroCustoPayload,
+  AtualizarCentroCustoPayload,
+  TipoDespesa,
+  CriarTipoDespesaPayload,
+  AtualizarTipoDespesaPayload,
+  ItemCard,
+  CriarItemCardPayload,
+  AtualizarItemCardPayload,
+  PagamentoCard,
+  CriarPagamentoCardPayload,
+  EntradaCaixa,
+  CriarEntradaCaixaPayload,
+  SaidaCaixa,
+  CriarSaidaCaixaPayload,
+  AberturaCaixa,
+  CriarAberturaCaixaPayload,
+  FecharAberturaCaixaPayload,
+  LancamentoFluxoCaixa,
+  DashboardOperacionalData,
+  HistoricoAtletaResumo,
+  HistoricoAtletaConsumoItem,
+  HistoricoAtletaPagamento,
+  HistoricoAtletaAgendamento,
+  HistoricoAtletaContaCorrente,
+  AtletaHistoricoArena,
+} from "@/types/gestaoArena";
+
 export type {
   CardCliente,
   CriarCardClientePayload,
@@ -464,11 +509,21 @@ export const historicoAtletaArenaService = {
     return res.data;
   },
 
-  obterResumo: async (pointId: string, atletaId: string): Promise<HistoricoAtletaResumo> => {
+  obterResumo: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaResumo> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
     params.append('atletaId', atletaId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
     const res = await api.get(`/gestao-arena/historico-atleta/resumo?${params.toString()}`);
+    return res.data;
+  },
+
+  buscarAtletas: async (pointId: string, busca: string): Promise<AtletaHistoricoArena[]> => {
+    const params = new URLSearchParams();
+    params.append('pointId', pointId);
+    params.append('busca', busca);
+    const res = await api.get(`/gestao-arena/historico-atleta/buscar-atletas?${params.toString()}`);
     return res.data;
   }
 };

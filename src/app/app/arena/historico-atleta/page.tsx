@@ -242,8 +242,8 @@ export default function HistoricoAtletaArenaPage() {
             <TabelaConsumo
               itens={consumo}
               onDetalhe={(i) => {
-                if (i.card?.id) {
-                  abrirComanda(i.card.id);
+                if (i.cardId) {
+                  abrirComanda(i.cardId);
                   return;
                 }
                 setDetalhe({ titulo: 'Detalhe do Consumo', payload: i });
@@ -253,8 +253,8 @@ export default function HistoricoAtletaArenaPage() {
             <TabelaPagamentos
               itens={pagamentos}
               onDetalhe={(p) => {
-                if (p.card?.id) {
-                  abrirComanda(p.card.id);
+                if (p.cardId) {
+                  abrirComanda(p.cardId);
                   return;
                 }
                 setDetalhe({ titulo: 'Detalhe do Pagamento', payload: p });

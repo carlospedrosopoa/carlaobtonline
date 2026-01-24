@@ -44,10 +44,10 @@ export default function TabelaPagamentos({
         <tbody className="bg-white divide-y divide-gray-200">
           {itens.map((p) => (
             <tr key={p.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onDetalhe(p)}>
-              <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(p.createdAt)}</td>
-              <td className="px-4 py-3 text-sm text-gray-900">{p.formaPagamento?.nome || '—'}</td>
+              <td className="px-4 py-3 text-sm text-gray-700">{formatarDataHora(p.data)}</td>
+              <td className="px-4 py-3 text-sm text-gray-900">{p.formaPagamento || '—'}</td>
               <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{formatarMoeda(p.valor)}</td>
-              <td className="px-4 py-3 text-sm text-gray-700 text-right">#{p.card.numeroCard}</td>
+              <td className="px-4 py-3 text-sm text-gray-700 text-right">#{p.numeroCard}</td>
             </tr>
           ))}
         </tbody>
