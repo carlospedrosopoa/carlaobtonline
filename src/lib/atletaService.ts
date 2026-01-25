@@ -73,8 +73,8 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
   const parametroBusca = buscaNormalizada ? `%${buscaNormalizada}%` : null;
   const parametroBuscaTelefone = buscaTelefone ? `%${buscaTelefone}%` : null;
   
-  // ADMIN vê todos os atletas
-  if (usuario.role === "ADMIN") {
+  // ADMIN e ORGANIZER veem todos os atletas (para permitir agendamentos e vendas para qualquer atleta)
+  if (usuario.role === "ADMIN" || usuario.role === "ORGANIZER") {
     // Usar o mesmo padrão de cards de clientes: underscore nos aliases
     // Remover DISTINCT para evitar problemas com campos do JOIN
     let querySQL = `SELECT a.*, 
@@ -108,69 +108,6 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
     atletas = result.rows.map((row: any) => {
       // Usar o mesmo padrão de cards de clientes
       const usuarioEmail = row.usuario_email || null;
-      const atleta = {
-        id: row.id,
-        nome: row.nome,
-        dataNascimento: row.dataNascimento,
-        genero: row.genero,
-        categoria: row.categoria,
-        esportePreferido: row.esportePreferido || null,
-        fotoUrl: row.fotoUrl,
-        fone: row.fone,
-        pointIdPrincipal: row.pointIdPrincipal,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        usuarioId: row.usuario_id || null,
-        usuarioEmail: usuarioEmail,
-        usuario: row.usuario_id ? { 
-          id: row.usuario_id,
-          name: row.usuario_name, 
-          email: usuarioEmail,
-          role: row.usuario_role 
-        } : null,
-        idade: calcularIdade(row.dataNascimento),
-      };
-      return atleta;
-    });
-  } 
-  // ORGANIZER vê apenas atletas vinculados à sua arena (arena principal ou nas arenas que frequenta)
-  else if (usuario.role === "ORGANIZER" && usuario.pointIdGestor) {
-    // Usar o mesmo padrão de cards de clientes: underscore nos aliases
-    // Usar DISTINCT ON para evitar duplicação quando atleta tem múltiplas arenas frequentes
-    let querySQL = `SELECT DISTINCT ON (a.id) a.*, 
-              u.id as "usuario_id", 
-              u.name as "usuario_name", 
-              u.email as "usuario_email", 
-              u.role as "usuario_role" 
-       FROM "Atleta" a 
-       LEFT JOIN "User" u ON a."usuarioId" = u.id 
-       LEFT JOIN "AtletaPoint" ap ON a.id = ap."atletaId"
-       WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" = $1)`;
-    
-    const params: any[] = [usuario.pointIdGestor];
-    
-    if (parametroBusca) {
-      querySQL += ` AND (
-         LOWER(TRANSLATE(a.nome, 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ', 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN')) LIKE $${params.length + 1}
-         OR LOWER(u.email) LIKE $${params.length + 1}`;
-      params.push(parametroBusca);
-      
-      if (parametroBuscaTelefone) {
-        querySQL += ` OR REPLACE(REPLACE(REPLACE(REPLACE(a.fone, '(', ''), ')', ''), '-', ''), ' ', '') LIKE $${params.length + 1}`;
-        params.push(parametroBuscaTelefone);
-      }
-      
-      querySQL += `)`;
-    }
-    
-    querySQL += ` ORDER BY a.id, a.nome ASC`;
-    
-    const result = await query(querySQL, params);
-    
-    atletas = result.rows.map((row: any) => {
-      // Usar o mesmo padrão de cards de clientes
-      const usuarioEmail = row.usuario_email || null;
-      
       const atleta = {
         id: row.id,
         nome: row.nome,

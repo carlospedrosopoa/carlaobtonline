@@ -211,21 +211,6 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Validar que pointId (arena) é obrigatório
-    // Para ORGANIZER, usar pointIdGestor se não foi fornecido
-    let pointIdFinal = pointId;
-    if (user.role === 'ORGANIZER' && user.pointIdGestor && !pointId) {
-      pointIdFinal = user.pointIdGestor;
-    }
-    
-    if (!pointIdFinal) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'A seleção da arena é obrigatória' },
-        { status: 400 }
-      );
-      return withCors(errorResponse, request);
-    }
-
     // Se for ORGANIZER, verificar acesso através da arena
     if (user.role === 'ORGANIZER' && user.pointIdGestor) {
       // Verificar se a panelinha tem membros da arena do ORGANIZER
@@ -338,13 +323,13 @@ export async function POST(
     }
 
     // Criar partida (funciona para ambos USER e ORGANIZER)
-    // pointIdFinal já foi validado acima
+    const atletasIds = [atleta1Id, atleta2Id, atleta3Id, atleta4Id].filter(Boolean) as string[];
+    // Usar pointIdGestor do ORGANIZER se disponível, senão usar pointId do body
+    const pointIdFinal = (user.role === 'ORGANIZER' && user.pointIdGestor) 
+      ? user.pointIdGestor 
+      : (pointId || null);
 
-    // Criar partida com createdById
-    // Para USER: usar o userId do usuário (user.id)
-    // Para ORGANIZER: usar o userId do organizador (user.id)
-    const createdById = user.id;
-
+    // Criar partida
     const partida = await criarPartida({
       data,
       local,
@@ -357,7 +342,6 @@ export async function POST(
       gamesTime2: gamesTime2 || null,
       tiebreakTime1: tiebreakTime1 || null,
       tiebreakTime2: tiebreakTime2 || null,
-      createdById: createdById || null,
     });
 
     // Vincular partida à panelinha

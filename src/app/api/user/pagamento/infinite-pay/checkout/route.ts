@@ -154,10 +154,10 @@ export async function POST(request: NextRequest) {
     const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br'}/app/atleta/consumo?payment_callback=${orderId}`;
     
     // webhookUrl: URL do backend (carlaobtonline) para receber notificação do Infinite Pay
-    // IMPORTANTE: Deve ser a URL de PRODUÇÃO do backend usando o domínio customizado
-    // O Infinite Pay precisa de uma URL estável e pública para chamar o webhook
-    // Usar domínio customizado playnaquadra.com.br ao invés do domínio .vercel.app
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://playnaquadra.com.br';
+    // IMPORTANTE: Deve ser a URL do backend, não do frontend
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'https://carlaobtonline.vercel.app';
     const webhookUrl = `${backendUrl}/api/user/pagamento/infinite-pay/callback`;
 
     // Montar payload conforme documentação oficial do Infinite Pay

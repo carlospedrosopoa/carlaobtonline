@@ -81,21 +81,9 @@ export async function GET(
       const ehMembro = panelinhaCheck.rows[0].ehMembro;
       const ehCriador = panelinhaCheck.rows[0].atletaIdCriador === atleta.id;
 
-      // Debug: log para verificar valores
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[RANKING] Verificação de acesso:', {
-          atletaId: atleta.id,
-          panelinhaId,
-          ehMembro,
-          ehCriador,
-          atletaIdCriador: panelinhaCheck.rows[0].atletaIdCriador,
-        });
-      }
-
-      // Permitir acesso se for membro OU criador
       if (!ehMembro && !ehCriador) {
         const errorResponse = NextResponse.json(
-          { mensagem: 'Você não tem permissão para ver o ranking desta panelinha. Você precisa ser membro ou criador da panelinha.' },
+          { mensagem: 'Você não tem permissão para ver o ranking desta panelinha' },
           { status: 403 }
         );
         return withCors(errorResponse, request);
@@ -113,24 +101,17 @@ export async function GET(
         : 0;
 
       return {
-        id: r.id,
-        panelinhaId: r.panelinhaId,
         atletaId: r.atletaId,
-        pontuacao: r.pontuacao || 0,
+        nome: r.atleta?.nome || '',
+        fotoUrl: r.atleta?.fotoUrl,
+        jogos: r.partidasJogadas || totalJogos,
         vitorias: r.vitorias || 0,
         derrotas: r.derrotas || 0,
-        derrotasTieBreak: r.derrotasTieBreak || 0,
-        partidasJogadas: r.partidasJogadas || totalJogos,
-        saldoGames: (r.gamesFeitos || 0) - (r.gamesSofridos || 0),
-        gamesFeitos: r.gamesFeitos || 0,
-        gamesSofridos: r.gamesSofridos || 0,
+        gamesGanhos: r.gamesFeitos || 0,
+        gamesPerdidos: r.gamesSofridos || 0,
+        porcentagemVitorias: porcentagemVitorias,
+        pontos: r.pontuacao || 0,
         posicao: r.posicao || index + 1,
-        ultimaAtualizacao: r.ultimaAtualizacao?.toISOString() || new Date().toISOString(),
-        atleta: {
-          id: r.atleta?.id || r.atletaId,
-          nome: r.atleta?.nome || 'Atleta Desconhecido',
-          fotoUrl: r.atleta?.fotoUrl,
-        },
       };
     });
 
@@ -210,24 +191,17 @@ export async function PUT(
         : 0;
 
       return {
-        id: r.id,
-        panelinhaId: r.panelinhaId,
         atletaId: r.atletaId,
-        pontuacao: r.pontuacao || 0,
+        nome: r.atleta?.nome || '',
+        fotoUrl: r.atleta?.fotoUrl,
+        jogos: r.partidasJogadas || totalJogos,
         vitorias: r.vitorias || 0,
         derrotas: r.derrotas || 0,
-        derrotasTieBreak: r.derrotasTieBreak || 0,
-        partidasJogadas: r.partidasJogadas || totalJogos,
-        saldoGames: (r.gamesFeitos || 0) - (r.gamesSofridos || 0),
-        gamesFeitos: r.gamesFeitos || 0,
-        gamesSofridos: r.gamesSofridos || 0,
+        gamesGanhos: r.gamesFeitos || 0,
+        gamesPerdidos: r.gamesSofridos || 0,
+        porcentagemVitorias: porcentagemVitorias,
+        pontos: r.pontuacao || 0,
         posicao: r.posicao || index + 1,
-        ultimaAtualizacao: r.ultimaAtualizacao?.toISOString() || new Date().toISOString(),
-        atleta: {
-          id: r.atleta?.id || r.atletaId,
-          nome: r.atleta?.nome || 'Atleta Desconhecido',
-          fotoUrl: r.atleta?.fotoUrl,
-        },
       };
     });
 

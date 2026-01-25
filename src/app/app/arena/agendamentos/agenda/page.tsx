@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
@@ -16,7 +15,6 @@ import { gzappyService } from '@/services/gzappyService';
 import { api } from '@/lib/api';
 
 export default function ArenaAgendaSemanalPage() {
-  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -1199,23 +1197,17 @@ export default function ArenaAgendaSemanalPage() {
                                     style={{ width: larguraPorQuadra }}
                                     onClick={() => {
                                       if (!temConteudo) {
-                                        try {
-                                          const ano = dia.getFullYear();
-                                          const mes = String(dia.getMonth() + 1).padStart(2, '0');
-                                          const diaNum = String(dia.getDate()).padStart(2, '0');
-                                          const dataFormatada = `${ano}-${mes}-${diaNum}`; // YYYY-MM-DD para input date
-
-                                          const horaFormatada = `${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`;
-
-                                          setDataInicialModal(dataFormatada);
-                                          setHoraInicialModal(horaFormatada);
-                                          setQuadraIdInicialModal(quadra.id);
-                                          setAgendamentoEditando(null);
-                                          setModalEditarAberto(true);
-                                        } catch (e) {
-                                          console.error('Erro ao obter data/horário da agenda:', e);
-                                          alert('Não foi possível obter a data a partir da agenda. Tente novamente.');
-                                        }
+                                        const dataHora = new Date(dia);
+                                        // Formatar data localmente (YYYY-MM-DD) para evitar problemas de timezone
+                                        const ano = dataHora.getFullYear();
+                                        const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+                                        const diaMes = String(dataHora.getDate()).padStart(2, '0');
+                                        const dataFormatada = `${ano}-${mes}-${diaMes}`;
+                                        
+                                        setDataInicialModal(dataFormatada);
+                                        setHoraInicialModal(`${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')}`);
+                                        setAgendamentoEditando(null);
+                                        setModalEditarAberto(true);
                                       }
                                     }}
                                     title={!temConteudo ? `Criar agendamento para ${dia.toLocaleDateString('pt-BR')} às ${slot.hora.toString().padStart(2, '0')}:${slot.minuto.toString().padStart(2, '0')} - ${quadra.nome}` : ''}
@@ -1614,8 +1606,10 @@ export default function ArenaAgendaSemanalPage() {
         duracaoInicial={60}
         onSelecionarHorario={(data, hora, duracao) => {
           setModalQuadrasDisponiveisAberto(false);
-          // Redirecionar para a página de novo agendamento com os parâmetros
-          router.push(`/app/arena/agendamentos/novo?data=${encodeURIComponent(data)}&hora=${encodeURIComponent(hora)}&duracao=${duracao}`);
+          setDataInicialModal(data);
+          setHoraInicialModal(hora);
+          setAgendamentoEditando(null);
+          setModalEditarAberto(true);
         }}
         pointIdsPermitidos={
           isAdmin ? undefined : isOrganizer && usuario?.pointIdGestor ? [usuario.pointIdGestor] : []

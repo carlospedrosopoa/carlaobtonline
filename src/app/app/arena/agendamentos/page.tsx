@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
@@ -366,7 +365,6 @@ function ModalCriarUsuarioIncompleto({ isOpen, onClose, onSuccess }: ModalCriarU
 }
 
 export default function ArenaAgendamentosPage() {
-  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -374,7 +372,6 @@ export default function ArenaAgendamentosPage() {
   const [loading, setLoading] = useState(true);
   const [quadraSelecionada, setQuadraSelecionada] = useState<string>('');
   const [filtroStatus, setFiltroStatus] = useState<StatusAgendamento | ''>('');
-  const [filtroDuracao, setFiltroDuracao] = useState<number | ''>('');
   const [filtroNome, setFiltroNome] = useState('');
   const [mostrarAntigos, setMostrarAntigos] = useState(false);
   const [modalEditarAberto, setModalEditarAberto] = useState(false);
@@ -390,21 +387,12 @@ export default function ArenaAgendamentosPage() {
   const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const ua = navigator.userAgent || (navigator as any).vendor || '';
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-    if (isMobile) {
-      router.replace('/app/arena/agendamentos/agenda-mobile');
-    }
-  }, [router]);
-
-  useEffect(() => {
     carregarDados();
   }, []);
 
   useEffect(() => {
     carregarAgendamentos();
-  }, [quadraSelecionada, filtroStatus, filtroDuracao, mostrarAntigos]);
+  }, [quadraSelecionada, filtroStatus, mostrarAntigos]);
 
   const carregarDados = async () => {
     try {
@@ -444,7 +432,6 @@ export default function ArenaAgendamentosPage() {
       const filtros: any = {};
       if (quadraSelecionada) filtros.quadraId = quadraSelecionada;
       if (filtroStatus) filtros.status = filtroStatus;
-      if (filtroDuracao) filtros.duracao = filtroDuracao;
       
       // Por padrão, mostrar apenas agendamentos da semana atual em diante
       if (!mostrarAntigos) {
@@ -510,9 +497,12 @@ export default function ArenaAgendamentosPage() {
   };
 
   const handleSelecionarHorario = (data: string, hora: string, duracao: number) => {
+    setDataInicialModal(data);
+    setHoraInicialModal(hora);
+    setDuracaoInicialModal(duracao);
     setModalHorariosAberto(false);
-    // Redirecionar para a página de novo agendamento com os parâmetros
-    router.push(`/app/arena/agendamentos/novo?data=${encodeURIComponent(data)}&hora=${encodeURIComponent(hora)}&duracao=${duracao}`);
+    setAgendamentoEditando(null);
+    setModalEditarAberto(true);
   };
 
   // Obter pointIds permitidos (para organizador, apenas o pointIdGestor; para admin, todos)
@@ -652,12 +642,14 @@ export default function ArenaAgendamentosPage() {
 
   // Filtrar agendamentos por nome ou telefone
   const agendamentosFiltrados = useMemo(() => {
-    let lista = agendamentos;
-    if (filtroNome.trim()) {
-      const termoBusca = filtroNome.toLowerCase().trim();
-      const termoBuscaNumerico = termoBusca.replace(/\D/g, '');
+    if (!filtroNome.trim()) {
+      return agendamentos;
+    }
 
-      lista = lista.filter((ag) => {
+    const termoBusca = filtroNome.toLowerCase().trim();
+    const termoBuscaNumerico = termoBusca.replace(/\D/g, '');
+    
+    return agendamentos.filter((ag) => {
       // Buscar no nome do professor (se for aula)
       if (ag.ehAula && ag.professor?.usuario?.name && ag.professor.usuario.name.toLowerCase().includes(termoBusca)) {
         return true;
@@ -701,15 +693,8 @@ export default function ArenaAgendamentosPage() {
         return true;
       }
       return false;
-      });
-    }
-
-    if (filtroDuracao) {
-      lista = lista.filter((ag) => ag.duracao === filtroDuracao);
-    }
-
-    return lista;
-  }, [agendamentos, filtroNome, filtroDuracao]);
+    });
+  }, [agendamentos, filtroNome]);
 
   if (loading) {
     return (
@@ -792,7 +777,7 @@ export default function ArenaAgendamentosPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Quadra</label>
               <select
@@ -820,23 +805,6 @@ export default function ArenaAgendamentosPage() {
                 <option value="CONFIRMADO">Confirmado</option>
                 <option value="CANCELADO">Cancelado</option>
                 <option value="CONCLUIDO">Concluído</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Duração</label>
-              <select
-                value={filtroDuracao === '' ? '' : String(filtroDuracao)}
-                onChange={(e) => setFiltroDuracao(e.target.value ? Number(e.target.value) : '')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              >
-                <option value="">Todas</option>
-                <option value="30">30 min</option>
-                <option value="60">60 min</option>
-                <option value="90">90 min</option>
-                <option value="120">120 min</option>
-                <option value="150">150 min</option>
-                <option value="180">180 min</option>
               </select>
             </div>
           </div>

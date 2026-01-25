@@ -21,18 +21,8 @@ interface Atleta {
   usuario?: {
     id: string;
     name: string;
-      email: string | null;
-    } | null;
-}
-
-interface ClienteDistribuicao {
-  id: string;
-  usuarioId?: string | null;
-  nomeAvulso?: string | null;
-  telefoneAvulso?: string | null;
-  nomeExibicao: string;
-  tipo: 'titular' | 'participante';
-  valor: number;
+    email: string | null;
+  } | null;
 }
 
 interface EditarAgendamentoModalProps {
@@ -43,7 +33,6 @@ interface EditarAgendamentoModalProps {
   quadraIdInicial?: string; // Para pré-selecionar uma quadra ao criar novo agendamento
   dataInicial?: string; // Para pré-preencher a data ao criar novo agendamento (formato: YYYY-MM-DD)
   horaInicial?: string; // Para pré-preencher a hora ao criar novo agendamento (formato: HH:mm)
-  duracaoInicial?: number; // Para pré-preencher a duração ao criar novo agendamento (em minutos)
   readOnly?: boolean;
 }
 
@@ -55,15 +44,13 @@ export default function EditarAgendamentoModal({
   quadraIdInicial,
   dataInicial,
   horaInicial,
-  duracaoInicial,
-  readOnly,
+  readOnly = false,
 }: EditarAgendamentoModalProps) {
   const { usuario, isAdmin: isAdminContext, isOrganizer: isOrganizerContext } = useAuth();
   // ADMIN e ORGANIZER podem gerenciar agendamentos (criar para atletas ou próprios)
   const isAdmin = isAdminContext;
   const isOrganizer = isOrganizerContext;
-  const canGerenciarAgendamento = isAdmin || isOrganizer;
-  const isReadOnly = Boolean(readOnly);
+  const canGerenciarAgendamento = !readOnly && (isAdmin || isOrganizer);
 
   const [points, setPoints] = useState<any[]>([]);
   const [quadras, setQuadras] = useState<any[]>([]);
@@ -141,162 +128,9 @@ export default function EditarAgendamentoModal({
   const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros (não usado mais, mas mantido para compatibilidade)
   const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente (não usado mais, mas mantido para compatibilidade)
   const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
-  const [gerarCardsAoSalvar, setGerarCardsAoSalvar] = useState(false);
   const [restaurandoDados, setRestaurandoDados] = useState(false); // Flag para indicar que estamos restaurando dados preservados
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
   const inputBuscaAtletaRef = useRef<HTMLInputElement>(null); // Ref para o campo de busca de atleta
-  const [modalDistribuicaoAberta, setModalDistribuicaoAberta] = useState(false);
-  const [clientesDistribuicao, setClientesDistribuicao] = useState<ClienteDistribuicao[]>([]);
-  const [agendamentoParaGerarCards, setAgendamentoParaGerarCards] = useState<Agendamento | null>(null);
-  const [origemDistribuicao, setOrigemDistribuicao] = useState<'botao' | 'salvar' | null>(null);
-
-  const obterValorTotalAgendamento = (ag?: Agendamento | null): number => {
-    if (!ag) return 0;
-
-    const brutoNegociado = (ag as any).valorNegociado;
-    const brutoCalculado = (ag as any).valorCalculado;
-
-    const valorNegociadoNum =
-      brutoNegociado !== null && brutoNegociado !== undefined
-        ? Number(brutoNegociado)
-        : NaN;
-    const valorCalculadoNum =
-      brutoCalculado !== null && brutoCalculado !== undefined
-        ? Number(brutoCalculado)
-        : NaN;
-
-    const valor =
-      !Number.isNaN(valorNegociadoNum) && valorNegociadoNum > 0
-        ? valorNegociadoNum
-        : !Number.isNaN(valorCalculadoNum) && valorCalculadoNum > 0
-        ? valorCalculadoNum
-        : 0;
-
-    return Number(valor.toFixed(2));
-  };
-
-  const construirClientesDistribuicao = (ag: Agendamento): ClienteDistribuicao[] => {
-    const mapa = new Map<string, Omit<ClienteDistribuicao, 'id' | 'valor'>>();
-
-    const criarChave = (usuarioId?: string | null, nome?: string | null, telefone?: string | null) => {
-      if (usuarioId) return `user:${usuarioId}`;
-      const nomeKey = (nome || '').trim().toLowerCase();
-      const telKey = (telefone || '').replace(/\D/g, '');
-      return `avulso:${nomeKey}:${telKey}`;
-    };
-
-    const adicionar = (dados: {
-      usuarioId?: string | null;
-      nomeAvulso?: string | null;
-      telefoneAvulso?: string | null;
-      nomeExibicao: string;
-      tipo: 'titular' | 'participante';
-    }) => {
-      const chave = criarChave(dados.usuarioId, dados.nomeAvulso, dados.telefoneAvulso);
-      if (mapa.has(chave)) return;
-      mapa.set(chave, {
-        usuarioId: dados.usuarioId ?? null,
-        nomeAvulso: dados.nomeAvulso ?? null,
-        telefoneAvulso: dados.telefoneAvulso ?? null,
-        nomeExibicao: dados.nomeExibicao,
-        tipo: dados.tipo,
-      });
-    };
-
-    if (ag.atletaId && ag.atleta) {
-      if (ag.atleta.usuarioId) {
-        adicionar({
-          usuarioId: ag.atleta.usuarioId,
-          nomeAvulso: null,
-          telefoneAvulso: ag.atleta.fone || null,
-          nomeExibicao: ag.atleta.nome,
-          tipo: 'titular',
-        });
-      } else {
-        adicionar({
-          usuarioId: null,
-          nomeAvulso: ag.atleta.nome,
-          telefoneAvulso: ag.atleta.fone || null,
-          nomeExibicao: ag.atleta.nome,
-          tipo: 'titular',
-        });
-      }
-    } else if (ag.usuarioId && ag.usuario) {
-      adicionar({
-        usuarioId: ag.usuario.id,
-        nomeAvulso: null,
-        telefoneAvulso: null,
-        nomeExibicao: ag.usuario.name,
-        tipo: 'titular',
-      });
-    } else if (ag.nomeAvulso) {
-      adicionar({
-        usuarioId: null,
-        nomeAvulso: ag.nomeAvulso,
-        telefoneAvulso: ag.telefoneAvulso,
-        nomeExibicao: ag.nomeAvulso,
-        tipo: 'titular',
-      });
-    }
-
-    if (Array.isArray(ag.atletasParticipantes)) {
-      ag.atletasParticipantes.forEach((ap) => {
-        if (!ap || !ap.atleta) return;
-        const atleta = ap.atleta;
-        if (atleta.usuarioId) {
-          adicionar({
-            usuarioId: atleta.usuarioId,
-            nomeAvulso: null,
-            telefoneAvulso: atleta.fone || null,
-            nomeExibicao: atleta.nome,
-            tipo: 'participante',
-          });
-        } else {
-          adicionar({
-            usuarioId: null,
-            nomeAvulso: atleta.nome,
-            telefoneAvulso: atleta.fone || null,
-            nomeExibicao: atleta.nome,
-            tipo: 'participante',
-          });
-        }
-      });
-    }
-
-    const clientesBase = Array.from(mapa.values());
-
-    const valorTotalAgendamento = obterValorTotalAgendamento(ag);
-
-    const quantidade = clientesBase.length || 1;
-    const valorBase =
-      quantidade > 0 && valorTotalAgendamento > 0
-        ? Number((valorTotalAgendamento / quantidade).toFixed(2))
-        : 0;
-
-    const somaBase = valorBase * quantidade;
-    let diferenca = Number((valorTotalAgendamento - somaBase).toFixed(2));
-
-    return clientesBase.map((c, index) => {
-      let valor = valorBase;
-      if (index === clientesBase.length - 1) {
-        valor = Number((valorBase + diferenca).toFixed(2));
-      }
-      const chaveId = criarChave(c.usuarioId, c.nomeAvulso, c.telefoneAvulso);
-      return {
-        ...c,
-        id: `${index}-${chaveId}`,
-        valor,
-      };
-    });
-  };
-
-  const abrirModalDistribuicao = (ag: Agendamento, origem: 'botao' | 'salvar') => {
-    const clientes = construirClientesDistribuicao(ag);
-    setClientesDistribuicao(clientes);
-    setAgendamentoParaGerarCards(ag);
-    setOrigemDistribuicao(origem);
-    setModalDistribuicaoAberta(true);
-  };
 
   // Função para normalizar texto removendo acentuação
   const normalizarTexto = (texto: string): string => {
@@ -349,16 +183,9 @@ export default function EditarAgendamentoModal({
         setCarregandoAtletas(false);
         setProfessores(professoresData);
       }
-      // Se for ORGANIZER, definir pointId
-      if (isOrganizer && usuario?.pointIdGestor) {
-        setPointId(usuario.pointIdGestor);
-        // Se não temos filtro de horário, carregar quadras diretamente aqui
-        // Se temos filtro, o useEffect vai carregar com o filtro
-        if (!dataInicial || !horaInicial || !duracaoInicial) {
-          if (quadrasData.length > 0) {
-            setQuadras((quadrasData as any[]).filter((q: any) => q.ativo));
-          }
-        }
+      // Se for ORGANIZER, carregar quadras diretamente
+      if (isOrganizer && quadrasData.length > 0) {
+        setQuadras((quadrasData as any[]).filter((q: any) => q.ativo));
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -381,9 +208,6 @@ export default function EditarAgendamentoModal({
         }
         if (horaInicial) {
           setHora(horaInicial);
-        }
-        if (duracaoInicial) {
-          setDuracao(duracaoInicial);
         }
         
         // Se houver quadraIdInicial, pré-selecionar após carregar dados
@@ -416,28 +240,10 @@ export default function EditarAgendamentoModal({
   }, [agendamentoCompleto]);
 
   useEffect(() => {
-    if (pointId) {
-      // Se temos dataInicial, horaInicial e duracaoInicial, sempre usar carregarQuadras para aplicar o filtro
-      if (dataInicial && horaInicial && duracaoInicial) {
-        carregarQuadras(pointId);
-      } else if (!isOrganizer) {
-        // Para não-organizadores, sempre carregar quadras normalmente
-        carregarQuadras(pointId);
-      }
-      // Para organizadores sem filtro, as quadras já foram carregadas em carregarDados
+    if (pointId && !isOrganizer) {
+      carregarQuadras(pointId);
     }
-  }, [pointId, dataInicial, horaInicial, duracaoInicial, isOrganizer]);
-
-  // Recarregar quadras quando os valores iniciais forem setados no estado
-  useEffect(() => {
-    if (pointId && data && hora && duracao && dataInicial && horaInicial && duracaoInicial) {
-      // Verificar se os valores do estado coincidem com os valores iniciais
-      if (data === dataInicial && hora === horaInicial && duracao === duracaoInicial) {
-        // Valores já foram setados, recarregar quadras com filtro
-        carregarQuadras(pointId);
-      }
-    }
-  }, [data, hora, duracao, pointId]);
+  }, [pointId]);
 
   useEffect(() => {
     if (quadraId && data) {
@@ -593,7 +399,6 @@ export default function EditarAgendamentoModal({
     setBuscaAtletasParticipantes('');
     setParticipantesCompletos([]);
     setManterNaTela(false); // Resetar flag ao resetar formulário
-    setGerarCardsAoSalvar(false);
     setEhAula(false);
     setProfessorId('');
     // Limpar campos de recorrência
@@ -774,134 +579,10 @@ export default function EditarAgendamentoModal({
     }
   };
 
-  const quadraEstaLivreNoHorario = (
-    quadra: any,
-    dataHorario: string,
-    horaHorario: string,
-    duracaoHorario: number,
-    agendamentos: Agendamento[],
-    bloqueios: any[],
-  ): boolean => {
-    const diaStr = dataHorario;
-    const [hStr, mStr] = horaHorario.split(':');
-    const slotInicioMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
-    const slotFimMin = slotInicioMin + duracaoHorario;
-
-    // Verificar conflito com agendamentos usando apenas data + minutos (sem Date/Timezone)
-    const temAgendamento = agendamentos.some((ag) => {
-      if (ag.quadraId !== quadra.id || !ag.dataHora) return false;
-      const [dataPart, horaPart] = ag.dataHora.split('T');
-      if (dataPart !== diaStr) return false;
-
-      const [hAgStr, mAgStr] = horaPart.substring(0, 5).split(':');
-      const agInicioMin = parseInt(hAgStr, 10) * 60 + parseInt(mAgStr, 10);
-      const agFimMin = agInicioMin + ag.duracao;
-
-      return !(slotFimMin <= agInicioMin || slotInicioMin >= agFimMin);
-    });
-
-    if (temAgendamento) return false;
-
-    // Verificar conflito com bloqueios, também em minutos
-    const temBloqueio = bloqueios.some((bloqueio) => {
-      if (!bloqueio.ativo) return false;
-
-      const afetaQuadra =
-        bloqueio.quadraIds === null ? quadra.pointId === bloqueio.pointId : bloqueio.quadraIds.includes(quadra.id);
-      if (!afetaQuadra) return false;
-
-      const inicioBloqueioDia = bloqueio.dataInicio.slice(0, 10);
-      const fimBloqueioDia = bloqueio.dataFim.slice(0, 10);
-      if (diaStr < inicioBloqueioDia || diaStr > fimBloqueioDia) return false;
-
-      // Sem horário específico: dia inteiro bloqueado
-      if (bloqueio.horaInicio == null && bloqueio.horaFim == null) return true;
-
-      const bloqueioInicioMin = bloqueio.horaInicio ?? 0;
-      const bloqueioFimMin = bloqueio.horaFim ?? 24 * 60;
-
-      return !(slotFimMin <= bloqueioInicioMin || slotInicioMin >= bloqueioFimMin);
-    });
-
-    if (temBloqueio) return false;
-
-    return true;
-  };
-
   const carregarQuadras = async (pointId: string) => {
     try {
-      const todasQuadras = await quadraService.listar(pointId);
-      const quadrasAtivas = todasQuadras.filter((q: any) => q.ativo);
-
-      // Se temos dataInicial, horaInicial e duracaoInicial, filtrar apenas quadras disponíveis
-      if (dataInicial && horaInicial && duracaoInicial) {
-        try {
-          const dataInicioDia = `${dataInicial}T00:00:00`;
-          const dataFimDia = `${dataInicial}T23:59:59`;
-
-          console.log('[EditarAgendamentoModal] Filtrando quadras disponíveis:', {
-            dataInicial,
-            horaInicial,
-            duracaoInicial,
-            pointId,
-            dataInicioDia,
-            dataFimDia,
-          });
-
-          const [agendamentosDia, bloqueiosDia] = await Promise.all([
-            agendamentoService.listar({
-              dataInicio: dataInicioDia,
-              dataFim: dataFimDia,
-              status: 'CONFIRMADO',
-            }),
-            bloqueioAgendaService.listar({
-              dataInicio: dataInicioDia,
-              dataFim: dataFimDia,
-              apenasAtivos: true,
-            }),
-          ]);
-
-          console.log('[EditarAgendamentoModal] Agendamentos e bloqueios carregados:', {
-            agendamentosCount: agendamentosDia.length,
-            bloqueiosCount: bloqueiosDia.length,
-            agendamentos: agendamentosDia.map((ag: any) => ({
-              id: ag.id,
-              quadraId: ag.quadraId,
-              dataHora: ag.dataHora,
-              duracao: ag.duracao,
-            })),
-          });
-
-          // Filtrar apenas quadras disponíveis para o horário selecionado
-          const quadrasDisponiveis = quadrasAtivas.filter((quadra: any) => {
-            const estaLivre = quadraEstaLivreNoHorario(
-              quadra,
-              dataInicial,
-              horaInicial,
-              duracaoInicial,
-              agendamentosDia,
-              bloqueiosDia,
-            );
-            console.log(`[EditarAgendamentoModal] Quadra ${quadra.nome} (${quadra.id}): ${estaLivre ? 'LIVRE' : 'OCUPADA'}`);
-            return estaLivre;
-          });
-
-          console.log('[EditarAgendamentoModal] Quadras disponíveis:', {
-            total: quadrasAtivas.length,
-            disponiveis: quadrasDisponiveis.length,
-            disponiveisIds: quadrasDisponiveis.map((q: any) => q.id),
-          });
-
-          setQuadras(quadrasDisponiveis);
-        } catch (error) {
-          console.error('Erro ao verificar disponibilidade das quadras:', error);
-          // Em caso de erro, mostrar todas as quadras ativas
-          setQuadras(quadrasAtivas);
-        }
-      } else {
-        // Se não temos horário selecionado, mostrar todas as quadras ativas
-        setQuadras(quadrasAtivas);
-      }
+      const data = await quadraService.listar(pointId);
+      setQuadras(data.filter((q: any) => q.ativo));
     } catch (error) {
       console.error('Erro ao carregar quadras:', error);
     }
@@ -1053,77 +734,71 @@ export default function EditarAgendamentoModal({
     }
 
     // Verificar conflitos com agendamentos existentes
-    // Se estamos editando um agendamento e o usuário é ORGANIZER, permitir conflitos com outros agendamentos
-    // (apenas bloqueios ainda serão verificados)
-    const permitirConflitoAgendamento = agendamento && isOrganizer;
-    
-    if (!permitirConflitoAgendamento) {
-      for (const ag of agendamentosExistentes) {
-        // Se estamos editando um agendamento, garantir que não estamos comparando com ele mesmo
-        if (agendamento && ag.id === agendamento.id) {
+    for (const ag of agendamentosExistentes) {
+      // Se estamos editando um agendamento, garantir que não estamos comparando com ele mesmo
+      if (agendamento && ag.id === agendamento.id) {
+        continue;
+      }
+
+      // Se estamos editando e mantendo o mesmo horário/data/duração, ignorar qualquer
+      // agendamento que tenha exatamente o mesmo horário (pode ser o próprio agendamento
+      // que ainda está na lista por algum motivo, especialmente quando mudamos a quadra)
+      if (agendamento) {
+        const agendamentoDataHoraStr = agendamento.dataHora;
+        const agendamentoDataPart = agendamentoDataHoraStr.split('T')[0];
+        const agendamentoHoraMatch = agendamentoDataHoraStr.match(/T(\d{2}):(\d{2})/);
+        const agDataPart = ag.dataHora.split('T')[0];
+        const agHoraMatch = ag.dataHora.match(/T(\d{2}):(\d{2})/);
+        
+        // Se o horário selecionado é o mesmo do agendamento atual E o agendamento na lista
+        // tem o mesmo horário/data/duração, ignorar (provavelmente é o próprio agendamento)
+        if (
+          agendamentoDataPart === data &&
+          agendamentoHoraMatch &&
+          agendamentoHoraMatch[1] === hora.split(':')[0] &&
+          agendamentoHoraMatch[2] === hora.split(':')[1] &&
+          agendamento.duracao === duracao &&
+          agendamentoDataPart === agDataPart &&
+          agendamentoHoraMatch && agHoraMatch &&
+          agendamentoHoraMatch[1] === agHoraMatch[1] &&
+          agendamentoHoraMatch[2] === agHoraMatch[2] &&
+          agendamento.duracao === ag.duracao
+        ) {
           continue;
         }
+      }
 
-        // Se estamos editando e mantendo o mesmo horário/data/duração, ignorar qualquer
-        // agendamento que tenha exatamente o mesmo horário (pode ser o próprio agendamento
-        // que ainda está na lista por algum motivo, especialmente quando mudamos a quadra)
-        if (agendamento) {
-          const agendamentoDataHoraStr = agendamento.dataHora;
-          const agendamentoDataPart = agendamentoDataHoraStr.split('T')[0];
-          const agendamentoHoraMatch = agendamentoDataHoraStr.match(/T(\d{2}):(\d{2})/);
-          const agDataPart = ag.dataHora.split('T')[0];
-          const agHoraMatch = ag.dataHora.match(/T(\d{2}):(\d{2})/);
-          
-          // Se o horário selecionado é o mesmo do agendamento atual E o agendamento na lista
-          // tem o mesmo horário/data/duração, ignorar (provavelmente é o próprio agendamento)
-          if (
-            agendamentoDataPart === data &&
-            agendamentoHoraMatch &&
-            agendamentoHoraMatch[1] === hora.split(':')[0] &&
-            agendamentoHoraMatch[2] === hora.split(':')[1] &&
-            agendamento.duracao === duracao &&
-            agendamentoDataPart === agDataPart &&
-            agendamentoHoraMatch && agHoraMatch &&
-            agendamentoHoraMatch[1] === agHoraMatch[1] &&
-            agendamentoHoraMatch[2] === agHoraMatch[2] &&
-            agendamento.duracao === ag.duracao
-          ) {
-            continue;
-          }
-        }
-
-        // Extrair hora/minuto diretamente da string ISO sem conversão de timezone
-        // Isso evita problemas de fuso horário
-        const agDataHoraStr = ag.dataHora;
-        const agDataPart = agDataHoraStr.split('T')[0];
-        const agHoraMatch = agDataHoraStr.match(/T(\d{2}):(\d{2})/);
-        
-        // Verificar se é o mesmo dia
-        if (agDataPart !== data) {
-          continue; // Diferentes dias, não há conflito
-        }
-        
-        if (!agHoraMatch) {
-          continue; // Não foi possível extrair hora
-        }
-        
-        // Extrair hora e minuto do agendamento existente diretamente da string
-        const agHoraNum = parseInt(agHoraMatch[1], 10);
-        const agMinutoNum = parseInt(agHoraMatch[2], 10);
-        const agMinutosInicio = agHoraNum * 60 + agMinutoNum;
-        const agMinutosFim = agMinutosInicio + ag.duracao;
-        
-        // Comparar com os minutos do horário selecionado
-        if (
-          minutosInicio < agMinutosFim && minutosFim > agMinutosInicio
-        ) {
-          // Formatar horários para exibição
-          const inicio = `${agHoraNum.toString().padStart(2, '0')}:${agMinutoNum.toString().padStart(2, '0')}`;
-          const agHoraFim = Math.floor(agMinutosFim / 60) % 24;
-          const agMinutoFim = agMinutosFim % 60;
-          const fim = `${agHoraFim.toString().padStart(2, '0')}:${agMinutoFim.toString().padStart(2, '0')}`;
-          return `Conflito com agendamento existente das ${inicio} às ${fim}`;
-        }
+      // Extrair hora/minuto diretamente da string ISO sem conversão de timezone
+      // Isso evita problemas de fuso horário
+      const agDataHoraStr = ag.dataHora;
+      const agDataPart = agDataHoraStr.split('T')[0];
+      const agHoraMatch = agDataHoraStr.match(/T(\d{2}):(\d{2})/);
+      
+      // Verificar se é o mesmo dia
+      if (agDataPart !== data) {
+        continue; // Diferentes dias, não há conflito
+      }
+      
+      if (!agHoraMatch) {
+        continue; // Não foi possível extrair hora
+      }
+      
+      // Extrair hora e minuto do agendamento existente diretamente da string
+      const agHoraNum = parseInt(agHoraMatch[1], 10);
+      const agMinutoNum = parseInt(agHoraMatch[2], 10);
+      const agMinutosInicio = agHoraNum * 60 + agMinutoNum;
+      const agMinutosFim = agMinutosInicio + ag.duracao;
+      
+      // Comparar com os minutos do horário selecionado
+      if (
+        minutosInicio < agMinutosFim && minutosFim > agMinutosInicio
+      ) {
+        // Formatar horários para exibição
+        const inicio = `${agHoraNum.toString().padStart(2, '0')}:${agMinutoNum.toString().padStart(2, '0')}`;
+        const agHoraFim = Math.floor(agMinutosFim / 60) % 24;
+        const agMinutoFim = agMinutosFim % 60;
+        const fim = `${agHoraFim.toString().padStart(2, '0')}:${agMinutoFim.toString().padStart(2, '0')}`;
+        return `Conflito com agendamento existente das ${inicio} às ${fim}`;
       }
     }
 
@@ -1381,10 +1056,8 @@ export default function EditarAgendamentoModal({
       console.log('[EditarAgendamentoModal] canGerenciarAgendamento:', canGerenciarAgendamento);
       console.log('[EditarAgendamentoModal] ============================================');
 
-      const temValorParaCards = Boolean((valorNegociado ?? valorCalculado) && Number(valorNegociado ?? valorCalculado) > 0);
-      const temClienteParaCards = Boolean(atletaId || nomeAvulso || atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0);
-      const podeGerarCards = !isReadOnly && canGerenciarAgendamento && temValorParaCards && temClienteParaCards;
-
+      // Executar salvamento diretamente (sem modal de confirmação)
+      // A lógica de aplicar aos futuros foi removida - sempre edita apenas o agendamento atual
       if (agendamento) {
         // Modo edição
         setSalvando(true);
@@ -1420,11 +1093,7 @@ export default function EditarAgendamentoModal({
           });
           
           onSuccess();
-          if (gerarCardsAoSalvar && podeGerarCards) {
-            abrirModalDistribuicao(agendamentoAtualizado, 'salvar');
-          } else {
-            onClose();
-          }
+          onClose();
         } catch (error: any) {
           console.error('Erro ao atualizar agendamento:', error);
           setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao atualizar agendamento. Tente novamente.');
@@ -1449,10 +1118,8 @@ export default function EditarAgendamentoModal({
             valorNegociado: novoAgendamento.valorNegociado,
           });
           
-          if (gerarCardsAoSalvar && podeGerarCards) {
-            onSuccess();
-            abrirModalDistribuicao(novoAgendamento, 'salvar');
-          } else if (manterNaTela && canGerenciarAgendamento) {
+          // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
+          if (manterNaTela && canGerenciarAgendamento) {
             // Limpar apenas seleção de quadras e participantes
             setQuadraId('');
             setAtletasParticipantesIds([]);
@@ -1462,6 +1129,14 @@ export default function EditarAgendamentoModal({
             // Limpar valores calculados (serão recalculados quando selecionar nova quadra)
             setValorHora(null);
             setValorCalculado(null);
+            // Limpar campos de recorrência (cada agendamento deve ser único)
+            setTemRecorrencia(false);
+            setTipoRecorrencia(null);
+            setIntervaloRecorrencia(1);
+            setDiasSemanaRecorrencia([]);
+            setDiaMesRecorrencia(1);
+            setDataFimRecorrencia('');
+            setQuantidadeOcorrencias(12);
             // Limpar erro se houver
             setErro('');
             // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, atletaId, etc)
@@ -1493,148 +1168,15 @@ export default function EditarAgendamentoModal({
 
   const conflito = verificarConflito();
 
-  const podeGerarCardsAoSalvar = useMemo(() => {
-    const temValor = Boolean((valorNegociado ?? valorCalculado) && Number(valorNegociado ?? valorCalculado) > 0);
-    const temCliente = Boolean(atletaId || nomeAvulso || atletasParticipantesIds.length > 0 || participantesAvulsos.length > 0);
-    return !isReadOnly && canGerenciarAgendamento && temValor && temCliente;
-  }, [isReadOnly, canGerenciarAgendamento, valorNegociado, valorCalculado, atletaId, nomeAvulso, atletasParticipantesIds.length, participantesAvulsos.length]);
-
   const formatCurrency = (v: number | null) =>
     v == null
       ? '—'
       : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-  const valorTotalAgendamentoDistribuicao = useMemo(
-    () => obterValorTotalAgendamento(agendamentoParaGerarCards),
-    [agendamentoParaGerarCards],
-  );
-
-  const totalDistribuido = useMemo(
-    () => clientesDistribuicao.reduce((soma, c) => soma + (c.valor || 0), 0),
-    [clientesDistribuicao],
-  );
-
-  const diferencaDistribuicao = useMemo(
-    () => Number((valorTotalAgendamentoDistribuicao - totalDistribuido).toFixed(2)),
-    [valorTotalAgendamentoDistribuicao, totalDistribuido],
-  );
-
-  const distribuicaoValida = useMemo(
-    () => Math.abs(diferencaDistribuicao) < 0.01,
-    [diferencaDistribuicao],
-  );
-
-  const temClienteComValor = useMemo(
-    () => clientesDistribuicao.some((c) => (c.valor || 0) > 0),
-    [clientesDistribuicao],
-  );
-
-  const atualizarValorDistribuicao = (id: string, valor: number | null) => {
-    setClientesDistribuicao((atual) =>
-      atual.map((c) => (c.id === id ? { ...c, valor: valor || 0 } : c)),
-    );
-  };
-
-  const executarGeracaoCardsComDistribuicao = async () => {
-    if (!agendamentoParaGerarCards) return;
-    if (!temClienteComValor) return;
-    try {
-      setGerandoCards(true);
-      setErro('');
-
-      const distribuicoesFiltradas = clientesDistribuicao.filter(
-        (c) => (c.valor || 0) > 0,
-      );
-
-      const payload = {
-        distribuicoes: distribuicoesFiltradas.map((c) => ({
-          usuarioId: c.usuarioId ?? null,
-          nomeAvulso: c.nomeAvulso ?? null,
-          telefoneAvulso: c.telefoneAvulso ?? null,
-          valor: c.valor || 0,
-        })),
-      };
-      const resultado = await agendamentoService.gerarCards(agendamentoParaGerarCards.id, payload);
-      const valorTotal =
-        typeof resultado.valorTotal === 'number'
-          ? resultado.valorTotal
-          : parseFloat(String(resultado.valorTotal)) || 0;
-      const valorPorClienteRaw =
-        resultado.valorPorCliente != null
-          ? typeof resultado.valorPorCliente === 'number'
-            ? resultado.valorPorCliente
-            : parseFloat(String(resultado.valorPorCliente)) || 0
-          : null;
-      const totalClientes = resultado.totalClientes || 0;
-      const totalCardsCriados = resultado.totalCardsCriados || 0;
-      const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
-
-      let mensagemDetalhada = `${resultado.mensagem}\n\n`;
-      mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
-      if (valorPorClienteRaw != null) {
-        mensagemDetalhada += `Valor por cliente (padrão): R$ ${valorPorClienteRaw.toFixed(2)}\n`;
-      }
-      mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
-      if (totalCardsCriados > 0) {
-        mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
-      }
-      if (totalCardsAtualizados > 0) {
-        mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
-      }
-      alert(mensagemDetalhada);
-
-      if (typeof window !== 'undefined') {
-        const ua = navigator.userAgent || (navigator as any).vendor || '';
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-        if (!isMobile) {
-          window.open('/app/arena/cards-clientes', '_blank');
-        }
-      }
-
-      setModalDistribuicaoAberta(false);
-      setAgendamentoParaGerarCards(null);
-      setOrigemDistribuicao(null);
-      onSuccess();
-      if (origemDistribuicao === 'botao' || !manterNaTela || agendamentoParaGerarCards) {
-        onClose();
-      }
-    } catch (error: any) {
-      const isNetworkError =
-        error?.message?.includes('Failed to fetch') ||
-        error?.message?.includes('NetworkError') ||
-        error?.message?.includes('cancelada');
-
-      let mensagemErro =
-        error?.response?.data?.mensagem ||
-        error?.data?.mensagem ||
-        error?.message ||
-        'Erro ao gerar cards';
-
-      if (isNetworkError) {
-        mensagemErro =
-          'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
-      }
-
-      setErro(mensagemErro);
-      if (!error?.response?.data?.cards && !error?.data?.cards) {
-        alert(`Erro: ${mensagemErro}`);
-      }
-    } finally {
-      setGerandoCards(false);
-    }
-  };
-
-  const handleDialogClose = () => {
-    if (modalDistribuicaoAberta) {
-      return;
-    }
-    onClose();
-  };
-
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onClose={handleDialogClose} className="relative z-50">
+    <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <Dialog.Panel className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1700,8 +1242,7 @@ export default function EditarAgendamentoModal({
             </div>
           )}
 
-          <form onSubmit={isReadOnly ? (e) => e.preventDefault() : handleSubmit} className="space-y-6">
-            <fieldset disabled={isReadOnly} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Seleção de Atleta (modo atleta) */}
             {canGerenciarAgendamento && modo === 'atleta' && (
               <div>
@@ -1827,9 +1368,8 @@ export default function EditarAgendamentoModal({
                       </div>
                     ))}
                     {participantesCompletos.length > 0 ? (
-                      participantesCompletos
-                        .filter((participante) => participante.atletaId)
-                        .map((participante) => (
+                      // Usar dados completos do agendamento
+                      participantesCompletos.map((participante) => (
                         <div
                           key={participante.id}
                           className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
@@ -2180,7 +1720,7 @@ export default function EditarAgendamentoModal({
                   value={quadraId}
                   onChange={(e) => setQuadraId(e.target.value)}
                   required
-                  disabled={!pointId && !isOrganizer}
+                  disabled={readOnly || (!pointId && !isOrganizer)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Selecione uma quadra</option>
@@ -2511,7 +2051,8 @@ export default function EditarAgendamentoModal({
               </div>
 
 
-            {!isReadOnly && agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && 
+            {/* Botão Gerar Cards - apenas para agendamentos existentes com valor e com cliente vinculado */}
+            {agendamento && canGerenciarAgendamento && (agendamento.valorNegociado || agendamento.valorCalculado) && 
              (agendamento.atletaId || agendamento.nomeAvulso || (agendamento.atletasParticipantes && agendamento.atletasParticipantes.length > 0)) && (
               <div className="mt-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                 <div className="flex items-start gap-3">
@@ -2525,9 +2066,67 @@ export default function EditarAgendamentoModal({
                     </p>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!agendamento) return;
-                        abrirModalDistribuicao(agendamentoCompleto || agendamento, 'botao');
+                      onClick={async () => {
+                        if (!agendamento?.id) return;
+                        if (!confirm('Deseja gerar comandas de cliente para todos os participantes deste agendamento?')) return;
+
+                        try {
+                          setGerandoCards(true);
+                          setErro('');
+                          const resultado = await agendamentoService.gerarCards(agendamento.id);
+                          if (resultado && resultado.mensagem) {
+                            // Garantir que os valores sejam números antes de usar toFixed
+                            const valorTotal = typeof resultado.valorTotal === 'number' ? resultado.valorTotal : parseFloat(resultado.valorTotal) || 0;
+                            const valorPorCliente = typeof resultado.valorPorCliente === 'number' ? resultado.valorPorCliente : parseFloat(resultado.valorPorCliente) || 0;
+                            const totalClientes = resultado.totalClientes || 0;
+                            const totalCardsCriados = resultado.totalCardsCriados || 0;
+                            const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
+                            
+                            let mensagemDetalhada = `${resultado.mensagem}\n\n`;
+                            mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
+                            mensagemDetalhada += `Valor por cliente: R$ ${valorPorCliente.toFixed(2)}\n`;
+                            mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
+                            if (totalCardsCriados > 0) {
+                              mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
+                            }
+                            if (totalCardsAtualizados > 0) {
+                              mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
+                            }
+                            
+                            alert(mensagemDetalhada);
+                            onSuccess();
+                            onClose(); // Fechar o modal após gerar cards com sucesso
+                          } else {
+                            throw new Error('Resposta inválida da API');
+                          }
+                        } catch (error: any) {
+                          console.error('Erro completo ao gerar cards:', error);
+                          
+                          // Verificar se é um erro de rede/timeout
+                          const isNetworkError = error?.message?.includes('Failed to fetch') || 
+                                                 error?.message?.includes('NetworkError') ||
+                                                 error?.message?.includes('cancelada');
+                          
+                          let mensagemErro = error?.response?.data?.mensagem || 
+                                            error?.data?.mensagem || 
+                                            error?.message || 
+                                            'Erro ao gerar cards';
+                          
+                          // Se for erro de rede mas os cards podem ter sido criados, verificar no servidor
+                          if (isNetworkError) {
+                            mensagemErro = 'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
+                            console.warn('Erro de rede ao gerar cards, mas a operação pode ter sido concluída no servidor');
+                          }
+                          
+                          setErro(mensagemErro);
+                          
+                          // Não mostrar alert de erro se os cards foram criados (pode ser um erro de parsing)
+                          if (!error?.response?.data?.cards && !error?.data?.cards) {
+                            alert(`Erro: ${mensagemErro}`);
+                          }
+                        } finally {
+                          setGerandoCards(false);
+                        }
                       }}
                       disabled={gerandoCards || salvando || temAlteracoes}
                       className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2554,7 +2153,7 @@ export default function EditarAgendamentoModal({
             )}
 
             {/* Flag para manter na tela após salvar (apenas para gestores em modo criação) */}
-            {!isReadOnly && canGerenciarAgendamento && !agendamento && (
+            {canGerenciarAgendamento && !agendamento && (
               <div className="pt-4 pb-2 border-t border-gray-200">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -2573,30 +2172,6 @@ export default function EditarAgendamentoModal({
               </div>
             )}
 
-            {!isReadOnly && canGerenciarAgendamento && (
-              <div className="pt-4 pb-2 border-t border-gray-200">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={gerarCardsAoSalvar}
-                    onChange={(e) => setGerarCardsAoSalvar(e.target.checked)}
-                    disabled={!podeGerarCardsAoSalvar || salvando || gerandoCards}
-                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 disabled:opacity-50"
-                  />
-                  <span className="text-sm text-gray-700">
-                    Gerar cards ao salvar
-                  </span>
-                </label>
-                <p className="text-xs text-gray-500 mt-1 ml-6">
-                  {podeGerarCardsAoSalvar
-                    ? 'Se marcado, ao salvar o agendamento o sistema cria/atualiza as comandas automaticamente.'
-                    : 'Informe cliente e valor (calculado ou negociado) para habilitar esta opção.'}
-                </p>
-              </div>
-            )}
-
-            </fieldset>
-
             <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
               <button
                 type="button"
@@ -2604,113 +2179,35 @@ export default function EditarAgendamentoModal({
                 disabled={salvando}
                 className="w-full sm:w-auto px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 text-gray-800 font-medium transition-colors disabled:opacity-50"
               >
-                {isReadOnly ? 'Fechar' : 'Cancelar'}
+                {readOnly ? 'Fechar' : 'Cancelar'}
               </button>
-              {!isReadOnly && (
-                <button
-                  type="submit"
-                  disabled={salvando || gerandoCards || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
-                  className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title={agendamento && !temAlteracoes ? 'Não há alterações para salvar' : ''}
-                >
-                  {salvando ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Salvando...
-                    </span>
-                  ) : agendamento ? (
-                    'Salvar Alterações'
-                  ) : (
-                    'Criar Agendamento'
-                  )}
-                </button>
+              {!readOnly && (
+              <button
+                type="submit"
+                disabled={salvando || Boolean(conflito) || (agendamento ? !temAlteracoes : false)}
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={agendamento && !temAlteracoes ? 'Não há alterações para salvar' : ''}
+              >
+                {salvando ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Salvando...
+                  </span>
+                ) : agendamento ? (
+                  'Salvar Alterações'
+                ) : (
+                  'Criar Agendamento'
+                )}
+              </button>
               )}
             </div>
           </form>
         </Dialog.Panel>
       </div>
-      {modalDistribuicaoAberta && agendamentoParaGerarCards && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" />
-          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold text-gray-900 mb-1">Distribuir valor entre os clientes</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Ajuste o valor que será lançado na comanda de cada atleta ou cliente. A soma deve ser igual ao valor total do agendamento.
-            </p>
-            <div className="space-y-3 mb-4">
-              {clientesDistribuicao.map((cliente) => (
-                <div
-                  key={cliente.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-gray-200"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{cliente.nomeExibicao}</p>
-                    <p className="text-xs text-gray-500">
-                      {cliente.tipo === 'titular' ? 'Titular da agenda' : 'Participante'}
-                    </p>
-                  </div>
-                  <div className="w-32">
-                    <InputMonetario
-                      value={cliente.valor}
-                      onChange={(v) => atualizarValorDistribuicao(cliente.id, v)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mb-4 space-y-1 text-sm">
-              <p className="text-gray-700">
-                Valor total do agendamento:{' '}
-                <span className="font-semibold">
-                  {formatCurrency(valorTotalAgendamentoDistribuicao)}
-                </span>
-              </p>
-                <p
-                className={
-                  distribuicaoValida
-                    ? 'text-gray-700'
-                    : 'text-red-600'
-                }
-              >
-                Total distribuído:{' '}
-                <span className="font-semibold">
-                  {formatCurrency(totalDistribuido)}
-                </span>
-                {!distribuicaoValida && (
-                  <span className="ml-1">
-                    (diferença de {formatCurrency(Math.abs(diferencaDistribuicao))})
-                  </span>
-                )}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 justify-end mt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setModalDistribuicaoAberta(false);
-                  setAgendamentoParaGerarCards(null);
-                  setOrigemDistribuicao(null);
-                }}
-                disabled={gerandoCards}
-                className="w-full sm:w-auto px-6 py-2.5 bg-gray-200 rounded-lg hover:bg-gray-300 text-gray-800 text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-                <button
-                  type="button"
-                  onClick={executarGeracaoCardsComDistribuicao}
-                  disabled={gerandoCards || !temClienteComValor}
-                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {gerandoCards ? 'Gerando cards...' : 'Confirmar e gerar cards'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </Dialog>
   );
 }

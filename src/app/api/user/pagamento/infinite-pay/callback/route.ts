@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withCors } from '@/lib/cors';
 import { query } from '@/lib/db';
-import { enviarMensagemWhatsApp, formatarNumeroWhatsApp } from '@/lib/whatsappService';
 
 // POST /api/user/pagamento/infinite-pay/callback - Webhook do Infinite Pay
 // Esta rota será chamada pelo Infinite Pay quando o pagamento for aprovado
@@ -42,10 +41,14 @@ export async function POST(request: NextRequest) {
 
     // Buscar pagamento pelo order_nsu (orderId)
     const pagamentoResult = await query(
-      `SELECT p.*, c."usuarioId", c."valorTotal", c.id as "cardId", c."pointId"
+      `SELECT p.*, c."usuarioId", c."valorTotal",
+              COALESCE(SUM(p2.valor), 0) as "totalPago"
        FROM "PagamentoInfinitePay" p
        INNER JOIN "CardCliente" c ON p."cardId" = c.id
-       WHERE p."orderId" = $1`,
+       LEFT JOIN "PagamentoCard" p2 ON p2."cardId" = c.id 
+         AND (p2."infinitePayOrderId" IS NULL OR p2."infinitePayOrderId" != p."orderId")
+       WHERE p."orderId" = $1
+       GROUP BY p.id, c.id`,
       [order_nsu]
     );
 
@@ -60,17 +63,6 @@ export async function POST(request: NextRequest) {
     }
 
     const pagamento = pagamentoResult.rows[0];
-
-    // Buscar total pago do card (excluindo este pagamento se já existir)
-    const totalPagoResult = await query(
-      `SELECT COALESCE(SUM(valor), 0) as "totalPago"
-       FROM "PagamentoCard"
-       WHERE "cardId" = $1
-         AND ("infinitePayOrderId" IS NULL OR "infinitePayOrderId" != $2)`,
-      [pagamento.cardId, order_nsu]
-    );
-    
-    const totalPago = parseFloat(totalPagoResult.rows[0].totalPago || '0');
 
     // Atualizar status do pagamento (webhook só é chamado quando aprovado)
     await query(
@@ -91,156 +83,64 @@ export async function POST(request: NextRequest) {
         [order_nsu]
       );
 
-      console.log('[INFINITE PAY WEBHOOK] Verificando se pagamento já existe...', { order_nsu, pagamentoExistenteRows: pagamentoExistente.rows.length });
-      
       if (pagamentoExistente.rows.length === 0) {
-        console.log('[INFINITE PAY WEBHOOK] Pagamento não existe, criando pagamento no card para order_nsu:', order_nsu);
-        console.log('[INFINITE PAY WEBHOOK] Dados do pagamento:', { cardId: pagamento.cardId, usuarioId: pagamento.usuarioId, valorTotal: pagamento.valorTotal });
-        
-        let valorPago = 0;
-        let pagamentoCriadoComSucesso = false;
-        
-        try {
-          // Buscar forma de pagamento Infinite Pay ou criar uma padrão
-          let formaPagamentoId = await query(
-            'SELECT id FROM "FormaPagamento" WHERE nome ILIKE $1 LIMIT 1',
-            ['%infinite pay%']
+        // Buscar forma de pagamento Infinite Pay ou criar uma padrão
+        let formaPagamentoId = await query(
+          'SELECT id FROM "FormaPagamento" WHERE nome ILIKE $1 LIMIT 1',
+          ['%infinite pay%']
+        );
+
+        if (formaPagamentoId.rows.length === 0) {
+          // Criar forma de pagamento se não existir
+          const novaForma = await query(
+            `INSERT INTO "FormaPagamento" (id, nome, tipo, "createdAt")
+             VALUES (gen_random_uuid()::text, 'Infinite Pay', 'CARTAO', NOW())
+             RETURNING id`,
+            []
           );
+          formaPagamentoId = novaForma;
+        }
 
-          console.log('[INFINITE PAY WEBHOOK] Forma de pagamento encontrada:', formaPagamentoId.rows.length > 0 ? formaPagamentoId.rows[0].id : 'não encontrada');
-
-          if (formaPagamentoId.rows.length === 0) {
-            console.log('[INFINITE PAY WEBHOOK] Criando forma de pagamento Infinite Pay');
-            // Criar forma de pagamento se não existir
-            const novaForma = await query(
-              `INSERT INTO "FormaPagamento" (id, nome, tipo, "createdAt")
-               VALUES (gen_random_uuid()::text, 'Infinite Pay', 'CARTAO', NOW())
-               RETURNING id`,
-              []
-            );
-            formaPagamentoId = novaForma;
-            console.log('[INFINITE PAY WEBHOOK] Forma de pagamento criada:', novaForma.rows[0].id);
-          }
-
-          // Criar pagamento no card
-          // paid_amount está em centavos, converter para reais
-          valorPago = (paid_amount || amount) / 100;
-          console.log('[INFINITE PAY WEBHOOK] Preparando para criar pagamento:', { 
-            valorPago, 
-            cardId: pagamento.cardId, 
-            formaPagamentoId: formaPagamentoId.rows[0].id,
+        // Criar pagamento no card
+        // paid_amount está em centavos, converter para reais
+        const valorPago = (paid_amount || amount) / 100;
+        
+        const pagamentoCard = await query(
+          `INSERT INTO "PagamentoCard" (
+            id, "cardId", "formaPagamentoId", valor, observacoes, 
+            "infinitePayOrderId", "infinitePayTransactionId", "createdAt", "createdBy"
+          )
+          VALUES (
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), $7
+          )
+          RETURNING id`,
+          [
+            pagamento.cardId,
+            formaPagamentoId.rows[0].id,
+            valorPago,
+            `Pagamento via Infinite Pay - ${capture_method || 'N/A'} - Order: ${order_nsu}${receipt_url ? ` - Comprovante: ${receipt_url}` : ''}`,
             order_nsu,
-            transaction_nsu,
-            usuarioId: pagamento.usuarioId
-          });
-          
-          const pagamentoCard = await query(
-            `INSERT INTO "PagamentoCard" (
-              id, "cardId", "formaPagamentoId", valor, observacoes, 
-              "infinitePayOrderId", "infinitePayTransactionId", "createdAt", "createdBy"
-            )
-            VALUES (
-              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), $7
-            )
-            RETURNING id`,
-            [
-              pagamento.cardId,
-              formaPagamentoId.rows[0].id,
-              valorPago,
-              `Pagamento via Infinite Pay - ${capture_method || 'N/A'} - Order: ${order_nsu}${receipt_url ? ` - Comprovante: ${receipt_url}` : ''}`,
-              order_nsu,
-              transaction_nsu || null,
-              pagamento.usuarioId,
-            ]
+            transaction_nsu || null,
+            pagamento.usuarioId,
+          ]
+        );
+
+        // Verificar se o card deve ser fechado
+        const totalPago = parseFloat(pagamento.totalPago) + valorPago;
+        const valorTotal = parseFloat(pagamento.valorTotal);
+
+        if (totalPago >= valorTotal) {
+          // Fechar o card
+          await query(
+            `UPDATE "CardCliente"
+             SET status = 'FECHADO',
+                 "fechadoAt" = NOW(),
+                 "fechadoBy" = $1,
+                 "updatedAt" = NOW()
+             WHERE id = $2`,
+            [pagamento.usuarioId, pagamento.cardId]
           );
-
-          console.log('[INFINITE PAY WEBHOOK] ✅ Pagamento criado no card com ID:', pagamentoCard.rows[0].id);
-          pagamentoCriadoComSucesso = true;
-        } catch (errorInsert: any) {
-          console.error('[INFINITE PAY WEBHOOK] ❌ ERRO ao criar pagamento no card:', errorInsert);
-          console.error('[INFINITE PAY WEBHOOK] Mensagem do erro:', errorInsert.message);
-          console.error('[INFINITE PAY WEBHOOK] Stack:', errorInsert.stack);
-          // Não relançar o erro aqui, apenas logar, para que o webhook responda 200 OK
-          // (se relançarmos, o Infinite Pay vai tentar reenviar o webhook)
-          pagamentoCriadoComSucesso = false;
         }
-
-        // Só continuar com as operações se o pagamento foi criado com sucesso
-        if (pagamentoCriadoComSucesso && valorPago > 0) {
-          // Verificar se o card deve ser fechado
-          const novoTotalPago = totalPago + valorPago;
-          const valorTotal = parseFloat(pagamento.valorTotal);
-          console.log('[INFINITE PAY WEBHOOK] Total pago:', novoTotalPago, 'Valor total:', valorTotal);
-
-          if (novoTotalPago >= valorTotal) {
-            console.log('[INFINITE PAY WEBHOOK] Fechando card', pagamento.cardId);
-            // Fechar o card
-            await query(
-              `UPDATE "CardCliente"
-               SET status = 'FECHADO',
-                   "fechadoAt" = NOW(),
-                   "fechadoBy" = $1,
-                   "updatedAt" = NOW()
-               WHERE id = $2`,
-              [pagamento.usuarioId, pagamento.cardId]
-            );
-            console.log('[INFINITE PAY WEBHOOK] Card fechado com sucesso');
-          }
-
-          // Enviar WhatsApp para a arena informando o pagamento
-          try {
-            if (pagamento.pointId) {
-              // Buscar telefone da arena
-              const pointResult = await query(
-                `SELECT telefone, nome FROM "Point" WHERE id = $1`,
-                [pagamento.pointId]
-              );
-
-              if (pointResult.rows.length > 0 && pointResult.rows[0].telefone) {
-                const telefoneArena = pointResult.rows[0].telefone;
-                const nomeArena = pointResult.rows[0].nome || 'Arena';
-                
-                // Formatar valor do pagamento
-                const valorFormatado = new Intl.NumberFormat('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL'
-                }).format(valorPago);
-
-                const mensagem = `💰 *Pagamento Online Recebido*
-
-Valor: ${valorFormatado}
-Método: Infinite Pay${capture_method ? ` (${capture_method})` : ''}
-Order ID: ${order_nsu}${transaction_nsu ? `\nTransaction ID: ${transaction_nsu}` : ''}
-
-Pagamento recebido com sucesso! ✅`;
-
-                const enviado = await enviarMensagemWhatsApp(
-                  {
-                    destinatario: formatarNumeroWhatsApp(telefoneArena),
-                    mensagem,
-                    tipo: 'texto',
-                  },
-                  pagamento.pointId
-                );
-
-                if (enviado) {
-                  console.log('[INFINITE PAY WEBHOOK] WhatsApp enviado para a arena:', telefoneArena);
-                } else {
-                  console.warn('[INFINITE PAY WEBHOOK] Falha ao enviar WhatsApp para a arena:', telefoneArena);
-                }
-              } else {
-                console.log('[INFINITE PAY WEBHOOK] Arena não possui telefone cadastrado para envio de WhatsApp');
-              }
-            }
-          } catch (error: any) {
-            // Não bloquear o processamento do pagamento se houver erro no WhatsApp
-            console.error('[INFINITE PAY WEBHOOK] Erro ao enviar WhatsApp para a arena:', error);
-          }
-        } else {
-          console.error('[INFINITE PAY WEBHOOK] ❌ Pagamento NÃO foi criado no card. ValorPago:', valorPago, 'PagamentoCriadoComSucesso:', pagamentoCriadoComSucesso);
-        }
-      } else {
-        console.log('[INFINITE PAY WEBHOOK] Pagamento já existe no card para order_nsu:', order_nsu);
       }
     }
 

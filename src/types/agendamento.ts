@@ -29,8 +29,6 @@ export interface Point {
   // Template de Card de Jogos
   cardTemplateUrl?: string | null;
   assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
-  pagamentoOnlineAtivo?: boolean; // Flag de pagamento online ativo (apenas ADMIN pode alterar)
-  agendaOnlineAtivo?: boolean; // Flag de agenda online ativa (apenas ADMIN pode alterar)
   createdAt: string;
   updatedAt: string;
   quadras?: Quadra[];
@@ -249,7 +247,6 @@ export interface FiltrosAgendamento {
   dataInicio?: string;
   dataFim?: string;
   status?: StatusAgendamento;
-  duracao?: number;
   apenasMeus?: boolean;
 }
 

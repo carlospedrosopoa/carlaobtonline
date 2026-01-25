@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, pagamentoCardService, produtoService, formaPagamentoService } from '@/services/gestaoArenaService';
-import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload } from '@/types/gestaoArena';
+import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload, ItemCard, PagamentoCard } from '@/types/gestaoArena';
 import { api } from '@/lib/api';
 import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search, FileText } from 'lucide-react';
 import InputMonetario from './InputMonetario';
@@ -18,24 +18,15 @@ interface GerenciarCardModalProps {
   readOnly?: boolean;
 }
 
-export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, onEditar, readOnly }: GerenciarCardModalProps) {
+export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, onEditar, readOnly = false }: GerenciarCardModalProps) {
   const { usuario, isAdmin, isOrganizer } = useAuth();
-  const canGerenciarCard = isAdmin || isOrganizer;
-  const isReadOnly = Boolean(readOnly);
+  const canGerenciarCard = !readOnly && (isAdmin || isOrganizer);
   const [cardCompleto, setCardCompleto] = useState<CardCliente | null>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
   const [loading, setLoading] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
-
-  // Função para normalizar texto removendo acentuação
-  const normalizarTexto = (texto: string): string => {
-    return texto
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  };
   
   // Itens locais (não salvos ainda)
   const [itensLocais, setItensLocais] = useState<Array<{
@@ -148,7 +139,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       // Inicializar itens locais com os itens do backend
       if (cardData.itens) {
         setItensLocais(
-          cardData.itens.map((item) => ({
+          cardData.itens.map((item: ItemCard) => ({
             id: item.id,
             produtoId: item.produtoId,
             quantidade: item.quantidade,
@@ -166,7 +157,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
       // Inicializar pagamentos locais com os pagamentos do backend
       if (cardData.pagamentos) {
         setPagamentosLocais(
-          cardData.pagamentos.map((pag) => ({
+          cardData.pagamentos.map((pag: PagamentoCard) => ({
             id: pag.id,
             formaPagamentoId: pag.formaPagamentoId,
             valor: pag.valor,
@@ -188,7 +179,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalItem = () => {
-    if (isReadOnly) return;
     setProdutoSelecionado('');
     setBuscaProduto('');
     setQuantidadeItem(1);
@@ -244,7 +234,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const removerItem = (itemId: string) => {
-    if (isReadOnly) return;
     if (!cardCompleto || !confirm('Tem certeza que deseja remover este item?')) return;
 
     // Encontrar o item para verificar se é novo ou já existe no backend
@@ -261,7 +250,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const iniciarEdicaoObservacoes = (itemId: string) => {
-    if (isReadOnly) return;
     const item = itensLocais.find((i) => i.id === itemId);
     setItemEditandoObservacoes(itemId);
     setNovasObservacoesItem(item?.observacoes || '');
@@ -273,7 +261,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const salvarObservacoesItem = (itemId: string) => {
-    if (isReadOnly) return;
     setItensLocais((prev) =>
       prev.map((item) =>
         item.id === itemId
@@ -287,7 +274,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalPagamento = () => {
-    if (isReadOnly) return;
     setFormaPagamentoSelecionada('');
     setValorPagamento(null);
     setObservacoesPagamento('');
@@ -338,7 +324,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const adicionarPagamento = () => {
-    if (isReadOnly) return;
     if (!cardCompleto || !formaPagamentoSelecionada || valorPagamento === null || valorPagamento <= 0) {
       setErro('Preencha todos os campos obrigatórios');
       return;
@@ -371,7 +356,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const removerPagamento = (pagamentoId: string) => {
-    if (isReadOnly) return;
     if (!cardCompleto || !confirm('Tem certeza que deseja remover este pagamento?')) return;
 
     // Encontrar o pagamento para verificar se é novo ou já existe no backend
@@ -388,7 +372,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const salvarAlteracoes = async (fecharAposSalvar: boolean = false) => {
-    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     try {
@@ -522,7 +505,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const fecharCard = async () => {
-    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     // Se há alterações não salvas, perguntar se quer salvar antes de fechar
@@ -576,7 +558,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const cancelarCard = async () => {
-    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     // Confirmação rigorosa para evitar cliques acidentais
@@ -598,7 +579,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalExcluir = () => {
-    if (isReadOnly) return;
     setSenhaExclusao('');
     setErroExclusao('');
     setModalExcluirAberto(true);
@@ -611,7 +591,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const excluirCard = async () => {
-    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     if (!senhaExclusao.trim()) {
@@ -646,7 +625,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const abrirModalConfirmarSenha = () => {
-    if (isReadOnly) return;
     setSenhaConfirmacao('');
     setErroSenha('');
     setModalConfirmarSenhaAberto(true);
@@ -659,7 +637,6 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
   };
 
   const reabrirCard = async () => {
-    if (isReadOnly) return;
     if (!cardCompleto) return;
 
     if (!senhaConfirmacao.trim()) {
@@ -794,7 +771,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     <div className="text-sm text-gray-500">Cliente não informado</div>
                   )}
                 </div>
-                {!isReadOnly && cardCompleto.status === 'ABERTO' && onEditar && (
+                {cardCompleto.status === 'ABERTO' && onEditar && (
                   <button
                     onClick={() => {
                       onClose();
@@ -881,7 +858,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   <ShoppingCart className="w-5 h-5" />
                   Itens
                 </h3>
-                {!isReadOnly && cardCompleto.status === 'ABERTO' && (
+                {cardCompleto.status === 'ABERTO' && (
                   <button
                     onClick={abrirModalItem}
                     className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
@@ -952,7 +929,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                                   Sem observações
                                 </div>
                               )}
-                              {!isReadOnly && cardCompleto.status === 'ABERTO' && (
+                              {cardCompleto.status === 'ABERTO' && (
                                 <button
                                   onClick={() => iniciarEdicaoObservacoes(item.id)}
                                   className="px-1.5 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -975,7 +952,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                             </div>
                           )}
                         </div>
-                        {!isReadOnly && cardCompleto.status === 'ABERTO' && (
+                        {cardCompleto.status === 'ABERTO' && (
                           <button
                             onClick={() => removerItem(item.id)}
                             className="ml-3 p-1 text-red-600 hover:bg-red-50 rounded"
@@ -1001,7 +978,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                   <CreditCard className="w-5 h-5" />
                   Pagamentos
                 </h3>
-                {!isReadOnly && cardCompleto.status === 'ABERTO' && (
+                {cardCompleto.status === 'ABERTO' && (
                   <button
                     onClick={abrirModalPagamento}
                     className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
@@ -1058,7 +1035,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="font-semibold text-green-600">{formatarMoeda(pagamento.valor)}</div>
-                            {!isReadOnly && cardCompleto.status === 'ABERTO' && (
+                            {cardCompleto.status === 'ABERTO' && (
                               <button
                                 onClick={() => removerPagamento(pagamento.id)}
                                 className="p-1 text-red-600 hover:bg-red-50 rounded"
@@ -1101,7 +1078,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
 
 
             {/* Ações */}
-            {!isReadOnly && cardCompleto && (() => {
+            {cardCompleto && (() => {
               const valorTotalItens = itensLocais.reduce((sum, item) => sum + item.precoTotal, 0);
               const valorTotalLocal = valorTotalItens;
               const totalPagoLocal = pagamentosLocais.reduce((sum, pag) => sum + pag.valor, 0);
@@ -1193,7 +1170,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         ) : null}
 
         {/* Modal Adicionar Item */}
-        {!isReadOnly && modalItemAberto && (
+        {modalItemAberto && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Adicionar Item</h3>
@@ -1226,10 +1203,10 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     {produtos
                       .filter((produto) => {
                         if (!buscaProduto) return false;
-                        const buscaNormalizada = normalizarTexto(buscaProduto);
+                        const buscaLower = buscaProduto.toLowerCase();
                         return (
-                          normalizarTexto(produto.nome).includes(buscaNormalizada) ||
-                          (produto.descricao && normalizarTexto(produto.descricao).includes(buscaNormalizada))
+                          produto.nome.toLowerCase().includes(buscaLower) ||
+                          produto.descricao?.toLowerCase().includes(buscaLower)
                         );
                       })
                       .map((produto) => (
@@ -1255,10 +1232,10 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                         </button>
                       ))}
                     {buscaProduto && produtos.filter((produto) => {
-                      const buscaNormalizada = normalizarTexto(buscaProduto);
+                      const buscaLower = buscaProduto.toLowerCase();
                       return (
-                        normalizarTexto(produto.nome).includes(buscaNormalizada) ||
-                        (produto.descricao && normalizarTexto(produto.descricao).includes(buscaNormalizada))
+                        produto.nome.toLowerCase().includes(buscaLower) ||
+                        produto.descricao?.toLowerCase().includes(buscaLower)
                       );
                     }).length === 0 && (
                       <div className="p-4 text-center text-gray-500">Nenhum produto encontrado</div>
@@ -1337,7 +1314,7 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         )}
 
         {/* Modal Adicionar Pagamento */}
-        {!isReadOnly && modalPagamentoAberto && (
+        {modalPagamentoAberto && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Adicionar Pagamento</h3>
@@ -1446,51 +1423,23 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Forma de Pagamento *</label>
                   <div className="flex flex-wrap gap-2">
-                    {formasPagamento
-                      .sort((a, b) => {
-                        // Ordem: Pix, Débito, Crédito, Dinheiro, Online, Conta Corrente
-                        const ordem: Record<string, number> = {
-                          'pix': 1,
-                          'cartão de débito': 2,
-                          'cartao de debito': 2,
-                          'débito': 2,
-                          'debito': 2,
-                          'cartão de crédito': 3,
-                          'cartao de credito': 3,
-                          'crédito': 3,
-                          'credito': 3,
-                          'dinheiro': 4,
-                          'infinite pay': 5,
-                          'online': 5,
-                          'conta corrente': 6,
-                        };
-                        const nomeA = a.nome.toLowerCase();
-                        const nomeB = b.nome.toLowerCase();
-                        const ordemA = ordem[nomeA] || 999;
-                        const ordemB = ordem[nomeB] || 999;
-                        return ordemA - ordemB;
-                      })
-                      .map((forma) => {
-                        const selecionada = formaPagamentoSelecionada === forma.id;
-                        // Remover "Cartão de" do nome para exibição
-                        const nomeExibicao = forma.nome
-                          .replace(/^cartão de /i, '')
-                          .replace(/^cartao de /i, '');
-                        return (
-                          <button
-                            key={forma.id}
-                            type="button"
-                            onClick={() => setFormaPagamentoSelecionada(forma.id)}
-                            className={`px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                              selecionada
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
-                            }`}
-                          >
-                            {nomeExibicao}
-                          </button>
-                        );
-                      })}
+                    {formasPagamento.map((forma) => {
+                      const selecionada = formaPagamentoSelecionada === forma.id;
+                      return (
+                        <button
+                          key={forma.id}
+                          type="button"
+                          onClick={() => setFormaPagamentoSelecionada(forma.id)}
+                          className={`px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                            selecionada
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                          }`}
+                        >
+                          {forma.nome}
+                        </button>
+                      );
+                    })}
                   </div>
                   {formaPagamentoSelecionada === '' && (
                     <p className="mt-2 text-xs text-red-500">Selecione uma forma de pagamento.</p>
@@ -1518,8 +1467,8 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         )}
 
         {/* Modal Confirmar Senha para Reabrir Comanda */}
-        {!isReadOnly && modalConfirmarSenhaAberto && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        {modalConfirmarSenhaAberto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Confirmar Senha</h3>
               <p className="text-sm text-gray-600 mb-4">
@@ -1574,8 +1523,8 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
         )}
 
         {/* Modal Excluir Comanda */}
-        {!isReadOnly && modalExcluirAberto && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        {modalExcluirAberto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Excluir Comanda</h3>
               <p className="text-sm text-gray-600 mb-4">

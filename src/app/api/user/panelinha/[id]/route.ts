@@ -60,21 +60,12 @@ export async function GET(
       );
 
       const row = panelinhaCheck.rows[0];
-      
-      // Buscar nome do criador
-      const criadorResult = await query(
-        `SELECT nome FROM "Atleta" WHERE id = $1`,
-        [row.atletaIdCriador]
-      );
-      const criadorNome = criadorResult.rows[0]?.nome || 'Desconhecido';
-      
       const panelinha = {
         id: row.id,
         nome: row.nome,
         descricao: row.descricao,
         esporte: row.esporte,
         atletaIdCriador: row.atletaIdCriador,
-        criadorNome: criadorNome,
         ehCriador: false, // ORGANIZER nunca é criador
         totalMembros: membrosResult.rows.length,
         membros: membrosResult.rows.map((m: any) => ({
@@ -108,13 +99,11 @@ export async function GET(
     const panelinhaCheck = await query(
       `SELECT p.id, p.nome, p.descricao, p."esporte", p."atletaIdCriador", p."createdAt", p."updatedAt",
               (p."atletaIdCriador" = $1) as "ehCriador",
-              ac.nome as "criadorNome",
               EXISTS (
                 SELECT 1 FROM "PanelinhaAtleta" pa 
                 WHERE pa."panelinhaId" = p.id AND pa."atletaId" = $1
               ) as "ehMembro"
        FROM "Panelinha" p
-       LEFT JOIN "Atleta" ac ON p."atletaIdCriador" = ac.id
        WHERE p.id = $2`,
       [atleta.id, id]
     );
@@ -146,8 +135,6 @@ export async function GET(
         p."atletaIdCriador",
         p."createdAt",
         p."updatedAt",
-        -- Nome do criador
-        ac.nome as "criadorNome",
         -- Verificar se o atleta é o criador
         (p."atletaIdCriador" = $1) as "ehCriador",
         -- Buscar todos os membros
@@ -169,7 +156,6 @@ export async function GET(
           WHERE pa."panelinhaId" = p.id
         ) as "membros"
       FROM "Panelinha" p
-      LEFT JOIN "Atleta" ac ON p."atletaIdCriador" = ac.id
       WHERE p.id = $2
     `;
 
@@ -190,7 +176,6 @@ export async function GET(
       descricao: row.descricao,
       esporte: row.esporte,
       atletaIdCriador: row.atletaIdCriador,
-      criadorNome: row.criadorNome || 'Desconhecido',
       ehCriador: row.ehCriador,
       totalMembros: row.membros ? row.membros.length : 0,
       membros: row.membros || [],

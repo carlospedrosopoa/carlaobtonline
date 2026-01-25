@@ -285,8 +285,9 @@ export default function ArenaAgendaMobilePage() {
                 value={formatarDataInput(dataSelecionada)}
                 onChange={(e) => {
                   if (e.target.value) {
-                    const novaData = new Date(e.target.value);
-                    novaData.setHours(0, 0, 0, 0);
+                    // Criar data preservando o dia local (YYYY-MM-DD)
+                    const [ano, mes, dia] = e.target.value.split('-').map(Number);
+                    const novaData = new Date(ano, mes - 1, dia, 0, 0, 0, 0);
                     setDataSelecionada(novaData);
                   }
                 }}

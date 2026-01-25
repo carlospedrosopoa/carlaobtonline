@@ -563,3 +563,91 @@ export interface FiltrosFluxoCaixa {
   tipo?: 'ENTRADA' | 'SAIDA' | 'TODOS';
 }
 
+// ============================================
+// DASHBOARD OPERACIONAL
+// ============================================
+export interface DashboardOperacionalData {
+  agendamentos: {
+    total: number;
+    totalMinutos: number;
+    porTurno: Array<{ turno: string; quantidade: number; totalMinutos: number }>;
+    porDiaSemana: Array<{ diaSemana: number; quantidade: number; totalMinutos: number }>;
+    duracaoRanking: Array<{ duracao: number; quantidade: number; totalMinutos: number }>;
+    horariosMaisVendidos: Array<{ hora: number; quantidade: number; totalMinutos: number }>;
+  };
+  comandas: {
+    totalItens: number;
+    faturamento: number;
+    totalComandas: number;
+    ticketMedio: number;
+    faturamentoPorDiaSemana: Array<{ diaSemana: number; valorTotal: number }>;
+    topProdutos: Array<{ produto: string; quantidade: number; valorTotal: number }>;
+  };
+}
+
+// ============================================
+// HISTÓRICO DO ATLETA NA ARENA
+// ============================================
+
+export interface AtletaHistoricoArena {
+  id: string;
+  nome: string;
+  email?: string;
+  telefone?: string;
+  fotoUrl?: string;
+}
+
+export interface HistoricoAtletaResumo {
+  totalGasto: number;
+  totalPago: number;
+  saldoDevedor: number;
+  totalAgendamentos: number;
+  totalConsumo: number;
+  ultimaVisita?: string;
+}
+
+export interface HistoricoAtletaConsumoItem {
+  id: string;
+  data: string;
+  produto: string;
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+  cardId: string;
+  numeroCard: number;
+  statusCard: string;
+}
+
+export interface HistoricoAtletaPagamento {
+  id: string;
+  data: string;
+  formaPagamento: string;
+  valor: number;
+  cardId: string;
+  numeroCard: number;
+}
+
+export interface HistoricoAtletaContaCorrente {
+  saldoAtual: number;
+  limiteCredito: number;
+  lancamentos: Array<{
+    id: string;
+    data: string;
+    descricao: string;
+    valor: number;
+    tipo: 'CREDITO' | 'DEBITO';
+    saldoApos: number;
+  }>;
+}
+
+export interface HistoricoAtletaAgendamento {
+  id: string;
+  data: string;
+  horario: string;
+  duracao: number;
+  quadra: string;
+  valor: number;
+  status: string;
+  pago: boolean;
+}
+

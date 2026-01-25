@@ -45,16 +45,6 @@ export const pointService = {
     const res = await api.put(`/point/${id}/assinante`, { assinante });
     return res.data;
   },
-
-  atualizarPagamentoOnline: async (id: string, pagamentoOnlineAtivo: boolean): Promise<{ mensagem: string; point: Point }> => {
-    const res = await api.put(`/point/${id}/pagamento-online`, { pagamentoOnlineAtivo });
-    return res.data;
-  },
-
-  atualizarAgendaOnline: async (id: string, agendaOnlineAtivo: boolean): Promise<{ mensagem: string; point: Point }> => {
-    const res = await api.put(`/point/${id}/agenda-online`, { agendaOnlineAtivo });
-    return res.data;
-  },
 };
 
 // ========== QUADRAS ==========
@@ -94,7 +84,6 @@ export const agendamentoService = {
     if (filtros?.dataInicio) params.push(`dataInicio=${filtros.dataInicio}`);
     if (filtros?.dataFim) params.push(`dataFim=${filtros.dataFim}`);
     if (filtros?.status) params.push(`status=${filtros.status}`);
-    if (typeof filtros?.duracao === 'number') params.push(`duracao=${filtros.duracao}`);
     if (filtros?.apenasMeus) params.push(`apenasMeus=true`);
 
     const queryString = params.length > 0 ? `?${params.join("&")}` : "";
@@ -137,27 +126,8 @@ export const agendamentoService = {
     return res.data;
   },
 
-  gerarCards: async (
-    id: string,
-    payload?: {
-      distribuicoes?: Array<{
-        usuarioId?: string | null;
-        nomeAvulso?: string | null;
-        telefoneAvulso?: string | null;
-        valor: number;
-      }>;
-    },
-  ): Promise<{
-    mensagem: string;
-    cards: any[];
-    cardsAtualizados?: any[];
-    valorTotal: number;
-    valorPorCliente?: number | null;
-    totalClientes: number;
-    totalCardsCriados?: number;
-    totalCardsAtualizados?: number;
-  }> => {
-    const res = await api.post(`/agendamento/${id}/gerar-cards`, payload);
+  gerarCards: async (id: string): Promise<{ mensagem: string; cards: any[]; cardsAtualizados?: any[]; valorTotal: number; valorPorCliente: number; totalClientes: number; totalCardsCriados?: number; totalCardsAtualizados?: number }> => {
+    const res = await api.post(`/agendamento/${id}/gerar-cards`);
     return res.data;
   },
 };
@@ -239,3 +209,5 @@ export const bloqueioAgendaService = {
     await api.delete(`/bloqueio-agenda/${id}`);
   },
 };
+
+
