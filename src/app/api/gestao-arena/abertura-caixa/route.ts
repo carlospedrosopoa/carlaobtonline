@@ -87,6 +87,23 @@ export async function GET(request: NextRequest) {
         );
         const totalEntradas = parseFloat(entradasResult.rows[0].total);
 
+        // Calcular total de entradas em DINHEIRO
+        const entradasDinheiroResult = await query(
+          `SELECT COALESCE(SUM(ec.valor), 0) as total 
+           FROM "EntradaCaixa" ec
+           JOIN "FormaPagamento" fp ON ec."formaPagamentoId" = fp.id
+           WHERE ec."aberturaCaixaId" = $1 
+           AND (
+             fp.tipo = 'DINHEIRO' 
+             OR fp.nome ILIKE '%dinheiro%' 
+             OR fp.nome ILIKE '%espécie%' 
+             OR fp.nome ILIKE '%especie%' 
+             OR fp.nome ILIKE '%cash%'
+           )`,
+          [row.id]
+        );
+        const totalEntradasDinheiro = parseFloat(entradasDinheiroResult.rows[0].total);
+
         // Calcular total de saídas
         const saidasResult = await query(
           'SELECT COALESCE(SUM(valor), 0) as total FROM "SaidaCaixa" WHERE "aberturaCaixaId" = $1',
@@ -94,8 +111,26 @@ export async function GET(request: NextRequest) {
         );
         const totalSaidas = parseFloat(saidasResult.rows[0].total);
 
+        // Calcular total de saídas em DINHEIRO
+        const saidasDinheiroResult = await query(
+          `SELECT COALESCE(SUM(sc.valor), 0) as total 
+           FROM "SaidaCaixa" sc
+           JOIN "FormaPagamento" fp ON sc."formaPagamentoId" = fp.id
+           WHERE sc."aberturaCaixaId" = $1 
+           AND (
+             fp.tipo = 'DINHEIRO' 
+             OR fp.nome ILIKE '%dinheiro%' 
+             OR fp.nome ILIKE '%espécie%' 
+             OR fp.nome ILIKE '%especie%' 
+             OR fp.nome ILIKE '%cash%'
+           )`,
+          [row.id]
+        );
+        const totalSaidasDinheiro = parseFloat(saidasDinheiroResult.rows[0].total);
+
         // Calcular saldo atual
         const saldoAtual = parseFloat(row.saldoInicial) + totalEntradas - totalSaidas;
+        const saldoAtualDinheiro = parseFloat(row.saldoInicial) + totalEntradasDinheiro - totalSaidasDinheiro;
 
         return {
           id: row.id,
@@ -114,6 +149,9 @@ export async function GET(request: NextRequest) {
           totalEntradas,
           totalSaidas,
           saldoAtual,
+          totalEntradasDinheiro,
+          totalSaidasDinheiro,
+          saldoAtualDinheiro,
         };
       })
     );
@@ -213,6 +251,9 @@ export async function POST(request: NextRequest) {
       totalEntradas: 0,
       totalSaidas: 0,
       saldoAtual: parseFloat(abertura.saldoInicial),
+      totalEntradasDinheiro: 0,
+      totalSaidasDinheiro: 0,
+      saldoAtualDinheiro: parseFloat(abertura.saldoInicial),
     }, { status: 201 });
     return withCors(response, request);
   } catch (error: any) {

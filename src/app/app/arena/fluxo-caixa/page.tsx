@@ -462,24 +462,50 @@ export default function FluxoCaixaPage() {
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full sm:w-auto">
-              <div>
-                <p className="text-xs text-gray-600">Saldo Inicial</p>
-                <p className="text-lg font-bold text-gray-900">{formatarMoeda(aberturaAtual.saldoInicial)}</p>
+            <div className="flex flex-col gap-4 w-full sm:w-auto">
+              {/* Totais Gerais */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-emerald-100 pb-4">
+                <div>
+                  <p className="text-xs text-gray-600">Saldo Inicial</p>
+                  <p className="text-lg font-bold text-gray-900">{formatarMoeda(aberturaAtual.saldoInicial)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Entradas (Total)</p>
+                  <p className="text-lg font-bold text-green-600">{formatarMoeda(aberturaAtual.totalEntradas || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saídas (Total)</p>
+                  <p className="text-lg font-bold text-red-600">{formatarMoeda(aberturaAtual.totalSaidas || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saldo Atual (Total)</p>
+                  <p className={`text-lg font-bold ${(aberturaAtual.saldoAtual || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatarMoeda(aberturaAtual.saldoAtual || 0)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-600">Entradas</p>
-                <p className="text-lg font-bold text-green-600">{formatarMoeda(aberturaAtual.totalEntradas || 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Saídas</p>
-                <p className="text-lg font-bold text-red-600">{formatarMoeda(aberturaAtual.totalSaidas || 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Saldo Atual</p>
-                <p className={`text-lg font-bold ${(aberturaAtual.saldoAtual || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatarMoeda(aberturaAtual.saldoAtual || 0)}
-                </p>
+
+              {/* Totais em Dinheiro */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-emerald-700 font-medium">Em Dinheiro</p>
+                  <p className="text-lg font-bold text-gray-900">{formatarMoeda(aberturaAtual.saldoInicial)}</p>
+                  <p className="text-[10px] text-gray-500 -mt-1">(Saldo Inicial)</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Entradas (Dinheiro)</p>
+                  <p className="text-lg font-bold text-emerald-600">{formatarMoeda(aberturaAtual.totalEntradasDinheiro || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saídas (Dinheiro)</p>
+                  <p className="text-lg font-bold text-rose-600">{formatarMoeda(aberturaAtual.totalSaidasDinheiro || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saldo (Dinheiro)</p>
+                  <p className={`text-lg font-bold ${(aberturaAtual.saldoAtualDinheiro || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {formatarMoeda(aberturaAtual.saldoAtualDinheiro || 0)}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -574,26 +600,54 @@ export default function FluxoCaixaPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Data
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('data')}
+                >
+                  Data {getSortIcon('data')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('tipo')}
+                >
+                  Tipo {getSortIcon('tipo')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Descrição
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('descricao')}
+                >
+                  Descrição {getSortIcon('descricao')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Forma Pagamento
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('formaPagamento')}
+                >
+                  Forma Pagamento {getSortIcon('formaPagamento')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Centro Custo / Tipo
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('centroCusto')}
+                >
+                  Centro Custo / Tipo {getSortIcon('centroCusto')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Valor
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('valor')}
+                >
+                  Valor {getSortIcon('valor')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Criado por
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('createdBy')}
+                >
+                  Criado por {getSortIcon('createdBy')}
                 </th>
                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
