@@ -2,40 +2,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
-import { withCors } from '@/lib/cors';
+import { withCors, handleCorsPreflight } from '@/lib/cors';
+
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || new NextResponse(null, { status: 204 });
+}
 
 export async function POST(request: NextRequest) {
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Não autenticado' },
         { status: 401 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Você não tem permissão para unificar comandas' },
         { status: 403 }
       );
+      return withCors(errorResponse, request);
     }
 
     const body = await request.json();
     const { cardPrincipalId, cardSecundarioId } = body;
 
     if (!cardPrincipalId || !cardSecundarioId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'IDs das comandas são obrigatórios' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     if (cardPrincipalId === cardSecundarioId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'A comanda principal e secundária devem ser diferentes' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Buscar informações das comandas
@@ -47,10 +56,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (cardsResult.rows.length !== 2) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'Uma ou ambas as comandas não foram encontradas' },
         { status: 404 }
       );
+      return withCors(errorResponse, request);
     }
 
     const cardPrincipal = cardsResult.rows.find(c => c.id === cardPrincipalId);
@@ -60,19 +70,21 @@ export async function POST(request: NextRequest) {
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, cardPrincipal.pointId) || 
           !usuarioTemAcessoAoPoint(usuario, cardSecundario.pointId)) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { mensagem: 'Você não tem acesso a uma das comandas' },
           { status: 403 }
         );
+        return withCors(errorResponse, request);
       }
     }
 
     // Verificar se são do mesmo point
     if (cardPrincipal.pointId !== cardSecundario.pointId) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { mensagem: 'As comandas devem pertencer à mesma arena' },
         { status: 400 }
       );
+      return withCors(errorResponse, request);
     }
 
     // Iniciar transação
@@ -148,17 +160,19 @@ export async function POST(request: NextRequest) {
       [cardSecundarioId, cardPrincipal.numeroCard]
     );
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       mensagem: 'Comandas unificadas com sucesso',
       cardPrincipalId,
       cardSecundarioId
     });
+    return withCors(successResponse, request);
 
   } catch (error: any) {
     console.error('Erro ao unificar comandas:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao processar unificação', error: error.message },
       { status: 500 }
     );
+    return withCors(errorResponse, request);
   }
 }
