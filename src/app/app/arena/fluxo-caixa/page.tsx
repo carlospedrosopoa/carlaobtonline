@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { fluxoCaixaService, entradaCaixaService, saidaCaixaService, formaPagamentoService, centroCustoService, tipoDespesaService, fornecedorService, aberturaCaixaService } from '@/services/gestaoArenaService';
 import type { LancamentoFluxoCaixa } from '@/types/gestaoArena';
 import type { FormaPagamento, CentroCusto, TipoDespesa, Fornecedor, CriarEntradaCaixaPayload, CriarSaidaCaixaPayload, AberturaCaixa, CriarAberturaCaixaPayload } from '@/types/gestaoArena';
-import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, X, Trash2 } from 'lucide-react';
+import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import CurrencyInput from '@/components/CurrencyInput';
 
 export default function FluxoCaixaPage() {
@@ -25,6 +25,7 @@ export default function FluxoCaixaPage() {
   });
   const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'ENTRADA' | 'SAIDA'>('TODOS');
   const [busca, setBusca] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   
   // Dados para modais
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
@@ -331,13 +332,72 @@ export default function FluxoCaixaPage() {
   };
 
   const lancamentosFiltrados = useMemo(() => {
-    return lancamentos.filter((lancamento) => {
+    const filtrados = lancamentos.filter((lancamento) => {
       const matchBusca = busca === '' || 
         lancamento.descricao.toLowerCase().includes(busca.toLowerCase()) ||
         lancamento.observacoes?.toLowerCase().includes(busca.toLowerCase());
       return matchBusca;
     });
-  }, [lancamentos, busca]);
+
+    if (sortConfig !== null) {
+      filtrados.sort((a, b) => {
+        let aValue: any = a[sortConfig.key as keyof LancamentoFluxoCaixa];
+        let bValue: any = b[sortConfig.key as keyof LancamentoFluxoCaixa];
+
+        // Tratamento para campos específicos e aninhados
+        if (sortConfig.key === 'formaPagamento') {
+          aValue = a.formaPagamento?.nome || '';
+          bValue = b.formaPagamento?.nome || '';
+        } else if (sortConfig.key === 'centroCusto') {
+          // Lógica combinada para Centro Custo / Tipo
+          if (a.tipo === 'SAIDA') {
+            aValue = (a.centroCusto?.nome || '') + (a.tipoDespesa?.nome || '');
+          } else {
+            aValue = '';
+          }
+          if (b.tipo === 'SAIDA') {
+            bValue = (b.centroCusto?.nome || '') + (b.tipoDespesa?.nome || '');
+          } else {
+            bValue = '';
+          }
+        } else if (sortConfig.key === 'createdBy') {
+          aValue = a.createdBy?.name || '';
+          bValue = b.createdBy?.name || '';
+        } else if (sortConfig.key === 'data') {
+          aValue = new Date(a.data).getTime();
+          bValue = new Date(b.data).getTime();
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtrados;
+  }, [lancamentos, busca, sortConfig]);
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400 ml-1 inline-block" />;
+    }
+    if (sortConfig.direction === 'asc') {
+      return <ArrowUp className="w-4 h-4 text-emerald-600 ml-1 inline-block" />;
+    }
+    return <ArrowDown className="w-4 h-4 text-emerald-600 ml-1 inline-block" />;
+  };
 
   const totais = useMemo(() => {
     const entradas = lancamentosFiltrados
@@ -462,24 +522,50 @@ export default function FluxoCaixaPage() {
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full sm:w-auto">
-              <div>
-                <p className="text-xs text-gray-600">Saldo Inicial</p>
-                <p className="text-lg font-bold text-gray-900">{formatarMoeda(aberturaAtual.saldoInicial)}</p>
+            <div className="flex flex-col gap-4 w-full sm:w-auto">
+              {/* Totais Gerais */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-emerald-100 pb-4">
+                <div>
+                  <p className="text-xs text-gray-600">Saldo Inicial</p>
+                  <p className="text-lg font-bold text-gray-900">{formatarMoeda(aberturaAtual.saldoInicial)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Entradas (Total)</p>
+                  <p className="text-lg font-bold text-green-600">{formatarMoeda(aberturaAtual.totalEntradas || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saídas (Total)</p>
+                  <p className="text-lg font-bold text-red-600">{formatarMoeda(aberturaAtual.totalSaidas || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saldo Atual (Total)</p>
+                  <p className={`text-lg font-bold ${(aberturaAtual.saldoAtual || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatarMoeda(aberturaAtual.saldoAtual || 0)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-600">Entradas</p>
-                <p className="text-lg font-bold text-green-600">{formatarMoeda(aberturaAtual.totalEntradas || 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Saídas</p>
-                <p className="text-lg font-bold text-red-600">{formatarMoeda(aberturaAtual.totalSaidas || 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Saldo Atual</p>
-                <p className={`text-lg font-bold ${(aberturaAtual.saldoAtual || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatarMoeda(aberturaAtual.saldoAtual || 0)}
-                </p>
+
+              {/* Totais em Dinheiro */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-emerald-700 font-medium">Em Dinheiro</p>
+                  <p className="text-lg font-bold text-gray-900">{formatarMoeda(aberturaAtual.saldoInicial)}</p>
+                  <p className="text-[10px] text-gray-500 -mt-1">(Saldo Inicial)</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Entradas (Dinheiro)</p>
+                  <p className="text-lg font-bold text-emerald-600">{formatarMoeda(aberturaAtual.totalEntradasDinheiro || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saídas (Dinheiro)</p>
+                  <p className="text-lg font-bold text-rose-600">{formatarMoeda(aberturaAtual.totalSaidasDinheiro || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Saldo (Dinheiro)</p>
+                  <p className={`text-lg font-bold ${(aberturaAtual.saldoAtualDinheiro || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {formatarMoeda(aberturaAtual.saldoAtualDinheiro || 0)}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -574,26 +660,54 @@ export default function FluxoCaixaPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Data
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('data')}
+                >
+                  Data {getSortIcon('data')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('tipo')}
+                >
+                  Tipo {getSortIcon('tipo')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Descrição
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('descricao')}
+                >
+                  Descrição {getSortIcon('descricao')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Forma Pagamento
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('formaPagamento')}
+                >
+                  Forma Pagamento {getSortIcon('formaPagamento')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Centro Custo / Tipo
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('centroCusto')}
+                >
+                  Centro Custo / Tipo {getSortIcon('centroCusto')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Valor
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('valor')}
+                >
+                  Valor {getSortIcon('valor')}
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Criado por
+                <th 
+                  scope="col" 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  onClick={() => requestSort('createdBy')}
+                >
+                  Criado por {getSortIcon('createdBy')}
                 </th>
                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações

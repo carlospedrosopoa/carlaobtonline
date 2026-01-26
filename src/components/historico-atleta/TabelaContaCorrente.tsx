@@ -26,8 +26,20 @@ export default function TabelaContaCorrente({
   data: HistoricoAtletaContaCorrente | null;
   onDetalhe: (item: any) => void;
 }) {
-  if (!data || data.lancamentos.length === 0) {
-    return <div className="text-sm text-gray-600">Nenhuma movimentação no período.</div>;
+  if (!data || !data.lancamentos || data.lancamentos.length === 0) {
+    return (
+      <div className="space-y-3">
+        {data && (
+          <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="text-sm text-gray-600">Saldo atual</div>
+            <div className={`text-lg font-bold ${data.saldoAtual >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {formatarMoeda(data.saldoAtual)}
+            </div>
+          </div>
+        )}
+        <div className="text-sm text-gray-600 p-4 text-center">Nenhuma movimentação no período.</div>
+      </div>
+    );
   }
 
   return (

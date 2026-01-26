@@ -132,6 +132,19 @@ export default function EditarAgendamentoModal({
   const [valoresOriginais, setValoresOriginais] = useState<any>(null); // Armazenar valores originais para comparação
   const inputBuscaAtletaRef = useRef<HTMLInputElement>(null); // Ref para o campo de busca de atleta
 
+  // Novos estados para funcionalidades extras
+  const [gerarCardsAoSalvar, setGerarCardsAoSalvar] = useState(false);
+  const [modalValoresAberto, setModalValoresAberto] = useState(false);
+  const [valorTotalConfirmacao, setValorTotalConfirmacao] = useState<number | null>(0);
+  const [distribuicaoValores, setDistribuicaoValores] = useState<Array<{
+    id: string; // único para key do react
+    nome: string;
+    tipo: 'usuario' | 'avulso';
+    usuarioId?: string | null;
+    telefoneAvulso?: string;
+    valor: number;
+  }>>([]);
+
   // Função para normalizar texto removendo acentuação
   const normalizarTexto = (texto: string): string => {
     return texto
@@ -904,6 +917,120 @@ export default function EditarAgendamentoModal({
     return null;
   };
 
+  const abrirModalDistribuicaoValores = (agendamentoAlvo: Agendamento | any) => {
+    // Usar agendamentoAlvo (que pode ser recém criado/atualizado) ou o state local como fallback
+    const idAgendamento = agendamentoAlvo.id;
+    const valorNegociadoAlvo = agendamentoAlvo.valorNegociado;
+    const valorCalculadoAlvo = agendamentoAlvo.valorCalculado;
+    const atletaIdAlvo = agendamentoAlvo.atletaId || atletaId; // Usa do agendamento ou do state local
+    const nomeAvulsoAlvo = agendamentoAlvo.nomeAvulso || nomeAvulso;
+
+    const valorTotal = valorNegociadoAlvo !== null && valorNegociadoAlvo !== undefined 
+      ? valorNegociadoAlvo 
+      : (valorCalculadoAlvo || 0);
+    
+    setValorTotalConfirmacao(valorTotal);
+    
+    // Preparar distribuição inicial (divisão igualitária)
+    const participantes: Array<{
+      id: string;
+      nome: string;
+      tipo: 'usuario' | 'avulso';
+      usuarioId?: string | null;
+      telefoneAvulso?: string;
+      valor: number;
+    }> = [];
+
+    console.log('Iniciando distribuição de valores para agendamento:', idAgendamento);
+    
+    // 1. Titular
+    if (modo === 'atleta' && atletaIdAlvo) {
+        const atleta = atletas.find(a => a.id === atletaIdAlvo) || 
+                      (agendamentoAlvo?.atleta) ||
+                      sugestoesAtletas.find(a => a.id === atletaIdAlvo) ||
+                      (participantesCompletos.find(p => p.atletaId === atletaIdAlvo)?.atleta);
+        
+        if (atleta) {
+          participantes.push({
+            id: `titular-${atletaIdAlvo}`,
+            nome: atleta.nome + ' (Titular)',
+            tipo: 'usuario',
+            usuarioId: atleta.usuarioId,
+            valor: 0
+          });
+        } else {
+          participantes.push({
+            id: `titular-${atletaIdAlvo}`,
+            nome: 'Atleta Titular (Carregando...)',
+            tipo: 'usuario',
+            usuarioId: null,
+            valor: 0
+          });
+        }
+    } 
+    // Titular Avulso
+    else if (nomeAvulsoAlvo || (modo === 'normal' && nomeAvulso)) {
+        const nome = nomeAvulsoAlvo || nomeAvulso || 'Avulso';
+        participantes.push({
+        id: `titular-avulso-${idAgendamento || 'novo'}`,
+        nome: nome + ' (Titular Avulso)',
+        tipo: 'avulso',
+        telefoneAvulso: telefoneAvulso || agendamentoAlvo?.telefoneAvulso || undefined,
+        valor: 0
+      });
+    }
+
+    // 3. Participantes Cadastrados
+    if (atletasParticipantesIds.length > 0) {
+      atletasParticipantesIds.forEach(id => {
+        const atleta = atletas.find(a => a.id === id) || 
+                      participantesCompletos.find(p => p.atletaId === id)?.atleta ||
+                      sugestoesAtletas.find(a => a.id === id) ||
+                      (agendamentoAlvo?.atletaId === id ? agendamentoAlvo.atleta : null);
+                      
+        if (atleta) {
+          participantes.push({
+            id: `part-${id}`,
+            nome: atleta.nome,
+            tipo: 'usuario',
+            usuarioId: atleta.usuarioId,
+            valor: 0
+          });
+        } else {
+          participantes.push({
+            id: `part-${id}`,
+            nome: `Participante ${id.substring(0, 5)}...`,
+            tipo: 'usuario',
+            usuarioId: null,
+            valor: 0
+          });
+        }
+      });
+    }
+
+    // 4. Participantes Avulsos
+    if (participantesAvulsos.length > 0) {
+      participantesAvulsos.forEach((avulso, idx) => {
+        participantes.push({
+          id: `avulso-${avulso.id || idx}`,
+          nome: avulso.nome,
+          tipo: 'avulso',
+          valor: 0
+        });
+      });
+    }
+
+    // Calcular rateio
+    const totalPessoas = Math.max(1, participantes.length);
+    const valorPorPessoa = valorTotal / totalPessoas;
+    
+    // Aplicar valor
+    participantes.forEach(p => p.valor = valorPorPessoa);
+    
+    setDistribuicaoValores(participantes);
+    setModalValoresAberto(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -1091,6 +1218,18 @@ export default function EditarAgendamentoModal({
             ehAula: agendamentoAtualizado.ehAula || false,
             professorId: agendamentoAtualizado.professorId || null,
           });
+
+          // Se tiver flag para gerar cards, abre a modal de distribuição
+          if (gerarCardsAoSalvar) {
+             // Atualizar o agendamento completo local para usar na modal
+             setAgendamentoCompleto(agendamentoAtualizado);
+             // Pequeno timeout para garantir que o state atualizou
+             setTimeout(() => {
+               abrirModalDistribuicaoValores(agendamentoAtualizado);
+             }, 100);
+             setSalvando(false);
+             return; // Interrompe o fechamento
+          }
           
           onSuccess();
           onClose();
@@ -1117,6 +1256,20 @@ export default function EditarAgendamentoModal({
             valorCalculado: novoAgendamento.valorCalculado,
             valorNegociado: novoAgendamento.valorNegociado,
           });
+
+          // Se tiver flag para gerar cards, abre a modal de distribuição
+          if (gerarCardsAoSalvar) {
+             // Atualizar o agendamento completo local para usar na modal
+             // Precisamos definir o ID no agendamento para a modal funcionar
+             // Como é novo, 'agendamento' (prop) é null, então passamos o objeto criado
+             setAgendamentoCompleto(novoAgendamento);
+             // Pequeno timeout para garantir que o state atualizou
+             setTimeout(() => {
+               abrirModalDistribuicaoValores(novoAgendamento);
+             }, 100);
+             setSalvando(false);
+             return; // Interrompe o fechamento
+          }
           
           // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
           if (manterNaTela && canGerenciarAgendamento) {
@@ -1176,6 +1329,7 @@ export default function EditarAgendamentoModal({
   if (!isOpen) return null;
 
   return (
+    <>
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
       <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -1367,28 +1521,52 @@ export default function EditarAgendamentoModal({
                         </button>
                       </div>
                     ))}
-                    {participantesCompletos.length > 0 ? (
-                      // Usar dados completos do agendamento
-                      participantesCompletos.map((participante) => (
+                    {atletasParticipantesIds.map((id) => {
+                      // Tentar encontrar em todas as fontes: lista completa, participantes originais ou sugestões
+                      const atleta = atletas.find(a => a.id === id) || 
+                                    participantesCompletos.find(p => p.atletaId === id)?.atleta ||
+                                    sugestoesAtletas.find(a => a.id === id);
+                                    
+                      if (!atleta) {
+                        return (
+                           <div key={id} className="text-xs text-gray-500 p-2 flex justify-between items-center">
+                            <span>Atleta {id} (não encontrado)</span>
+                            <button
+                              type="button"
+                              onClick={() => setAtletasParticipantesIds(atletasParticipantesIds.filter(aid => aid !== id))}
+                              className="ml-2 text-red-600 hover:text-red-800"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        );
+                      }
+                      
+                      return (
                         <div
-                          key={participante.id}
+                          key={id}
                           className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
                         >
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              {participante.atleta.nome}
+                              {atleta.nome}
                             </p>
-                            {participante.atleta.fone && (
+                            {atleta.fone && (
                               <p className="text-xs text-gray-600 truncate">
-                                {participante.atleta.fone}
+                                {atleta.fone}
                               </p>
                             )}
                           </div>
                           <button
                             type="button"
                             onClick={() => {
-                              setAtletasParticipantesIds(atletasParticipantesIds.filter(aid => aid !== participante.atletaId));
-                              setParticipantesCompletos(participantesCompletos.filter(p => p.id !== participante.id));
+                              setAtletasParticipantesIds(atletasParticipantesIds.filter(aid => aid !== id));
+                              // Se estava nos completos, remove de lá também para consistência
+                              if (participantesCompletos.some(p => p.atletaId === id)) {
+                                setParticipantesCompletos(participantesCompletos.filter(p => p.atletaId !== id));
+                              }
                             }}
                             className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                             title="Remover participante"
@@ -1398,44 +1576,8 @@ export default function EditarAgendamentoModal({
                             </svg>
                           </button>
                         </div>
-                      ))
-                    ) : (
-                      // Fallback: tentar encontrar na lista de atletas
-                      atletasParticipantesIds.map((id) => {
-                        const atleta = atletas.find(a => a.id === id);
-                        return atleta ? (
-                          <div
-                            key={id}
-                            className="flex items-center justify-between p-2 bg-white rounded border border-purple-100"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {atleta.nome}
-                              </p>
-                              {atleta.fone && (
-                                <p className="text-xs text-gray-600 truncate">
-                                  {atleta.fone}
-                                </p>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setAtletasParticipantesIds(atletasParticipantesIds.filter(aid => aid !== id))}
-                              className="ml-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                              title="Remover participante"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        ) : (
-                          <div key={id} className="text-xs text-gray-500 p-2">
-                            Atleta {id} (não encontrado na lista)
-                          </div>
-                        );
-                      })
-                    )}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2062,72 +2204,11 @@ export default function EditarAgendamentoModal({
                       Gerar Comandas de Cliente
                     </p>
                     <p className="text-xs text-emerald-700 mb-3">
-                      Cria uma comanda para cada cliente envolvido no agendamento (original + participantes) com o item "Locação" dividido proporcionalmente. Se o cliente já tiver uma comanda aberta, o item será adicionado à comanda existente.
+                      Cria uma comanda para cada cliente envolvido no agendamento. Você poderá conferir os valores antes de gerar.
                     </p>
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (!agendamento?.id) return;
-                        if (!confirm('Deseja gerar comandas de cliente para todos os participantes deste agendamento?')) return;
-
-                        try {
-                          setGerandoCards(true);
-                          setErro('');
-                          const resultado = await agendamentoService.gerarCards(agendamento.id);
-                          if (resultado && resultado.mensagem) {
-                            // Garantir que os valores sejam números antes de usar toFixed
-                            const valorTotal = typeof resultado.valorTotal === 'number' ? resultado.valorTotal : parseFloat(resultado.valorTotal) || 0;
-                            const valorPorCliente = typeof resultado.valorPorCliente === 'number' ? resultado.valorPorCliente : parseFloat(resultado.valorPorCliente) || 0;
-                            const totalClientes = resultado.totalClientes || 0;
-                            const totalCardsCriados = resultado.totalCardsCriados || 0;
-                            const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
-                            
-                            let mensagemDetalhada = `${resultado.mensagem}\n\n`;
-                            mensagemDetalhada += `Valor total: R$ ${valorTotal.toFixed(2)}\n`;
-                            mensagemDetalhada += `Valor por cliente: R$ ${valorPorCliente.toFixed(2)}\n`;
-                            mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
-                            if (totalCardsCriados > 0) {
-                              mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
-                            }
-                            if (totalCardsAtualizados > 0) {
-                              mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
-                            }
-                            
-                            alert(mensagemDetalhada);
-                            onSuccess();
-                            onClose(); // Fechar o modal após gerar cards com sucesso
-                          } else {
-                            throw new Error('Resposta inválida da API');
-                          }
-                        } catch (error: any) {
-                          console.error('Erro completo ao gerar cards:', error);
-                          
-                          // Verificar se é um erro de rede/timeout
-                          const isNetworkError = error?.message?.includes('Failed to fetch') || 
-                                                 error?.message?.includes('NetworkError') ||
-                                                 error?.message?.includes('cancelada');
-                          
-                          let mensagemErro = error?.response?.data?.mensagem || 
-                                            error?.data?.mensagem || 
-                                            error?.message || 
-                                            'Erro ao gerar cards';
-                          
-                          // Se for erro de rede mas os cards podem ter sido criados, verificar no servidor
-                          if (isNetworkError) {
-                            mensagemErro = 'A requisição pode ter demorado muito, mas os cards podem ter sido criados. Verifique nas comandas.';
-                            console.warn('Erro de rede ao gerar cards, mas a operação pode ter sido concluída no servidor');
-                          }
-                          
-                          setErro(mensagemErro);
-                          
-                          // Não mostrar alert de erro se os cards foram criados (pode ser um erro de parsing)
-                          if (!error?.response?.data?.cards && !error?.data?.cards) {
-                            alert(`Erro: ${mensagemErro}`);
-                          }
-                        } finally {
-                          setGerandoCards(false);
-                        }
-                      }}
+                      onClick={() => abrirModalDistribuicaoValores(agendamento)}
                       disabled={gerandoCards || salvando || temAlteracoes}
                       className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       title={temAlteracoes ? 'Salve as alterações antes de gerar cards' : ''}
@@ -2152,23 +2233,40 @@ export default function EditarAgendamentoModal({
               </div>
             )}
 
-            {/* Flag para manter na tela após salvar (apenas para gestores em modo criação) */}
-            {canGerenciarAgendamento && !agendamento && (
-              <div className="pt-4 pb-2 border-t border-gray-200">
+            {/* Checkbox Gerar Cards ao Salvar (apenas gestores, criação ou edição) */}
+            {canGerenciarAgendamento && (
+              <div className="pt-4 border-t border-gray-200 space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={manterNaTela}
-                    onChange={(e) => setManterNaTela(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    checked={gerarCardsAoSalvar}
+                    onChange={(e) => setGerarCardsAoSalvar(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                   />
-                  <span className="text-sm text-gray-700">
-                    Manter na tela após salvar (limpa apenas quadra e participantes)
+                  <span className="text-sm font-medium text-gray-700">
+                    Gerar cards/comandas automaticamente após salvar
                   </span>
                 </label>
-                <p className="text-xs text-gray-500 mt-1 ml-6">
-                  Quando marcado, após salvar o agendamento, o formulário permanece aberto com os dados preenchidos, limpando apenas a seleção de quadras e participantes.
-                </p>
+                
+                {/* Checkbox Manter na Tela (apenas criação) */}
+                {!agendamento && (
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={manterNaTela}
+                        onChange={(e) => setManterNaTela(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Manter na tela após salvar (limpa apenas quadra e participantes)
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">
+                      Útil para criar vários agendamentos em sequência.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2207,8 +2305,177 @@ export default function EditarAgendamentoModal({
           </form>
         </Dialog.Panel>
       </div>
-
     </Dialog>
+
+      {/* Modal de Confirmação de Valores para Geração de Cards */}
+      <Dialog 
+        open={modalValoresAberto} 
+        onClose={() => setModalValoresAberto(false)}
+        className="relative z-[60]"
+      >
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-600" />
+              Distribuir Valores
+            </Dialog.Title>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Ajuste os valores individuais para cada participante, se necessário. O valor total será atualizado automaticamente.
+            </p>
+
+            <div className="space-y-4 mb-6">
+              {/* Lista de Participantes e Valores */}
+              <div className="space-y-3 max-h-60 overflow-y-auto p-1">
+                {distribuicaoValores.map((participante, index) => (
+                  <div key={participante.id} className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate" title={participante.nome}>
+                        {participante.nome}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {participante.tipo === 'usuario' ? 'Cadastrado' : 'Avulso'}
+                      </p>
+                    </div>
+                    <div className="w-32">
+                      <InputMonetario
+                        value={participante.valor}
+                        onChange={(novoValor) => {
+                          const novosValores = [...distribuicaoValores];
+                          novosValores[index].valor = novoValor || 0;
+                          setDistribuicaoValores(novosValores);
+                          
+                          // Atualiza o total somando tudo
+                          const novoTotal = novosValores.reduce((acc, curr) => acc + curr.valor, 0);
+                          setValorTotalConfirmacao(novoTotal);
+                        }}
+                        className="text-right font-medium"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Totalizador */}
+              <div className="pt-4 border-t-2 border-gray-100 flex flex-col gap-2">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Distribuído</p>
+                    <p className="text-xs text-gray-400">Soma dos valores dos cards</p>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-2xl font-bold text-emerald-700">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotalConfirmacao || 0)}
+                     </p>
+                  </div>
+                </div>
+
+                {/* Comparação com Valor Original */}
+                {(() => {
+                  const valorOriginal = valorNegociado !== null ? valorNegociado : (valorCalculado || 0);
+                  const diferenca = (valorTotalConfirmacao || 0) - valorOriginal;
+                  const temDiferenca = Math.abs(diferenca) > 0.01;
+
+                  return (
+                    <div className="pt-2 border-t border-gray-100 text-sm">
+                       <div className="flex justify-between text-gray-600 mb-1">
+                          <span>Valor Original do Agendamento:</span>
+                          <span className="font-medium">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorOriginal)}</span>
+                       </div>
+                       {temDiferenca && (
+                         <div className={`flex justify-between font-medium ${diferenca > 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                            <span>Diferença:</span>
+                            <span>
+                              {diferenca > 0 ? '+' : ''}
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(diferenca)}
+                            </span>
+                         </div>
+                       )}
+                       {temDiferenca && (
+                         <p className="text-xs text-gray-500 mt-1 italic">
+                           * O valor do agendamento não será alterado, apenas as comandas geradas terão estes valores.
+                         </p>
+                       )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setModalValoresAberto(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!agendamento) return;
+                  
+                  try {
+                    setGerandoCards(true);
+                    
+                    // Removida atualização do agendamento - apenas gera os cards com os valores informados
+                    
+                    // Prepara o payload de distribuições
+                    const payloadDistribuicoes = distribuicaoValores.map(p => ({
+                      usuarioId: p.usuarioId || null,
+                      nomeAvulso: p.tipo === 'avulso' ? p.nome : null,
+                      telefoneAvulso: p.telefoneAvulso || null,
+                      valor: p.valor
+                    }));
+
+                    // Gera os cards enviando as distribuições
+                    const resultado = await agendamentoService.gerarCards(agendamento.id, {
+                      distribuicoes: payloadDistribuicoes
+                    });
+                    
+                    setModalValoresAberto(false); // Fecha modal de valores
+                    
+                    if (resultado && resultado.mensagem) {
+                      const valorTotal = typeof resultado.valorTotal === 'number' ? resultado.valorTotal : parseFloat(resultado.valorTotal) || 0;
+                      // const valorPorCliente = typeof resultado.valorPorCliente === 'number' ? resultado.valorPorCliente : parseFloat(resultado.valorPorCliente) || 0;
+                      const totalClientes = resultado.totalClientes || 0;
+                      const totalCardsCriados = resultado.totalCardsCriados || 0;
+                      const totalCardsAtualizados = resultado.totalCardsAtualizados || 0;
+                      
+                      let mensagemDetalhada = `${resultado.mensagem}\n\n`;
+                      mensagemDetalhada += `Valor total das comandas: R$ ${valorTotal.toFixed(2)}\n`;
+                      // mensagemDetalhada += `Valor por cliente: R$ ${valorPorCliente.toFixed(2)}\n`;
+                      mensagemDetalhada += `Total de clientes: ${totalClientes}\n`;
+                      if (totalCardsCriados > 0) {
+                        mensagemDetalhada += `\nCards criados: ${totalCardsCriados}`;
+                      }
+                      if (totalCardsAtualizados > 0) {
+                        mensagemDetalhada += `\nCards atualizados (item adicionado ao card existente): ${totalCardsAtualizados}`;
+                      }
+                      
+                      alert(mensagemDetalhada);
+                      onSuccess();
+                      onClose(); // Fecha modal principal
+                    }
+                  } catch (error: any) {
+                    console.error('Erro ao gerar cards:', error);
+                    alert('Erro ao gerar cards: ' + (error?.response?.data?.mensagem || 'Erro desconhecido'));
+                    setModalValoresAberto(false);
+                  } finally {
+                    setGerandoCards(false);
+                  }
+                }}
+                disabled={gerandoCards}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50 flex items-center gap-2"
+              >
+                {gerandoCards ? 'Gerando...' : 'Confirmar e Gerar'}
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
+    </>
   );
 }
 

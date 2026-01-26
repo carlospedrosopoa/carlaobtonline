@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
   historicoAtletaArenaService,
@@ -39,6 +40,7 @@ function isoFimDia(dateYYYYMMDD: string) {
 
 export default function HistoricoAtletaArenaPage() {
   const { usuario } = useAuth();
+  const searchParams = useSearchParams();
 
   const [atletaSelecionado, setAtletaSelecionado] = useState<AtletaHistoricoArena | null>(null);
 
@@ -47,7 +49,20 @@ export default function HistoricoAtletaArenaPage() {
   const [aplicadoDe, setAplicadoDe] = useState<string>('');
   const [aplicadoAte, setAplicadoAte] = useState<string>('');
 
-  const [aba, setAba] = useState<AbaHistoricoAtleta>('consumo');
+  const [aba, setAba] = useState<AbaHistoricoAtleta>(() => {
+    const abaParam = searchParams.get('aba');
+    if (abaParam === 'pagamentos' || abaParam === 'contaCorrente' || abaParam === 'agendamentos' || abaParam === 'historico') {
+      return abaParam as AbaHistoricoAtleta;
+    }
+    return 'consumo';
+  });
+
+  useEffect(() => {
+    const abaParam = searchParams.get('aba');
+    if (abaParam && (abaParam === 'pagamentos' || abaParam === 'contaCorrente' || abaParam === 'agendamentos' || abaParam === 'historico')) {
+      setAba(abaParam as AbaHistoricoAtleta);
+    }
+  }, [searchParams]);
   const [resumo, setResumo] = useState<HistoricoAtletaResumo | null>(null);
   const [loadingResumo, setLoadingResumo] = useState(false);
   const [erroResumo, setErroResumo] = useState<string>('');
@@ -192,8 +207,14 @@ export default function HistoricoAtletaArenaPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Histórico do Atleta</h1>
-          <p className="text-gray-600 mt-1">Consumo, pagamentos, conta corrente e agendamentos na sua arena</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {aba === 'contaCorrente' ? 'Conta Corrente' : 'Histórico do Atleta'}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {aba === 'contaCorrente' 
+              ? 'Gerencie o saldo e as movimentações financeiras do atleta' 
+              : 'Consumo, pagamentos, conta corrente e agendamentos na sua arena'}
+          </p>
         </div>
       </div>
 

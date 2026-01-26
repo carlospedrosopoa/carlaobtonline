@@ -401,6 +401,9 @@ export interface AberturaCaixa {
   totalEntradas?: number;
   totalSaidas?: number;
   saldoAtual?: number;
+  totalEntradasDinheiro?: number;
+  totalSaidasDinheiro?: number;
+  saldoAtualDinheiro?: number;
 }
 
 export interface CriarAberturaCaixaPayload {

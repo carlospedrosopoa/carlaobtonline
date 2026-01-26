@@ -472,58 +472,58 @@ export const historicoAtletaArenaService = {
   listarConsumo: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaConsumoItem[]> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
-    params.append('atletaId', atletaId);
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
-    const res = await api.get(`/gestao-arena/historico-atleta/consumo?${params.toString()}`);
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/consumo?${params.toString()}`);
     return res.data;
   },
 
   listarPagamentos: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaPagamento[]> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
-    params.append('atletaId', atletaId);
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
-    const res = await api.get(`/gestao-arena/historico-atleta/pagamentos?${params.toString()}`);
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/pagamentos?${params.toString()}`);
     return res.data;
   },
 
   listarAgendamentos: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaAgendamento[]> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
-    params.append('atletaId', atletaId);
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
-    const res = await api.get(`/gestao-arena/historico-atleta/agendamentos?${params.toString()}`);
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/agendamentos?${params.toString()}`);
     return res.data;
   },
 
   obterContaCorrente: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaContaCorrente> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
-    params.append('atletaId', atletaId);
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
-    const res = await api.get(`/gestao-arena/historico-atleta/conta-corrente?${params.toString()}`);
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/conta-corrente?${params.toString()}`);
+    return res.data;
+  },
+
+  lancarMovimentacao: async (pointId: string, atletaId: string, payload: { tipo: 'CREDITO' | 'DEBITO'; valor: number; justificativa: string }): Promise<{ mensagem: string; novoSaldo: number }> => {
+    const res = await api.post(`/gestao-arena/historico-atleta/${atletaId}/conta-corrente`, { ...payload, pointId });
     return res.data;
   },
 
   obterResumo: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaResumo> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
-    params.append('atletaId', atletaId);
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
-    const res = await api.get(`/gestao-arena/historico-atleta/resumo?${params.toString()}`);
+    const res = await api.get(`/gestao-arena/historico-atleta/${atletaId}/resumo?${params.toString()}`);
     return res.data;
   },
 
   buscarAtletas: async (pointId: string, busca: string): Promise<AtletaHistoricoArena[]> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
-    params.append('busca', busca);
-    const res = await api.get(`/gestao-arena/historico-atleta/buscar-atletas?${params.toString()}`);
+    params.append('q', busca);
+    const res = await api.get(`/gestao-arena/historico-atleta/atletas?${params.toString()}`);
     return res.data;
   }
 };
