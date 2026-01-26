@@ -2414,7 +2414,8 @@ export default function EditarAgendamentoModal({
               <button
                 type="button"
                 onClick={async () => {
-                  if (!agendamento) return;
+                  const agendamentoParaGerar = agendamentoCompleto || agendamento;
+                  if (!agendamentoParaGerar) return;
                   
                   try {
                     setGerandoCards(true);
@@ -2430,7 +2431,7 @@ export default function EditarAgendamentoModal({
                     }));
 
                     // Gera os cards enviando as distribuições
-                    const resultado = await agendamentoService.gerarCards(agendamento.id, {
+                    const resultado = await agendamentoService.gerarCards(agendamentoParaGerar.id, {
                       distribuicoes: payloadDistribuicoes
                     });
                     

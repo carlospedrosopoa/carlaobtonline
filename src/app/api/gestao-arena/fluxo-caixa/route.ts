@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     if (!tipo || tipo === 'ENTRADA' || tipo === 'TODOS') {
       let sqlPagamentos = `SELECT 
         p.id, c."pointId", p.valor, 
-        CONCAT('Pagamento Card #', c."numeroCard") as descricao,
+        CONCAT('Pagamento Card #', c."numeroCard", ' - ', COALESCE(u.name, c."nomeAvulso", 'Cliente')) as descricao,
         p."formaPagamentoId", p.observacoes,
         p."createdAt"::date as data, p."createdAt", p."createdBy",
         'ENTRADA_CARD' as tipo,
@@ -136,6 +136,7 @@ export async function GET(request: NextRequest) {
         fp.id as "formaPagamento_id", fp.nome as "formaPagamento_nome", fp.tipo as "formaPagamento_tipo"
       FROM "PagamentoCard" p
       INNER JOIN "CardCliente" c ON p."cardId" = c.id
+      LEFT JOIN "User" u ON c."usuarioId" = u.id
       LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
       WHERE c.status != 'CANCELADO'`;
 

@@ -39,11 +39,13 @@ export async function GET(request: NextRequest) {
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
       NULL as "usuario_whatsapp",
       at.fone as "atleta_fone",
+      cc.saldo as "saldo_conta_corrente",
       uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
       uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
     FROM "CardCliente" c
     LEFT JOIN "User" u ON c."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+    LEFT JOIN "ContaCorrenteCliente" cc ON c."usuarioId" = cc."usuarioId" AND c."pointId" = cc."pointId"
     LEFT JOIN "User" uc ON c."createdById" = uc.id
     LEFT JOIN "User" uu ON c."updatedById" = uu.id
     WHERE 1=1`;
@@ -117,6 +119,7 @@ export async function GET(request: NextRequest) {
           email: row.usuario_email,
           whatsapp: row.usuario_whatsapp || null,
           telefone: row.atleta_fone || null, // Telefone vem do atleta vinculado
+          saldoContaCorrente: row.saldo_conta_corrente ? parseFloat(row.saldo_conta_corrente) : 0,
         };
       }
 

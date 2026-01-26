@@ -163,9 +163,7 @@ export async function GET(
         total: parseFloat(pagamentosResult.rows[0]?.total || 0),
         quantidade: parseInt(pagamentosResult.rows[0]?.quantidade || 0, 10),
       },
-      contaCorrente: {
-        saldo: saldoResult.rows.length ? parseFloat(saldoResult.rows[0].saldo) : 0,
-      },
+      saldoDevedor: saldoResult.rows.length ? parseFloat(saldoResult.rows[0].saldo) : 0,
       agendamentos: {
         total: parseFloat(agendamentosResult.rows[0]?.total || 0),
         quantidade: parseInt(agendamentosResult.rows[0]?.quantidade || 0, 10),

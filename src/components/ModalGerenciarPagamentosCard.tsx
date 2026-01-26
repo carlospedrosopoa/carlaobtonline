@@ -54,8 +54,18 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
         itemCardService.listar(card.id),
       ]);
 
+      const ordem = ['Pix', 'Cartão de Débito', 'Cartão de Crédito', 'Dinheiro', 'Infinite Pay', 'Conta Corrente'];
+       const formasOrdenadas = [...formasData].sort((a, b) => {
+         const indexA = ordem.indexOf(a.nome);
+         const indexB = ordem.indexOf(b.nome);
+         if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+         if (indexA !== -1) return -1;
+         if (indexB !== -1) return 1;
+         return a.nome.localeCompare(b.nome);
+       });
+
       setCardCompleto(cardData);
-      setFormasPagamento(formasData);
+      setFormasPagamento(formasOrdenadas);
       setPagamentos(pagamentosData);
       setItens(itensData);
     } catch (error: any) {
@@ -637,7 +647,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                             : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
                         }`}
                       >
-                        {forma.nome}
+                        {forma.nome === 'Infinite Pay' ? 'Online' : forma.nome}
                       </button>
                     );
                   })}
