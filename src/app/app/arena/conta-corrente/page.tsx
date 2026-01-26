@@ -167,9 +167,9 @@ export default function ContaCorrentePage() {
               <div>
                 <h2 className="text-sm font-medium text-gray-500 mb-1">Saldo Atual</h2>
                 <div className={`text-4xl font-bold ${
-                  (contaCorrente?.saldo || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                  (contaCorrente?.saldoAtual || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
                 }`}>
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(contaCorrente?.saldo || 0)}
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(contaCorrente?.saldoAtual || 0)}
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
                   Atleta: <span className="font-medium text-gray-700">{atletaSelecionado.nome}</span>
@@ -239,7 +239,7 @@ export default function ContaCorrentePage() {
                 </label>
                 <InputMonetario
                   value={valorLancamento}
-                  onChange={setValorLancamento}
+                  onChange={(v) => setValorLancamento(v || 0)}
                   className={`text-xl font-bold ${
                     tipoLancamento === 'CREDITO' ? 'text-emerald-700' : 'text-red-700'
                   }`}
