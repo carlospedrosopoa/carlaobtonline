@@ -52,7 +52,12 @@ export default function DashboardOperacionalArenaPage() {
 
   const carregar = async () => {
     if (!usuario?.pointIdGestor) return;
-    if (!dataDe || !dataAte) return;
+    
+    // Validar datas antes de converter
+    if (!dataDe || !dataAte) {
+      return;
+    }
+    
     if (dataDe > dataAte) {
       setErro('Período inválido: a data inicial não pode ser maior que a data final.');
       return;
@@ -61,13 +66,19 @@ export default function DashboardOperacionalArenaPage() {
     try {
       setLoading(true);
       setErro('');
+      
+      // Garantir datas ISO válidas
+      const inicioISO = isoStartOfDay(dataDe);
+      const fimISO = isoEndOfDay(dataAte);
+
       const res = await dashboardOperacionalService.obter(
         usuario.pointIdGestor,
-        isoStartOfDay(dataDe),
-        isoEndOfDay(dataAte)
+        inicioISO,
+        fimISO
       );
       setDados(res);
     } catch (e: any) {
+      console.error('Erro ao carregar dashboard:', e);
       setErro(e?.response?.data?.mensagem || 'Erro ao carregar dashboard operacional');
     } finally {
       setLoading(false);

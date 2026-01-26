@@ -100,13 +100,14 @@ export async function GET(
     const result = await query(sql, values);
     const itens = result.rows.map((row: any) => ({
       id: row.id,
-      createdAt: row.createdAt,
+      data: row.createdAt,
       quantidade: parseFloat(row.quantidade),
-      precoUnitario: parseFloat(row.precoUnitario),
-      precoTotal: parseFloat(row.precoTotal),
-      observacoes: row.observacoes || null,
-      produto: row.produtoId ? { id: row.produtoId, nome: row.produtoNome } : null,
-      card: { id: row.cardId, numeroCard: row.numeroCard },
+      valorUnitario: parseFloat(row.precoUnitario),
+      valorTotal: parseFloat(row.precoTotal),
+      produto: row.produtoNome || '—',
+      cardId: row.cardId,
+      numeroCard: row.numeroCard,
+      statusCard: 'FECHADO' // Assumindo fechado pois é histórico
     }));
 
     return withCors(NextResponse.json(itens), request);

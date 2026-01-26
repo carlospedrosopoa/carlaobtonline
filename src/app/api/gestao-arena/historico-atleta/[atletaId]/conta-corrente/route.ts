@@ -30,6 +30,102 @@ export async function OPTIONS(request: NextRequest) {
   return preflightResponse || new NextResponse(null, { status: 204 });
 }
 
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ atletaId: string }> }
+) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return withCors(NextResponse.json({ mensagem: 'Não autenticado' }, { status: 401 }), request);
+    }
+    if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
+      return withCors(NextResponse.json({ mensagem: 'Sem permissão' }, { status: 403 }), request);
+    }
+
+    const { atletaId } = await params;
+    const body = await request.json();
+    const { pointId, tipo, valor, justificativa } = body;
+
+    if (!pointId) {
+      return withCors(NextResponse.json({ mensagem: 'pointId é obrigatório' }, { status: 400 }), request);
+    }
+    if (usuario.role === 'ORGANIZER' && !usuarioTemAcessoAoPoint(usuario, pointId)) {
+      return withCors(NextResponse.json({ mensagem: 'Sem acesso ao point' }, { status: 403 }), request);
+    }
+    if (!tipo || (tipo !== 'CREDITO' && tipo !== 'DEBITO')) {
+      return withCors(NextResponse.json({ mensagem: 'Tipo deve ser CREDITO ou DEBITO' }, { status: 400 }), request);
+    }
+    if (!valor || typeof valor !== 'number' || valor <= 0) {
+      return withCors(NextResponse.json({ mensagem: 'Valor deve ser positivo' }, { status: 400 }), request);
+    }
+    if (!justificativa) {
+      return withCors(NextResponse.json({ mensagem: 'Justificativa é obrigatória' }, { status: 400 }), request);
+    }
+
+    const atleta = await obterAtletaDaArena(atletaId, pointId);
+    if (!atleta) {
+      return withCors(NextResponse.json({ mensagem: 'Atleta não encontrado' }, { status: 404 }), request);
+    }
+    if (!atleta.usuarioId) {
+      return withCors(NextResponse.json({ mensagem: 'Atleta sem usuário vinculado' }, { status: 400 }), request);
+    }
+
+    // Buscar ou criar conta corrente
+    let contaResult = await query(
+      'SELECT id, saldo FROM "ContaCorrenteCliente" WHERE "usuarioId" = $1 AND "pointId" = $2 LIMIT 1',
+      [atleta.usuarioId, pointId]
+    );
+
+    let contaCorrenteId;
+    let saldoAtual = 0;
+
+    if (contaResult.rows.length === 0) {
+      // Criar conta corrente
+      const novaConta = await query(
+        'INSERT INTO "ContaCorrenteCliente" ("id", "usuarioId", "pointId", "saldo", "createdAt", "updatedAt") VALUES (gen_random_uuid(), $1, $2, 0, NOW(), NOW()) RETURNING id, saldo',
+        [atleta.usuarioId, pointId]
+      );
+      contaCorrenteId = novaConta.rows[0].id;
+      saldoAtual = 0;
+    } else {
+      contaCorrenteId = contaResult.rows[0].id;
+      saldoAtual = parseFloat(contaResult.rows[0].saldo);
+    }
+
+    // Calcular novo saldo
+    const novoSaldo = tipo === 'CREDITO' ? saldoAtual + valor : saldoAtual - valor;
+
+    // Registrar movimentação e atualizar saldo em transação
+    await query('BEGIN');
+    try {
+      await query(
+        'INSERT INTO "MovimentacaoContaCorrente" ("id", "contaCorrenteId", "tipo", "valor", "justificativa", "createdById", "createdAt") VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW())',
+        [contaCorrenteId, tipo, valor, justificativa, usuario.id]
+      );
+
+      await query(
+        'UPDATE "ContaCorrenteCliente" SET "saldo" = $1, "updatedAt" = NOW() WHERE "id" = $2',
+        [novoSaldo, contaCorrenteId]
+      );
+
+      await query('COMMIT');
+    } catch (err) {
+      await query('ROLLBACK');
+      throw err;
+    }
+
+    return withCors(NextResponse.json({ mensagem: 'Lançamento realizado com sucesso', novoSaldo }), request);
+  } catch (error: any) {
+    console.error('Erro ao lançar na conta corrente:', error);
+    const res = NextResponse.json(
+      { mensagem: 'Erro ao lançar na conta corrente', error: error.message },
+      { status: 500 }
+    );
+    return withCors(res, request);
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ atletaId: string }> }
@@ -115,7 +211,8 @@ export async function GET(
       id: row.id,
       tipo: row.tipo,
       valor: parseFloat(row.valor),
-      justificativa: row.justificativa,
+      descricao: row.justificativa || (row.tipo === 'CREDITO' ? 'Crédito Adicionado' : 'Débito Realizado'),
+      data: row.createdAt,
       pagamentoCardId: row.pagamentoCardId || null,
       createdAt: row.createdAt,
       createdBy: row.createdBy_id ? {
@@ -126,7 +223,7 @@ export async function GET(
       card: row.card_id ? { id: row.card_id, numeroCard: row.card_numero } : null,
     }));
 
-    return withCors(NextResponse.json({ saldo, movimentacoes }), request);
+    return withCors(NextResponse.json({ saldoAtual: saldo, lancamentos: movimentacoes }), request);
   } catch (error: any) {
     const res = NextResponse.json(
       { mensagem: 'Erro ao listar conta corrente', error: error.message },
@@ -135,4 +232,3 @@ export async function GET(
     return withCors(res, request);
   }
 }
-

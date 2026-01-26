@@ -97,14 +97,14 @@ export async function GET(
     const result = await query(sql, values);
     const agendamentos = result.rows.map((row: any) => ({
       id: row.id,
-      dataHora: row.dataHora,
+      data: row.dataHora,
+      horario: new Date(row.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       duracao: row.duracao,
       status: row.status,
+      quadra: row.quadraNome || '—',
+      valor: row.valorNegociado !== null && row.valorNegociado !== undefined ? parseFloat(row.valorNegociado) : (row.valorCalculado !== null ? parseFloat(row.valorCalculado) : 0),
+      pago: row.status === 'PAGO', // Simplificação, idealmente verificaria pagamentos
       observacoes: row.observacoes || null,
-      valorCalculado: row.valorCalculado !== null && row.valorCalculado !== undefined ? parseFloat(row.valorCalculado) : null,
-      valorNegociado: row.valorNegociado !== null && row.valorNegociado !== undefined ? parseFloat(row.valorNegociado) : null,
-      quadra: row.quadraId ? { id: row.quadraId, nome: row.quadraNome } : null,
-      usuario: row.usuarioId ? { id: row.usuarioId, name: row.usuarioNome, email: row.usuarioEmail } : null,
     }));
 
     return withCors(NextResponse.json(agendamentos), request);

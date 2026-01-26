@@ -26,6 +26,7 @@ export default function ArenaAgendaSemanalPage() {
   const [agendamentoEditando, setAgendamentoEditando] = useState<Agendamento | null>(null);
   const [dataInicialModal, setDataInicialModal] = useState<string | undefined>(undefined);
   const [horaInicialModal, setHoraInicialModal] = useState<string | undefined>(undefined);
+  const [quadraIdInicialModal, setQuadraIdInicialModal] = useState<string | undefined>(undefined);
   const [modalCancelarAberto, setModalCancelarAberto] = useState(false);
   const [agendamentoCancelando, setAgendamentoCancelando] = useState<Agendamento | null>(null);
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
@@ -912,6 +913,7 @@ export default function ArenaAgendaSemanalPage() {
               setAgendamentoEditando(null);
               setDataInicialModal(undefined);
               setHoraInicialModal(undefined);
+              setQuadraIdInicialModal(undefined);
               setModalEditarAberto(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
@@ -1549,6 +1551,7 @@ export default function ArenaAgendaSemanalPage() {
           setAgendamentoEditando(null);
           setDataInicialModal(undefined);
           setHoraInicialModal(undefined);
+          setQuadraIdInicialModal(undefined);
         }}
         onSuccess={() => {
           carregarAgendamentos();
@@ -1556,6 +1559,7 @@ export default function ArenaAgendaSemanalPage() {
           // Então só fechamos se não houver flag marcada (comportamento normal)
           // O componente gerencia isso internamente, não precisamos fazer nada aqui
         }}
+        quadraIdInicial={quadraIdInicialModal}
         dataInicial={dataInicialModal}
         horaInicial={horaInicialModal}
       />

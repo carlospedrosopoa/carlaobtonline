@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { fluxoCaixaService, entradaCaixaService, saidaCaixaService, formaPagamentoService, centroCustoService, tipoDespesaService, fornecedorService, aberturaCaixaService } from '@/services/gestaoArenaService';
 import type { LancamentoFluxoCaixa } from '@/types/gestaoArena';
 import type { FormaPagamento, CentroCusto, TipoDespesa, Fornecedor, CriarEntradaCaixaPayload, CriarSaidaCaixaPayload, AberturaCaixa, CriarAberturaCaixaPayload } from '@/types/gestaoArena';
-import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, X, Trash2 } from 'lucide-react';
+import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Filter, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import CurrencyInput from '@/components/CurrencyInput';
 
 export default function FluxoCaixaPage() {
@@ -25,6 +25,7 @@ export default function FluxoCaixaPage() {
   });
   const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'ENTRADA' | 'SAIDA'>('TODOS');
   const [busca, setBusca] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   
   // Dados para modais
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
@@ -331,13 +332,72 @@ export default function FluxoCaixaPage() {
   };
 
   const lancamentosFiltrados = useMemo(() => {
-    return lancamentos.filter((lancamento) => {
+    const filtrados = lancamentos.filter((lancamento) => {
       const matchBusca = busca === '' || 
         lancamento.descricao.toLowerCase().includes(busca.toLowerCase()) ||
         lancamento.observacoes?.toLowerCase().includes(busca.toLowerCase());
       return matchBusca;
     });
-  }, [lancamentos, busca]);
+
+    if (sortConfig !== null) {
+      filtrados.sort((a, b) => {
+        let aValue: any = a[sortConfig.key as keyof LancamentoFluxoCaixa];
+        let bValue: any = b[sortConfig.key as keyof LancamentoFluxoCaixa];
+
+        // Tratamento para campos específicos e aninhados
+        if (sortConfig.key === 'formaPagamento') {
+          aValue = a.formaPagamento?.nome || '';
+          bValue = b.formaPagamento?.nome || '';
+        } else if (sortConfig.key === 'centroCusto') {
+          // Lógica combinada para Centro Custo / Tipo
+          if (a.tipo === 'SAIDA') {
+            aValue = (a.centroCusto?.nome || '') + (a.tipoDespesa?.nome || '');
+          } else {
+            aValue = '';
+          }
+          if (b.tipo === 'SAIDA') {
+            bValue = (b.centroCusto?.nome || '') + (b.tipoDespesa?.nome || '');
+          } else {
+            bValue = '';
+          }
+        } else if (sortConfig.key === 'createdBy') {
+          aValue = a.createdBy?.name || '';
+          bValue = b.createdBy?.name || '';
+        } else if (sortConfig.key === 'data') {
+          aValue = new Date(a.data).getTime();
+          bValue = new Date(b.data).getTime();
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtrados;
+  }, [lancamentos, busca, sortConfig]);
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400 ml-1 inline-block" />;
+    }
+    if (sortConfig.direction === 'asc') {
+      return <ArrowUp className="w-4 h-4 text-emerald-600 ml-1 inline-block" />;
+    }
+    return <ArrowDown className="w-4 h-4 text-emerald-600 ml-1 inline-block" />;
+  };
 
   const totais = useMemo(() => {
     const entradas = lancamentosFiltrados
