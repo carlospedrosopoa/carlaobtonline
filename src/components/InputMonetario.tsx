@@ -14,6 +14,7 @@ interface InputMonetarioProps {
   max?: number;
   label?: string;
   id?: string;
+  autoFocus?: boolean;
 }
 
 export default function InputMonetario({
@@ -27,6 +28,7 @@ export default function InputMonetario({
   max,
   label,
   id,
+  autoFocus,
 }: InputMonetarioProps) {
   const [displayValue, setDisplayValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -129,6 +131,7 @@ export default function InputMonetario({
           placeholder={placeholder}
           disabled={disabled}
           required={required}
+          autoFocus={autoFocus}
           className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-right font-medium ${className} ${
             disabled ? 'bg-gray-100 cursor-not-allowed' : ''
           }`}
