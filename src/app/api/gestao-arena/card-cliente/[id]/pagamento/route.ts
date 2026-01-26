@@ -184,7 +184,7 @@ export async function POST(
 
     // Verificar se o card existe
     const cardResult = await query(
-      'SELECT "pointId", status, "valorTotal", "numeroCard" FROM "CardCliente" WHERE id = $1',
+      'SELECT "pointId", status, "valorTotal", "numeroCard", "usuarioId" FROM "CardCliente" WHERE id = $1',
       [cardId]
     );
 
@@ -218,7 +218,7 @@ export async function POST(
 
     // Verificar se a forma de pagamento existe
     const formaPagamentoResult = await query(
-      'SELECT id, ativo FROM "FormaPagamento" WHERE id = $1',
+      'SELECT id, nome, tipo, ativo FROM "FormaPagamento" WHERE id = $1',
       [formaPagamentoId]
     );
 
@@ -230,7 +230,9 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    if (!formaPagamentoResult.rows[0].ativo) {
+    const formaPagamento = formaPagamentoResult.rows[0];
+
+    if (!formaPagamento.ativo) {
       const errorResponse = NextResponse.json(
         { mensagem: 'Forma de pagamento não está ativa' },
         { status: 400 }
@@ -238,18 +240,32 @@ export async function POST(
       return withCors(errorResponse, request);
     }
 
-    // Verificar se há uma abertura de caixa aberta
-    const aberturaAbertaResult = await query(
-      'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
-      [card.pointId, 'ABERTA']
-    );
+    const isContaCorrente = formaPagamento.nome.trim().toUpperCase() === 'CONTA CORRENTE';
+    let aberturaCaixaId = null;
 
-    if (aberturaAbertaResult.rows.length === 0) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
-        { status: 400 }
+    if (isContaCorrente) {
+      if (!card.usuarioId) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Para pagamento com Conta Corrente, o card deve estar vinculado a um cliente.' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+    } else {
+      // Verificar se há uma abertura de caixa aberta
+      const aberturaAbertaResult = await query(
+        'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+        [card.pointId, 'ABERTA']
       );
-      return withCors(errorResponse, request);
+
+      if (aberturaAbertaResult.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+      aberturaCaixaId = aberturaAbertaResult.rows[0].id;
     }
 
     // Calcular total já pago
@@ -314,50 +330,111 @@ export async function POST(
       }
     }
 
-    // Buscar abertura de caixa aberta atual
-    const aberturaResult = await query(
-      'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
-      [card.pointId, 'ABERTA']
-    );
-    const aberturaCaixaId = aberturaResult.rows.length > 0 ? aberturaResult.rows[0].id : null;
+    await query('BEGIN');
+    try {
+      let pagamentoId: string;
 
-    // Inserir pagamento
-    const pagamentoResult = await query(
-      `INSERT INTO "PagamentoCard" (
-        id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdById"
-      ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
-      ) RETURNING *`,
-      [cardId, formaPagamentoId, valor, observacoes || null, aberturaCaixaId, usuario.id]
-    );
-
-    const pagamentoId = pagamentoResult.rows[0].id;
-
-    // Vincular itens ao pagamento se informados
-    if (itemIds && itemIds.length > 0) {
-      for (const itemId of itemIds) {
-        await query(
-          `INSERT INTO "PagamentoItem" (id, "pagamentoCardId", "itemCardId", "createdAt")
-           VALUES (gen_random_uuid()::text, $1, $2, NOW())`,
-          [pagamentoId, itemId]
+      if (isContaCorrente) {
+        // Lógica de Débito em Conta Corrente
+        // 1. Buscar ou criar conta corrente
+        let contaResult = await query(
+          'SELECT id, saldo FROM "ContaCorrenteCliente" WHERE "usuarioId" = $1 AND "pointId" = $2 LIMIT 1',
+          [card.usuarioId, card.pointId]
         );
+
+        let contaCorrenteId;
+        let saldoAtual = 0;
+
+        if (contaResult.rows.length === 0) {
+          // Criar conta corrente
+          const novaConta = await query(
+            'INSERT INTO "ContaCorrenteCliente" ("id", "usuarioId", "pointId", "saldo", "createdAt", "updatedAt") VALUES (gen_random_uuid(), $1, $2, 0, NOW(), NOW()) RETURNING id, saldo',
+            [card.usuarioId, card.pointId]
+          );
+          contaCorrenteId = novaConta.rows[0].id;
+          saldoAtual = 0;
+        } else {
+          contaCorrenteId = contaResult.rows[0].id;
+          saldoAtual = parseFloat(contaResult.rows[0].saldo);
+        }
+
+        // 2. Inserir PagamentoCard (vinculado ao card, mas sem abertura de caixa)
+        const pagamentoResult = await query(
+          `INSERT INTO "PagamentoCard" (
+            id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdById"
+          ) VALUES (
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
+          ) RETURNING *`,
+          [cardId, formaPagamentoId, valor, observacoes || `Pagamento via Conta Corrente - Card #${card.numeroCard}`, null, usuario.id]
+        );
+        pagamentoId = pagamentoResult.rows[0].id;
+
+        // 3. Registrar movimentação na conta corrente (Débito)
+        await query(
+          'INSERT INTO "MovimentacaoContaCorrente" ("id", "contaCorrenteId", "tipo", "valor", "justificativa", "pagamentoCardId", "createdById", "createdAt") VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW())',
+          [contaCorrenteId, 'DEBITO', valor, `Pagamento de Comanda #${card.numeroCard}`, pagamentoId, usuario.id]
+        );
+
+        // 4. Atualizar saldo da conta corrente
+        const novoSaldo = saldoAtual - valor;
+        await query(
+          'UPDATE "ContaCorrenteCliente" SET "saldo" = $1, "updatedAt" = NOW() WHERE "id" = $2',
+          [novoSaldo, contaCorrenteId]
+        );
+
+      } else {
+        // Inserir pagamento normal (com abertura de caixa)
+        const pagamentoResult = await query(
+          `INSERT INTO "PagamentoCard" (
+            id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdById"
+          ) VALUES (
+            gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), $6
+          ) RETURNING *`,
+          [cardId, formaPagamentoId, valor, observacoes || null, aberturaCaixaId, usuario.id]
+        );
+        pagamentoId = pagamentoResult.rows[0].id;
       }
+
+      // Vincular itens ao pagamento se informados (comum para ambos)
+      if (itemIds && itemIds.length > 0) {
+        for (const itemId of itemIds) {
+          await query(
+            `INSERT INTO "PagamentoItem" (id, "pagamentoCardId", "itemCardId", "createdAt")
+             VALUES (gen_random_uuid()::text, $1, $2, NOW())`,
+            [pagamentoId, itemId]
+          );
+        }
+      }
+
+      // Atualizar updatedAt do card
+      await query(
+        'UPDATE "CardCliente" SET "updatedAt" = NOW(), "updatedById" = $2 WHERE id = $1',
+        [cardId, usuario.id]
+      );
+
+      await query('COMMIT');
+
+      // Buscar o pagamento completo para retornar (incluindo dados do usuário e forma de pagamento)
+      // Como inserimos transacionalmente, pode ser que precise re-consultar
+      const pagamentoCompletoResult = await query(
+        `SELECT 
+          p.*, 
+          fp.nome as "formaPagamento_nome",
+          u.name as "createdBy_user_name"
+         FROM "PagamentoCard" p
+         LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
+         LEFT JOIN "User" u ON p."createdById" = u.id
+         WHERE p.id = $1`,
+        [pagamentoId]
+      );
+      
+      const response = NextResponse.json(pagamentoCompletoResult.rows[0], { status: 201 });
+      return withCors(response, request);
+
+    } catch (error: any) {
+      await query('ROLLBACK');
+      throw error;
     }
-
-    // Não criar entrada manual - a API de fluxo de caixa busca pagamentos de cards diretamente
-    // Isso evita duplicação e garante que apareça como "ENTRADA_CARD" e não "ENTRADA_MANUAL"
-
-    // Não fechar automaticamente - o card será fechado manualmente quando necessário
-    // O sistema mantém o saldo (valorTotal - totalPago) para controle
-
-    // Atualizar updatedAt do card
-    await query(
-      'UPDATE "CardCliente" SET "updatedAt" = NOW(), "updatedById" = $2 WHERE id = $1',
-      [cardId, usuario.id]
-    );
-
-    const response = NextResponse.json(pagamentoResult.rows[0], { status: 201 });
-    return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao adicionar pagamento ao card:', error);
     const errorResponse = NextResponse.json(

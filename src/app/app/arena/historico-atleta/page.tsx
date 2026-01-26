@@ -224,6 +224,7 @@ export default function HistoricoAtletaArenaPage() {
         onSelecionarAtleta={(a) => {
           setAtletaSelecionado(a);
           setDetalhe(null);
+          setAba('consumo');
         }}
         buscarAtletas={(q) => historicoAtletaArenaService.buscarAtletas(pointId, q)}
         dataDe={dataDe}

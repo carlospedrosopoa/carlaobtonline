@@ -660,7 +660,18 @@ export default function CardsClientesPage() {
                   <td className="px-4 py-4">
                     {card.usuario ? (
                       <div>
-                        <div className="font-semibold text-gray-900">{card.usuario.name}</div>
+                        <div className="font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
+                          {card.usuario.name}
+                          {card.usuario.saldoContaCorrente !== undefined && card.usuario.saldoContaCorrente !== 0 && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded border ${
+                              card.usuario.saldoContaCorrente > 0 
+                                ? 'bg-green-50 text-green-700 border-green-200' 
+                                : 'bg-red-50 text-red-700 border-red-200'
+                            }`} title="Saldo em Conta Corrente">
+                              CC: {formatarMoeda(card.usuario.saldoContaCorrente)}
+                            </span>
+                          )}
+                        </div>
                         {card.usuario.email && (
                           <div className="text-xs text-gray-500">{card.usuario.email}</div>
                         )}
@@ -795,7 +806,18 @@ export default function CardsClientesPage() {
               <div className="mb-3">
                 {card.usuario ? (
                   <div>
-                    <div className="font-semibold text-gray-900">{card.usuario.name}</div>
+                    <div className="font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
+                      {card.usuario.name}
+                      {card.usuario.saldoContaCorrente !== undefined && card.usuario.saldoContaCorrente !== 0 && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded border ${
+                          card.usuario.saldoContaCorrente > 0 
+                            ? 'bg-green-50 text-green-700 border-green-200' 
+                            : 'bg-red-50 text-red-700 border-red-200'
+                        }`} title="Saldo em Conta Corrente">
+                          CC: {formatarMoeda(card.usuario.saldoContaCorrente)}
+                        </span>
+                      )}
+                    </div>
                     {card.usuario.email && (
                       <div className="text-xs text-gray-500">{card.usuario.email}</div>
                     )}
@@ -884,35 +906,55 @@ export default function CardsClientesPage() {
                       
                       {/* Botões de Formas de Pagamento */}
                       <div className="flex flex-wrap gap-2">
-                        {formasPagamento.map((forma) => {
-                          const selecionada = formaPagamentoSelecionada[card.id] === forma.id;
-                          const isDinheiro = forma.nome?.toLowerCase().includes('dinheiro') || 
-                                           forma.nome?.toLowerCase().includes('cash');
-                          return (
-                            <button
-                              key={forma.id}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFormaPagamentoSelecionada((prev) => ({ ...prev, [card.id]: forma.id }));
-                                // Se for dinheiro, inicializar com o saldo
-                                if (isDinheiro) {
-                                  const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
-                                  setValorRecebido((prev) => ({ ...prev, [card.id]: saldo }));
-                                } else {
-                                  setValorRecebido((prev) => ({ ...prev, [card.id]: null }));
-                                }
-                              }}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border-2 transition-all ${
-                                selecionada
-                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
-                              }`}
-                            >
-                              {forma.nome}
-                            </button>
-                          );
-                        })}
+                        {(() => {
+                          const ordem = ['Pix', 'Cartão de Débito', 'Cartão de Crédito', 'Dinheiro', 'Infinite Pay', 'Conta Corrente'];
+                          const formasOrdenadas = [...formasPagamento].sort((a, b) => {
+                            const indexA = ordem.indexOf(a.nome);
+                            const indexB = ordem.indexOf(b.nome);
+                            
+                            // Se ambos estiverem na lista de ordem
+                            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                            
+                            // Se apenas A estiver na lista, ele vem primeiro
+                            if (indexA !== -1) return -1;
+                            
+                            // Se apenas B estiver na lista, ele vem primeiro
+                            if (indexB !== -1) return 1;
+                            
+                            // Se nenhum estiver na lista, ordem alfabética
+                            return a.nome.localeCompare(b.nome);
+                          });
+                          
+                          return formasOrdenadas.map((forma) => {
+                            const selecionada = formaPagamentoSelecionada[card.id] === forma.id;
+                            const isDinheiro = forma.nome?.toLowerCase().includes('dinheiro') || 
+                                             forma.nome?.toLowerCase().includes('cash');
+                            return (
+                              <button
+                                key={forma.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFormaPagamentoSelecionada((prev) => ({ ...prev, [card.id]: forma.id }));
+                                  // Se for dinheiro, inicializar com o saldo
+                                  if (isDinheiro) {
+                                    const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                                    setValorRecebido((prev) => ({ ...prev, [card.id]: saldo }));
+                                  } else {
+                                    setValorRecebido((prev) => ({ ...prev, [card.id]: null }));
+                                  }
+                                }}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border-2 transition-all ${
+                                  selecionada
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                                }`}
+                              >
+                                {forma.nome === 'Infinite Pay' ? 'Online' : forma.nome}
+                              </button>
+                            );
+                          });
+                        })()}
                       </div>
 
                       {/* Campo de Valor Recebido (apenas para dinheiro) */}

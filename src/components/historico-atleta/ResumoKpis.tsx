@@ -35,19 +35,19 @@ export default function ResumoKpis({
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-xs text-gray-600">Consumo (período)</div>
-        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.totalConsumo)}</div>
-        <div className="text-xs text-gray-500 mt-1">Total em consumo</div>
+        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.consumo?.total || 0)}</div>
+        <div className="text-xs text-gray-500 mt-1">{resumo.consumo?.quantidade || 0} itens</div>
       </div>
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-xs text-gray-600">Pagamentos (período)</div>
-        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.totalPago)}</div>
-        <div className="text-xs text-gray-500 mt-1">Total pago</div>
+        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.pagamentos?.total || 0)}</div>
+        <div className="text-xs text-gray-500 mt-1">{resumo.pagamentos?.quantidade || 0} pagamentos</div>
       </div>
       <div className="bg-gray-50 rounded-lg p-4">
-        <div className="text-xs text-gray-600">Saldo Devedor</div>
+        <div className="text-xs text-gray-600">Conta Corrente</div>
         <div
           className={`text-lg font-bold mt-1 ${
-            resumo.saldoDevedor > 0 ? 'text-red-700' : 'text-emerald-700'
+            resumo.saldoDevedor > 0 ? 'text-emerald-700' : 'text-red-700'
           }`}
         >
           {formatarMoeda(resumo.saldoDevedor)}
@@ -55,8 +55,8 @@ export default function ResumoKpis({
       </div>
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-xs text-gray-600">Agendamentos (período)</div>
-        <div className="text-lg font-bold text-gray-900 mt-1">{resumo.totalAgendamentos}</div>
-        <div className="text-xs text-gray-500 mt-1">Agendamentos realizados</div>
+        <div className="text-lg font-bold text-gray-900 mt-1">{formatarMoeda(resumo.agendamentos?.total || 0)}</div>
+        <div className="text-xs text-gray-500 mt-1">{resumo.agendamentos?.quantidade || 0} agendamentos</div>
       </div>
     </div>
   );

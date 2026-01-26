@@ -93,7 +93,18 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
       ]);
 
       setProdutos(produtosData);
-      setFormasPagamento(formasData);
+      
+      const ordem = ['Pix', 'Cartão de Débito', 'Cartão de Crédito', 'Dinheiro', 'Infinite Pay', 'Conta Corrente'];
+       const formasOrdenadas = [...formasData].sort((a, b) => {
+         const indexA = ordem.indexOf(a.nome);
+         const indexB = ordem.indexOf(b.nome);
+         if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+         if (indexA !== -1) return -1;
+         if (indexB !== -1) return 1;
+         return a.nome.localeCompare(b.nome);
+       });
+      
+      setFormasPagamento(formasOrdenadas);
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao carregar dados');
     } finally {
@@ -736,7 +747,7 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
                         <option value="">Selecione...</option>
                         {formasPagamento.map((forma) => (
                           <option key={forma.id} value={forma.id}>
-                            {forma.nome}
+                            {forma.nome === 'Infinite Pay' ? 'Online' : forma.nome}
                           </option>
                         ))}
                       </select>

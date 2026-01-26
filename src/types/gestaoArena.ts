@@ -40,6 +40,7 @@ export interface CardCliente {
     email: string;
     whatsapp?: string | null;
     telefone?: string | null; // Telefone do atleta vinculado ao usuário
+    saldoContaCorrente?: number; // Saldo da conta corrente para exibição
   } | null;
   itens?: ItemCard[];
   pagamentos?: PagamentoCard[];
@@ -601,12 +602,26 @@ export interface AtletaHistoricoArena {
 }
 
 export interface HistoricoAtletaResumo {
-  totalGasto: number;
-  totalPago: number;
+  consumo: {
+    total: number;
+    quantidade: number;
+  };
+  pagamentos: {
+    total: number;
+    quantidade: number;
+  };
   saldoDevedor: number;
-  totalAgendamentos: number;
-  totalConsumo: number;
-  ultimaVisita?: string;
+  agendamentos: {
+    total: number;
+    quantidade: number;
+  };
+  atleta: {
+    id: string;
+    nome: string;
+    fone?: string | null;
+    usuarioId: string;
+    email?: string | null;
+  };
 }
 
 export interface HistoricoAtletaConsumoItem {
