@@ -80,26 +80,30 @@ export async function GET(request: NextRequest) {
     // Calcular totais para cada abertura
     const aberturas = await Promise.all(
       result.rows.map(async (row: any) => {
-        // Calcular total de entradas
+        // Calcular total de entradas (EntradaCaixa + PagamentoCard)
         const entradasResult = await query(
-          'SELECT COALESCE(SUM(valor), 0) as total FROM "EntradaCaixa" WHERE "aberturaCaixaId" = $1',
+          `SELECT (
+            (SELECT COALESCE(SUM(valor), 0) FROM "EntradaCaixa" WHERE "aberturaCaixaId" = $1) +
+            (SELECT COALESCE(SUM(valor), 0) FROM "PagamentoCard" WHERE "aberturaCaixaId" = $1)
+           ) as total`,
           [row.id]
         );
         const totalEntradas = parseFloat(entradasResult.rows[0].total);
 
-        // Calcular total de entradas em DINHEIRO
+        // Calcular total de entradas em DINHEIRO (EntradaCaixa + PagamentoCard)
         const entradasDinheiroResult = await query(
-          `SELECT COALESCE(SUM(ec.valor), 0) as total 
-           FROM "EntradaCaixa" ec
-           JOIN "FormaPagamento" fp ON ec."formaPagamentoId" = fp.id
-           WHERE ec."aberturaCaixaId" = $1 
-           AND (
-             fp.tipo = 'DINHEIRO' 
-             OR fp.nome ILIKE '%dinheiro%' 
-             OR fp.nome ILIKE '%espécie%' 
-             OR fp.nome ILIKE '%especie%' 
-             OR fp.nome ILIKE '%cash%'
-           )`,
+          `SELECT (
+            (SELECT COALESCE(SUM(ec.valor), 0) 
+             FROM "EntradaCaixa" ec
+             JOIN "FormaPagamento" fp ON ec."formaPagamentoId" = fp.id
+             WHERE ec."aberturaCaixaId" = $1 
+             AND (fp.tipo = 'DINHEIRO' OR fp.nome ILIKE '%dinheiro%' OR fp.nome ILIKE '%espécie%' OR fp.nome ILIKE '%especie%' OR fp.nome ILIKE '%cash%')) +
+            (SELECT COALESCE(SUM(pc.valor), 0) 
+             FROM "PagamentoCard" pc
+             JOIN "FormaPagamento" fp ON pc."formaPagamentoId" = fp.id
+             WHERE pc."aberturaCaixaId" = $1 
+             AND (fp.tipo = 'DINHEIRO' OR fp.nome ILIKE '%dinheiro%' OR fp.nome ILIKE '%espécie%' OR fp.nome ILIKE '%especie%' OR fp.nome ILIKE '%cash%'))
+           ) as total`,
           [row.id]
         );
         const totalEntradasDinheiro = parseFloat(entradasDinheiroResult.rows[0].total);
