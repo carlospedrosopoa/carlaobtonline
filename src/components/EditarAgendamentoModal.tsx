@@ -2422,13 +2422,21 @@ export default function EditarAgendamentoModal({
                     
                     // Removida atualização do agendamento - apenas gera os cards com os valores informados
                     
-                    // Prepara o payload de distribuições
-                    const payloadDistribuicoes = distribuicaoValores.map(p => ({
-                      usuarioId: p.usuarioId || null,
-                      nomeAvulso: p.tipo === 'avulso' ? p.nome : null,
-                      telefoneAvulso: p.telefoneAvulso || null,
-                      valor: p.valor
-                    }));
+                    // Prepara o payload de distribuições, filtrando valores zerados
+                    const payloadDistribuicoes = distribuicaoValores
+                      .filter(p => p.valor > 0) // Remove quem tem valor zero
+                      .map(p => ({
+                        usuarioId: p.usuarioId || null,
+                        nomeAvulso: p.tipo === 'avulso' ? p.nome : null,
+                        telefoneAvulso: p.telefoneAvulso || null,
+                        valor: p.valor
+                      }));
+
+                    if (payloadDistribuicoes.length === 0) {
+                      alert('Nenhum card para gerar (todos os valores estão zerados).');
+                      setGerandoCards(false);
+                      return;
+                    }
 
                     // Gera os cards enviando as distribuições
                     const resultado = await agendamentoService.gerarCards(agendamentoParaGerar.id, {
