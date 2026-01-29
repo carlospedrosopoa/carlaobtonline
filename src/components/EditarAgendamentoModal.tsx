@@ -12,7 +12,6 @@ import type { ProfessorAdmin } from '@/services/professorService';
 import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat, CreditCard } from 'lucide-react';
 import type { RecorrenciaConfig, TipoRecorrencia } from '@/types/agendamento';
 import InputMonetario from './InputMonetario';
-import ConfirmarExclusaoRecorrenteModal from './ConfirmarExclusaoRecorrenteModal';
 
 interface Atleta {
   id: string;
@@ -136,7 +135,6 @@ export default function EditarAgendamentoModal({
   // Novos estados para funcionalidades extras
   const [gerarCardsAoSalvar, setGerarCardsAoSalvar] = useState(false);
   const [modalValoresAberto, setModalValoresAberto] = useState(false);
-  const [modalExclusaoAberto, setModalExclusaoAberto] = useState(false);
   const [valorTotalConfirmacao, setValorTotalConfirmacao] = useState<number | null>(0);
   const [distribuicaoValores, setDistribuicaoValores] = useState<Array<{
     id: string; // único para key do react
@@ -2525,12 +2523,6 @@ export default function EditarAgendamentoModal({
           </Dialog.Panel>
         </div>
       </Dialog>
-      <ConfirmarExclusaoRecorrenteModal
-        isOpen={modalExclusaoAberto}
-        agendamento={agendamento}
-        onClose={() => setModalExclusaoAberto(false)}
-        onConfirmar={confirmarExclusao}
-      />
     </>
   );
 }
