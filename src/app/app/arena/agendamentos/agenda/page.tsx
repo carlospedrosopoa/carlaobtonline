@@ -1388,6 +1388,22 @@ export default function ArenaAgendaSemanalPage() {
                                             
                                             <div className="flex-1">
                                               <div className="flex items-start justify-between gap-1 mb-0.5">
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    if (menuAberto === agendamento.id) {
+                                                      setMenuAberto(null);
+                                                    } else {
+                                                      setMenuAberto(agendamento.id);
+                                                    }
+                                                  }}
+                                                  className="opacity-70 hover:opacity-100 transition-opacity z-10 relative mr-0.5"
+                                                  title="Menu de ações"
+                                                >
+                                                  <MoreVertical className="w-3 h-3" />
+                                                </button>
                                                 <div className="text-[10px] font-bold opacity-90 flex-1 flex items-center gap-1">
                                                   {quadra.nome}
                                                   {/* Indicador visual: criado pelo atleta ou organizer */}
@@ -1403,22 +1419,6 @@ export default function ArenaAgendaSemanalPage() {
                                                     )
                                                   )}
                                                 </div>
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    e.preventDefault();
-                                                    if (menuAberto === agendamento.id) {
-                                                      setMenuAberto(null);
-                                                    } else {
-                                                      setMenuAberto(agendamento.id);
-                                                    }
-                                                  }}
-                                                  className="opacity-70 hover:opacity-100 transition-opacity z-10 relative"
-                                                  title="Menu de ações"
-                                                >
-                                                  <MoreVertical className="w-3 h-3" />
-                                                </button>
                                               </div>
                                               <div className="text-xs font-bold truncate mb-0.5">
                                                 {info.nome}
