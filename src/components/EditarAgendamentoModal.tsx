@@ -1031,27 +1031,7 @@ export default function EditarAgendamentoModal({
     setModalValoresAberto(true);
   };
 
-  const handleExcluir = () => {
-    if (!agendamento) return;
-    setModalExclusaoAberto(true);
-  };
 
-  const confirmarExclusao = async (aplicarARecorrencia: boolean) => {
-    if (!agendamento) return;
-    
-    setModalExclusaoAberto(false);
-    setSalvando(true);
-    
-    try {
-      await agendamentoService.deletar(agendamento.id, aplicarARecorrencia);
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      console.error('Erro ao excluir agendamento:', error);
-      setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao excluir agendamento.');
-      setSalvando(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2325,22 +2305,7 @@ export default function EditarAgendamentoModal({
               )}
             </div>
 
-            {/* Botão Excluir Agendamento */}
-            {agendamento && !readOnly && canGerenciarAgendamento && (
-              <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center">
-                <button
-                  type="button"
-                  onClick={handleExcluir}
-                  disabled={salvando}
-                  className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Excluir Agendamento
-                </button>
-              </div>
-            )}
+
           </form>
         </Dialog.Panel>
       </div>
