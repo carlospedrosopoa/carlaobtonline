@@ -34,19 +34,18 @@ function isoEndOfDay(dateStr: string): string {
 export default function DashboardOperacionalArenaPage() {
   const { usuario } = useAuth();
 
-  const [dataDe, setDataDe] = useState('');
-  const [dataAte, setDataAte] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState('');
-  const [dados, setDados] = useState<DashboardOperacionalData | null>(null);
-
-  useEffect(() => {
+  const [dataDe, setDataDe] = useState(() => {
     const hoje = new Date();
     const inicio = new Date(hoje);
     inicio.setDate(hoje.getDate() - 30);
-    setDataDe(inicio.toISOString().split('T')[0]);
-    setDataAte(hoje.toISOString().split('T')[0]);
-  }, []);
+    return inicio.toISOString().split('T')[0];
+  });
+  const [dataAte, setDataAte] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState('');
+  const [dados, setDados] = useState<DashboardOperacionalData | null>(null);
 
   const podeAplicar = Boolean(usuario?.pointIdGestor && dataDe && dataAte && dataDe <= dataAte);
 
@@ -152,7 +151,13 @@ export default function DashboardOperacionalArenaPage() {
       duracoes,
       horarios,
       fatDows,
-      produtos: com?.topProdutos || [],
+      produtos: (com?.topProdutos || []).map((r: any) => ({
+        produtoId: String(r.produtoId),
+        produto: String(r.nome),
+        categoria: String(r.categoria || ''),
+        quantidade: Number(r.quantidade) || 0,
+        valorTotal: Number(r.valorTotal) || 0,
+      })),
     };
   }, [dados]);
 

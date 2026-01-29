@@ -127,7 +127,22 @@ export const api = {
         headers['Content-Type'] = 'application/json';
       }
 
-      const response = await apiRequest(endpoint, {
+      // Tratar params (query string)
+      let url = endpoint;
+      if (config?.params) {
+        const params = new URLSearchParams();
+        Object.entries(config.params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            params.append(key, String(value));
+          }
+        });
+        const queryString = params.toString();
+        if (queryString) {
+          url += (url.includes('?') ? '&' : '?') + queryString;
+        }
+      }
+
+      const response = await apiRequest(url, {
         method: 'GET',
         headers,
       });
