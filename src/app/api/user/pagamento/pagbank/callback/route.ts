@@ -15,16 +15,7 @@ const mapFormaPagamento = (paymentMethodType: string | null | undefined) => {
 export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const expectedToken = process.env.PAGBANK_WEBHOOK_TOKEN || '';
     const token = searchParams.get('token') || '';
-
-    if (expectedToken && token !== expectedToken) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Não autorizado' },
-        { status: 401 }
-      );
-      return withCors(errorResponse, request);
-    }
 
     const body = await request.json();
     const referenceId = body?.reference_id;
@@ -33,6 +24,36 @@ export async function POST(request: NextRequest) {
       const errorResponse = NextResponse.json(
         { mensagem: 'reference_id é obrigatório' },
         { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    let expectedToken: string | null = null;
+    try {
+      const cfgRes = await query(
+        `SELECT COALESCE(pt."pagBankWebhookToken", '') as token
+         FROM "PagamentoPagBank" p
+         INNER JOIN "CardCliente" c ON p."cardId" = c.id
+         INNER JOIN "Point" pt ON c."pointId" = pt.id
+         WHERE p."referenceId" = $1
+         LIMIT 1`,
+        [referenceId]
+      );
+
+      if (cfgRes.rows.length > 0) {
+        expectedToken = cfgRes.rows[0].token || null;
+      }
+    } catch (e: any) {
+      if (e?.code !== '42703') {
+        throw e;
+      }
+    }
+
+    expectedToken = expectedToken || process.env.PAGBANK_WEBHOOK_TOKEN || null;
+    if (expectedToken && token !== expectedToken) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Não autorizado' },
+        { status: 401 }
       );
       return withCors(errorResponse, request);
     }

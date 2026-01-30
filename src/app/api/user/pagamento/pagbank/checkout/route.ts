@@ -31,15 +31,6 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    const token = process.env.PAGBANK_TOKEN;
-    if (!token) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'PagBank não configurado (PAGBANK_TOKEN ausente)' },
-        { status: 500 }
-      );
-      return withCors(errorResponse, request);
-    }
-
     const atleta = await verificarAtletaUsuario(user.id);
     if (!atleta) {
       const errorResponse = NextResponse.json(
@@ -104,6 +95,49 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
+    let pagBankToken: string | null = null;
+    let pagBankEnv: string | null = null;
+    let pagBankWebhookToken: string | null = null;
+    let pagBankAtivo: boolean | null = null;
+
+    try {
+      const pointCfg = await query(
+        `SELECT "pagBankToken", "pagBankEnv", "pagBankWebhookToken", "pagBankAtivo"
+         FROM "Point"
+         WHERE id = $1
+         LIMIT 1`,
+        [card.pointId]
+      );
+
+      if (pointCfg.rows.length > 0) {
+        pagBankToken = pointCfg.rows[0].pagBankToken || null;
+        pagBankEnv = pointCfg.rows[0].pagBankEnv || null;
+        pagBankWebhookToken = pointCfg.rows[0].pagBankWebhookToken || null;
+        pagBankAtivo = pointCfg.rows[0].pagBankAtivo ?? null;
+      }
+    } catch (e: any) {
+      if (e?.code !== '42703') {
+        throw e;
+      }
+    }
+
+    const token = pagBankToken || process.env.PAGBANK_TOKEN || null;
+    if (!token) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'PagBank não configurado para esta arena (token ausente)' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    if (pagBankAtivo === false) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'PagBank não está ativo para esta arena' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://appatleta.playnaquadra.com.br';
     const redirectUrl = `${appUrl}/app/atleta/consumo?pagbank_callback=${encodeURIComponent(orderId)}`;
 
@@ -111,7 +145,7 @@ export async function POST(request: NextRequest) {
       process.env.BACKEND_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://carlaobtonline.vercel.app');
 
-    const webhookToken = process.env.PAGBANK_WEBHOOK_TOKEN || '';
+    const webhookToken = pagBankWebhookToken || process.env.PAGBANK_WEBHOOK_TOKEN || '';
     const webhookUrl = webhookToken
       ? `${backendBaseUrl}/api/user/pagamento/pagbank/callback?token=${encodeURIComponent(webhookToken)}`
       : `${backendBaseUrl}/api/user/pagamento/pagbank/callback`;
@@ -132,7 +166,7 @@ export async function POST(request: NextRequest) {
       [cardId, orderId, valor, parcelas || 1, cpfLimpo, user.id]
     );
 
-    const env = (process.env.PAGBANK_ENV || 'sandbox').toLowerCase();
+    const env = ((pagBankEnv || process.env.PAGBANK_ENV || 'sandbox') as string).toLowerCase();
     const baseUrl = env === 'prod' || env === 'production' ? 'https://api.pagseguro.com' : 'https://sandbox.api.pagseguro.com';
 
     const unitAmount = Math.round(Number(valor) * 100);
