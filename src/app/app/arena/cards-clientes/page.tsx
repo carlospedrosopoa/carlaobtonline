@@ -213,8 +213,8 @@ export default function CardsClientesPage() {
           break;
         
         case 'data':
-          valorA = new Date(a.createdAt || 0).getTime();
-          valorB = new Date(b.createdAt || 0).getTime();
+          valorA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          valorB = new Date(b.updatedAt || b.createdAt || 0).getTime();
           break;
         
         default:
