@@ -113,23 +113,23 @@ export default function CardsClientesPage() {
     
     try {
       setLoading(true);
-      // Para cards abertos, não carregar itens e pagamentos inicialmente (melhor performance)
-      // Mas sempre calcular totalPago e saldo para exibir na listagem
-      const incluirItens = filtroStatus !== 'ABERTO';
-      const incluirPagamentos = filtroStatus !== 'ABERTO';
       
-      console.log('[carregarCards] Carregando cards:', {
+      // Otimização: Não carregar itens e pagamentos na listagem.
+      // O backend já calcula totalPago e saldo na query principal.
+      // Itens e pagamentos detalhados são carregados sob demanda (modais ou envio de whats).
+      const incluirItens = false;
+      const incluirPagamentos = false;
+      
+      console.log('[carregarCards] Carregando cards (resumido):', {
         pointId: usuario.pointIdGestor,
-        status: filtroStatus || undefined,
-        incluirItens,
-        incluirPagamentos: true
+        status: filtroStatus || undefined
       });
       
       const data = await cardClienteService.listar(
         usuario.pointIdGestor,
         filtroStatus || undefined,
         incluirItens,
-        true // Sempre incluir pagamentos para calcular saldo
+        incluirPagamentos
       );
       
       console.log('[carregarCards] Cards recebidos:', Array.isArray(data) ? data.length : 'não é array', data);

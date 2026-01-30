@@ -41,13 +41,19 @@ export async function GET(request: NextRequest) {
       at.fone as "atleta_fone",
       cc.saldo as "saldo_conta_corrente",
       uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
-      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
+      uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email",
+      COALESCE(pag_agg.total_pago, 0) as "totalPago"
     FROM "CardCliente" c
     LEFT JOIN "User" u ON c."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
     LEFT JOIN "ContaCorrenteCliente" cc ON c."usuarioId" = cc."usuarioId" AND c."pointId" = cc."pointId"
     LEFT JOIN "User" uc ON c."createdById" = uc.id
     LEFT JOIN "User" uu ON c."updatedById" = uu.id
+    LEFT JOIN (
+      SELECT "cardId", SUM(valor) as total_pago
+      FROM "PagamentoCard"
+      GROUP BY "cardId"
+    ) pag_agg ON c.id = pag_agg."cardId"
     WHERE 1=1`;
 
     const params: any[] = [];
@@ -93,6 +99,8 @@ export async function GET(request: NextRequest) {
         status: row.status,
         observacoes: row.observacoes,
         valorTotal: parseFloat(row.valorTotal),
+        totalPago: parseFloat(row.totalPago),
+        saldo: parseFloat(row.valorTotal) - parseFloat(row.totalPago),
         usuarioId: row.usuarioId,
         nomeAvulso: row.nomeAvulso,
         telefoneAvulso: row.telefoneAvulso,
@@ -260,14 +268,7 @@ export async function GET(request: NextRequest) {
           );
         }
 
-        // Calcular saldo (valorTotal - totalPago)
-        const totalPagoResult = await query(
-          'SELECT COALESCE(SUM(valor), 0) as total FROM "PagamentoCard" WHERE "cardId" = $1',
-          [card.id]
-        );
-        const totalPago = parseFloat(totalPagoResult.rows[0].total);
-        card.totalPago = totalPago;
-        card.saldo = card.valorTotal - totalPago;
+        // Cálculo de saldo removido daqui pois já é feito na query principal
       }
     }
     
