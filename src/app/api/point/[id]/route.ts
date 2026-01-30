@@ -22,6 +22,7 @@ export async function GET(
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
           "infinitePayHandle",
+          "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         WHERE id = $1`,
@@ -73,6 +74,10 @@ export async function GET(
             enviarLembretesAgendamento: false,
             antecedenciaLembrete: 8,
             infinitePayHandle: null,
+            pagBankAtivo: false,
+            pagBankEnv: null,
+            pagBankToken: null,
+            pagBankWebhookToken: null,
             assinante: result.rows[0].assinante ?? false,
           };
         }
@@ -152,7 +157,11 @@ export async function PUT(
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
       enviarLembretesAgendamento, antecedenciaLembrete,
-      infinitePayHandle
+      infinitePayHandle,
+      pagBankAtivo,
+      pagBankEnv,
+      pagBankToken,
+      pagBankWebhookToken
     } = body;
 
     // ORGANIZER não pode alterar campos administrativos
@@ -160,7 +169,8 @@ export async function PUT(
       // Ignorar campos que ORGANIZER não pode alterar
       const camposRestritos = ['ativo', 'assinante', 'whatsappAccessToken', 'whatsappPhoneNumberId', 
                                 'whatsappBusinessAccountId', 'whatsappApiVersion', 'whatsappAtivo',
-                                'gzappyApiKey', 'gzappyInstanceId', 'gzappyAtivo', 'infinitePayHandle'];
+                               'gzappyApiKey', 'gzappyInstanceId', 'gzappyAtivo', 'infinitePayHandle',
+                               'pagBankAtivo', 'pagBankEnv', 'pagBankToken', 'pagBankWebhookToken'];
       // Esses campos serão ignorados na atualização para ORGANIZER
     }
 
@@ -323,6 +333,10 @@ export async function PUT(
     const gzappyInstanceIdFinal = isOrganizer ? null : (gzappyInstanceId || null);
     const gzappyAtivoFinal = isOrganizer ? false : (gzappyAtivo ?? false);
     const infinitePayHandleFinal = isOrganizer ? null : (infinitePayHandle || null);
+    const pagBankAtivoFinal = isOrganizer ? false : (pagBankAtivo ?? false);
+    const pagBankEnvFinal = isOrganizer ? null : (pagBankEnv || null);
+    const pagBankTokenFinal = isOrganizer ? null : (pagBankToken || null);
+    const pagBankWebhookTokenFinal = isOrganizer ? null : (pagBankWebhookToken || null);
 
     // Tentar primeiro com campos WhatsApp e Gzappy (se existirem)
     let result;
@@ -384,6 +398,10 @@ export async function PUT(
             gzappyInstanceId: null,
             gzappyAtivo: false,
             infinitePayHandle: null,
+            pagBankAtivo: false,
+            pagBankEnv: null,
+            pagBankToken: null,
+            pagBankWebhookToken: null,
           };
         }
       } else {
@@ -395,13 +413,16 @@ export async function PUT(
                "whatsappApiVersion" = $14, "whatsappAtivo" = $15,
                "gzappyApiKey" = $16, "gzappyInstanceId" = $17, "gzappyAtivo" = $18,
                "enviarLembretesAgendamento" = $19, "antecedenciaLembrete" = $20, 
-               "infinitePayHandle" = $21, "updatedAt" = NOW()
-           WHERE id = $22
+               "infinitePayHandle" = $21,
+               "pagBankAtivo" = $22, "pagBankEnv" = $23, "pagBankToken" = $24, "pagBankWebhookToken" = $25,
+               "updatedAt" = NOW()
+           WHERE id = $26
            RETURNING id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
                      "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
                      "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
                      "enviarLembretesAgendamento", "antecedenciaLembrete",
                      "infinitePayHandle",
+                     "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
                      "createdAt", "updatedAt"`,
           [
             nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlFinal, 
@@ -411,6 +432,10 @@ export async function PUT(
             gzappyApiKeyFinal, gzappyInstanceIdFinal, gzappyAtivoFinal,
             enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
             infinitePayHandleFinal,
+            pagBankAtivoFinal,
+            pagBankEnvFinal,
+            pagBankTokenFinal,
+            pagBankWebhookTokenFinal,
             id
           ]
         );
@@ -448,6 +473,10 @@ export async function PUT(
               enviarLembretesAgendamento: isOrganizer ? (enviarLembretesAgendamento ?? false) : false,
               antecedenciaLembrete: isOrganizer ? (antecedenciaLembrete || null) : 8,
               infinitePayHandle: null,
+              pagBankAtivo: false,
+              pagBankEnv: null,
+              pagBankToken: null,
+              pagBankWebhookToken: null,
             };
           }
         } catch (error2: any) {
@@ -481,6 +510,10 @@ export async function PUT(
                 enviarLembretesAgendamento: isOrganizer ? (enviarLembretesAgendamento ?? false) : false,
                 antecedenciaLembrete: isOrganizer ? (antecedenciaLembrete || null) : 8,
                 infinitePayHandle: null,
+                pagBankAtivo: false,
+                pagBankEnv: null,
+                pagBankToken: null,
+                pagBankWebhookToken: null,
               };
             }
           } else {
@@ -567,4 +600,3 @@ export async function OPTIONS(request: NextRequest) {
   console.log('[CORS] Headers retornados:', Object.fromEntries(response.headers.entries()));
   return response;
 }
-

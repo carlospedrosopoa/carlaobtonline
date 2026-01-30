@@ -26,6 +26,11 @@ export interface Point {
   antecedenciaLembrete?: number | null;
   // Configurações Infinite Pay
   infinitePayHandle?: string | null;
+  // Configurações PagBank (por arena)
+  pagBankAtivo?: boolean;
+  pagBankEnv?: string | null;
+  pagBankToken?: string | null;
+  pagBankWebhookToken?: string | null;
   // Template de Card de Jogos
   cardTemplateUrl?: string | null;
   assinante?: boolean; // Flag de assinante (apenas ADMIN pode alterar)
@@ -169,6 +174,11 @@ export interface CriarPointPayload {
   antecedenciaLembrete?: number | null;
   // Configurações Infinite Pay (opcionais)
   infinitePayHandle?: string | null;
+  // Configurações PagBank (opcionais)
+  pagBankAtivo?: boolean;
+  pagBankEnv?: string | null;
+  pagBankToken?: string | null;
+  pagBankWebhookToken?: string | null;
   // Template de Card de Jogos (opcional)
   cardTemplateUrl?: string | null;
 }
@@ -290,5 +300,4 @@ export interface AtualizarBloqueioAgendaPayload {
   horaFim?: string | null;
   ativo?: boolean;
 }
-
 

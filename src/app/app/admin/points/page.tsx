@@ -37,6 +37,10 @@ export default function AdminPointsPage() {
     enviarLembretesAgendamento: false,
     antecedenciaLembrete: 8,
     infinitePayHandle: null,
+    pagBankAtivo: false,
+    pagBankEnv: 'sandbox',
+    pagBankToken: null,
+    pagBankWebhookToken: null,
     cardTemplateUrl: null,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -46,6 +50,8 @@ export default function AdminPointsPage() {
   const [erro, setErro] = useState('');
   const [mostrarTokenWhatsApp, setMostrarTokenWhatsApp] = useState(false);
   const [mostrarApiKeyGzappy, setMostrarApiKeyGzappy] = useState(false);
+  const [mostrarTokenPagBank, setMostrarTokenPagBank] = useState(false);
+  const [mostrarWebhookTokenPagBank, setMostrarWebhookTokenPagBank] = useState(false);
 
   useEffect(() => {
     carregarPoints();
@@ -110,6 +116,10 @@ export default function AdminPointsPage() {
         enviarLembretesAgendamento: point.enviarLembretesAgendamento ?? false,
         antecedenciaLembrete: point.antecedenciaLembrete ?? 8,
         infinitePayHandle: point.infinitePayHandle || null,
+        pagBankAtivo: point.pagBankAtivo ?? false,
+        pagBankEnv: point.pagBankEnv || 'sandbox',
+        pagBankToken: point.pagBankToken || null,
+        pagBankWebhookToken: point.pagBankWebhookToken || null,
         cardTemplateUrl: point.cardTemplateUrl || null,
       });
       setLogoPreview(point.logoUrl || null);
@@ -137,6 +147,10 @@ export default function AdminPointsPage() {
         enviarLembretesAgendamento: false,
         antecedenciaLembrete: 8,
         infinitePayHandle: null,
+        pagBankAtivo: false,
+        pagBankEnv: 'sandbox',
+        pagBankToken: null,
+        pagBankWebhookToken: null,
         cardTemplateUrl: null,
       });
       setLogoPreview(null);
@@ -152,6 +166,9 @@ export default function AdminPointsPage() {
     setErro('');
     setLogoPreview(null);
     setMostrarTokenWhatsApp(false);
+    setMostrarApiKeyGzappy(false);
+    setMostrarTokenPagBank(false);
+    setMostrarWebhookTokenPagBank(false);
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -266,6 +283,17 @@ export default function AdminPointsPage() {
       }
       if (!form.gzappyInstanceId || !form.gzappyInstanceId.trim()) {
         setErro('Instance ID é obrigatório quando o Gzappy está ativo');
+        return;
+      }
+    }
+
+    if (form.pagBankAtivo) {
+      if (!form.pagBankToken || !form.pagBankToken.trim()) {
+        setErro('Token é obrigatório quando o PagBank está ativo');
+        return;
+      }
+      if (!form.pagBankEnv || !form.pagBankEnv.trim()) {
+        setErro('Ambiente é obrigatório quando o PagBank está ativo');
         return;
       }
     }
@@ -901,38 +929,122 @@ export default function AdminPointsPage() {
                 </div>
               </div>
 
-              {/* Seção Infinite Pay */}
               <div className="border-t border-gray-200 pt-6 mt-6">
                 <div className="flex items-center gap-2 mb-4">
                   <CreditCard className="w-5 h-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Infinite Pay</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Pagamentos online</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-4">
-                  Configure o handle da sua conta Infinite Pay para permitir que atletas paguem cards de consumo via Infinite Pay.
+                  Configure as credenciais de pagamento por arena para permitir que atletas paguem cards de consumo.
                 </p>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Handle Infinite Pay
-                    </label>
-                    <input
-                      type="text"
-                      value={form.infinitePayHandle || ''}
-                      onChange={(e) => setForm({ ...form, infinitePayHandle: e.target.value || null })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                      placeholder="seu-handle-aqui"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      O handle da sua conta Infinite Pay. Este handle será usado para processar pagamentos de cards de consumo.
-                    </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-900">Infinite Pay</h4>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Handle Infinite Pay
+                      </label>
+                      <input
+                        type="text"
+                        value={form.infinitePayHandle || ''}
+                        onChange={(e) => setForm({ ...form, infinitePayHandle: e.target.value || null })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                        placeholder="seu-handle-aqui"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cada arena pode ter seu próprio handle. Ele será usado no checkout do Infinite Pay.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-800">
-                      <strong>💡 Informação:</strong> Cada arena pode ter sua própria conta Infinite Pay. 
-                      Quando um atleta tentar pagar um card desta arena, o pagamento será processado usando este handle.
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-900">PagBank</h4>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={form.pagBankAtivo ?? false}
+                          onChange={(e) => setForm({ ...form, pagBankAtivo: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Ativo</span>
+                      </label>
+                    </div>
+
+                    <p className="text-xs text-gray-500 mb-3">
+                      As credenciais são por arena. O webhook valida o token configurado aqui.
                     </p>
+
+                    {form.pagBankAtivo && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Ambiente
+                          </label>
+                          <select
+                            value={form.pagBankEnv || 'sandbox'}
+                            onChange={(e) => setForm({ ...form, pagBankEnv: e.target.value })}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          >
+                            <option value="sandbox">Sandbox</option>
+                            <option value="production">Produção</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Token (Bearer)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={mostrarTokenPagBank ? 'text' : 'password'}
+                              value={form.pagBankToken || ''}
+                              onChange={(e) => setForm({ ...form, pagBankToken: e.target.value || null })}
+                              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                              placeholder="Cole aqui o token do PagBank"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setMostrarTokenPagBank(!mostrarTokenPagBank)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                              aria-label={mostrarTokenPagBank ? 'Ocultar token' : 'Mostrar token'}
+                            >
+                              {mostrarTokenPagBank ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Token do webhook (opcional)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={mostrarWebhookTokenPagBank ? 'text' : 'password'}
+                              value={form.pagBankWebhookToken || ''}
+                              onChange={(e) => setForm({ ...form, pagBankWebhookToken: e.target.value || null })}
+                              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                              placeholder="Ex: um token aleatório para validar o webhook"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setMostrarWebhookTokenPagBank(!mostrarWebhookTokenPagBank)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                              aria-label={mostrarWebhookTokenPagBank ? 'Ocultar token' : 'Mostrar token'}
+                            >
+                              {mostrarWebhookTokenPagBank ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Webhook: /api/user/pagamento/pagbank/callback?token=SEU_TOKEN
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

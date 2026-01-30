@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
           "infinitePayHandle",
+          "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           assinante, "createdAt", "updatedAt"
         FROM "Point"
         ${whereClause}
@@ -82,6 +83,10 @@ export async function GET(request: NextRequest) {
           enviarLembretesAgendamento: false,
           antecedenciaLembrete: 8,
           infinitePayHandle: null,
+          pagBankAtivo: false,
+          pagBankEnv: null,
+          pagBankToken: null,
+          pagBankWebhookToken: null,
           assinante: row.assinante ?? false,
         }));
       } else {
@@ -115,7 +120,11 @@ export async function POST(request: NextRequest) {
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
       enviarLembretesAgendamento, antecedenciaLembrete,
-      infinitePayHandle
+      infinitePayHandle,
+      pagBankAtivo,
+      pagBankEnv,
+      pagBankToken,
+      pagBankWebhookToken
     } = body;
 
     if (!nome) {
@@ -190,6 +199,7 @@ export async function POST(request: NextRequest) {
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
           "infinitePayHandle",
+          "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           "createdAt", "updatedAt"
         )
          VALUES (
@@ -198,6 +208,7 @@ export async function POST(request: NextRequest) {
           $16, $17, $18,
           $19, $20,
           $21,
+          $22, $23, $24, $25,
           NOW(), NOW()
          )
          RETURNING 
@@ -206,6 +217,7 @@ export async function POST(request: NextRequest) {
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
           "infinitePayHandle",
+          "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           "createdAt", "updatedAt"`,
         [
           nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
@@ -214,7 +226,11 @@ export async function POST(request: NextRequest) {
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
           gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
           enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
-          infinitePayHandle || null
+          infinitePayHandle || null,
+          pagBankAtivo ?? false,
+          pagBankEnv || null,
+          pagBankToken || null,
+          pagBankWebhookToken || null
         ]
       );
     } catch (error: any) {
@@ -252,6 +268,11 @@ export async function POST(request: NextRequest) {
             gzappyAtivo: false,
             enviarLembretesAgendamento: false,
             antecedenciaLembrete: 8,
+            infinitePayHandle: null,
+            pagBankAtivo: false,
+            pagBankEnv: null,
+            pagBankToken: null,
+            pagBankWebhookToken: null,
           };
         }
       } else {
@@ -275,4 +296,3 @@ export async function POST(request: NextRequest) {
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
-
