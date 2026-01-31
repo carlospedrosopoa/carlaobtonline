@@ -184,7 +184,14 @@ export async function POST(
 
     // Verificar se o card existe
     const cardResult = await query(
-      'SELECT "pointId", status, "valorTotal", "numeroCard", "usuarioId" FROM "CardCliente" WHERE id = $1',
+      `SELECT 
+        c."pointId", c.status, c."valorTotal", c."numeroCard", c."usuarioId",
+        u.email as "usuario_email", u.name as "usuario_name",
+        at.fone as "atleta_fone"
+      FROM "CardCliente" c
+      LEFT JOIN "User" u ON c."usuarioId" = u.id
+      LEFT JOIN "Atleta" at ON at."usuarioId" = u.id
+      WHERE c.id = $1`,
       [cardId]
     );
 
@@ -335,12 +342,59 @@ export async function POST(
       let pagamentoId: string;
 
       if (isContaCorrente) {
-        // Lógica de Débito em Conta Corrente
-        // 1. Buscar ou criar conta corrente
-        let contaResult = await query(
-          'SELECT id, saldo FROM "ContaCorrenteCliente" WHERE "usuarioId" = $1 AND "pointId" = $2 LIMIT 1',
-          [card.usuarioId, card.pointId]
-        );
+        let contaCorrenteUsuarioId = card.usuarioId as string;
+
+        const email = (card.usuario_email as string | null) || null;
+        const nome = (card.usuario_name as string | null) || null;
+        const atletaFone = (card.atleta_fone as string | null) || null;
+
+        const emailTemp = !!email && email.startsWith('temp_') && email.endsWith('@pendente.local');
+
+        const buscarConta = async (usuarioId: string) => {
+          return await query(
+            'SELECT id, saldo FROM "ContaCorrenteCliente" WHERE "usuarioId" = $1 AND "pointId" = $2 LIMIT 1',
+            [usuarioId, card.pointId]
+          );
+        };
+
+        let contaResult = await buscarConta(contaCorrenteUsuarioId);
+
+        if (contaResult.rows.length === 0 && emailTemp) {
+          let resolvedUserId: string | null = null;
+
+          if (atletaFone) {
+            const r = await query(
+              `SELECT u2.id
+               FROM "Atleta" a2
+               INNER JOIN "User" u2 ON a2."usuarioId" = u2.id
+               WHERE REGEXP_REPLACE(a2.fone, '[^0-9]', '', 'g') = REGEXP_REPLACE($1, '[^0-9]', '', 'g')
+                 AND u2.email NOT LIKE 'temp_%@pendente.local'
+               ORDER BY a2."createdAt" DESC
+               LIMIT 1`,
+              [atletaFone]
+            );
+            resolvedUserId = (r.rows[0]?.id as string | undefined) || null;
+          }
+
+          if (!resolvedUserId && nome) {
+            const r = await query(
+              `SELECT a3."usuarioId" as id
+               FROM "Atleta" a3
+               WHERE a3."pointIdPrincipal" = $1
+                 AND a3."usuarioId" IS NOT NULL
+                 AND a3.nome ILIKE $2
+               ORDER BY a3."createdAt" DESC
+               LIMIT 1`,
+              [card.pointId, nome]
+            );
+            resolvedUserId = (r.rows[0]?.id as string | undefined) || null;
+          }
+
+          if (resolvedUserId) {
+            contaCorrenteUsuarioId = resolvedUserId;
+            contaResult = await buscarConta(contaCorrenteUsuarioId);
+          }
+        }
 
         let contaCorrenteId;
         let saldoAtual = 0;
@@ -349,7 +403,7 @@ export async function POST(
           // Criar conta corrente
           const novaConta = await query(
             'INSERT INTO "ContaCorrenteCliente" ("id", "usuarioId", "pointId", "saldo", "createdAt", "updatedAt") VALUES (gen_random_uuid(), $1, $2, 0, NOW(), NOW()) RETURNING id, saldo',
-            [card.usuarioId, card.pointId]
+            [contaCorrenteUsuarioId, card.pointId]
           );
           contaCorrenteId = novaConta.rows[0].id;
           saldoAtual = 0;
@@ -444,4 +498,3 @@ export async function POST(
     return withCors(errorResponse, request);
   }
 }
-
