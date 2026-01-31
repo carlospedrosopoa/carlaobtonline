@@ -60,9 +60,12 @@ async function apiRequest(
     headers['Authorization'] = `Bearer ${accessToken}`;
   } else if (typeof window !== 'undefined') {
     // Tenta recuperar do localStorage se não estiver em memória
-    const storedToken = localStorage.getItem('accessToken');
+    const storedToken = localStorage.getItem('accessToken') || localStorage.getItem('token');
     if (storedToken) {
       accessToken = storedToken;
+      if (!localStorage.getItem('accessToken')) {
+        localStorage.setItem('accessToken', storedToken);
+      }
       headers['Authorization'] = `Bearer ${storedToken}`;
     }
   }
