@@ -133,8 +133,20 @@ export async function requireAuth(request: NextRequest): Promise<{ user: User } 
   const user = await verifyAuth(request);
   
   if (!user) {
+    const authHeader = request.headers.get("authorization") || "";
+    let detalhe: string | null = null;
+    if (!authHeader) {
+      detalhe = "header Authorization ausente";
+    } else if (authHeader.startsWith("Bearer ")) {
+      detalhe = "token inválido ou expirado";
+    } else if (authHeader.startsWith("Basic ")) {
+      detalhe = "credenciais inválidas";
+    } else {
+      detalhe = "esquema de autenticação inválido";
+    }
+
     return NextResponse.json(
-      { mensagem: "Não autorizado" },
+      { mensagem: "Não autorizado", detalhe },
       { 
         status: 401,
         headers: {
