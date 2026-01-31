@@ -87,29 +87,13 @@ export async function GET(request: NextRequest) {
 
     // Filtro de data: lógica diferente para atletas (USER com apenasMeus) vs outros
     if (apenasMeus && usuario.role === 'USER' && !dataInicio && !dataFim) {
-      // Para atletas: por padrão mostrar apenas próximos 10 dias (hoje até hoje+10 dias)
-      // Só incluir passados se incluirPassados=true (sem limite superior quando incluir passados)
       const hoje = new Date();
       hoje.setUTCHours(0, 0, 0, 0);
-      
-      if (incluirPassados) {
-        // Se pediu passados, mostrar todos (incluindo passados, sem limite de data fim)
-        // Não aplicar filtro de data mínima, apenas máximo de 10 dias no futuro
-        const dataFimLimite = new Date(hoje);
-        dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
-        dataFimLimite.setUTCHours(23, 59, 59, 999);
-        sql += ` AND a."dataHora" <= $${paramCount}`;
-        params.push(dataFimLimite.toISOString());
-        paramCount++;
-      } else {
-        // Por padrão: apenas próximos 10 dias (hoje até hoje+10 dias, sem passados)
-        const dataFimLimite = new Date(hoje);
-        dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
-        dataFimLimite.setUTCHours(23, 59, 59, 999);
-        sql += ` AND a."dataHora" >= $${paramCount} AND a."dataHora" <= $${paramCount + 1}`;
+
+      if (!incluirPassados) {
+        sql += ` AND a."dataHora" >= $${paramCount}`;
         params.push(hoje.toISOString());
-        params.push(dataFimLimite.toISOString());
-        paramCount += 2;
+        paramCount++;
       }
     } else if (!incluirPassados && !dataInicio) {
       // Para ADMIN/ORGANIZER ou quando não for apenasMeus: comportamento padrão (hoje em diante)
@@ -125,9 +109,7 @@ export async function GET(request: NextRequest) {
       paramCount++;
     }
 
-    // dataFim só é aplicado se não aplicamos o limite de 10 dias acima
-    // (ou seja, se dataFim foi passado explicitamente ou se não for atleta com apenasMeus)
-    if (dataFim && !(apenasMeus && usuario.role === 'USER' && !dataInicio && !incluirPassados)) {
+    if (dataFim) {
       // dataFim vem como ISO string UTC (ex: "2024-01-15T23:59:59.999Z")
       // Usar diretamente como UTC para comparação no banco
       sql += ` AND a."dataHora" <= $${paramCount}`;
@@ -243,29 +225,13 @@ export async function GET(request: NextRequest) {
         }
         // Filtro de data: lógica diferente para atletas (USER com apenasMeus) vs outros
         if (apenasMeus && usuario.role === 'USER' && !dataInicio && !dataFim) {
-          // Para atletas: por padrão mostrar apenas próximos 10 dias (hoje até hoje+10 dias)
-          // Só incluir passados se incluirPassados=true (sem limite superior quando incluir passados)
           const hoje = new Date();
           hoje.setUTCHours(0, 0, 0, 0);
-          
-          if (incluirPassados) {
-            // Se pediu passados, mostrar todos (incluindo passados, sem limite de data fim)
-            // Não aplicar filtro de data mínima, apenas máximo de 10 dias no futuro
-            const dataFimLimite = new Date(hoje);
-            dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
-            dataFimLimite.setUTCHours(23, 59, 59, 999);
-            sql += ` AND a."dataHora" <= $${paramCount}`;
-            paramsFallback.push(dataFimLimite.toISOString());
-            paramCount++;
-          } else {
-            // Por padrão: apenas próximos 10 dias (hoje até hoje+10 dias, sem passados)
-            const dataFimLimite = new Date(hoje);
-            dataFimLimite.setUTCDate(dataFimLimite.getUTCDate() + 10);
-            dataFimLimite.setUTCHours(23, 59, 59, 999);
-            sql += ` AND a."dataHora" >= $${paramCount} AND a."dataHora" <= $${paramCount + 1}`;
+
+          if (!incluirPassados) {
+            sql += ` AND a."dataHora" >= $${paramCount}`;
             paramsFallback.push(hoje.toISOString());
-            paramsFallback.push(dataFimLimite.toISOString());
-            paramCount += 2;
+            paramCount++;
           }
         } else if (!incluirPassados && !dataInicio) {
           // Para ADMIN/ORGANIZER ou quando não for apenasMeus: comportamento padrão (hoje em diante)
@@ -280,10 +246,8 @@ export async function GET(request: NextRequest) {
           paramsFallback.push(dataInicio);
           paramCount++;
         }
-        
-        // dataFim só é aplicado se não aplicamos o limite de 10 dias acima
-        // (ou seja, se dataFim foi passado explicitamente ou se não for atleta com apenasMeus)
-        if (dataFim && !(apenasMeus && usuario.role === 'USER' && !dataInicio && !incluirPassados)) {
+
+        if (dataFim) {
           // dataFim vem como ISO string UTC
           sql += ` AND a."dataHora" <= $${paramCount}`;
           paramsFallback.push(dataFim);
