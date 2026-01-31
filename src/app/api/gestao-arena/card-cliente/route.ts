@@ -46,7 +46,17 @@ export async function GET(request: NextRequest) {
     FROM "CardCliente" c
     LEFT JOIN "User" u ON c."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
-    LEFT JOIN "ContaCorrenteCliente" cc ON c."usuarioId" = cc."usuarioId" AND c."pointId" = cc."pointId"
+    LEFT JOIN LATERAL (
+      SELECT u2.id, u2.name, u2.email
+      FROM "Atleta" a2
+      INNER JOIN "User" u2 ON a2."usuarioId" = u2.id
+      WHERE u.email LIKE 'temp_%@pendente.local'
+        AND at.fone IS NOT NULL
+        AND REGEXP_REPLACE(a2.fone, '[^0-9]', '', 'g') = REGEXP_REPLACE(at.fone, '[^0-9]', '', 'g')
+        AND u2.email NOT LIKE 'temp_%@pendente.local'
+      LIMIT 1
+    ) ur ON TRUE
+    LEFT JOIN "ContaCorrenteCliente" cc ON cc."usuarioId" = COALESCE(ur.id, c."usuarioId") AND cc."pointId" = c."pointId"
     LEFT JOIN "User" uc ON c."createdById" = uc.id
     LEFT JOIN "User" uu ON c."updatedById" = uu.id
     LEFT JOIN (
