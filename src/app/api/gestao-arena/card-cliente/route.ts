@@ -39,13 +39,14 @@ export async function GET(request: NextRequest) {
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
       NULL as "usuario_whatsapp",
       at.fone as "atleta_fone",
-      cc.saldo as "saldo_conta_corrente",
+      COALESCE(cc_temp.saldo, cc_resolved.saldo) as "saldo_conta_corrente",
       uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
       uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email",
       COALESCE(pag_agg.total_pago, 0) as "totalPago"
     FROM "CardCliente" c
     LEFT JOIN "User" u ON c."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
+    LEFT JOIN "ContaCorrenteCliente" cc_temp ON c."usuarioId" = cc_temp."usuarioId" AND c."pointId" = cc_temp."pointId"
     LEFT JOIN LATERAL (
       SELECT u2.id, u2.name, u2.email
       FROM "Atleta" a2
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
         AND u2.email NOT LIKE 'temp_%@pendente.local'
       LIMIT 1
     ) ur ON TRUE
-    LEFT JOIN "ContaCorrenteCliente" cc ON cc."usuarioId" = COALESCE(ur.id, c."usuarioId") AND cc."pointId" = c."pointId"
+    LEFT JOIN "ContaCorrenteCliente" cc_resolved ON ur.id = cc_resolved."usuarioId" AND c."pointId" = cc_resolved."pointId"
     LEFT JOIN "User" uc ON c."createdById" = uc.id
     LEFT JOIN "User" uu ON c."updatedById" = uu.id
     LEFT JOIN (
