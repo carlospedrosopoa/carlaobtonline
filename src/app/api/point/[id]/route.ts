@@ -21,6 +21,7 @@ export async function GET(
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "pagamentoOnlineAtivo",
           "infinitePayHandle",
           "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           assinante, "createdAt", "updatedAt"
@@ -78,6 +79,7 @@ export async function GET(
             pagBankEnv: null,
             pagBankToken: null,
             pagBankWebhookToken: null,
+            pagamentoOnlineAtivo: false,
             assinante: result.rows[0].assinante ?? false,
           };
         }
@@ -161,7 +163,8 @@ export async function PUT(
       pagBankAtivo,
       pagBankEnv,
       pagBankToken,
-      pagBankWebhookToken
+      pagBankWebhookToken,
+      pagamentoOnlineAtivo
     } = body;
 
     // ORGANIZER não pode alterar campos administrativos
@@ -531,6 +534,25 @@ export async function PUT(
         { status: 404 }
       );
       return withCors(errorResponse, request);
+    }
+
+    if (typeof pagamentoOnlineAtivo === 'boolean') {
+      try {
+        const r = await query(
+          `UPDATE "Point"
+           SET "pagamentoOnlineAtivo" = $1, "updatedAt" = NOW()
+           WHERE id = $2
+           RETURNING "pagamentoOnlineAtivo"`,
+          [pagamentoOnlineAtivo, id]
+        );
+        if (r.rows.length > 0) {
+          result.rows[0].pagamentoOnlineAtivo = r.rows[0].pagamentoOnlineAtivo === true;
+        }
+      } catch (e: any) {
+        if (e?.code !== '42703') {
+          throw e;
+        }
+      }
     }
 
     const response = NextResponse.json(result.rows[0]);
