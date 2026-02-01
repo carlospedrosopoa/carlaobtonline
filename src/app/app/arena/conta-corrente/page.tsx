@@ -49,20 +49,20 @@ export default function ContaCorrentePage() {
     return historicoAtletaArenaService.buscarAtletas(pointId, termo);
   };
 
-  const carregarDados = async () => {
-    if (!pointId || !atletaSelecionado) return;
+  const carregarDadosParaAtleta = async (atleta: AtletaHistoricoArena) => {
+    if (!pointId) return;
 
     try {
       setCarregando(true);
       setErro('');
-      
+
       const dados = await historicoAtletaArenaService.obterContaCorrente(
         pointId,
-        atletaSelecionado.id,
+        atleta.id,
         dataDe ? `${dataDe}T00:00:00` : undefined,
         dataAte ? `${dataAte}T23:59:59` : undefined
       );
-      
+
       setContaCorrente(dados);
     } catch (err: any) {
       console.error('Erro ao carregar conta corrente:', err);
@@ -70,6 +70,11 @@ export default function ContaCorrentePage() {
     } finally {
       setCarregando(false);
     }
+  };
+
+  const carregarDados = async () => {
+    if (!pointId || !atletaSelecionado) return;
+    await carregarDadosParaAtleta(atletaSelecionado);
   };
 
   const handleLancamento = async (e: React.FormEvent) => {
@@ -130,7 +135,8 @@ export default function ContaCorrentePage() {
         onSelecionarAtleta={(atleta) => {
           setAtletaSelecionado(atleta);
           // Limpa dados anteriores ao trocar de atleta
-          setContaCorrente(null); 
+          setContaCorrente(null);
+          carregarDadosParaAtleta(atleta);
         }}
         buscarAtletas={buscarAtletas}
         dataDe={dataDe}
