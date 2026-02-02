@@ -29,16 +29,58 @@ export interface HubCreatePaymentResponse {
   links?: Array<{ rel: string; href: string }>;
 }
 
+function maskEmail(email: string) {
+  const at = email.indexOf('@');
+  if (at <= 1) return '***';
+  return `${email.slice(0, 2)}***${email.slice(at)}`;
+}
+
+function maskTaxId(taxId: string) {
+  const digits = taxId.replace(/\D/g, '');
+  if (digits.length <= 4) return '***';
+  return `***${digits.slice(-4)}`;
+}
+
+function sanitizeCreatePayload(payload: HubCreatePaymentRequest) {
+  return {
+    ...payload,
+    customer_email: maskEmail(payload.customer_email),
+    customer_tax_id: payload.customer_tax_id ? maskTaxId(payload.customer_tax_id) : undefined,
+    card_encrypted: payload.card_encrypted ? '[REDACTED]' : undefined,
+  };
+}
+
 function getHubConfig() {
   const baseUrlRaw = process.env.HUB_PAYMENTS_BASE_URL || '';
   const apiKey = process.env.HUB_PAYMENTS_API_KEY || '';
+  const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
 
-  const baseUrl = baseUrlRaw.trim().replace(/\/+$/, '');
+  let baseUrl = baseUrlRaw.trim().replace(/\/+$/, '');
+  if (baseUrl.toLowerCase().endsWith('/api')) {
+    baseUrl = baseUrl.slice(0, -4);
+  }
   if (!baseUrl) {
+    if (debug) {
+      console.error('[HubPayments] HUB_PAYMENTS_BASE_URL ausente', {
+        baseUrlRawLength: baseUrlRaw.length,
+      });
+    }
     throw new Error('HUB_PAYMENTS_BASE_URL não configurada');
   }
   if (!apiKey) {
+    if (debug) {
+      console.error('[HubPayments] HUB_PAYMENTS_API_KEY ausente');
+    }
     throw new Error('HUB_PAYMENTS_API_KEY não configurada');
+  }
+
+  if (debug) {
+    console.log('[HubPayments] Config', {
+      baseUrl,
+      baseUrlRaw,
+      apiKeyConfigured: apiKey.length > 0,
+      apiKeyLength: apiKey.length,
+    });
   }
 
   return { baseUrl, apiKey };
@@ -57,9 +99,22 @@ async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs: num
 
 export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promise<HubCreatePaymentResponse> {
   const { baseUrl, apiKey } = getHubConfig();
+  const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
+  const url = `${baseUrl}/api/payments/create`;
+
+  if (debug) {
+    console.log('[HubPayments] Request', {
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+      },
+      payload: sanitizeCreatePayload(payload),
+    });
+  }
 
   const res = await fetchWithTimeout(
-    `${baseUrl}/api/payments/create`,
+    url,
     {
       method: 'POST',
       headers: {
@@ -72,6 +127,13 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
   );
 
   const text = await res.text();
+  if (debug) {
+    console.log('[HubPayments] Response', {
+      status: res.status,
+      ok: res.ok,
+      bodyPreview: text?.slice(0, 800) || '',
+    });
+  }
   let json: any = null;
   try {
     json = text ? JSON.parse(text) : null;
@@ -88,4 +150,3 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
 
   return json as HubCreatePaymentResponse;
 }
-
