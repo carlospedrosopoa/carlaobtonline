@@ -2,6 +2,8 @@
 
 Este documento descreve como consumir o fluxo de pagamento **PagBank** no frontend do atleta para quitar um **CardCliente** (consumo).
 
+> Este fluxo foi substituído pelo Hub Pagamentos BT. Veja: `docs/pagamentos-online-hub-frontend.md`.
+
 ## Visão geral do fluxo
 
 1. Front lista os cards do usuário logado.
@@ -177,4 +179,3 @@ O webhook é chamado pelo PagBank (não pelo frontend):
 `POST /api/user/pagamento/pagbank/callback?token=...`
 
 O token do webhook pode ser configurado por arena (Point). O frontend não precisa conhecer nenhum token.
-

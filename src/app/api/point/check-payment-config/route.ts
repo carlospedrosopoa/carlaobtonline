@@ -24,21 +24,38 @@ export async function GET(request: NextRequest) {
     }
 
     const uniqueIds = Array.from(new Set(ids)).slice(0, 200);
-    const configs: Record<string, { pagBank: boolean; infinitePay: boolean }> = {};
+    const configs: Record<
+      string,
+      { onlinePayments: boolean; pagBank: boolean; infinitePay: boolean }
+    > = {};
 
     for (const id of uniqueIds) {
-      configs[id] = { pagBank: false, infinitePay: false };
+      configs[id] = { onlinePayments: false, pagBank: false, infinitePay: false };
     }
 
-    const result = await query(
-      `SELECT id, "pagBankAtivo", "infinitePayHandle"
-       FROM "Point"
-       WHERE id = ANY($1::text[])`,
-      [uniqueIds]
-    );
+    let result;
+    try {
+      result = await query(
+        `SELECT id, "pagamentoOnlineAtivo", "pagBankAtivo", "infinitePayHandle"
+         FROM "Point"
+         WHERE id = ANY($1::text[])`,
+        [uniqueIds]
+      );
+    } catch (e: any) {
+      if (e?.code !== '42703') {
+        throw e;
+      }
+      result = await query(
+        `SELECT id, "pagBankAtivo", "infinitePayHandle"
+         FROM "Point"
+         WHERE id = ANY($1::text[])`,
+        [uniqueIds]
+      );
+    }
 
     for (const row of result.rows) {
       configs[row.id] = {
+        onlinePayments: row.pagamentoOnlineAtivo === true,
         pagBank: row.pagBankAtivo === true,
         infinitePay: typeof row.infinitePayHandle === 'string' && row.infinitePayHandle.trim().length > 0,
       };
@@ -55,4 +72,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "pagamentoOnlineAtivo",
           "infinitePayHandle",
           "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           assinante, "createdAt", "updatedAt"
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
           gzappyAtivo: false,
           enviarLembretesAgendamento: false,
           antecedenciaLembrete: 8,
+          pagamentoOnlineAtivo: row.pagamentoOnlineAtivo ?? false,
           infinitePayHandle: null,
           pagBankAtivo: false,
           pagBankEnv: null,
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
       enviarLembretesAgendamento, antecedenciaLembrete,
+      pagamentoOnlineAtivo,
       infinitePayHandle,
       pagBankAtivo,
       pagBankEnv,
@@ -198,6 +201,7 @@ export async function POST(request: NextRequest) {
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "pagamentoOnlineAtivo",
           "infinitePayHandle",
           "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           "createdAt", "updatedAt"
@@ -208,7 +212,8 @@ export async function POST(request: NextRequest) {
           $16, $17, $18,
           $19, $20,
           $21,
-          $22, $23, $24, $25,
+          $22,
+          $23, $24, $25, $26,
           NOW(), NOW()
          )
          RETURNING 
@@ -216,6 +221,7 @@ export async function POST(request: NextRequest) {
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
+          "pagamentoOnlineAtivo",
           "infinitePayHandle",
           "pagBankAtivo", "pagBankEnv", "pagBankToken", "pagBankWebhookToken",
           "createdAt", "updatedAt"`,
@@ -226,6 +232,7 @@ export async function POST(request: NextRequest) {
           whatsappApiVersion || 'v21.0', whatsappAtivo ?? false,
           gzappyApiKey || null, gzappyInstanceId || null, gzappyAtivo ?? false,
           enviarLembretesAgendamento ?? false, antecedenciaLembrete || null,
+          pagamentoOnlineAtivo ?? false,
           infinitePayHandle || null,
           pagBankAtivo ?? false,
           pagBankEnv || null,
@@ -237,23 +244,50 @@ export async function POST(request: NextRequest) {
       // Se falhar (colunas WhatsApp/Gzappy não existem), tentar sem elas
       if (error.message?.includes('whatsapp') || error.message?.includes('gzappy') || error.message?.includes('column') || error.code === '42703') {
         console.log('⚠️ Campos WhatsApp/Gzappy não encontrados, criando sem eles');
-        result = await query(
-          `INSERT INTO "Point" (
-            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-            "createdAt", "updatedAt"
-          )
-           VALUES (
-            gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            NOW(), NOW()
-           )
-           RETURNING 
-            id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
-            "createdAt", "updatedAt"`,
-          [
-            nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada, 
-            cardTemplateUrlProcessada, latitude || null, longitude || null, ativo
-          ]
-        );
+        try {
+          result = await query(
+            `INSERT INTO "Point" (
+              id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+              "pagamentoOnlineAtivo",
+              "createdAt", "updatedAt"
+            )
+             VALUES (
+              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+              $11,
+              NOW(), NOW()
+             )
+             RETURNING 
+              id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+              "pagamentoOnlineAtivo",
+              "createdAt", "updatedAt"`,
+            [
+              nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada,
+              cardTemplateUrlProcessada, latitude || null, longitude || null, ativo,
+              pagamentoOnlineAtivo ?? false,
+            ]
+          );
+        } catch (error3: any) {
+          if (error3?.code !== '42703') {
+            throw error3;
+          }
+          result = await query(
+            `INSERT INTO "Point" (
+              id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+              "createdAt", "updatedAt"
+            )
+             VALUES (
+              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+              NOW(), NOW()
+             )
+             RETURNING 
+              id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+              "createdAt", "updatedAt"`,
+            [
+              nome, endereco || null, telefone || null, email || null, descricao || null, logoUrlProcessada,
+              cardTemplateUrlProcessada, latitude || null, longitude || null, ativo,
+            ]
+          );
+        }
         // Adicionar campos WhatsApp, Gzappy e Lembretes como null para compatibilidade
         if (result.rows.length > 0) {
           result.rows[0] = {
@@ -268,6 +302,7 @@ export async function POST(request: NextRequest) {
             gzappyAtivo: false,
             enviarLembretesAgendamento: false,
             antecedenciaLembrete: 8,
+            pagamentoOnlineAtivo: result.rows[0].pagamentoOnlineAtivo ?? (pagamentoOnlineAtivo ?? false),
             infinitePayHandle: null,
             pagBankAtivo: false,
             pagBankEnv: null,

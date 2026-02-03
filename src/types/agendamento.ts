@@ -24,6 +24,8 @@ export interface Point {
   // Configurações de Lembretes de Agendamento
   enviarLembretesAgendamento?: boolean;
   antecedenciaLembrete?: number | null;
+  // Pagamento online
+  pagamentoOnlineAtivo?: boolean;
   // Configurações Infinite Pay
   infinitePayHandle?: string | null;
   // Configurações PagBank (por arena)
@@ -172,6 +174,8 @@ export interface CriarPointPayload {
   // Configurações de Lembretes de Agendamento (opcionais)
   enviarLembretesAgendamento?: boolean;
   antecedenciaLembrete?: number | null;
+  // Pagamento online (opcional)
+  pagamentoOnlineAtivo?: boolean;
   // Configurações Infinite Pay (opcionais)
   infinitePayHandle?: string | null;
   // Configurações PagBank (opcionais)
@@ -300,4 +304,3 @@ export interface AtualizarBloqueioAgendaPayload {
   horaFim?: string | null;
   ativo?: boolean;
 }
-

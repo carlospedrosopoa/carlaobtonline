@@ -8,13 +8,21 @@ import { verificarAtletaUsuario } from '@/lib/atletaService';
 // POST /api/user/pagamento/infinite-pay/checkout - Criar checkout Infinite Pay
 export async function POST(request: NextRequest) {
   try {
+    const deprecatedResponse = NextResponse.json(
+      {
+        mensagem: 'Endpoint descontinuado. Use /api/user/pagamento/online/checkout (Hub Pagamentos BT).',
+      },
+      { status: 410 }
+    );
+    return withCors(deprecatedResponse, request);
+
     const authResult = await requireAuth(request);
     
-    if (authResult instanceof NextResponse) {
-      return withCors(authResult, request);
+    if (!('user' in authResult)) {
+      return withCors(authResult as NextResponse, request);
     }
 
-    const { user } = authResult;
+    const { user } = authResult as { user: any };
     const body = await request.json();
     const { cardId, valor, orderId, descricao, parcelas, cpf } = body;
 
@@ -309,4 +317,3 @@ export async function POST(request: NextRequest) {
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
-
