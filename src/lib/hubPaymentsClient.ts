@@ -29,6 +29,19 @@ export interface HubCreatePaymentResponse {
   links?: Array<{ rel: string; href: string }>;
 }
 
+export interface HubGetStatusResponse {
+  transaction_id: string;
+  pagbank_order_id?: string | null;
+  status: string;
+  pagbank_status?: string | null;
+  source?: 'PAGBANK' | 'DB';
+}
+
+export interface HubPublicKeyResponse {
+  public_key: string;
+  created_at?: number | null;
+}
+
 function maskEmail(email: string) {
   const at = email.indexOf('@');
   if (at <= 1) return '***';
@@ -149,4 +162,110 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
   }
 
   return json as HubCreatePaymentResponse;
+}
+
+export async function hubGetPaymentStatus(transactionId: string): Promise<HubGetStatusResponse> {
+  const { baseUrl, apiKey } = getHubConfig();
+  const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
+  const url = `${baseUrl}/api/payments/status?transaction_id=${encodeURIComponent(transactionId)}`;
+
+  if (debug) {
+    console.log('[HubPayments] Request', {
+      url,
+      headers: {
+        'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+      },
+    });
+  }
+
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: 'GET',
+      headers: {
+        'x-api-key': apiKey,
+      },
+    },
+    15_000
+  );
+
+  const text = await res.text();
+  if (debug) {
+    console.log('[HubPayments] Response', {
+      status: res.status,
+      ok: res.ok,
+      bodyPreview: text?.slice(0, 800) || '',
+    });
+  }
+
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      (json && (json.mensagem || json.message || json.error)) ||
+      `Erro no Hub de Pagamentos (HTTP ${res.status})`;
+    throw new Error(typeof msg === 'string' ? msg : `Erro no Hub de Pagamentos (HTTP ${res.status})`);
+  }
+
+  return json as HubGetStatusResponse;
+}
+
+export async function hubGetPublicKey(): Promise<HubPublicKeyResponse> {
+  const { baseUrl, apiKey } = getHubConfig();
+  const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
+  const url = `${baseUrl}/api/payments/public-key`;
+
+  if (debug) {
+    console.log('[HubPayments] Request', {
+      url,
+      headers: {
+        'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+      },
+    });
+  }
+
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: 'GET',
+      headers: {
+        'x-api-key': apiKey,
+      },
+    },
+    15_000
+  );
+
+  const text = await res.text();
+  if (debug) {
+    console.log('[HubPayments] Response', {
+      status: res.status,
+      ok: res.ok,
+      bodyPreview: text?.slice(0, 800) || '',
+    });
+  }
+
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      (json && (json.mensagem || json.message || json.error)) ||
+      `Erro no Hub de Pagamentos (HTTP ${res.status})`;
+    throw new Error(typeof msg === 'string' ? msg : `Erro no Hub de Pagamentos (HTTP ${res.status})`);
+  }
+
+  if (!json?.public_key || typeof json.public_key !== 'string') {
+    throw new Error('Chave pública inválida retornada pelo hub');
+  }
+
+  return json as HubPublicKeyResponse;
 }

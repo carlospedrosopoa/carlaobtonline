@@ -5,6 +5,35 @@ import { query } from '@/lib/db';
 import { verificarAtletaUsuario } from '@/lib/atletaService';
 import { hubCreatePayment, type HubPaymentMethod } from '@/lib/hubPaymentsClient';
 
+async function ensurePagamentoHubTable() {
+  await query(
+    `CREATE TABLE IF NOT EXISTS "PagamentoHub" (
+      "transactionId" TEXT PRIMARY KEY,
+      "projectName" TEXT NOT NULL,
+      "orderId" TEXT NOT NULL,
+      "paymentMethod" TEXT NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'PENDING',
+      "amount" INTEGER NOT NULL,
+      "valor" NUMERIC(12,2) NOT NULL,
+      "pagbankOrderId" TEXT NULL,
+      "cardId" TEXT NOT NULL,
+      "pointId" TEXT NOT NULL,
+      "usuarioId" TEXT NOT NULL,
+      "pagamentoCardId" TEXT NULL,
+      "metadata" JSONB NULL,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    )`
+  );
+  await query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "PagamentoHub_project_order_uk"
+     ON "PagamentoHub" ("projectName", "orderId")`
+  );
+  await query(`CREATE INDEX IF NOT EXISTS "PagamentoHub_card_idx" ON "PagamentoHub" ("cardId")`);
+  await query(`CREATE INDEX IF NOT EXISTS "PagamentoHub_point_idx" ON "PagamentoHub" ("pointId")`);
+  await query(`CREATE INDEX IF NOT EXISTS "PagamentoHub_usuario_idx" ON "PagamentoHub" ("usuarioId")`);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);
@@ -15,25 +44,21 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
     const body = await request.json();
 
+    const clientApp =
+      request.headers.get('x-client_app') ||
+      request.headers.get('x-client-app') ||
+      'UNKNOWN';
+
     const cardId = body?.cardId as string | undefined;
-    const valor = body?.valor as number | undefined;
     const paymentMethodRaw = body?.paymentMethod as string | undefined;
     const orderId = (body?.orderId as string | undefined) || `PNQ-${crypto.randomUUID()}`;
     const descricao = body?.descricao as string | undefined;
     const cpf = body?.cpf as string | undefined;
     const cardEncrypted = body?.cardEncrypted as string | undefined;
 
-    if (!cardId || !valor || !paymentMethodRaw) {
+    if (!cardId || !paymentMethodRaw) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'cardId, valor e paymentMethod são obrigatórios' },
-        { status: 400 }
-      );
-      return withCors(errorResponse, request);
-    }
-
-    if (!Number.isFinite(valor) || valor <= 0) {
-      const errorResponse = NextResponse.json(
-        { mensagem: 'Valor deve ser maior que zero' },
+        { mensagem: 'cardId e paymentMethod são obrigatórios' },
         { status: 400 }
       );
       return withCors(errorResponse, request);
@@ -103,6 +128,19 @@ export async function POST(request: NextRequest) {
 
     const totalPago = parseFloat(card.totalPago) || 0;
     const saldo = parseFloat(card.valorTotal) - totalPago;
+    const valor =
+      body?.valor === undefined || body?.valor === null || body?.valor === ''
+        ? saldo
+        : Number(body.valor);
+
+    if (!Number.isFinite(valor) || valor <= 0) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Valor deve ser maior que zero' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
     if (valor > saldo) {
       const errorResponse = NextResponse.json(
         { mensagem: `Valor excede o saldo pendente de ${saldo.toFixed(2)}` },
@@ -112,9 +150,9 @@ export async function POST(request: NextRequest) {
     }
 
     const cpfLimpo = typeof cpf === 'string' ? cpf.replace(/\D/g, '') : '';
-    if (cpfLimpo && cpfLimpo.length !== 11) {
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'CPF inválido' },
+        { mensagem: 'CPF é obrigatório e deve ter 11 dígitos' },
         { status: 400 }
       );
       return withCors(errorResponse, request);
@@ -167,6 +205,7 @@ export async function POST(request: NextRequest) {
         cardId,
         pointId: card.pointId,
         usuarioId: user.id,
+        clientApp,
         descricao: descricao || null,
       },
     });
@@ -200,11 +239,44 @@ export async function POST(request: NextRequest) {
           cardId,
           card.pointId,
           user.id,
-          JSON.stringify(hubRes),
+          JSON.stringify({ hubResponse: hubRes, clientApp }),
         ]
       );
     } catch (e: any) {
-      if (e?.code !== '42P01') {
+      if (e?.code === '42P01') {
+        await ensurePagamentoHubTable();
+        await query(
+          `INSERT INTO "PagamentoHub" (
+            "transactionId", "projectName", "orderId", "paymentMethod", "status",
+            "amount", "valor", "pagbankOrderId",
+            "cardId", "pointId", "usuarioId",
+            "metadata", "createdAt", "updatedAt"
+          ) VALUES (
+            $1, $2, $3, $4, $5,
+            $6, $7, $8,
+            $9, $10, $11,
+            $12, NOW(), NOW()
+          )
+          ON CONFLICT ("transactionId") DO UPDATE SET
+            "status" = EXCLUDED."status",
+            "pagbankOrderId" = COALESCE(EXCLUDED."pagbankOrderId", "PagamentoHub"."pagbankOrderId"),
+            "updatedAt" = NOW()`,
+          [
+            hubRes.transaction_id,
+            'PLAY_NA_QUADRA',
+            orderId,
+            paymentMethod,
+            hubRes.status || 'PENDING',
+            amount,
+            valor,
+            hubRes.pagbank_order_id || null,
+            cardId,
+            card.pointId,
+            user.id,
+            JSON.stringify({ hubResponse: hubRes, clientApp }),
+          ]
+        );
+      } else {
         throw e;
       }
     }
@@ -230,4 +302,3 @@ export async function POST(request: NextRequest) {
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
-

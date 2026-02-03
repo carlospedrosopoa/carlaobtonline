@@ -8,9 +8,9 @@ Este documento descreve como consumir o fluxo de **pagamento online** no fronten
 ## Visão geral do fluxo
 1. Front lista os cards do usuário logado.
 2. Usuário escolhe um card em aberto e informa:
-   - Valor a pagar (parcial ou total do saldo)
    - Método (`PIX` ou `CREDIT_CARD`)
-   - CPF (opcional no payload, recomendado)
+   - CPF (obrigatório)
+   - Valor a pagar (opcional: se não enviar, paga o saldo total)
    - `cardEncrypted` (obrigatório se for cartão)
 3. Front chama o endpoint unificado de checkout do backend.
 4. Backend cria uma transação no Hub e retorna os dados para pagamento:
@@ -25,11 +25,13 @@ Este documento descreve como consumir o fluxo de **pagamento online** no fronten
 **POST** `/api/user/pagamento/online/checkout`  
 **Auth:** obrigatório (JWT Bearer ou Basic, via `Authorization`)
 
+**Headers**
+- `X-Client_APP: APP_ATLETA | ARENA_FRONT` (obrigatório)
+
 **Body JSON**
 ```json
 {
   "cardId": "string",
-  "valor": 120.5,
   "paymentMethod": "PIX",
   "cpf": "00000000000",
   "orderId": "string (opcional)",
@@ -41,9 +43,18 @@ Para cartão:
 ```json
 {
   "cardId": "string",
-  "valor": 120.5,
   "paymentMethod": "CREDIT_CARD",
   "cardEncrypted": "string",
+  "cpf": "00000000000"
+}
+```
+
+Para pagamento parcial (PIX ou cartão), envie `valor`:
+```json
+{
+  "cardId": "string",
+  "valor": 120.5,
+  "paymentMethod": "PIX",
   "cpf": "00000000000"
 }
 ```
