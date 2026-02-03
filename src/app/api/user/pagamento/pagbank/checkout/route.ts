@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
     return withCors(deprecatedResponse, request);
 
     const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return withCors(authResult, request);
+    if (!('user' in authResult)) {
+      return withCors(authResult as NextResponse, request);
     }
 
     const { user } = authResult;

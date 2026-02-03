@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
       order_id: orderId,
       amount,
       customer_email: user.email,
-      customer_name: user.name || atleta.nome || undefined,
+      customer_name: user.nome || atleta.nome || undefined,
       customer_tax_id: cpfLimpo || undefined,
       payment_method: paymentMethod,
       card_encrypted: paymentMethod === 'CREDIT_CARD' ? cardEncrypted : undefined,
