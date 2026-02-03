@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return withCors(authResult as NextResponse, request);
     }
 
-    const { user } = authResult;
+    const { user } = authResult as { user: any };
     const body = await request.json();
     const { cardId, valor, orderId, descricao, parcelas, cpf } = body;
 
