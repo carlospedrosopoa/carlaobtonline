@@ -15,6 +15,7 @@ export interface HubCreatePaymentRequest {
   customer_tax_id?: string;
   payment_method: HubPaymentMethod;
   card_encrypted?: string;
+  pagbank_token?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -60,6 +61,7 @@ function sanitizeCreatePayload(payload: HubCreatePaymentRequest) {
     customer_email: maskEmail(payload.customer_email),
     customer_tax_id: payload.customer_tax_id ? maskTaxId(payload.customer_tax_id) : undefined,
     card_encrypted: payload.card_encrypted ? '[REDACTED]' : undefined,
+    pagbank_token: payload.pagbank_token ? '[REDACTED]' : undefined,
   };
 }
 
@@ -164,7 +166,10 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
   return json as HubCreatePaymentResponse;
 }
 
-export async function hubGetPaymentStatus(transactionId: string): Promise<HubGetStatusResponse> {
+export async function hubGetPaymentStatus(
+  transactionId: string,
+  options?: { pagbankToken?: string | null }
+): Promise<HubGetStatusResponse> {
   const { baseUrl, apiKey } = getHubConfig();
   const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
   const url = `${baseUrl}/api/payments/status?transaction_id=${encodeURIComponent(transactionId)}`;
@@ -174,6 +179,7 @@ export async function hubGetPaymentStatus(transactionId: string): Promise<HubGet
       url,
       headers: {
         'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+        'x-pagbank-token': options?.pagbankToken ? '[REDACTED]' : undefined,
       },
     });
   }
@@ -184,6 +190,7 @@ export async function hubGetPaymentStatus(transactionId: string): Promise<HubGet
       method: 'GET',
       headers: {
         'x-api-key': apiKey,
+        ...(options?.pagbankToken ? { 'x-pagbank-token': options.pagbankToken } : {}),
       },
     },
     15_000
@@ -215,7 +222,9 @@ export async function hubGetPaymentStatus(transactionId: string): Promise<HubGet
   return json as HubGetStatusResponse;
 }
 
-export async function hubGetPublicKey(): Promise<HubPublicKeyResponse> {
+export async function hubGetPublicKey(options?: {
+  pagbankToken?: string | null;
+}): Promise<HubPublicKeyResponse> {
   const { baseUrl, apiKey } = getHubConfig();
   const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
   const url = `${baseUrl}/api/payments/public-key`;
@@ -225,6 +234,7 @@ export async function hubGetPublicKey(): Promise<HubPublicKeyResponse> {
       url,
       headers: {
         'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+        'x-pagbank-token': options?.pagbankToken ? '[REDACTED]' : undefined,
       },
     });
   }
@@ -235,6 +245,7 @@ export async function hubGetPublicKey(): Promise<HubPublicKeyResponse> {
       method: 'GET',
       headers: {
         'x-api-key': apiKey,
+        ...(options?.pagbankToken ? { 'x-pagbank-token': options.pagbankToken } : {}),
       },
     },
     15_000

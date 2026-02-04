@@ -37,6 +37,11 @@ export default function AdminPointsPage() {
     enviarLembretesAgendamento: false,
     antecedenciaLembrete: 8,
     pagamentoOnlineAtivo: false,
+    infinitePayHandle: null,
+    pagBankAtivo: false,
+    pagBankEnv: 'sandbox',
+    pagBankToken: null,
+    pagBankWebhookToken: null,
     cardTemplateUrl: null,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -46,6 +51,8 @@ export default function AdminPointsPage() {
   const [erro, setErro] = useState('');
   const [mostrarTokenWhatsApp, setMostrarTokenWhatsApp] = useState(false);
   const [mostrarApiKeyGzappy, setMostrarApiKeyGzappy] = useState(false);
+  const [mostrarPagBankToken, setMostrarPagBankToken] = useState(false);
+  const [mostrarPagBankWebhookToken, setMostrarPagBankWebhookToken] = useState(false);
 
   useEffect(() => {
     carregarPoints();
@@ -110,6 +117,11 @@ export default function AdminPointsPage() {
         enviarLembretesAgendamento: point.enviarLembretesAgendamento ?? false,
         antecedenciaLembrete: point.antecedenciaLembrete ?? 8,
         pagamentoOnlineAtivo: point.pagamentoOnlineAtivo ?? false,
+        infinitePayHandle: point.infinitePayHandle || null,
+        pagBankAtivo: point.pagBankAtivo ?? false,
+        pagBankEnv: point.pagBankEnv || 'sandbox',
+        pagBankToken: point.pagBankToken || null,
+        pagBankWebhookToken: point.pagBankWebhookToken || null,
         cardTemplateUrl: point.cardTemplateUrl || null,
       });
       setLogoPreview(point.logoUrl || null);
@@ -137,6 +149,11 @@ export default function AdminPointsPage() {
         enviarLembretesAgendamento: false,
         antecedenciaLembrete: 8,
         pagamentoOnlineAtivo: false,
+        infinitePayHandle: null,
+        pagBankAtivo: false,
+        pagBankEnv: 'sandbox',
+        pagBankToken: null,
+        pagBankWebhookToken: null,
         cardTemplateUrl: null,
       });
       setLogoPreview(null);
@@ -153,6 +170,8 @@ export default function AdminPointsPage() {
     setLogoPreview(null);
     setMostrarTokenWhatsApp(false);
     setMostrarApiKeyGzappy(false);
+    setMostrarPagBankToken(false);
+    setMostrarPagBankWebhookToken(false);
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,6 +286,13 @@ export default function AdminPointsPage() {
       }
       if (!form.gzappyInstanceId || !form.gzappyInstanceId.trim()) {
         setErro('Instance ID é obrigatório quando o Gzappy está ativo');
+        return;
+      }
+    }
+
+    if (form.pagBankAtivo) {
+      if (!form.pagBankToken || !form.pagBankToken.trim()) {
+        setErro('PagBank Token é obrigatório quando o PagBank está ativo');
         return;
       }
     }
@@ -922,6 +948,103 @@ export default function AdminPointsPage() {
                   <label htmlFor="pagamentoOnlineAtivo" className="text-sm font-medium text-gray-700">
                     Pagamento online ativo
                   </label>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Configurações PagBank</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Configure o token do PagBank específico desta arena (usado no Hub de Pagamentos).
+                </p>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="pagBankAtivo"
+                      checked={form.pagBankAtivo ?? false}
+                      onChange={(e) => setForm({ ...form, pagBankAtivo: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="pagBankAtivo" className="text-sm font-medium text-gray-700">
+                      Ativar PagBank para esta arena
+                    </label>
+                  </div>
+
+                  {(form.pagBankAtivo ?? false) && (
+                    <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Ambiente
+                        </label>
+                        <select
+                          value={form.pagBankEnv || 'sandbox'}
+                          onChange={(e) => setForm({ ...form, pagBankEnv: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        >
+                          <option value="sandbox">sandbox</option>
+                          <option value="production">production</option>
+                          <option value="prod">prod</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Use sandbox para testes e production/prod para produção.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          PagBank Token *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={mostrarPagBankToken ? 'text' : 'password'}
+                            value={form.pagBankToken || ''}
+                            onChange={(e) => setForm({ ...form, pagBankToken: e.target.value })}
+                            placeholder="Token do PagBank desta arena"
+                            className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMostrarPagBankToken(!mostrarPagBankToken)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          >
+                            {mostrarPagBankToken ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Este token será enviado ao Hub de Pagamentos como pagbank_token.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Webhook Token (opcional)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={mostrarPagBankWebhookToken ? 'text' : 'password'}
+                            value={form.pagBankWebhookToken || ''}
+                            onChange={(e) => setForm({ ...form, pagBankWebhookToken: e.target.value })}
+                            placeholder="Token do webhook PagBank (se aplicável)"
+                            className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMostrarPagBankWebhookToken(!mostrarPagBankWebhookToken)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          >
+                            {mostrarPagBankWebhookToken ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Campo mantido por compatibilidade com o fluxo antigo (sem hub).
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
