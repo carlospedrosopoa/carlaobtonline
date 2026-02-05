@@ -116,6 +116,9 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
   const { baseUrl, apiKey } = getHubConfig();
   const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
   const url = `${baseUrl}/api/payments/create`;
+  const pagbankToken = payload.pagbank_token || null;
+  const bodyPayload = { ...payload };
+  delete (bodyPayload as any).pagbank_token;
 
   if (debug) {
     console.log('[HubPayments] Request', {
@@ -123,6 +126,7 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+        'x-pagbank-token': pagbankToken ? '[REDACTED]' : undefined,
       },
       payload: sanitizeCreatePayload(payload),
     });
@@ -135,8 +139,9 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey,
+        ...(pagbankToken ? { 'x-pagbank-token': pagbankToken } : {}),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(bodyPayload),
     },
     20_000
   );
