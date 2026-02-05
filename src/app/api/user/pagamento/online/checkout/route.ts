@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { query } from '@/lib/db';
 import { verificarAtletaUsuario } from '@/lib/atletaService';
-import { hubCreatePayment, type HubPaymentMethod } from '@/lib/hubPaymentsClient';
+import { hubCreatePaymentLegacy, type HubPaymentMethod } from '@/lib/hubPaymentsClient';
 
 async function ensurePagamentoHubTable() {
   await query(
@@ -204,23 +204,14 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
-    const hubRes = await hubCreatePayment({
-      project_name: 'PLAY_NA_QUADRA',
-      order_id: orderId,
-      amount,
-      customer_email: user.email,
-      customer_name: user.nome || atleta.nome || undefined,
-      customer_tax_id: cpfLimpo || undefined,
-      payment_method: paymentMethod,
+    const hubRes = await hubCreatePaymentLegacy({
+      cardId,
+      valor,
+      paymentMethod,
+      cpf: cpfLimpo,
+      descricao: descricao || null,
       card_encrypted: paymentMethod === 'CREDIT_CARD' ? cardEncrypted : undefined,
       pagbank_token: effectivePagBankToken,
-      metadata: {
-        cardId,
-        pointId: card.pointId,
-        usuarioId: user.id,
-        clientApp,
-        descricao: descricao || null,
-      },
     });
 
     try {
