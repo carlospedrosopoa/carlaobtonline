@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar se o point existe e está ativo
-    const pointResult = await query('SELECT id, nome, ativo FROM "Point" WHERE id = $1', [pointId]);
+    const pointResult = await query(
+      'SELECT id, nome, endereco, "logoUrl", ativo FROM "Point" WHERE id = $1',
+      [pointId]
+    );
     if (pointResult.rows.length === 0) {
       return withCors(
         NextResponse.json({ mensagem: 'Arena não encontrada' }, { status: 404 }),
@@ -219,6 +222,8 @@ export async function GET(request: NextRequest) {
         arena: {
           id: point.id,
           nome: point.nome,
+          endereco: point.endereco || null,
+          logoUrl: point.logoUrl || null,
         },
       }),
       request
