@@ -19,6 +19,16 @@ export interface HubCreatePaymentRequest {
   metadata?: Record<string, unknown>;
 }
 
+export interface HubCreatePaymentLegacyRequest {
+  cardId: string;
+  valor: number;
+  paymentMethod: HubPaymentMethod;
+  cpf: string;
+  descricao?: string | null;
+  card_encrypted?: string;
+  pagbank_token?: string;
+}
+
 export interface HubCreatePaymentResponse {
   transaction_id: string;
   pagbank_order_id?: string;
@@ -60,6 +70,15 @@ function sanitizeCreatePayload(payload: HubCreatePaymentRequest) {
     ...payload,
     customer_email: maskEmail(payload.customer_email),
     customer_tax_id: payload.customer_tax_id ? maskTaxId(payload.customer_tax_id) : undefined,
+    card_encrypted: payload.card_encrypted ? '[REDACTED]' : undefined,
+    pagbank_token: payload.pagbank_token ? '[REDACTED]' : undefined,
+  };
+}
+
+function sanitizeCreateLegacyPayload(payload: HubCreatePaymentLegacyRequest) {
+  return {
+    ...payload,
+    cpf: payload.cpf ? maskTaxId(payload.cpf) : undefined,
     card_encrypted: payload.card_encrypted ? '[REDACTED]' : undefined,
     pagbank_token: payload.pagbank_token ? '[REDACTED]' : undefined,
   };
@@ -116,6 +135,9 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
   const { baseUrl, apiKey } = getHubConfig();
   const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
   const url = `${baseUrl}/api/payments/create`;
+  const pagbankToken = payload.pagbank_token || null;
+  const bodyPayload = { ...payload };
+  delete (bodyPayload as any).pagbank_token;
 
   if (debug) {
     console.log('[HubPayments] Request', {
@@ -123,6 +145,7 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+        'x-pagbank-token': pagbankToken ? '[REDACTED]' : undefined,
       },
       payload: sanitizeCreatePayload(payload),
     });
@@ -135,6 +158,67 @@ export async function hubCreatePayment(payload: HubCreatePaymentRequest): Promis
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey,
+        ...(pagbankToken ? { 'x-pagbank-token': pagbankToken } : {}),
+      },
+      body: JSON.stringify(bodyPayload),
+    },
+    20_000
+  );
+
+  const text = await res.text();
+  if (debug) {
+    console.log('[HubPayments] Response', {
+      status: res.status,
+      ok: res.ok,
+      bodyPreview: text?.slice(0, 800) || '',
+    });
+  }
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      (json && (json.mensagem || json.message || json.error)) ||
+      `Erro no Hub de Pagamentos (HTTP ${res.status})`;
+    throw new Error(typeof msg === 'string' ? msg : `Erro no Hub de Pagamentos (HTTP ${res.status})`);
+  }
+
+  return json as HubCreatePaymentResponse;
+}
+
+export async function hubCreatePaymentLegacy(
+  payload: HubCreatePaymentLegacyRequest
+): Promise<HubCreatePaymentResponse> {
+  const { baseUrl, apiKey } = getHubConfig();
+  const debug = process.env.HUB_PAYMENTS_DEBUG === 'true';
+  const url = `${baseUrl}/api/payments/create`;
+
+  const pagbankToken = payload.pagbank_token || null;
+
+  if (debug) {
+    console.log('[HubPayments] Request', {
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey ? '[REDACTED]' : '[MISSING]',
+        'x-pagbank-token': pagbankToken ? '[REDACTED]' : undefined,
+      },
+      payload: sanitizeCreateLegacyPayload(payload),
+    });
+  }
+
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        ...(pagbankToken ? { 'x-pagbank-token': pagbankToken } : {}),
       },
       body: JSON.stringify(payload),
     },
