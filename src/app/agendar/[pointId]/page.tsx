@@ -8,6 +8,8 @@ import { Calendar, Clock, MapPin, User, Phone, CheckCircle, XCircle, Loader2 } f
 interface Arena {
   id: string;
   nome: string;
+  endereco?: string | null;
+  logoUrl?: string | null;
 }
 
 interface Quadra {
@@ -66,7 +68,12 @@ export default function AgendarPublicoPage() {
       const response = await fetch(`/api/public/point/${pointId}`);
       if (response.ok) {
         const data = await response.json();
-        setArena({ id: data.id, nome: data.nome });
+        setArena({
+          id: data.id,
+          nome: data.nome,
+          endereco: data.endereco || null,
+          logoUrl: data.logoUrl || null,
+        });
       } else {
         const errorData = await response.json();
         setErro(errorData.mensagem || 'Arena não encontrada');
@@ -97,7 +104,7 @@ export default function AgendarPublicoPage() {
       const data: HorariosDisponiveisResponse = await response.json();
       setHorariosDisponiveis(data.horarios);
       setQuadras(data.quadras);
-      setArena(data.arena);
+      setArena((prev) => ({ ...(prev || {}), ...data.arena }));
     } catch (error: any) {
       console.error('Erro ao buscar horários:', error);
       setErro(error.message || 'Erro ao buscar horários disponíveis');
@@ -271,9 +278,25 @@ export default function AgendarPublicoPage() {
               Agendar Quadra
             </h1>
             {arena && (
-              <div className="flex items-center justify-center gap-2 text-emerald-600">
-                <MapPin className="w-5 h-5" />
-                <p className="text-lg font-medium">{arena.nome}</p>
+              <div className="flex flex-col items-center gap-2">
+                {arena.logoUrl ? (
+                  <div className="h-20 w-20 rounded-xl bg-white shadow-sm border border-gray-200 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={arena.logoUrl}
+                      alt={arena.nome}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                ) : null}
+
+                <p className="text-lg font-medium text-emerald-700">{arena.nome}</p>
+
+                {arena.endereco ? (
+                  <div className="flex items-center justify-center gap-2 text-gray-600">
+                    <MapPin className="w-4 h-4" />
+                    <p className="text-sm">{arena.endereco}</p>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -439,4 +462,3 @@ export default function AgendarPublicoPage() {
     </div>
   );
 }
-

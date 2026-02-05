@@ -159,25 +159,37 @@ export async function POST(request: NextRequest) {
     }
 
     let pagamentoOnlineAtivo: boolean = false;
+    let pagBankToken: string | null = null;
     try {
       const pointCfg = await query(
-        `SELECT "pagamentoOnlineAtivo"
+        `SELECT "pagamentoOnlineAtivo", "pagBankToken"
          FROM "Point"
          WHERE id = $1
          LIMIT 1`,
         [card.pointId]
       );
       pagamentoOnlineAtivo = pointCfg.rows[0]?.pagamentoOnlineAtivo === true;
+      pagBankToken = pointCfg.rows[0]?.pagBankToken ?? null;
     } catch (e: any) {
       if (e?.code !== '42703') {
         throw e;
       }
       pagamentoOnlineAtivo = false;
+      pagBankToken = null;
     }
 
     if (!pagamentoOnlineAtivo) {
       const errorResponse = NextResponse.json(
         { mensagem: 'Pagamento online não está ativo para esta arena' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
+
+    const effectivePagBankToken = pagBankToken || process.env.PAGBANK_TOKEN || null;
+    if (!effectivePagBankToken) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'PagBank não configurado para esta arena (token ausente)' },
         { status: 400 }
       );
       return withCors(errorResponse, request);
@@ -201,6 +213,7 @@ export async function POST(request: NextRequest) {
       customer_tax_id: cpfLimpo || undefined,
       payment_method: paymentMethod,
       card_encrypted: paymentMethod === 'CREDIT_CARD' ? cardEncrypted : undefined,
+      pagbank_token: effectivePagBankToken,
       metadata: {
         cardId,
         pointId: card.pointId,

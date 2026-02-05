@@ -105,7 +105,27 @@ export async function GET(
 
     if (status !== 'PAID') {
       try {
-        const hubStatusRes = await hubGetPaymentStatus(transactionId);
+        let pagBankToken: string | null = null;
+        try {
+          const pointCfg = await query(
+            `SELECT "pagBankToken"
+             FROM "Point"
+             WHERE id = $1
+             LIMIT 1`,
+            [row.pointId]
+          );
+          pagBankToken = pointCfg.rows[0]?.pagBankToken ?? null;
+        } catch (e: any) {
+          if (e?.code !== '42703') {
+            throw e;
+          }
+          pagBankToken = null;
+        }
+
+        const effectivePagBankToken = pagBankToken || process.env.PAGBANK_TOKEN || null;
+        const hubStatusRes = await hubGetPaymentStatus(transactionId, {
+          pagbankToken: effectivePagBankToken,
+        });
         const hubStatus = String(hubStatusRes?.status || '').toUpperCase();
         if (hubStatus && hubStatus !== status) {
           try {
