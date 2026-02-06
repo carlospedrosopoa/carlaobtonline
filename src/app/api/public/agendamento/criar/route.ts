@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se o atleta existe e se tem usuarioId (atleta cadastrado)
-    const atletaResult = await query('SELECT id, nome, "usuarioId" FROM "Atleta" WHERE id = $1', [atletaId]);
+    const atletaResult = await query('SELECT id, nome, fone, "usuarioId" FROM "Atleta" WHERE id = $1', [atletaId]);
     if (atletaResult.rows.length === 0) {
       return withCors(
         NextResponse.json({ mensagem: 'Atleta não encontrado' }, { status: 404 }),
@@ -237,6 +237,32 @@ export async function POST(request: NextRequest) {
 
     const agendamento = agendamentoResult.rows[0];
 
+    if (atleta?.fone) {
+      try {
+        const pointResult = await query('SELECT nome FROM "Point" WHERE id = $1', [quadra.pointId]);
+        const arenaNome = pointResult.rows[0]?.nome || 'Arena';
+
+        import('@/lib/gzappyService')
+          .then(({ notificarAtletaNovoAgendamento }) => {
+            notificarAtletaNovoAgendamento(atleta.fone, quadra.pointId, {
+              quadra: agendamento.quadra_nome || quadra.nome,
+              arena: arenaNome,
+              dataHora: agendamento.dataHora,
+              duracao: duracaoMinutos,
+              valor: valorCalculado,
+              nomeAtleta: atleta.nome,
+            }).catch((err) => {
+              console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);
+            });
+          })
+          .catch((err) => {
+            console.error('Erro ao importar serviço Gzappy (não crítico):', err);
+          });
+      } catch (err) {
+        console.error('Erro ao buscar arena para notificação (não crítico):', err);
+      }
+    }
+
     return withCors(
       NextResponse.json({
         id: agendamento.id,
@@ -263,4 +289,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

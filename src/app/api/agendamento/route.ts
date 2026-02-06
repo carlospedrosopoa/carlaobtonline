@@ -1150,9 +1150,6 @@ export async function POST(request: NextRequest) {
       const clienteNome = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Atleta';
       const clienteTelefone = agendamento.atleta?.fone || agendamento.telefoneAvulso || null;
       
-      // Verificar se foi um gestor (ORGANIZER ou ADMIN) quem criou o agendamento
-      const ehGestorCriou = usuario.role === 'ORGANIZER' || usuario.role === 'ADMIN';
-      
       // Não aguardar a resposta do Gzappy para não bloquear a API
       import('@/lib/gzappyService').then((gzappyService) => {
         const { notificarNovoAgendamento, notificarAtletaNovoAgendamento, formatarNumeroGzappy, enviarMensagemGzappy } = gzappyService;
@@ -1224,49 +1221,21 @@ Esperamos você! 🎾`;
           });
         }
 
-        // Se foi o gestor quem criou, enviar confirmação para o atleta principal
-        // (se não for temporário e aceitar lembretes)
-        if (ehGestorCriou && agendamento.atleta?.fone && agendamento.atleta?.usuarioId && agendamento.quadra?.point?.nome) {
-          // Buscar informações completas do atleta e usuário para verificar se pode enviar
-          query(`
-            SELECT 
-              a."aceitaLembretesAgendamento",
-              u.email as "usuario_email"
-            FROM "Atleta" a
-            LEFT JOIN "User" u ON a."usuarioId" = u.id
-            WHERE a.id = $1
-          `, [agendamento.atleta.id])
-            .then((result) => {
-              if (result.rows.length > 0) {
-                const atletaData = result.rows[0];
-                const aceitaLembretes = atletaData.aceitaLembretesAgendamento === true;
-                const userEmail = atletaData.usuario_email;
-                const isEmailTemporario = userEmail && (
-                  userEmail.startsWith('temp_') && userEmail.endsWith('@pendente.local')
-                );
-
-                // Enviar confirmação apenas se não for temporário e aceitar lembretes
-                if (!isEmailTemporario && aceitaLembretes) {
-                  notificarAtletaNovoAgendamento(
-                    agendamento.atleta.fone,
-                    agendamento.quadra.point.id,
-                    {
-                      quadra: agendamento.quadra.nome,
-                      arena: agendamento.quadra.point.nome,
-                      dataHora: agendamento.dataHora,
-                      duracao: agendamento.duracao,
-                      valor: agendamento.valorNegociado || agendamento.valorCalculado,
-                      nomeAtleta: clienteNome,
-                    }
-                  ).catch((err) => {
-                    console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);
-                  });
-                }
-              }
-            })
-            .catch((err) => {
-              console.error('Erro ao verificar dados do atleta (não crítico):', err);
-            });
+        if (clienteTelefone && agendamento.quadra?.point?.nome) {
+          notificarAtletaNovoAgendamento(
+            clienteTelefone,
+            agendamento.quadra.point.id,
+            {
+              quadra: agendamento.quadra.nome,
+              arena: agendamento.quadra.point.nome,
+              dataHora: agendamento.dataHora,
+              duracao: agendamento.duracao,
+              valor: agendamento.valorNegociado || agendamento.valorCalculado,
+              nomeAtleta: clienteNome,
+            }
+          ).catch((err) => {
+            console.error('Erro ao enviar notificação Gzappy para atleta (não crítico):', err);
+          });
         }
       }).catch((err) => {
         console.error('Erro ao importar serviço Gzappy (não crítico):', err);
