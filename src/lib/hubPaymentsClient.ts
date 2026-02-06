@@ -241,10 +241,12 @@ export async function hubCreatePaymentLegacy(
   }
 
   if (!res.ok) {
+    const bodyPreview = text?.slice(0, 800) || '';
     const msg =
       (json && (json.mensagem || json.message || json.error)) ||
       `Erro no Hub de Pagamentos (HTTP ${res.status})`;
-    throw new Error(typeof msg === 'string' ? msg : `Erro no Hub de Pagamentos (HTTP ${res.status})`);
+    const msgStr = typeof msg === 'string' ? msg : `Erro no Hub de Pagamentos (HTTP ${res.status})`;
+    throw new Error(`${msgStr}${bodyPreview ? ` | body: ${bodyPreview}` : ''}`);
   }
 
   return json as HubCreatePaymentResponse;

@@ -295,6 +295,15 @@ export async function POST(request: NextRequest) {
     });
     return withCors(response, request);
   } catch (error: any) {
+    try {
+      const safeMessage = error?.message ? String(error.message).slice(0, 2000) : 'unknown';
+      console.error('[CheckoutOnline] Error', {
+        message: safeMessage,
+        name: error?.name || null,
+        stack: error?.stack ? String(error.stack).slice(0, 2000) : null,
+      });
+    } catch {
+    }
     const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar pagamento online', error: process.env.NODE_ENV === 'development' ? error.message : undefined },
       { status: 500 }
