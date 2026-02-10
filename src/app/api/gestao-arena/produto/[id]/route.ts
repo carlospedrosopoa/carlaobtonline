@@ -159,6 +159,11 @@ export async function PUT(
       values.push(body.acessoRapido);
       paramCount++;
     }
+    if (body.barcode !== undefined) {
+      updates.push(`barcode = $${paramCount}`);
+      values.push(body.barcode || null);
+      paramCount++;
+    }
 
     if (updates.length === 0) {
       return NextResponse.json(

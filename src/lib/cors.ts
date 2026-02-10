@@ -46,6 +46,7 @@ const getAllowedOrigins = (): string[] => {
     'https://www.playnaquadra.com.br',
     'https://appatleta.playnaquadra.com.br',
     'https://atleta.playnaquadra.com.br',
+    'https://quiosque.playnaquadra.com.br',
   ];
   defaultProdOrigins.forEach((origin) => {
     if (!origins.includes(origin)) {

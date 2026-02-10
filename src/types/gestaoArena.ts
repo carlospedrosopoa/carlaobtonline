@@ -114,6 +114,7 @@ export interface Produto {
   categoria?: string | null;
   ativo: boolean;
   acessoRapido?: boolean; // flag opcional para produtos de acesso rápido
+  barcode?: string | null; // código de barras (opcional)
   createdAt: string;
   updatedAt: string;
 }
@@ -127,6 +128,7 @@ export interface CriarProdutoPayload {
   categoria?: string;
   ativo?: boolean;
   acessoRapido?: boolean;
+  barcode?: string;
 }
 
 export interface AtualizarProdutoPayload {
@@ -137,6 +139,7 @@ export interface AtualizarProdutoPayload {
   categoria?: string;
   ativo?: boolean;
   acessoRapido?: boolean;
+  barcode?: string;
 }
 
 // ============================================

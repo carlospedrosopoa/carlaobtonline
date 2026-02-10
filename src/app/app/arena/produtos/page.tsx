@@ -28,6 +28,7 @@ export default function ProdutosPage() {
     categoria: '',
     ativo: true,
     acessoRapido: false,
+    barcode: '',
   });
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export default function ProdutosPage() {
         categoria: produto.categoria || '',
         ativo: produto.ativo,
         acessoRapido: produto.acessoRapido ?? false,
+        barcode: produto.barcode || '',
       });
     } else {
       setProdutoEditando(null);
@@ -75,6 +77,7 @@ export default function ProdutosPage() {
         categoria: '',
         ativo: true,
         acessoRapido: false,
+        barcode: '',
       });
     }
     setErro('');
@@ -106,6 +109,7 @@ export default function ProdutosPage() {
           categoria: form.categoria || undefined,
           ativo: form.ativo,
           acessoRapido: form.acessoRapido,
+          barcode: form.barcode || undefined,
         };
         await produtoService.atualizar(produtoEditando.id, payload);
       } else {
@@ -390,6 +394,17 @@ export default function ProdutosPage() {
                   onChange={(e) => setForm({ ...form, categoria: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="Ex: Bebidas, Lanches, etc."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Código de Barras</label>
+                <input
+                  type="text"
+                  value={form.barcode || ''}
+                  onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="EAN / Código de barras do produto"
                 />
               </div>
 
