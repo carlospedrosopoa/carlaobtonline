@@ -46,6 +46,7 @@ const getAllowedOrigins = (): string[] => {
     'https://www.playnaquadra.com.br',
     'https://appatleta.playnaquadra.com.br',
     'https://atleta.playnaquadra.com.br',
+    'https://quiosque.playnaquadra.com.br',
   ];
   defaultProdOrigins.forEach((origin) => {
     if (!origins.includes(origin)) {
@@ -117,7 +118,7 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Client_APP, X-Client-APP',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Client_APP, X-Client-APP, x-kiosk-key',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400', // 24 horas
   };
