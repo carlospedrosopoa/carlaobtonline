@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, usuarioTemAcessoAoPoint } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { query } from '@/lib/db';
+import { requireKioskAuth } from '@/lib/kioskAuth';
 import { l2Normalize, projectToDim, toNumberArray, toPgVectorLiteral } from '@/lib/faceVector';
 
 function pickDescriptor(body: any) {
@@ -13,37 +13,35 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return withCors(authResult, request);
-    }
-
-    const { user } = authResult;
-    if (user.role !== 'ADMIN' && user.role !== 'ORGANIZER') {
-      return withCors(NextResponse.json({ mensagem: 'Sem permissão' }, { status: 403 }), request);
-    }
-
-    const { id } = await params;
     const body = await request.json();
-    const descriptorRaw = toNumberArray(pickDescriptor(body));
+    const pointId = String(body?.pointId || '').trim();
     const modelVersion = body?.modelVersion ? String(body.modelVersion).trim() : null;
+    const descriptorRaw = toNumberArray(pickDescriptor(body));
+
+    if (!pointId) {
+      return withCors(NextResponse.json({ mensagem: 'pointId é obrigatório' }, { status: 400 }), request);
+    }
+
+    const auth = await requireKioskAuth(request, pointId);
+    if (auth instanceof NextResponse) {
+      return withCors(auth, request);
+    }
 
     if (!descriptorRaw) {
       return withCors(NextResponse.json({ mensagem: 'descriptor é obrigatório' }, { status: 400 }), request);
     }
 
-    const atletaRes = await query('SELECT id, "pointIdPrincipal" FROM "Atleta" WHERE id = $1 LIMIT 1', [id]);
+    const { id } = await params;
+
+    const atletaRes = await query(
+      'SELECT id, "pointIdPrincipal" FROM "Atleta" WHERE id = $1 LIMIT 1',
+      [id]
+    );
     if (atletaRes.rows.length === 0) {
       return withCors(NextResponse.json({ mensagem: 'Atleta não encontrado' }, { status: 404 }), request);
     }
-
-    const pointId = atletaRes.rows[0].pointIdPrincipal as string;
-    if (!pointId) {
-      return withCors(NextResponse.json({ mensagem: 'Atleta sem arena principal' }, { status: 400 }), request);
-    }
-
-    if (user.role === 'ORGANIZER' && !usuarioTemAcessoAoPoint(user, pointId)) {
-      return withCors(NextResponse.json({ mensagem: 'Você não tem acesso a esta arena' }, { status: 403 }), request);
+    if (String(atletaRes.rows[0].pointIdPrincipal || '') !== pointId) {
+      return withCors(NextResponse.json({ mensagem: 'Atleta não pertence a esta arena' }, { status: 403 }), request);
     }
 
     const descriptor128 = descriptorRaw.length === 128 ? descriptorRaw : projectToDim(descriptorRaw, 128);
@@ -59,9 +57,7 @@ export async function POST(
       if (e?.code === '42703' || e?.code === '42704') {
         return withCors(
           NextResponse.json(
-            {
-              mensagem: 'Campos de reconhecimento facial não configurados no banco. Rode a migration add_atleta_face_descriptor_vector.sql',
-            },
+            { mensagem: 'Reconhecimento facial não configurado no banco. Rode a migration de pgvector.' },
             { status: 500 }
           ),
           request
@@ -72,9 +68,9 @@ export async function POST(
 
     return withCors(NextResponse.json({ ok: true }), request);
   } catch (error: any) {
-    console.error('Erro ao salvar embedding facial do atleta:', error);
+    console.error('Erro ao cadastrar reconhecimento facial (kiosk):', error);
     return withCors(
-      NextResponse.json({ mensagem: 'Erro ao salvar face do atleta', erro: error.message }, { status: 500 }),
+      NextResponse.json({ mensagem: 'Erro ao cadastrar reconhecimento facial', erro: error.message }, { status: 500 }),
       request
     );
   }
@@ -83,3 +79,4 @@ export async function POST(
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
+
