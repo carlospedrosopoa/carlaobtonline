@@ -5,6 +5,11 @@ import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
 import type { CriarProdutoPayload, AtualizarProdutoPayload } from '@/types/gestaoArena';
 
+async function ensureProdutoBarcode() {
+  await query('ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS barcode TEXT NULL');
+  await query('CREATE INDEX IF NOT EXISTS "Produto_point_barcode_idx" ON "Produto" ("pointId", barcode)');
+}
+
 // OPTIONS /api/gestao-arena/produto - Preflight CORS
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
@@ -25,6 +30,8 @@ export async function GET(request: NextRequest) {
       );
       return withCors(errorResponse, request);
     }
+
+    await ensureProdutoBarcode();
 
     const { searchParams } = new URL(request.url);
     const pointId = searchParams.get('pointId');
@@ -95,6 +102,8 @@ export async function POST(request: NextRequest) {
       return withCors(errorResponse, request);
     }
 
+    await ensureProdutoBarcode();
+
     // Apenas ADMIN e ORGANIZER podem criar produtos
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
       const errorResponse = NextResponse.json(
@@ -160,4 +169,3 @@ export async function POST(request: NextRequest) {
     return withCors(errorResponse, request);
   }
 }
-

@@ -4,6 +4,11 @@ import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
 import type { AtualizarProdutoPayload } from '@/types/gestaoArena';
 
+async function ensureProdutoBarcode() {
+  await query('ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS barcode TEXT NULL');
+  await query('CREATE INDEX IF NOT EXISTS "Produto_point_barcode_idx" ON "Produto" ("pointId", barcode)');
+}
+
 // GET /api/gestao-arena/produto/[id] - Obter produto
 export async function GET(
   request: NextRequest,
@@ -17,6 +22,8 @@ export async function GET(
         { status: 401 }
       );
     }
+
+    await ensureProdutoBarcode();
 
     const { id } = await params;
 
@@ -67,6 +74,8 @@ export async function PUT(
         { status: 401 }
       );
     }
+
+    await ensureProdutoBarcode();
 
     // Apenas ADMIN e ORGANIZER podem atualizar produtos
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
@@ -266,4 +275,3 @@ export async function DELETE(
     );
   }
 }
-
