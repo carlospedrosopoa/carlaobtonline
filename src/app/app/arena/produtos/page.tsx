@@ -7,6 +7,7 @@ import { produtoService } from '@/services/gestaoArenaService';
 import type { Produto, CriarProdutoPayload, AtualizarProdutoPayload } from '@/types/gestaoArena';
 import { Plus, Search, Package, Edit, Trash2, CheckCircle, XCircle, DollarSign, Zap } from 'lucide-react';
 import InputMonetario from '@/components/InputMonetario';
+import { normalizeSearchText } from '@/lib/search';
 
 export default function ProdutosPage() {
   const { usuario } = useAuth();
@@ -136,8 +137,9 @@ export default function ProdutosPage() {
     }
   };
 
+  const buscaNorm = normalizeSearchText(busca);
   const produtosFiltrados = produtos.filter((produto) => {
-    const matchBusca = busca === '' || produto.nome.toLowerCase().includes(busca.toLowerCase());
+    const matchBusca = buscaNorm === '' || normalizeSearchText(produto.nome).includes(buscaNorm);
     const matchCategoria = filtroCategoria === '' || produto.categoria === filtroCategoria;
     return matchBusca && matchCategoria;
   });

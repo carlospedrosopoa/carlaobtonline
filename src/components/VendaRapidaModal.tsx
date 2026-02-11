@@ -7,6 +7,7 @@ import { cardClienteService, produtoService, formaPagamentoService } from '@/ser
 import { userService } from '@/services/userService';
 import type { Produto, FormaPagamento, CriarVendaRapidaPayload } from '@/types/gestaoArena';
 import type { UsuarioAdmin } from '@/services/userService';
+import { normalizeSearchText } from '@/lib/search';
 import { X, Plus, Trash2, ShoppingCart, CreditCard, Search, User, UserPlus } from 'lucide-react';
 import InputMonetario from './InputMonetario';
 
@@ -295,11 +296,11 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
 
   const produtosFiltrados = useMemo(() => {
     if (!buscaProduto) return [];
-    const buscaLower = buscaProduto.toLowerCase();
+    const buscaNorm = normalizeSearchText(buscaProduto);
     return produtos.filter(
       (produto) =>
-        produto.nome.toLowerCase().includes(buscaLower) ||
-        produto.descricao?.toLowerCase().includes(buscaLower)
+        normalizeSearchText(produto.nome).includes(buscaNorm) ||
+        normalizeSearchText(produto.descricao || '').includes(buscaNorm)
     );
   }, [produtos, buscaProduto]);
 
@@ -832,4 +833,3 @@ export default function VendaRapidaModal({ isOpen, onClose, onSuccess }: VendaRa
     </div>
   );
 }
-

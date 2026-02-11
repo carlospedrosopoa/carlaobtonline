@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, itemCardService, pagamentoCardService, produtoService, formaPagamentoService } from '@/services/gestaoArenaService';
 import type { CardCliente, Produto, FormaPagamento, CriarItemCardPayload, CriarPagamentoCardPayload, ItemCard, PagamentoCard } from '@/types/gestaoArena';
 import { api } from '@/lib/api';
+import { normalizeSearchText } from '@/lib/search';
 import { X, Plus, Trash2, ShoppingCart, CreditCard, DollarSign, CheckCircle, XCircle, Clock, User, UserPlus, Edit, Search, FileText } from 'lucide-react';
 import InputMonetario from './InputMonetario';
 
@@ -1213,10 +1214,10 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                     {produtos
                       .filter((produto) => {
                         if (!buscaProduto) return false;
-                        const buscaLower = buscaProduto.toLowerCase();
+                        const buscaNorm = normalizeSearchText(buscaProduto);
                         return (
-                          produto.nome.toLowerCase().includes(buscaLower) ||
-                          produto.descricao?.toLowerCase().includes(buscaLower)
+                          normalizeSearchText(produto.nome).includes(buscaNorm) ||
+                          normalizeSearchText(produto.descricao || '').includes(buscaNorm)
                         );
                       })
                       .map((produto) => (
@@ -1242,10 +1243,10 @@ export default function GerenciarCardModal({ isOpen, card, onClose, onSuccess, o
                         </button>
                       ))}
                     {buscaProduto && produtos.filter((produto) => {
-                      const buscaLower = buscaProduto.toLowerCase();
+                      const buscaNorm = normalizeSearchText(buscaProduto);
                       return (
-                        produto.nome.toLowerCase().includes(buscaLower) ||
-                        produto.descricao?.toLowerCase().includes(buscaLower)
+                        normalizeSearchText(produto.nome).includes(buscaNorm) ||
+                        normalizeSearchText(produto.descricao || '').includes(buscaNorm)
                       );
                     }).length === 0 && (
                       <div className="p-4 text-center text-gray-500">Nenhum produto encontrado</div>

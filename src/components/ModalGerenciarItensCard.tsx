@@ -7,6 +7,7 @@ import { cardClienteService, itemCardService, produtoService } from '@/services/
 import type { CardCliente, Produto, ItemCard, CriarItemCardPayload, AtualizarItemCardPayload } from '@/types/gestaoArena';
 import { X, Plus, Trash2, ShoppingCart, Search, Pencil, Check, X as XIcon } from 'lucide-react';
 import InputMonetario from './InputMonetario';
+import { normalizeSearchText } from '@/lib/search';
 
 interface ModalGerenciarItensCardProps {
   isOpen: boolean;
@@ -544,10 +545,10 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                   {produtos
                     .filter((produto) => {
                       if (!buscaProduto) return false;
-                      const buscaLower = buscaProduto.toLowerCase();
+                      const buscaNorm = normalizeSearchText(buscaProduto);
                       return (
-                        produto.nome.toLowerCase().includes(buscaLower) ||
-                        produto.descricao?.toLowerCase().includes(buscaLower)
+                        normalizeSearchText(produto.nome).includes(buscaNorm) ||
+                        normalizeSearchText(produto.descricao || '').includes(buscaNorm)
                       );
                     })
                     .map((produto) => (
@@ -573,10 +574,10 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
                       </button>
                     ))}
                   {buscaProduto && produtos.filter((produto) => {
-                    const buscaLower = buscaProduto.toLowerCase();
+                    const buscaNorm = normalizeSearchText(buscaProduto);
                     return (
-                      produto.nome.toLowerCase().includes(buscaLower) ||
-                      produto.descricao?.toLowerCase().includes(buscaLower)
+                      normalizeSearchText(produto.nome).includes(buscaNorm) ||
+                      normalizeSearchText(produto.descricao || '').includes(buscaNorm)
                     );
                   }).length === 0 && (
                     <div className="p-4 text-center text-gray-500">Nenhum produto encontrado</div>
@@ -656,4 +657,3 @@ export default function ModalGerenciarItensCard({ isOpen, card, onClose, onSucce
     </div>
   );
 }
-
