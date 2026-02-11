@@ -2,7 +2,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
+import { handleCorsPreflight, withCors } from '@/lib/cors';
 import type { AtualizarProdutoPayload } from '@/types/gestaoArena';
+
+async function ensureProdutoBarcode() {
+  await query('ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS barcode TEXT NULL');
+  await query('CREATE INDEX IF NOT EXISTS "Produto_point_barcode_idx" ON "Produto" ("pointId", barcode)');
+}
+
+export async function OPTIONS(request: NextRequest) {
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+  return new NextResponse(null, { status: 204 });
+}
 
 // GET /api/gestao-arena/produto/[id] - Obter produto
 export async function GET(
@@ -12,11 +26,10 @@ export async function GET(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
-        { mensagem: 'Não autenticado' },
-        { status: 401 }
-      );
+      return withCors(NextResponse.json({ mensagem: 'Não autenticado' }, { status: 401 }), request);
     }
+
+    await ensureProdutoBarcode();
 
     const { id } = await params;
 
@@ -26,10 +39,7 @@ export async function GET(
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
-        { mensagem: 'Produto não encontrado' },
-        { status: 404 }
-      );
+      return withCors(NextResponse.json({ mensagem: 'Produto não encontrado' }, { status: 404 }), request);
     }
 
     const produto = result.rows[0];
@@ -37,20 +47,14 @@ export async function GET(
     // Verificar se ORGANIZER tem acesso a este produto
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, produto.pointId)) {
-        return NextResponse.json(
-          { mensagem: 'Você não tem acesso a este produto' },
-          { status: 403 }
-        );
+        return withCors(NextResponse.json({ mensagem: 'Você não tem acesso a este produto' }, { status: 403 }), request);
       }
     }
 
-    return NextResponse.json(produto);
+    return withCors(NextResponse.json(produto), request);
   } catch (error: any) {
     console.error('Erro ao obter produto:', error);
-    return NextResponse.json(
-      { mensagem: 'Erro ao obter produto', error: error.message },
-      { status: 500 }
-    );
+    return withCors(NextResponse.json({ mensagem: 'Erro ao obter produto', error: error.message }, { status: 500 }), request);
   }
 }
 
@@ -62,17 +66,16 @@ export async function PUT(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
-        { mensagem: 'Não autenticado' },
-        { status: 401 }
-      );
+      return withCors(NextResponse.json({ mensagem: 'Não autenticado' }, { status: 401 }), request);
     }
+
+    await ensureProdutoBarcode();
 
     // Apenas ADMIN e ORGANIZER podem atualizar produtos
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
-        { mensagem: 'Você não tem permissão para atualizar produtos' },
-        { status: 403 }
+      return withCors(
+        NextResponse.json({ mensagem: 'Você não tem permissão para atualizar produtos' }, { status: 403 }),
+        request
       );
     }
 
@@ -86,10 +89,7 @@ export async function PUT(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
-        { mensagem: 'Produto não encontrado' },
-        { status: 404 }
-      );
+      return withCors(NextResponse.json({ mensagem: 'Produto não encontrado' }, { status: 404 }), request);
     }
 
     const produtoAtual = existe.rows[0];
@@ -97,10 +97,7 @@ export async function PUT(
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, produtoAtual.pointId)) {
-        return NextResponse.json(
-          { mensagem: 'Você não tem acesso a este produto' },
-          { status: 403 }
-        );
+        return withCors(NextResponse.json({ mensagem: 'Você não tem acesso a este produto' }, { status: 403 }), request);
       }
     }
 
@@ -112,9 +109,9 @@ export async function PUT(
       );
 
       if (nomeExiste.rows.length > 0) {
-        return NextResponse.json(
-          { mensagem: 'Já existe um produto com este nome nesta arena' },
-          { status: 400 }
+        return withCors(
+          NextResponse.json({ mensagem: 'Já existe um produto com este nome nesta arena' }, { status: 400 }),
+          request
         );
       }
     }
@@ -166,10 +163,7 @@ export async function PUT(
     }
 
     if (updates.length === 0) {
-      return NextResponse.json(
-        { mensagem: 'Nenhum campo para atualizar' },
-        { status: 400 }
-      );
+      return withCors(NextResponse.json({ mensagem: 'Nenhum campo para atualizar' }, { status: 400 }), request);
     }
 
     updates.push(`"updatedAt" = NOW()`);
@@ -183,12 +177,12 @@ export async function PUT(
       values
     );
 
-    return NextResponse.json(result.rows[0]);
+    return withCors(NextResponse.json(result.rows[0]), request);
   } catch (error: any) {
     console.error('Erro ao atualizar produto:', error);
-    return NextResponse.json(
-      { mensagem: 'Erro ao atualizar produto', error: error.message },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ mensagem: 'Erro ao atualizar produto', error: error.message }, { status: 500 }),
+      request
     );
   }
 }
@@ -201,17 +195,14 @@ export async function DELETE(
   try {
     const usuario = await getUsuarioFromRequest(request);
     if (!usuario) {
-      return NextResponse.json(
-        { mensagem: 'Não autenticado' },
-        { status: 401 }
-      );
+      return withCors(NextResponse.json({ mensagem: 'Não autenticado' }, { status: 401 }), request);
     }
 
     // Apenas ADMIN e ORGANIZER podem deletar produtos
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
-      return NextResponse.json(
-        { mensagem: 'Você não tem permissão para deletar produtos' },
-        { status: 403 }
+      return withCors(
+        NextResponse.json({ mensagem: 'Você não tem permissão para deletar produtos' }, { status: 403 }),
+        request
       );
     }
 
@@ -224,10 +215,7 @@ export async function DELETE(
     );
 
     if (existe.rows.length === 0) {
-      return NextResponse.json(
-        { mensagem: 'Produto não encontrado' },
-        { status: 404 }
-      );
+      return withCors(NextResponse.json({ mensagem: 'Produto não encontrado' }, { status: 404 }), request);
     }
 
     const produto = existe.rows[0];
@@ -235,10 +223,7 @@ export async function DELETE(
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {
       if (!usuarioTemAcessoAoPoint(usuario, produto.pointId)) {
-        return NextResponse.json(
-          { mensagem: 'Você não tem acesso a este produto' },
-          { status: 403 }
-        );
+        return withCors(NextResponse.json({ mensagem: 'Você não tem acesso a este produto' }, { status: 403 }), request);
       }
     }
 
@@ -249,21 +234,23 @@ export async function DELETE(
     );
 
     if (itens.rows.length > 0) {
-      return NextResponse.json(
-        { mensagem: 'Não é possível deletar este produto pois ele está sendo utilizado em cards' },
-        { status: 400 }
+      return withCors(
+        NextResponse.json(
+          { mensagem: 'Não é possível deletar este produto pois ele está sendo utilizado em cards' },
+          { status: 400 }
+        ),
+        request
       );
     }
 
     await query('DELETE FROM "Produto" WHERE id = $1', [id]);
 
-    return NextResponse.json({ mensagem: 'Produto deletado com sucesso' });
+    return withCors(NextResponse.json({ mensagem: 'Produto deletado com sucesso' }), request);
   } catch (error: any) {
     console.error('Erro ao deletar produto:', error);
-    return NextResponse.json(
-      { mensagem: 'Erro ao deletar produto', error: error.message },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ mensagem: 'Erro ao deletar produto', error: error.message }, { status: 500 }),
+      request
     );
   }
 }
-
