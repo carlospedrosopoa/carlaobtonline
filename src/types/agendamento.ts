@@ -8,6 +8,7 @@ export interface Point {
   email?: string;
   descricao?: string;
   logoUrl?: string | null;
+  pixChave?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   ativo: boolean;
@@ -158,6 +159,7 @@ export interface CriarPointPayload {
   email?: string;
   descricao?: string;
   logoUrl?: string | null;
+  pixChave?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   ativo?: boolean;
