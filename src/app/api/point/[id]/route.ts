@@ -11,13 +11,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      const errorResponse = NextResponse.json({ mensagem: 'Não autenticado' }, { status: 401 });
+      return withCors(errorResponse, request);
+    }
+
     const { id } = await params;
     // Tentar primeiro com todos os campos (WhatsApp, Gzappy, cardTemplateUrl)
     let result;
     try {
       result = await query(
         `SELECT 
-          id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+          id, nome, endereco, telefone, email, descricao, "logoUrl", "pixChave", "cardTemplateUrl", latitude, longitude, ativo,
           "whatsappAccessToken", "whatsappPhoneNumberId", "whatsappBusinessAccountId", "whatsappApiVersion", "whatsappAtivo",
           "gzappyApiKey", "gzappyInstanceId", "gzappyAtivo",
           "enviarLembretesAgendamento", "antecedenciaLembrete",
@@ -37,7 +43,7 @@ export async function GET(
           // Tentar com cardTemplateUrl
           result = await query(
             `SELECT 
-              id, nome, endereco, telefone, email, descricao, "logoUrl", "cardTemplateUrl", latitude, longitude, ativo,
+              id, nome, endereco, telefone, email, descricao, "logoUrl", "pixChave", "cardTemplateUrl", latitude, longitude, ativo,
               assinante, "createdAt", "updatedAt"
             FROM "Point"
             WHERE id = $1`,
@@ -49,7 +55,7 @@ export async function GET(
             console.log('⚠️ Campo cardTemplateUrl não encontrado, usando query sem ele');
             result = await query(
               `SELECT 
-                id, nome, endereco, telefone, email, descricao, "logoUrl", latitude, longitude, ativo,
+                id, nome, endereco, telefone, email, descricao, "logoUrl", "pixChave", latitude, longitude, ativo,
                 assinante, "createdAt", "updatedAt"
               FROM "Point"
               WHERE id = $1`,
@@ -63,6 +69,7 @@ export async function GET(
         if (result.rows.length > 0) {
           result.rows[0] = {
             ...result.rows[0],
+            pixChave: result.rows[0].pixChave ?? null,
             cardTemplateUrl: result.rows[0].cardTemplateUrl ?? null,
             whatsappAccessToken: null,
             whatsappPhoneNumberId: null,
@@ -155,7 +162,7 @@ export async function PUT(
     const isOrganizer = usuario.role === 'ORGANIZER';
     
     const { 
-      nome, endereco, telefone, email, descricao, logoUrl, cardTemplateUrl, latitude, longitude, ativo,
+      nome, endereco, telefone, email, descricao, logoUrl, cardTemplateUrl, pixChave, latitude, longitude, ativo,
       whatsappAccessToken, whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappApiVersion, whatsappAtivo,
       gzappyApiKey, gzappyInstanceId, gzappyAtivo,
       enviarLembretesAgendamento, antecedenciaLembrete,
@@ -547,6 +554,26 @@ export async function PUT(
         );
         if (r.rows.length > 0) {
           result.rows[0].pagamentoOnlineAtivo = r.rows[0].pagamentoOnlineAtivo === true;
+        }
+      } catch (e: any) {
+        if (e?.code !== '42703') {
+          throw e;
+        }
+      }
+    }
+
+    if (pixChave !== undefined) {
+      const value = pixChave ? String(pixChave).trim() : null;
+      try {
+        const r = await query(
+          `UPDATE "Point"
+           SET "pixChave" = $1, "updatedAt" = NOW()
+           WHERE id = $2
+           RETURNING "pixChave"`,
+          [value, id]
+        );
+        if (r.rows.length > 0) {
+          result.rows[0].pixChave = r.rows[0].pixChave ?? null;
         }
       } catch (e: any) {
         if (e?.code !== '42703') {

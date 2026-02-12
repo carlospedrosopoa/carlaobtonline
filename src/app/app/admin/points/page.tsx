@@ -23,6 +23,7 @@ export default function AdminPointsPage() {
     email: '',
     descricao: '',
     logoUrl: null,
+    pixChave: null,
     latitude: null,
     longitude: null,
     ativo: true,
@@ -103,6 +104,7 @@ export default function AdminPointsPage() {
         email: point.email || '',
         descricao: point.descricao || '',
         logoUrl: point.logoUrl || null,
+        pixChave: point.pixChave || null,
         latitude: point.latitude || null,
         longitude: point.longitude || null,
         ativo: point.ativo,
@@ -135,6 +137,7 @@ export default function AdminPointsPage() {
         email: '',
         descricao: '',
         logoUrl: null,
+        pixChave: null,
         latitude: null,
         longitude: null,
         ativo: true,
@@ -948,6 +951,21 @@ export default function AdminPointsPage() {
                   <label htmlFor="pagamentoOnlineAtivo" className="text-sm font-medium text-gray-700">
                     Pagamento online ativo
                   </label>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chave Pix (opcional)
+                  </label>
+                  <input
+                    value={form.pixChave || ''}
+                    onChange={(e) => setForm({ ...form, pixChave: e.target.value })}
+                    placeholder="EVP / CNPJ / CPF / Email / Telefone"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Usada no quiosque para gerar o QRCode Pix da comanda.
+                  </p>
                 </div>
               </div>
 
