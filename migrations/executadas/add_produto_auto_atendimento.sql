@@ -1,0 +1,3 @@
+ALTER TABLE "Produto"
+ADD COLUMN IF NOT EXISTS "autoAtendimento" BOOLEAN NOT NULL DEFAULT true;
+

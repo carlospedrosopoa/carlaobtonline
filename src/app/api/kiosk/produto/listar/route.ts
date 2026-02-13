@@ -8,6 +8,10 @@ async function ensureProdutoBarcode() {
   await query('CREATE INDEX IF NOT EXISTS "Produto_point_barcode_idx" ON "Produto" ("pointId", barcode)');
 }
 
+async function ensureProdutoAutoAtendimento() {
+  await query('ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS "autoAtendimento" BOOLEAN NOT NULL DEFAULT true');
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -23,6 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     await ensureProdutoBarcode();
+    await ensureProdutoAutoAtendimento();
 
     const rapidosRes = await query(
       `SELECT 
@@ -32,6 +37,7 @@ export async function GET(request: NextRequest) {
       JOIN "ItemCard" i ON i."produtoId" = p.id
       WHERE p."pointId" = $1
         AND p.ativo = true
+        AND p."autoAtendimento" = true
         AND i."createdAt" >= (NOW() - INTERVAL '45 days')
       GROUP BY p.id, p.nome, p."precoVenda", p.categoria, p.barcode
       ORDER BY qtd DESC, p.nome ASC
@@ -44,6 +50,7 @@ export async function GET(request: NextRequest) {
        FROM "Produto"
        WHERE "pointId" = $1
          AND ativo = true
+         AND "autoAtendimento" = true
        ORDER BY COALESCE(categoria, ''), nome ASC`,
       [pointId]
     );
