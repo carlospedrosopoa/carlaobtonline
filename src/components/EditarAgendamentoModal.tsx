@@ -136,6 +136,13 @@ export default function EditarAgendamentoModal({
   const [gerarCardsAoSalvar, setGerarCardsAoSalvar] = useState(false);
   const [modalValoresAberto, setModalValoresAberto] = useState(false);
   const [valorTotalConfirmacao, setValorTotalConfirmacao] = useState<number | null>(0);
+  const [verificacaoPreco, setVerificacaoPreco] = useState<{
+    precoTabelaAntigo: number;
+    precoTabelaNovo: number | null;
+    precoNegociado: number | null;
+    valorHoraNovo: number | null;
+    temDivergencia: boolean;
+  } | null>(null);
   const [distribuicaoValores, setDistribuicaoValores] = useState<Array<{
     id: string; // único para key do react
     nome: string;
@@ -211,9 +218,15 @@ export default function EditarAgendamentoModal({
       if (agendamento) {
         // Buscar agendamento completo para garantir que os participantes sejam carregados
         carregarAgendamentoCompleto(agendamento.id);
+        
+        // Verificar preço
+        agendamentoService.verificarPreco(agendamento.id)
+          .then(setVerificacaoPreco)
+          .catch((err) => console.error('Erro ao verificar preço:', err));
       } else {
         // Modo criação - resetar formulário
         resetarFormulario();
+        setVerificacaoPreco(null);
         
         // Se houver dataInicial e horaInicial, pré-preencher
         if (dataInicial) {
@@ -1033,6 +1046,18 @@ export default function EditarAgendamentoModal({
 
 
 
+  const aplicarNovoPrecoTabela = () => {
+    if (!verificacaoPreco) return;
+    
+    if (verificacaoPreco.valorHoraNovo !== null) {
+      setValorHora(verificacaoPreco.valorHoraNovo);
+    }
+    if (verificacaoPreco.precoTabelaNovo !== null) {
+      setValorCalculado(verificacaoPreco.precoTabelaNovo);
+    }
+    // Não altera valorNegociado
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -1399,6 +1424,39 @@ export default function EditarAgendamentoModal({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Alerta de Divergência de Preço */}
+            {verificacaoPreco?.temDivergencia && (
+              <div className={`p-4 rounded-lg border flex items-start gap-3 ${
+                verificacaoPreco.precoNegociado !== null 
+                  ? 'bg-blue-50 border-blue-200 text-blue-800' 
+                  : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+              }`}>
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-sm mb-1">
+                    {verificacaoPreco.precoNegociado !== null 
+                      ? 'Reajuste na Tabela Base' 
+                      : 'Divergência de Preço'}
+                  </p>
+                  <p className="text-sm opacity-90 mb-2">
+                    {verificacaoPreco.precoNegociado !== null
+                      ? `A tabela base sofreu reajuste (de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(verificacaoPreco.precoTabelaAntigo)} para ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(verificacaoPreco.precoTabelaNovo || 0)}), mas o valor negociado de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(verificacaoPreco.precoNegociado)} está mantido.`
+                      : `O valor deste agendamento (${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(verificacaoPreco.precoTabelaAntigo)}) está diferente da tabela atual (${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(verificacaoPreco.precoTabelaNovo || 0)}).`}
+                  </p>
+                  
+                  {verificacaoPreco.precoNegociado === null && (
+                    <button
+                      type="button"
+                      onClick={aplicarNovoPrecoTabela}
+                      className="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 rounded text-xs font-medium transition-colors border border-yellow-300"
+                    >
+                      Atualizar para {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(verificacaoPreco.precoTabelaNovo || 0)}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Seleção de Atleta (modo atleta) */}
             {canGerenciarAgendamento && modo === 'atleta' && (
               <div>
