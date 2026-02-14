@@ -224,6 +224,11 @@ export const produtoService = {
     return res.data;
   },
 
+  atualizarEmMassa: async (updates: { id: string; precoVenda: number }[]): Promise<{ mensagem: string; count: number }> => {
+    const res = await api.put('/gestao-arena/produto/bulk-update', { updates });
+    return res.data;
+  },
+
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/gestao-arena/produto/${id}`);
   },
@@ -525,7 +530,7 @@ export const historicoAtletaArenaService = {
     params.append('q', busca);
     const res = await api.get(`/gestao-arena/historico-atleta/atletas?${params.toString()}`);
     return res.data;
-  }
+  },
 };
 
 // ========== ABERTURA DE CAIXA ==========
@@ -613,4 +618,3 @@ export const colaboradorService = {
     return res.data;
   },
 };
-

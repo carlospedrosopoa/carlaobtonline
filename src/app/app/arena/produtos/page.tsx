@@ -1,6 +1,7 @@
 // app/app/arena/produtos/page.tsx - Produtos
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { produtoService } from '@/services/gestaoArenaService';
@@ -177,13 +178,22 @@ export default function ProdutosPage() {
           <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
           <p className="text-gray-600 mt-1">Gerencie os produtos do bar/copa</p>
         </div>
-        <button
-          onClick={() => abrirModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Novo Produto
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/app/arena/produtos/tabela-precos"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <DollarSign className="w-5 h-5" />
+            Tabela de Preços
+          </Link>
+          <button
+            onClick={() => abrirModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Novo Produto
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
