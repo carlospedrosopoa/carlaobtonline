@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
           // Adicionar Item
           await client.query(
             `INSERT INTO "ItemCard"
-             ("cardId", "produtoId", "quantidade", "precoUnitario", "valorTotal", "observacoes", "createdById", "createdAt", "updatedAt")
+             ("cardId", "produtoId", "quantidade", "precoUnitario", "precoTotal", "observacoes", "createdById", "createdAt", "updatedAt")
              VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
             [cardId, produtoId, quantidade, precoFinal, valorTotalItem, observacao || null, usuario.id]
           );
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
           // Atualizar valor total do card
           await client.query(
             `UPDATE "CardCliente"
-             SET "valorTotal" = (SELECT COALESCE(SUM("valorTotal"), 0) FROM "ItemCard" WHERE "cardId" = $1),
+             SET "valorTotal" = (SELECT COALESCE(SUM("precoTotal"), 0) FROM "ItemCard" WHERE "cardId" = $1),
                  "updatedAt" = NOW()
              WHERE id = $1`,
             [cardId]
