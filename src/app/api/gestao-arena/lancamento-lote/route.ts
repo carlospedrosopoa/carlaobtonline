@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, transaction } from '@/lib/db';
-import { getUsuarioFromRequest, usuarioTemAcessoAPoint } from '@/lib/auth';
+import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 
 export async function POST(request: NextRequest) {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar permissão
     if (usuario.role !== 'ADMIN') {
-      const temAcesso = await usuarioTemAcessoAPoint(usuario, pointId);
+      const temAcesso = usuarioTemAcessoAoPoint(usuario, pointId);
       if (!temAcesso) {
         return withCors(NextResponse.json({ mensagem: 'Sem permissão para este estabelecimento' }, { status: 403 }), request);
       }
