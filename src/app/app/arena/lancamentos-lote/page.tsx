@@ -14,6 +14,7 @@ export default function LancamentoLotePage() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const [detalhesFalha, setDetalhesFalha] = useState<any[]>([]);
 
   // Dados
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -108,6 +109,7 @@ export default function LancamentoLotePage() {
       setSalvando(true);
       setErro('');
       setSucesso('');
+      setDetalhesFalha([]);
 
       const resultado = await cardClienteService.lancamentoLote({
         pointId: usuario.pointIdGestor,
@@ -121,9 +123,14 @@ export default function LancamentoLotePage() {
 
       setSucesso(`Lançamento realizado com sucesso! ${resultado.resultados.sucesso} processados, ${resultado.resultados.falha} falhas.`);
       
-      // Limpar formulário parcial
-      setAtletasSelecionados([]);
-      setBuscaAtleta('');
+      if (resultado.resultados.falha > 0) {
+        const falhas = resultado.resultados.detalhes.filter((d: any) => d.status === 'erro');
+        setDetalhesFalha(falhas);
+      } else {
+        // Limpar formulário apenas se tudo deu certo ou parcialmente certo sem falhas críticas que impeçam o uso contínuo
+        setAtletasSelecionados([]);
+        setBuscaAtleta('');
+      }
       
     } catch (err: any) {
       console.error(err);
@@ -153,9 +160,24 @@ export default function LancamentoLotePage() {
       )}
 
       {sucesso && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
-          <CheckCircle className="w-5 h-5" />
-          {sucesso}
+        <div className="space-y-2">
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            {sucesso}
+          </div>
+          
+          {detalhesFalha.length > 0 && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-red-800 mb-2">Detalhes das Falhas:</h3>
+              <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
+                {detalhesFalha.map((falha, index) => (
+                  <li key={index}>
+                    <span className="font-medium">{falha.atletaNome || 'Atleta desconhecido'}:</span> {falha.mensagem}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
