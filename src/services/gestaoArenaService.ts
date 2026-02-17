@@ -142,6 +142,19 @@ export const cardClienteService = {
     return res.data;
   },
 
+  lancamentoLote: async (payload: {
+    pointId: string;
+    produtoId: string;
+    quantidade: number;
+    valorUnitario?: number;
+    observacao?: string;
+    criarNovasComandas: boolean;
+    atletas: { id: string; nome?: string }[];
+  }): Promise<{ mensagem: string; resultados: any }> => {
+    const res = await api.post('/gestao-arena/lancamento-lote', payload);
+    return res.data;
+  },
+
   // Agendamentos do card
   vincularAgendamento: async (cardId: string, agendamentoId: string): Promise<any> => {
     const res = await api.post(`/gestao-arena/card-cliente/${cardId}/agendamento`, { agendamentoId });

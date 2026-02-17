@@ -1,6 +1,7 @@
 // app/app/arena/cards-clientes/page.tsx - Cards de Clientes
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService } from '@/services/gestaoArenaService';
@@ -519,6 +520,13 @@ export default function CardsClientesPage() {
             <Zap className="w-5 h-5" />
             Nova Venda
           </button>
+          <Link
+            href="/app/arena/lancamentos-lote"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            Lançamento em Lote
+          </Link>
         </div>
       </div>
 
