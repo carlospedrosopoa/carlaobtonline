@@ -43,6 +43,8 @@ export default function ArenaAgendaSemanalPage() {
   const [tooltipDiaPosicao, setTooltipDiaPosicao] = useState<{ x: number; y: number } | null>(null);
   const [modalCriarUsuarioIncompleto, setModalCriarUsuarioIncompleto] = useState(false);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [linkAgendamentoPublico, setLinkAgendamentoPublico] = useState('');
+  const [linkAgendamentoPublicoCopiado, setLinkAgendamentoPublicoCopiado] = useState(false);
 
   // Função para normalizar texto removendo acentuação
   const normalizarTexto = (texto: string): string => {
@@ -90,6 +92,12 @@ export default function ArenaAgendaSemanalPage() {
   useEffect(() => {
     carregarAgendamentos();
   }, [inicioSemana]);
+
+  useEffect(() => {
+    const pointId = usuario?.pointIdGestor || quadras[0]?.pointId;
+    if (!pointId) return;
+    setLinkAgendamentoPublico(`${window.location.origin}/agendar/${pointId}`);
+  }, [usuario?.pointIdGestor, quadras]);
 
   // Fechar menu ao clicar fora
   useEffect(() => {
@@ -634,6 +642,18 @@ export default function ArenaAgendaSemanalPage() {
     }
   };
 
+  const copiarLinkAgendamentoPublico = async () => {
+    if (!linkAgendamentoPublico) return;
+    try {
+      await navigator.clipboard.writeText(linkAgendamentoPublico);
+      setLinkAgendamentoPublicoCopiado(true);
+      setTimeout(() => setLinkAgendamentoPublicoCopiado(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar link:', err);
+      alert('Erro ao copiar link. Tente novamente.');
+    }
+  };
+
   const obterTelefoneCliente = (agendamento: Agendamento): string | null => {
     // Prioridade: telefoneAvulso > telefone do atleta > whatsapp do usuário
     if (agendamento.telefoneAvulso) {
@@ -881,6 +901,27 @@ export default function ArenaAgendaSemanalPage() {
           <p className="text-gray-600">Visualize todos os agendamentos da sua arena</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={copiarLinkAgendamentoPublico}
+              disabled={!linkAgendamentoPublico}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50"
+              title={linkAgendamentoPublico || 'Link indisponível'}
+            >
+              <MessageCircle className="w-5 h-5" />
+              {linkAgendamentoPublicoCopiado ? 'Link copiado' : 'Agendamento Público'}
+            </button>
+            <button
+              type="button"
+              onClick={() => linkAgendamentoPublico && window.open(linkAgendamentoPublico, '_blank', 'noopener,noreferrer')}
+              disabled={!linkAgendamentoPublico}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
+              title="Abrir agendamento público"
+            >
+              Abrir
+            </button>
+          </div>
           {(isAdmin || isOrganizer) && (
             <button
               onClick={() => setModalCriarUsuarioIncompleto(true)}
