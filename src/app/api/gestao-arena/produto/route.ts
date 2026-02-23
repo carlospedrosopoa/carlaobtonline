@@ -10,6 +10,10 @@ async function ensureProdutoBarcode() {
   await query('CREATE INDEX IF NOT EXISTS "Produto_point_barcode_idx" ON "Produto" ("pointId", barcode)');
 }
 
+async function ensureProdutoAutoAtendimento() {
+  await query('ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS "autoAtendimento" BOOLEAN NOT NULL DEFAULT true');
+}
+
 // OPTIONS /api/gestao-arena/produto - Preflight CORS
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
@@ -32,6 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     await ensureProdutoBarcode();
+    await ensureProdutoAutoAtendimento();
 
     const { searchParams } = new URL(request.url);
     const pointId = searchParams.get('pointId');
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
     const categoria = searchParams.get('categoria');
 
     let sql = `SELECT 
-      id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "createdAt", "updatedAt", "acessoRapido", barcode
+      id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "createdAt", "updatedAt", "acessoRapido", "autoAtendimento", barcode
     FROM "Produto"
     WHERE 1=1`;
 
@@ -103,6 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     await ensureProdutoBarcode();
+    await ensureProdutoAutoAtendimento();
 
     // Apenas ADMIN e ORGANIZER podem criar produtos
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
@@ -114,7 +120,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CriarProdutoPayload = await request.json();
-    const { pointId, nome, descricao, precoVenda, precoCusto, categoria, ativo = true, acessoRapido = false, barcode } = body;
+    const { pointId, nome, descricao, precoVenda, precoCusto, categoria, ativo = true, acessoRapido = false, autoAtendimento = true, barcode } =
+      body;
 
     if (!pointId || !nome || precoVenda === undefined) {
       const errorResponse = NextResponse.json(
@@ -151,11 +158,22 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO "Produto" (
-        id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "acessoRapido", barcode, "createdAt", "updatedAt"
+        id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "acessoRapido", "autoAtendimento", barcode, "createdAt", "updatedAt"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()
       ) RETURNING *`,
-      [pointId, nome, descricao || null, precoVenda, precoCusto || null, categoria || null, ativo, acessoRapido, barcode || null]
+      [
+        pointId,
+        nome,
+        descricao || null,
+        precoVenda,
+        precoCusto || null,
+        categoria || null,
+        ativo,
+        acessoRapido,
+        autoAtendimento,
+        barcode || null,
+      ]
     );
 
     const response = NextResponse.json(result.rows[0], { status: 201 });

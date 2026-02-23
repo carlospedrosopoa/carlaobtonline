@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cardRes = await query(
-      `SELECT id, "pointId", "numeroCard", status, "valorTotal"
+      `SELECT id, "pointId", "numeroCard", status, "valorTotal", "usuarioId", "nomeAvulso", "telefoneAvulso"
        FROM "CardCliente"
        WHERE "pointId" = $1 AND "numeroCard" = $2
        LIMIT 1`,
@@ -34,6 +34,37 @@ export async function POST(request: NextRequest) {
     }
 
     const card = cardRes.rows[0];
+    let atleta: any = null;
+    const usuarioId = card.usuarioId || null;
+
+    if (usuarioId) {
+      const atletaRes = await query(
+        `SELECT id, nome, fone
+         FROM "Atleta"
+         WHERE "usuarioId" = $1
+         ORDER BY "updatedAt" DESC
+         LIMIT 1`,
+        [usuarioId]
+      );
+      if (atletaRes.rows.length > 0) {
+        atleta = {
+          id: atletaRes.rows[0].id,
+          nome: atletaRes.rows[0].nome,
+          telefone: atletaRes.rows[0].fone ?? null,
+        };
+      } else {
+        const userRes = await query(`SELECT name FROM "User" WHERE id = $1 LIMIT 1`, [usuarioId]);
+        if (userRes.rows.length > 0) {
+          atleta = { id: 'user', nome: userRes.rows[0].name, telefone: null };
+        }
+      }
+    } else if (card.nomeAvulso) {
+      atleta = {
+        id: 'avulso',
+        nome: String(card.nomeAvulso),
+        telefone: card.telefoneAvulso ?? null,
+      };
+    }
     let itens: any[] = [];
 
     if (incluirItens) {
@@ -65,6 +96,7 @@ export async function POST(request: NextRequest) {
 
     return withCors(
       NextResponse.json({
+        atleta,
         card: {
           id: card.id,
           pointId: card.pointId,

@@ -10,6 +10,10 @@ async function ensureProdutoBarcode() {
   await query('CREATE INDEX IF NOT EXISTS "Produto_point_barcode_idx" ON "Produto" ("pointId", barcode)');
 }
 
+async function ensureProdutoAutoAtendimento() {
+  await query('ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS "autoAtendimento" BOOLEAN NOT NULL DEFAULT true');
+}
+
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
   if (preflightResponse) {
@@ -30,6 +34,7 @@ export async function GET(
     }
 
     await ensureProdutoBarcode();
+    await ensureProdutoAutoAtendimento();
 
     const { id } = await params;
 
@@ -70,6 +75,7 @@ export async function PUT(
     }
 
     await ensureProdutoBarcode();
+    await ensureProdutoAutoAtendimento();
 
     // Apenas ADMIN e ORGANIZER podem atualizar produtos
     if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
@@ -154,6 +160,11 @@ export async function PUT(
     if (body.acessoRapido !== undefined) {
       updates.push(`"acessoRapido" = $${paramCount}`);
       values.push(body.acessoRapido);
+      paramCount++;
+    }
+    if (body.autoAtendimento !== undefined) {
+      updates.push(`"autoAtendimento" = $${paramCount}`);
+      values.push(body.autoAtendimento);
       paramCount++;
     }
     if (body.barcode !== undefined) {

@@ -142,6 +142,19 @@ export const cardClienteService = {
     return res.data;
   },
 
+  lancamentoLote: async (payload: {
+    pointId: string;
+    produtoId: string;
+    quantidade: number;
+    valorUnitario?: number;
+    observacao?: string;
+    criarNovasComandas: boolean;
+    atletas: { id: string; nome?: string }[];
+  }): Promise<{ mensagem: string; resultados: any }> => {
+    const res = await api.post('/gestao-arena/lancamento-lote', payload);
+    return res.data;
+  },
+
   // Agendamentos do card
   vincularAgendamento: async (cardId: string, agendamentoId: string): Promise<any> => {
     const res = await api.post(`/gestao-arena/card-cliente/${cardId}/agendamento`, { agendamentoId });
@@ -221,6 +234,11 @@ export const produtoService = {
 
   atualizar: async (id: string, payload: AtualizarProdutoPayload): Promise<Produto> => {
     const res = await api.put(`/gestao-arena/produto/${id}`, payload);
+    return res.data;
+  },
+
+  atualizarEmMassa: async (updates: { id: string; precoVenda: number }[]): Promise<{ mensagem: string; count: number }> => {
+    const res = await api.put('/gestao-arena/produto/bulk-update', { updates });
     return res.data;
   },
 
@@ -525,7 +543,7 @@ export const historicoAtletaArenaService = {
     params.append('q', busca);
     const res = await api.get(`/gestao-arena/historico-atleta/atletas?${params.toString()}`);
     return res.data;
-  }
+  },
 };
 
 // ========== ABERTURA DE CAIXA ==========
@@ -613,4 +631,3 @@ export const colaboradorService = {
     return res.data;
   },
 };
-

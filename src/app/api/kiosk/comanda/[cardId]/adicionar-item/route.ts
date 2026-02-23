@@ -8,6 +8,10 @@ async function ensureProdutoBarcode() {
   await query('CREATE INDEX IF NOT EXISTS "Produto_point_barcode_idx" ON "Produto" ("pointId", barcode)');
 }
 
+async function ensureProdutoAutoAtendimento() {
+  await query('ALTER TABLE "Produto" ADD COLUMN IF NOT EXISTS "autoAtendimento" BOOLEAN NOT NULL DEFAULT true');
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ cardId: string }> }
@@ -58,19 +62,20 @@ export async function POST(
     if (barcodeRaw) {
       await ensureProdutoBarcode();
     }
+    await ensureProdutoAutoAtendimento();
 
     const produtoRes = produtoIdRaw
       ? await query(
-          'SELECT id, "precoVenda", ativo FROM "Produto" WHERE id = $1 AND "pointId" = $2 LIMIT 1',
+          'SELECT id, "precoVenda", ativo FROM "Produto" WHERE id = $1 AND "pointId" = $2 AND "autoAtendimento" = true LIMIT 1',
           [produtoIdRaw, pointId]
         )
       : await query(
-          'SELECT id, "precoVenda", ativo FROM "Produto" WHERE barcode = $1 AND "pointId" = $2 LIMIT 1',
+          'SELECT id, "precoVenda", ativo FROM "Produto" WHERE barcode = $1 AND "pointId" = $2 AND "autoAtendimento" = true LIMIT 1',
           [barcodeRaw, pointId]
         );
 
     if (produtoRes.rows.length === 0) {
-      return withCors(NextResponse.json({ mensagem: 'Produto não encontrado' }, { status: 404 }), request);
+      return withCors(NextResponse.json({ mensagem: 'Produto não disponível no autoatendimento' }, { status: 404 }), request);
     }
 
     if (produtoRes.rows[0].ativo !== true) {

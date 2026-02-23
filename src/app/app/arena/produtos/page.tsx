@@ -1,6 +1,7 @@
 // app/app/arena/produtos/page.tsx - Produtos
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { produtoService } from '@/services/gestaoArenaService';
@@ -29,6 +30,7 @@ export default function ProdutosPage() {
     categoria: '',
     ativo: true,
     acessoRapido: false,
+    autoAtendimento: true,
     barcode: '',
   });
 
@@ -65,6 +67,7 @@ export default function ProdutosPage() {
         categoria: produto.categoria || '',
         ativo: produto.ativo,
         acessoRapido: produto.acessoRapido ?? false,
+        autoAtendimento: produto.autoAtendimento ?? true,
         barcode: produto.barcode || '',
       });
     } else {
@@ -78,6 +81,7 @@ export default function ProdutosPage() {
         categoria: '',
         ativo: true,
         acessoRapido: false,
+        autoAtendimento: true,
         barcode: '',
       });
     }
@@ -110,6 +114,7 @@ export default function ProdutosPage() {
           categoria: form.categoria || undefined,
           ativo: form.ativo,
           acessoRapido: form.acessoRapido,
+          autoAtendimento: form.autoAtendimento,
           barcode: form.barcode || undefined,
         };
         await produtoService.atualizar(produtoEditando.id, payload);
@@ -173,13 +178,22 @@ export default function ProdutosPage() {
           <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
           <p className="text-gray-600 mt-1">Gerencie os produtos do bar/copa</p>
         </div>
-        <button
-          onClick={() => abrirModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Novo Produto
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/app/arena/produtos/tabela-precos"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <DollarSign className="w-5 h-5" />
+            Tabela de Preços
+          </Link>
+          <button
+            onClick={() => abrirModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Novo Produto
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -311,6 +325,17 @@ export default function ProdutosPage() {
                   <span>{(produto.acessoRapido ?? false) ? 'Ativado' : 'Desativado'}</span>
                 </label>
               </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
+                  <span className="text-xs text-gray-600">Autoatendimento</span>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      (produto.autoAtendimento ?? true) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {(produto.autoAtendimento ?? true) ? 'Liberado' : 'Bloqueado'}
+                  </span>
+                </div>
             </div>
           </div>
         ))}
@@ -420,6 +445,19 @@ export default function ProdutosPage() {
                 />
                 <label htmlFor="ativo" className="text-sm font-medium text-gray-700 cursor-pointer">
                   Produto ativo
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.autoAtendimento ?? true}
+                  onChange={(e) => setForm({ ...form, autoAtendimento: e.target.checked })}
+                  className="rounded"
+                  id="autoAtendimento"
+                />
+                <label htmlFor="autoAtendimento" className="text-sm font-medium text-gray-700 cursor-pointer">
+                  Liberar no autoatendimento (quiosque)
                 </label>
               </div>
 

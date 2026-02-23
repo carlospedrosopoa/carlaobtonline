@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
 import { v4 as uuidv4 } from 'uuid';
+import { createUserIncompleto } from '@/lib/userService';
 
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
@@ -87,46 +88,41 @@ export async function POST(request: NextRequest) {
     }
 
     // Se não existe, criar novo atleta temporário
-    // A tabela Atleta requer usuarioId NOT NULL, então precisamos garantir que temos um
-    const atletaId = uuidv4();
-    const dataNascimentoPadrao = new Date('2000-01-01'); // Data padrão para atletas temporários
-    
-    // Determinar usuarioIdFinal: usar o informado se válido
-    // Se não tiver usuarioId válido, não podemos criar o atleta (constraint NOT NULL)
-    let usuarioIdFinal: string | null = null;
-    
-    if (usuarioId) {
-      // Validar se o usuarioId existe no banco
-      const userCheck = await query('SELECT id FROM "User" WHERE id = $1', [usuarioId]);
-      if (userCheck.rows.length > 0) {
-        usuarioIdFinal = usuarioId;
-      } else {
-        // Se usuarioId não existe, retornar erro
-        return withCors(
-          NextResponse.json(
-            { mensagem: 'usuarioId informado não existe no banco' },
-            { status: 400 }
-          ),
-          request
-        );
-      }
-    } else {
-      // Se não tem usuarioId no parâmetro, não podemos criar atleta (constraint NOT NULL)
-      // Retornar erro informando que precisa ter usuarioId
+    // A tabela Atleta requer usuarioId NOT NULL.
+    // Se não vier usuarioId, criamos um usuário incompleto (email/senha temporários) e o atleta vinculado.
+    if (!usuarioId) {
+      const criado = await createUserIncompleto(nome.trim(), telefoneNormalizado, 'USER', pointId);
+
+      return withCors(
+        NextResponse.json({
+          id: criado.atletaId,
+          nome: nome.trim(),
+          telefone: telefoneNormalizado,
+          temporario: true,
+          existente: false,
+        }),
+        request
+      );
+    }
+
+    const userCheck = await query('SELECT id FROM "User" WHERE id = $1', [usuarioId]);
+    if (userCheck.rows.length === 0) {
       return withCors(
         NextResponse.json(
-          { mensagem: 'É necessário informar um usuarioId válido para criar um atleta. Use um link com usuarioId ou faça login primeiro.' },
+          { mensagem: 'usuarioId informado não existe no banco' },
           { status: 400 }
         ),
         request
       );
     }
-    
-    // Agora temos usuarioIdFinal válido, podemos criar o atleta
+
+    const atletaId = uuidv4();
+    const dataNascimentoPadrao = new Date('2000-01-01');
+
     await query(
       `INSERT INTO "Atleta" (id, nome, fone, "dataNascimento", "usuarioId", "pointIdPrincipal", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-      [atletaId, nome.trim(), telefoneNormalizado, dataNascimentoPadrao, usuarioIdFinal, pointId]
+      [atletaId, nome.trim(), telefoneNormalizado, dataNascimentoPadrao, usuarioId, pointId]
     );
 
     return withCors(
