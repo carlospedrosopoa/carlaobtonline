@@ -36,7 +36,9 @@ const getStorage = () => {
         projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
       });
     } else {
-      console.warn(`Arquivo de credenciais não encontrado: ${credentialsPath}. Tentando usar ADC...`);
+      console.warn(`Arquivo de credenciais não encontrado: ${credentialsPath}. Removendo GOOGLE_APPLICATION_CREDENTIALS e tentando ADC...`);
+      // Evitar que a SDK tente usar um caminho inválido via variável de ambiente
+      try { delete (process.env as any).GOOGLE_APPLICATION_CREDENTIALS; } catch {}
     }
   }
   
@@ -122,6 +124,19 @@ export async function uploadImage(
   folder: string = 'uploads'
 ): Promise<UploadResult> {
   console.log('[GCS uploadImage] Iniciando upload:', { originalName, folder, bufferSize: fileBuffer.length });
+  // Se a variável de arquivo de credenciais aponta para um caminho inexistente,
+  // limpe a variável e force re-inicialização para usar ADC
+  try {
+    const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
+      ? path.resolve(process.cwd(), process.env.GOOGLE_APPLICATION_CREDENTIALS)
+      : null;
+    if (credPath && !existsSync(credPath)) {
+      console.warn(`[GCS uploadImage] Credenciais inexistentes em ${credPath}. Limpando e reinicializando para ADC...`);
+      try { delete (process.env as any).GOOGLE_APPLICATION_CREDENTIALS; } catch {}
+      storageInstance = null;
+      initializationAttempted = false;
+    }
+  } catch {}
   
   // Tentar inicializar/reinicializar se necessário
   if (!storageInstance) {
@@ -215,6 +230,16 @@ export async function uploadImage(
       stack: error.stack,
     });
     
+    // Em desenvolvimento, não bloquear o fluxo: retornar URL mock
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[GCS uploadImage] Falha no upload em desenvolvimento. Retornando URL mock. Detalhe:', error.message);
+      return {
+        url: `https://via.placeholder.com/1080x1920?text=${encodeURIComponent(originalName)}`,
+        fileName: `${folder}/${uuidv4()}.png`,
+        size: fileBuffer.length,
+      };
+    }
+
     // Verificar tipos específicos de erro
     if (error.code === 403 || error.message?.includes('permission') || error.message?.includes('Permission denied')) {
       throw new Error('Sem permissão para fazer upload no Google Cloud Storage. Verifique as credenciais.');
