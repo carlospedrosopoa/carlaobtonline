@@ -78,7 +78,7 @@ A aplicação estará disponível em `http://localhost:3001` (ou outra porta dis
 - `/src/services` - Serviços para comunicação com a API
 - `/src/types` - Definições TypeScript
 
-## 🔐 Autenticação
+## � Autenticação
 
 A autenticação é feita via JWT através da API do projeto principal. O token é armazenado no `localStorage` e enviado em todas as requisições.
 

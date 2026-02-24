@@ -520,63 +520,45 @@ export async function generateMatchCard(
     );
     console.log('[generateCard] Fotos carregadas:', imagens.filter(img => img !== imgPadrao).length, 'fotos reais,', imagens.filter(img => img === imgPadrao).length, 'avatares padrão');
     
-    // Posições das fotos - tamanho dobrado
-    const tamanho = 440; // Dobrado de 220 para 440
+    // Tamanho das fotos (diâmetro do círculo)
+    const tamanho = 320.4; // Requisito: 320.4px (largura x altura)
     const posicoesFotos: Array<[number, number]> = [
-      [40, 320],   // Atleta 1 (esquerda, topo) - ajustado para acomodar foto maior
-      [40, 860],   // Atleta 2 (esquerda, baixo) - descido mais (era 800)
-      [620, 320],  // Atleta 3 (direita, topo) - ajustado
-      [620, 860],  // Atleta 4 (direita, baixo) - descido mais (era 800)
+      // Coordenadas pixel‑perfect conforme referência
+      [89.6, 389.8],   // Avatar 1 (Vitor Lima)
+      [86.7, 1052.4],  // Avatar 2 (Atleta 6)
+      [667.0, 421.4],  // Avatar 3 (Atleta 5)
+      [677.0, 1063.9], // Avatar 4 (Atleta 3)
     ];
     
-    // Desenhar fotos dos atletas (mantendo proporção)
     console.log('[generateCard] Desenhando fotos...');
+    ctx.imageSmoothingEnabled = true;
+    (ctx as any).imageSmoothingQuality = 'high';
     imagens.forEach((img, i) => {
-      if (img) {
-        const x = posicoesFotos[i][0];
-        const y = posicoesFotos[i][1];
-        const centerX = x + tamanho / 2;
-        const centerY = y + tamanho / 2;
-        const radius = tamanho / 2 - 5;
-        
-        // Calcular proporção para manter aspect ratio (crop centralizado)
-        const imgAspect = img.width / img.height;
-        const targetAspect = 1; // Quadrado (tamanho x tamanho)
-        
-        let drawWidth = tamanho;
-        let drawHeight = tamanho;
-        let drawX = x;
-        let drawY = y;
-        
-        // Se a imagem for mais larga que alta, ajustar altura e centralizar horizontalmente
-        if (imgAspect > targetAspect) {
-          drawHeight = tamanho;
-          drawWidth = tamanho * imgAspect;
-          drawX = x - (drawWidth - tamanho) / 2;
-        } else {
-          // Se a imagem for mais alta que larga, ajustar largura e centralizar verticalmente
-          drawWidth = tamanho;
-          drawHeight = tamanho / imgAspect;
-          drawY = y - (drawHeight - tamanho) / 2;
-        }
-        
-        // Criar círculo para a foto (clip)
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.clip();
-        
-        // Desenhar imagem mantendo proporção (crop centralizado)
-        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-        ctx.restore();
-        
-        // Borda branca
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius - 2.5, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      if (!img) return;
+      const x = posicoesFotos[i][0];
+      const y = posicoesFotos[i][1];
+      const centerX = x + tamanho / 2;
+      const centerY = y + tamanho / 2;
+      const radius = tamanho / 2 - 5;
+
+      const scale = Math.max(tamanho / img.width, tamanho / img.height) * 1.02;
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
+      const drawX = centerX - drawWidth / 2;
+      const drawY = centerY - drawHeight / 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+      ctx.restore();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius - 2.5, 0, Math.PI * 2);
+      ctx.stroke();
     });
     
     // Textos - Nomes dos atletas (abaixo das fotos, não sobrepostos)

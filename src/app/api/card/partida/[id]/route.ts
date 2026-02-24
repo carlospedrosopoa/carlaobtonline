@@ -150,8 +150,8 @@ export async function GET(
     }
 
     // Determinar qual template usar
-    // Prioridade: templateUrl da partida > template da arena (cardTemplateUrl do Point) > template padrão (variável de ambiente)
-    const templatePadrao = obterTemplatePadrao();
+    // Nova regra: usar apenas template específico
+    // Prioridade: templateUrl da partida > template da arena (Point.cardTemplateUrl)
     let templateArena: string | null = null;
     
     // Se a partida não tem template próprio, tentar buscar template da arena pelo pointId
@@ -159,14 +159,13 @@ export async function GET(
       templateArena = await obterTemplateArenaPorPointId(partida.pointId);
     }
     
-    const templateUrlParaUsar = partida.templateUrl || templateArena || templatePadrao;
+    const templateUrlParaUsar = partida.templateUrl || templateArena;
     
     console.log('[Card] Template da partida:', partida.templateUrl || 'null');
     console.log('[Card] Template da arena:', templateArena || 'null');
-    console.log('[Card] Template padrão:', templatePadrao || 'null');
     console.log('[Card] Template que será usado:', templateUrlParaUsar || 'fundo programático');
     
-    // Se a partida não tem template salvo e temos um template (da arena ou padrão), salvar na partida
+    // Se a partida não tem template salvo e temos um template da arena, salvar na partida
     if (!partida.templateUrl && templateUrlParaUsar) {
       try {
         await salvarTemplatePartida(partida.id, templateUrlParaUsar);
