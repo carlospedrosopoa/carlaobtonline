@@ -4,6 +4,7 @@ import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { temRecorrencia, gerarAgendamentosRecorrentes } from '@/lib/recorrenciaService';
+import { carregarHorariosAtendimentoPoint, inicioDentroDoHorario } from '@/lib/horarioAtendimento';
 import type { RecorrenciaConfig } from '@/types/agendamento';
 
 // GET /api/agendamento/[id] - Obter agendamento por ID
@@ -523,6 +524,26 @@ export async function PUT(
       const duracaoFinal = duracao || agendamentoAtual.duracao || 60;
       const dataHoraFim = new Date(dataHoraUTC.getTime() + duracaoFinal * 60000);
 
+      const quadraPoint = await query('SELECT "pointId" FROM "Quadra" WHERE id = $1', [quadraIdFinal]);
+      if (quadraPoint.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Quadra não encontrada' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+      const pointIdDaQuadra = quadraPoint.rows[0].pointId as string;
+      const horariosAtendimento = await carregarHorariosAtendimentoPoint(pointIdDaQuadra);
+      const inicioMin = dataHoraUTC.getUTCHours() * 60 + dataHoraUTC.getUTCMinutes();
+      const diaSemana = dataHoraUTC.getUTCDay();
+      if (usuario.role !== 'ORGANIZER' && !inicioDentroDoHorario(horariosAtendimento, diaSemana, inicioMin)) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Fora do horário de atendimento' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+
       const conflitos = await query(
         `SELECT id FROM "Agendamento"
          WHERE "quadraId" = $1
@@ -836,6 +857,26 @@ export async function PUT(
         const [hora, minuto] = horaPart.split(':').map(Number);
         return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
       })() : dataHoraAtualRecorrencia;
+
+      const quadraPoint = await query('SELECT "pointId" FROM "Quadra" WHERE id = $1', [quadraIdFinal]);
+      if (quadraPoint.rows.length === 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Quadra não encontrada' },
+          { status: 404 }
+        );
+        return withCors(errorResponse, request);
+      }
+      const pointIdDaQuadra = quadraPoint.rows[0].pointId as string;
+      const horariosAtendimento = await carregarHorariosAtendimentoPoint(pointIdDaQuadra);
+      const inicioMinAtual = dataHoraFinal.getUTCHours() * 60 + dataHoraFinal.getUTCMinutes();
+      const diaSemanaAtual = dataHoraFinal.getUTCDay();
+      if (usuario.role !== 'ORGANIZER' && !inicioDentroDoHorario(horariosAtendimento, diaSemanaAtual, inicioMinAtual)) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Fora do horário de atendimento' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
       
       const duracaoFinal = duracao !== undefined ? duracao : dadosAtuais.duracao;
       const valorHoraFinal = valorHora !== null ? valorHora : dadosAtuais.valorHora;
@@ -925,8 +966,15 @@ export async function PUT(
       
       // Verificar conflitos antes de criar
       const conflitosEncontrados: string[] = [];
+      const foraHorarioEncontrados: string[] = [];
       for (const agendamentoRec of agendamentosFuturos) {
         const dataAgendamento = new Date(agendamentoRec.dataHora);
+        const inicioMin = dataAgendamento.getUTCHours() * 60 + dataAgendamento.getUTCMinutes();
+        const diaSemana = dataAgendamento.getUTCDay();
+        if (usuario.role !== 'ORGANIZER' && !inicioDentroDoHorario(horariosAtendimento, diaSemana, inicioMin)) {
+          foraHorarioEncontrados.push(dataAgendamento.toISOString());
+          continue;
+        }
         const dataFimAgendamento = new Date(dataAgendamento.getTime() + duracaoFinal * 60000);
         const conflitos = await query(
           `SELECT id FROM "Agendamento"
@@ -941,6 +989,14 @@ export async function PUT(
         if (conflitos.rows.length > 0) {
           conflitosEncontrados.push(dataAgendamento.toISOString());
         }
+      }
+
+      if (foraHorarioEncontrados.length > 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: `Existem ${foraHorarioEncontrados.length} agendamento(s) da recorrência fora do horário de atendimento` },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
       }
 
       if (conflitosEncontrados.length > 0) {
@@ -1540,4 +1596,3 @@ export async function DELETE(
 export async function OPTIONS(request: NextRequest) {
   return withCors(new NextResponse(null, { status: 204 }), request);
 }
-

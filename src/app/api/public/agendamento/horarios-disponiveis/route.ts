@@ -3,9 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
-import { agendamentoService } from '@/services/agendamentoService';
-import { bloqueioAgendaService } from '@/services/agendamentoService';
-import { quadraService } from '@/services/agendamentoService';
+import { carregarHorariosAtendimentoPoint, diaSemanaFromYYYYMMDD, slotDentroDoHorario } from '@/lib/horarioAtendimento';
 
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
@@ -101,9 +99,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Buscar agendamentos confirmados do dia
-    const dataInicioDia = `${data}T00:00:00`;
-    const dataFimDia = `${data}T23:59:59`;
+    const inicioDiaUTC = new Date(`${data}T00:00:00Z`);
+    const diaAnteriorUTC = new Date(inicioDiaUTC);
+    diaAnteriorUTC.setUTCDate(diaAnteriorUTC.getUTCDate() - 1);
+    const proximoDiaUTC = new Date(inicioDiaUTC);
+    proximoDiaUTC.setUTCDate(proximoDiaUTC.getUTCDate() + 1);
+    const dataDiaAnterior = diaAnteriorUTC.toISOString().slice(0, 10);
+    const dataProximoDia = proximoDiaUTC.toISOString().slice(0, 10);
+
+    const dataInicioBusca = `${dataDiaAnterior}T00:00:00Z`;
+    const dataFimBusca = `${dataProximoDia}T23:59:59Z`;
+
+    const horariosAtendimento = await carregarHorariosAtendimentoPoint(pointId);
+    const diaSemana = diaSemanaFromYYYYMMDD(data);
 
     const agendamentosResult = await query(
       `SELECT a."quadraId", a."dataHora", a.duracao
@@ -113,7 +121,7 @@ export async function GET(request: NextRequest) {
          AND a."dataHora" >= $2
          AND a."dataHora" <= $3
          AND a.status = 'CONFIRMADO'`,
-      [pointId, dataInicioDia, dataFimDia]
+      [pointId, dataInicioBusca, dataFimBusca]
     );
 
     // Buscar bloqueios do dia
@@ -125,12 +133,13 @@ export async function GET(request: NextRequest) {
          AND b."dataInicio" <= $3
          AND b."dataFim" >= $2
          AND b.ativo = true`,
-      [pointId, dataInicioDia, dataFimDia]
+      [pointId, dataInicioBusca, dataFimBusca]
     );
 
-    // Gerar slots de horário (exemplo: 06:00 até 23:00, de hora em hora)
     const slots: string[] = [];
-    for (let hora = 6; hora < 24; hora++) {
+    for (let hora = 6; hora <= 23; hora++) {
+      const inicioMin = hora * 60;
+      if (!slotDentroDoHorario(horariosAtendimento, diaSemana, inicioMin, duracao)) continue;
       slots.push(`${hora.toString().padStart(2, '0')}:00`);
     }
 
@@ -138,81 +147,71 @@ export async function GET(request: NextRequest) {
     const horariosDisponiveis: string[] = [];
     const quadrasIds = quadras.map(q => q.id);
 
-    for (const slot of slots) {
-      const [hStr, mStr] = slot.split(':');
-      const slotInicioMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
-      const slotFimMin = slotInicioMin + duracao;
+    const parseQuadraIds = (value: any): string[] | null => {
+      if (!value) return null;
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
 
-      // Verificar se alguma quadra está livre neste horário
-      const temQuadraLivre = quadrasIds.some(quadraId => {
-        // Verificar conflitos com agendamentos
+    const parseDateUTC = (value: any) => {
+      const v = String(value || '');
+      if (/[zZ]|[+-]\d\d:\d\d$/.test(v)) return new Date(v);
+      return new Date(`${v}Z`);
+    };
+
+    const bloqueioConflita = (bloq: any, quadraId: string, slotInicio: Date, slotFim: Date): boolean => {
+      const quadraIds = parseQuadraIds(bloq.quadraIds);
+      if (quadraIds && quadraIds.length > 0 && !quadraIds.includes(quadraId)) return false;
+
+      const bloqInicio = parseDateUTC(bloq.dataInicio);
+      const bloqFim = parseDateUTC(bloq.dataFim);
+      const bloqInicioDia = new Date(Date.UTC(bloqInicio.getUTCFullYear(), bloqInicio.getUTCMonth(), bloqInicio.getUTCDate()));
+      const bloqFimDia = new Date(Date.UTC(bloqFim.getUTCFullYear(), bloqFim.getUTCMonth(), bloqFim.getUTCDate()));
+
+      const slotInicioDia = new Date(Date.UTC(slotInicio.getUTCFullYear(), slotInicio.getUTCMonth(), slotInicio.getUTCDate()));
+      const slotFimDia = new Date(Date.UTC(slotFim.getUTCFullYear(), slotFim.getUTCMonth(), slotFim.getUTCDate()));
+
+      const dia = new Date(slotInicioDia);
+      while (dia <= slotFimDia) {
+        if (dia >= bloqInicioDia && dia <= bloqFimDia) {
+          const inicioMin = bloq.horaInicio !== null && bloq.horaInicio !== undefined ? Number(bloq.horaInicio) : 0;
+          const fimMin = bloq.horaFim !== null && bloq.horaFim !== undefined ? Number(bloq.horaFim) : 1440;
+          const bloqueioInicio = new Date(dia.getTime() + inicioMin * 60_000);
+          const bloqueioFim = new Date(dia.getTime() + fimMin * 60_000);
+          if (bloqueioInicio < slotFim && bloqueioFim > slotInicio) return true;
+        }
+        dia.setUTCDate(dia.getUTCDate() + 1);
+      }
+
+      return false;
+    };
+
+    for (const slot of slots) {
+      const slotInicio = new Date(`${data}T${slot}:00Z`);
+      const slotFim = new Date(slotInicio.getTime() + duracao * 60_000);
+
+      const temQuadraLivre = quadrasIds.some((quadraId) => {
         const temConflitoAgendamento = agendamentosResult.rows.some((ag: any) => {
           if (ag.quadraId !== quadraId) return false;
-          
-          const agDataHora = new Date(ag.dataHora);
-          const agInicioMin = agDataHora.getUTCHours() * 60 + agDataHora.getUTCMinutes();
-          const agDuracao = ag.duracao || 60;
-          const agFimMin = agInicioMin + agDuracao;
-
-          // Verificar sobreposição
-          return !(slotFimMin <= agInicioMin || slotInicioMin >= agFimMin);
+          const agInicio = parseDateUTC(ag.dataHora);
+          const agFim = new Date(agInicio.getTime() + (Number(ag.duracao) || 60) * 60_000);
+          return agInicio < slotFim && agFim > slotInicio;
         });
-
         if (temConflitoAgendamento) return false;
 
-        // Verificar conflitos com bloqueios
-        const temConflitoBloqueio = bloqueiosResult.rows.some((bloq: any) => {
-          // Verificar se o bloqueio afeta esta quadra
-          // Se quadraIds for null ou vazio, bloqueia todas as quadras do point
-          // Se tiver quadraIds, verificar se esta quadra está na lista
-          if (bloq.quadraIds && Array.isArray(bloq.quadraIds) && bloq.quadraIds.length > 0) {
-            if (!bloq.quadraIds.includes(quadraId)) {
-              return false; // Bloqueio não afeta esta quadra
-            }
-          }
-          // Se quadraIds for null/vazio, bloqueia todas as quadras
-
-          // Verificar conflito de data/hora
-          const bloqDataInicio = new Date(bloq.dataInicio);
-          const bloqDataFim = new Date(bloq.dataFim);
-          
-          // Se o bloqueio tem horaInicio/horaFim, usar eles
-          // Senão, bloqueia o dia inteiro
-          let bloqInicioMin: number;
-          let bloqFimMin: number;
-          
-          if (bloq.horaInicio !== null && bloq.horaInicio !== undefined) {
-            bloqInicioMin = bloq.horaInicio; // Já está em minutos
-          } else {
-            bloqInicioMin = 0; // Início do dia
-          }
-          
-          if (bloq.horaFim !== null && bloq.horaFim !== undefined) {
-            bloqFimMin = bloq.horaFim; // Já está em minutos
-          } else {
-            bloqFimMin = 24 * 60; // Fim do dia (1440 minutos)
-          }
-
-          // Verificar se a data do slot está dentro do período do bloqueio
-          const slotDate = new Date(`${data}T${slot}:00`);
-          const slotDateStr = slotDate.toISOString().split('T')[0];
-          const bloqDataInicioStr = bloqDataInicio.toISOString().split('T')[0];
-          const bloqDataFimStr = bloqDataFim.toISOString().split('T')[0];
-          
-          if (slotDateStr < bloqDataInicioStr || slotDateStr > bloqDataFimStr) {
-            return false; // Fora do período do bloqueio
-          }
-
-          // Verificar sobreposição de horário
-          return !(slotFimMin <= bloqInicioMin || slotInicioMin >= bloqFimMin);
-        });
-
+        const temConflitoBloqueio = bloqueiosResult.rows.some((bloq: any) => bloqueioConflita(bloq, quadraId, slotInicio, slotFim));
         return !temConflitoBloqueio;
       });
 
-      if (temQuadraLivre) {
-        horariosDisponiveis.push(slot);
-      }
+      if (temQuadraLivre) horariosDisponiveis.push(slot);
     }
 
     return withCors(

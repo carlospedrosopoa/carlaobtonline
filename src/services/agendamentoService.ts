@@ -13,6 +13,9 @@ import type {
   BloqueioAgenda,
   CriarBloqueioAgendaPayload,
   AtualizarBloqueioAgendaPayload,
+  HorarioAtendimentoPoint,
+  CriarHorarioAtendimentoPointPayload,
+  AtualizarHorarioAtendimentoPointPayload,
 } from "@/types/agendamento";
 
 // ========== POINTS ==========
@@ -218,6 +221,31 @@ export const bloqueioAgendaService = {
 
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/bloqueio-agenda/${id}`);
+  },
+};
+
+export const horarioAtendimentoService = {
+  listar: async (filtros?: { pointId?: string; pointIds?: string[] }): Promise<HorarioAtendimentoPoint[]> => {
+    const params: string[] = [];
+    if (filtros?.pointId) params.push(`pointId=${filtros.pointId}`);
+    if (filtros?.pointIds && filtros.pointIds.length > 0) params.push(`pointIds=${filtros.pointIds.join(',')}`);
+    const queryString = params.length > 0 ? `?${params.join("&")}` : "";
+    const res = await api.get(`/horario-atendimento${queryString}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarHorarioAtendimentoPointPayload): Promise<HorarioAtendimentoPoint> => {
+    const res = await api.post('/horario-atendimento', payload);
+    return res.data;
+  },
+
+  atualizar: async (id: string, payload: AtualizarHorarioAtendimentoPointPayload): Promise<HorarioAtendimentoPoint> => {
+    const res = await api.put(`/horario-atendimento/${id}`, payload);
+    return res.data;
+  },
+
+  deletar: async (id: string): Promise<void> => {
+    await api.delete(`/horario-atendimento/${id}`);
   },
 };
 

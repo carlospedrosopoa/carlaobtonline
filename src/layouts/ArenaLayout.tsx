@@ -59,6 +59,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         { to: '/app/arena/quadras', label: 'Minhas Quadras' },
         { to: '/app/arena/tabela-precos', label: 'Tabela de Preços' },
         { to: '/app/arena/bloqueios', label: 'Bloqueios' },
+        { to: '/app/arena/horarios-atendimento', label: 'Horários de Atendimento' },
       ],
     },
     {
@@ -114,7 +115,6 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       label: 'Administração',
       items: [
         { to: '/app/arena/colaboradores', label: 'Colaboradores' },
-        { to: '/app/arena/configuracao', label: 'Configuração' },
       ],
     },
   ];

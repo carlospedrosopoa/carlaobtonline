@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, normalizarDataHora } from '@/lib/db';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
 import { v4 as uuidv4 } from 'uuid';
+import { carregarHorariosAtendimentoPoint, diaSemanaFromYYYYMMDD, inicioDentroDoHorario } from '@/lib/horarioAtendimento';
 
 export async function OPTIONS(request: NextRequest) {
   const preflightResponse = handleCorsPreflight(request);
@@ -95,6 +96,18 @@ export async function POST(request: NextRequest) {
     const duracaoMinutos = duracao || 60;
     const dataHoraFim = new Date(dataHoraNormalizada);
     dataHoraFim.setUTCMinutes(dataHoraFim.getUTCMinutes() + duracaoMinutos);
+
+    const dataInicio = new Date(dataHoraNormalizada);
+    const inicioMin = dataInicio.getUTCHours() * 60 + dataInicio.getUTCMinutes();
+    const dataStr = dataHoraNormalizada.slice(0, 10);
+    const horariosAtendimento = await carregarHorariosAtendimentoPoint(quadra.pointId);
+    const diaSemana = diaSemanaFromYYYYMMDD(dataStr);
+    if (!inicioDentroDoHorario(horariosAtendimento, diaSemana, inicioMin)) {
+      return withCors(
+        NextResponse.json({ mensagem: 'Fora do horário de atendimento' }, { status: 400 }),
+        request
+      );
+    }
 
     // Verificar conflitos com agendamentos confirmados
     const conflitosResult = await query(

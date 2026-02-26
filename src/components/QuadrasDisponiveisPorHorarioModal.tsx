@@ -3,7 +3,7 @@
 // components/QuadrasDisponiveisPorHorarioModal.tsx - Mostrar apenas horários disponíveis em uma data
 
 import { useEffect, useState } from 'react';
-import { agendamentoService, bloqueioAgendaService, quadraService } from '@/services/agendamentoService';
+import { agendamentoService, bloqueioAgendaService, horarioAtendimentoService, quadraService } from '@/services/agendamentoService';
 import type { Agendamento, BloqueioAgenda, Quadra } from '@/types/agendamento';
 import { Calendar, CheckCircle, Clock, X } from 'lucide-react';
 
@@ -14,6 +14,7 @@ interface QuadrasDisponiveisPorHorarioModalProps {
   duracaoInicial?: number;
   onSelecionarHorario: (data: string, hora: string, duracao: number) => void;
   pointIdsPermitidos?: string[];
+  ignorarHorarioAtendimento?: boolean;
 }
 
 const INICIO_DIA_MINUTOS = 6 * 60; // 06:00
@@ -27,6 +28,7 @@ export default function QuadrasDisponiveisPorHorarioModal({
   duracaoInicial,
   onSelecionarHorario,
   pointIdsPermitidos,
+  ignorarHorarioAtendimento,
 }: QuadrasDisponiveisPorHorarioModalProps) {
   const [data, setData] = useState('');
   const [duracao, setDuracao] = useState(60);
@@ -45,7 +47,7 @@ export default function QuadrasDisponiveisPorHorarioModal({
 
   const gerarSlots = () => {
     const slots: string[] = [];
-    for (let m = INICIO_DIA_MINUTOS; m + duracao <= FIM_DIA_MINUTOS; m += STEP_MINUTOS) {
+    for (let m = INICIO_DIA_MINUTOS; m <= FIM_DIA_MINUTOS; m += STEP_MINUTOS) {
       const h = Math.floor(m / 60);
       const min = m % 60;
       slots.push(`${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
@@ -74,19 +76,39 @@ export default function QuadrasDisponiveisPorHorarioModal({
         return;
       }
 
-      // Buscar agendamentos e bloqueios para o dia inteiro (sem depender de timezone)
-      const dataInicioDia = `${data}T00:00:00`;
-      const dataFimDia = `${data}T23:59:59`;
+      const map: Record<string, Record<number, { inicioMin: number; fimMin: number }[]>> = {};
+      if (!ignorarHorarioAtendimento) {
+        const pointIds = Array.from(new Set(quadrasAtivas.map((q) => q.pointId)));
+        const horarios = await horarioAtendimentoService.listar({ pointIds });
+        for (const h of horarios) {
+          if (!map[h.pointId]) map[h.pointId] = {};
+          if (!map[h.pointId][h.diaSemana]) map[h.pointId][h.diaSemana] = [];
+          map[h.pointId][h.diaSemana].push({ inicioMin: h.inicioMin, fimMin: h.fimMin });
+        }
+        for (const pid of Object.keys(map)) {
+          for (const dia of Object.keys(map[pid])) {
+            map[pid][Number(dia)].sort((a, b) => a.inicioMin - b.inicioMin);
+          }
+        }
+      }
+
+      const inicioDiaUTC = new Date(`${data}T00:00:00.000Z`);
+      const proximoDiaUTC = new Date(inicioDiaUTC);
+      proximoDiaUTC.setUTCDate(proximoDiaUTC.getUTCDate() + 1);
+      const dataProximoDia = proximoDiaUTC.toISOString().slice(0, 10);
+
+      const dataInicioBusca = `${data}T00:00:00.000Z`;
+      const dataFimBusca = `${dataProximoDia}T23:59:59.999Z`;
 
       const [agendamentosDia, bloqueiosDia] = await Promise.all([
         agendamentoService.listar({
-          dataInicio: dataInicioDia,
-          dataFim: dataFimDia,
+          dataInicio: dataInicioBusca,
+          dataFim: dataFimBusca,
           status: 'CONFIRMADO',
         }),
         bloqueioAgendaService.listar({
-          dataInicio: dataInicioDia,
-          dataFim: dataFimDia,
+          dataInicio: dataInicioBusca,
+          dataFim: dataFimBusca,
           apenasAtivos: true,
         }),
       ]);
@@ -97,10 +119,9 @@ export default function QuadrasDisponiveisPorHorarioModal({
       for (const horaStr of slots) {
         const [hStr, mStr] = horaStr.split(':');
         const slotInicioMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
-        const slotFimMin = slotInicioMin + duracao;
 
         const existeQuadraLivre = quadrasAtivas.some((quadra) =>
-          quadraEstaLivreNoHorario(quadra, slotInicioMin, slotFimMin, agendamentosDia, bloqueiosDia, duracao),
+          quadraEstaLivreNoHorario(quadra, slotInicioMin, agendamentosDia, bloqueiosDia, duracao, map),
         );
 
         if (existeQuadraLivre) {
@@ -120,29 +141,44 @@ export default function QuadrasDisponiveisPorHorarioModal({
   const quadraEstaLivreNoHorario = (
     quadra: Quadra,
     slotInicioMin: number,
-    slotFimMin: number,
     agendamentos: Agendamento[],
     bloqueios: BloqueioAgenda[],
     duracaoMin: number,
+    horariosAtendimentoMap: Record<string, Record<number, { inicioMin: number; fimMin: number }[]>>,
   ): boolean => {
     const diaStr = data;
+    const [anoStr, mesStr, diaStrNum] = diaStr.split('-');
+    const ano = parseInt(anoStr, 10);
+    const mes = parseInt(mesStr, 10);
+    const dia = parseInt(diaStrNum, 10);
 
-    // Verificar conflito com agendamentos usando apenas data + minutos (sem Date/Timezone)
+    const slotInicio = new Date(Date.UTC(ano, mes - 1, dia, 0, 0, 0, 0) + slotInicioMin * 60_000);
+    const slotFim = new Date(slotInicio.getTime() + duracaoMin * 60_000);
+    const diaSemana = new Date(Date.UTC(ano, mes - 1, dia, 0, 0, 0, 0)).getUTCDay();
+
+      const horariosPoint = horariosAtendimentoMap[quadra.pointId];
+      if (horariosPoint) {
+        const intervalos = horariosPoint[diaSemana] || [];
+        if (intervalos.length === 0) return false;
+        const fimMin = slotInicioMin + duracaoMin;
+        const permitido = intervalos.some((i) => slotInicioMin >= i.inicioMin && fimMin <= i.fimMin);
+        if (!permitido) return false;
+      }
+
+    const parseDateUTC = (value: string) => {
+      const v = String(value || '');
+      if (/[zZ]|[+-]\d\d:\d\d$/.test(v)) return new Date(v);
+      return new Date(`${v}Z`);
+    };
+
     const temAgendamento = agendamentos.some((ag) => {
       if (ag.quadraId !== quadra.id || !ag.dataHora) return false;
-      const [dataPart, horaPart] = ag.dataHora.split('T');
-      if (dataPart !== diaStr) return false;
-
-      const [hStr, mStr] = horaPart.substring(0, 5).split(':');
-      const agInicioMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
-      const agFimMin = agInicioMin + ag.duracao;
-
-      return !(slotFimMin <= agInicioMin || slotInicioMin >= agFimMin);
+      const agInicio = parseDateUTC(ag.dataHora);
+      const agFim = new Date(agInicio.getTime() + ag.duracao * 60_000);
+      return agInicio < slotFim && agFim > slotInicio;
     });
-
     if (temAgendamento) return false;
 
-    // Verificar conflito com bloqueios, também em minutos
     const temBloqueio = bloqueios.some((bloqueio) => {
       if (!bloqueio.ativo) return false;
 
@@ -150,22 +186,30 @@ export default function QuadrasDisponiveisPorHorarioModal({
         bloqueio.quadraIds === null ? quadra.pointId === bloqueio.pointId : bloqueio.quadraIds.includes(quadra.id);
       if (!afetaQuadra) return false;
 
-      const inicioBloqueioDia = bloqueio.dataInicio.slice(0, 10);
-      const fimBloqueioDia = bloqueio.dataFim.slice(0, 10);
-      if (diaStr < inicioBloqueioDia || diaStr > fimBloqueioDia) return false;
+      const bloqInicio = parseDateUTC(bloqueio.dataInicio);
+      const bloqFim = parseDateUTC(bloqueio.dataFim);
+      const bloqInicioDia = new Date(Date.UTC(bloqInicio.getUTCFullYear(), bloqInicio.getUTCMonth(), bloqInicio.getUTCDate()));
+      const bloqFimDia = new Date(Date.UTC(bloqFim.getUTCFullYear(), bloqFim.getUTCMonth(), bloqFim.getUTCDate()));
 
-      // Sem horário específico: dia inteiro bloqueado
-      if (bloqueio.horaInicio == null && bloqueio.horaFim == null) return true;
+      const slotInicioDia = new Date(Date.UTC(slotInicio.getUTCFullYear(), slotInicio.getUTCMonth(), slotInicio.getUTCDate()));
+      const slotFimDia = new Date(Date.UTC(slotFim.getUTCFullYear(), slotFim.getUTCMonth(), slotFim.getUTCDate()));
 
-      const bloqueioInicioMin = bloqueio.horaInicio ?? 0;
-      const bloqueioFimMin = bloqueio.horaFim ?? 24 * 60;
+      const diaIter = new Date(slotInicioDia);
+      while (diaIter <= slotFimDia) {
+        if (diaIter >= bloqInicioDia && diaIter <= bloqFimDia) {
+          const inicioMin = bloqueio.horaInicio != null ? bloqueio.horaInicio : 0;
+          const fimMin = bloqueio.horaFim != null ? bloqueio.horaFim : 1440;
+          const bloqueioInicio = new Date(diaIter.getTime() + inicioMin * 60_000);
+          const bloqueioFim = new Date(diaIter.getTime() + fimMin * 60_000);
+          if (bloqueioInicio < slotFim && bloqueioFim > slotInicio) return true;
+        }
+        diaIter.setUTCDate(diaIter.getUTCDate() + 1);
+      }
 
-      return !(slotFimMin <= bloqueioInicioMin || slotInicioMin >= bloqueioFimMin);
+      return false;
     });
 
-    if (temBloqueio) return false;
-
-    return true;
+    return !temBloqueio;
   };
 
   if (!isOpen) return null;

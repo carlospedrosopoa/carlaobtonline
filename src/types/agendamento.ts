@@ -306,3 +306,29 @@ export interface AtualizarBloqueioAgendaPayload {
   horaFim?: string | null;
   ativo?: boolean;
 }
+
+export interface HorarioAtendimentoPoint {
+  id: string;
+  pointId: string;
+  diaSemana: number; // 0=domingo ... 6=sábado
+  inicioMin: number; // minutos desde 00:00
+  fimMin: number; // minutos desde 00:00
+  ativo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CriarHorarioAtendimentoPointPayload {
+  pointId: string;
+  diaSemana: number;
+  inicioMin: number;
+  fimMin: number;
+  ativo?: boolean;
+}
+
+export interface AtualizarHorarioAtendimentoPointPayload {
+  diaSemana?: number;
+  inicioMin?: number;
+  fimMin?: number;
+  ativo?: boolean;
+}

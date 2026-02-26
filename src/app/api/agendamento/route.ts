@@ -4,6 +4,7 @@ import { query, normalizarDataHora } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { gerarAgendamentosRecorrentes } from '@/lib/recorrenciaService';
 import { withCors } from '@/lib/cors';
+import { carregarHorariosAtendimentoPoint, inicioDentroDoHorario } from '@/lib/horarioAtendimento';
 import type { RecorrenciaConfig } from '@/types/agendamento';
 
 // GET /api/agendamento - Listar agendamentos com filtros
@@ -603,6 +604,19 @@ export async function POST(request: NextRequest) {
     const dataHoraUTC = new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
     const dataHoraFim = new Date(dataHoraUTC.getTime() + duracao * 60000);
 
+    const pointIdDaQuadra = quadraCheck.rows[0].pointId as string;
+    const horariosAtendimento = await carregarHorariosAtendimentoPoint(pointIdDaQuadra);
+    const validarHorarioAtendimento = (inicio: Date) => {
+      const diaSemana = inicio.getUTCDay();
+      const inicioMin = inicio.getUTCHours() * 60 + inicio.getUTCMinutes();
+      if (!inicioDentroDoHorario(horariosAtendimento, diaSemana, inicioMin)) {
+        throw new Error('FORA_HORARIO_ATENDIMENTO');
+      }
+    };
+    if (usuario.role !== 'ORGANIZER') {
+      validarHorarioAtendimento(dataHoraUTC);
+    }
+
     const conflitos = await query(
       `SELECT id FROM "Agendamento"
        WHERE "quadraId" = $1
@@ -724,6 +738,7 @@ export async function POST(request: NextRequest) {
 
     // Função auxiliar para criar um agendamento
     const criarAgendamentoUnico = async (dataHoraAgendamento: Date, recorrenciaId?: string, recorrenciaConfig?: RecorrenciaConfig) => {
+      validarHorarioAtendimento(dataHoraAgendamento);
       // Verificar conflitos para este agendamento específico
       const dataFimAgendamento = new Date(dataHoraAgendamento.getTime() + duracao * 60000);
       const conflitos = await query(
@@ -1246,6 +1261,13 @@ Esperamos você! 🎾`;
     return withCors(response, request);
   } catch (error: any) {
     console.error('Erro ao criar agendamento:', error);
+    if (String(error?.message) === 'FORA_HORARIO_ATENDIMENTO') {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Fora do horário de atendimento' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
     const errorResponse = NextResponse.json(
       { mensagem: 'Erro ao criar agendamento', error: error.message },
       { status: 500 }
