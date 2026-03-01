@@ -10,11 +10,19 @@ interface Arena {
   nome: string;
   endereco?: string | null;
   logoUrl?: string | null;
+  regiaoId?: string | null;
 }
 
 interface Quadra {
   id: string;
   nome: string;
+}
+
+interface Apoiador {
+  id: string;
+  nome: string;
+  logoUrl?: string | null;
+  exibirColorido?: boolean;
 }
 
 interface HorariosDisponiveisResponse {
@@ -47,12 +55,19 @@ export default function AgendarPublicoPage() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
   const [atletaId, setAtletaId] = useState<string | null>(null);
+  const [apoiadores, setApoiadores] = useState<Apoiador[]>([]);
 
   useEffect(() => {
     if (pointId) {
       carregarArena();
     }
   }, [pointId]);
+
+  useEffect(() => {
+    if (arena?.regiaoId) {
+      buscarApoiadores(arena.regiaoId);
+    }
+  }, [arena?.regiaoId]);
 
   useEffect(() => {
     if (dataSelecionada && pointId) {
@@ -73,6 +88,7 @@ export default function AgendarPublicoPage() {
           nome: data.nome,
           endereco: data.endereco || null,
           logoUrl: data.logoUrl || null,
+          regiaoId: data.regiaoId || null,
         });
       } else {
         const errorData = await response.json();
@@ -81,6 +97,18 @@ export default function AgendarPublicoPage() {
     } catch (error) {
       console.error('Erro ao carregar arena:', error);
       setErro('Erro ao carregar informações da arena');
+    }
+  };
+
+  const buscarApoiadores = async (regiaoId: string) => {
+    try {
+      const response = await fetch(`/api/apoiadores?regiaoId=${regiaoId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setApoiadores(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar apoiadores:', error);
     }
   };
 
@@ -457,6 +485,35 @@ export default function AgendarPublicoPage() {
               )}
             </button>
           </form>
+
+          {/* Apoiadores */}
+          {apoiadores.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-gray-100">
+              <h3 className="text-center text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">
+                Nossos Apoiadores
+              </h3>
+              <div className="flex flex-wrap justify-center gap-6 items-center">
+                {apoiadores.map((apoiador) => (
+                  <div key={apoiador.id} className="relative group">
+                    {apoiador.logoUrl ? (
+                      <div className={`h-12 w-auto transition-all duration-300 ${apoiador.exibirColorido ? '' : 'filter grayscale hover:grayscale-0'} opacity-70 hover:opacity-100`}>
+                        <img
+                          src={apoiador.logoUrl}
+                          alt={apoiador.nome}
+                          className="h-full w-auto object-contain"
+                          title={apoiador.nome}
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors">
+                        {apoiador.nome}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

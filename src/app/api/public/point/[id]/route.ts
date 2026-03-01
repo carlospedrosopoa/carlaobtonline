@@ -20,10 +20,11 @@ export async function GET(
     // Retornar apenas informações públicas (sem dados sensíveis)
     const result = await query(
       `SELECT 
-        id, nome, endereco, telefone, email, descricao, "logoUrl", 
-        latitude, longitude, ativo
-      FROM "Point"
-      WHERE id = $1`,
+        p.id, p.nome, p.endereco, p.telefone, p.email, p.descricao, p."logoUrl", 
+        p.latitude, p.longitude, p.ativo,
+        (SELECT rp."regiaoId" FROM "RegiaoPoint" rp WHERE rp."pointId" = p.id LIMIT 1) as "regiaoId"
+      FROM "Point" p
+      WHERE p.id = $1`,
       [id]
     );
 
