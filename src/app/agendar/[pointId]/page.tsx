@@ -10,11 +10,19 @@ interface Arena {
   nome: string;
   endereco?: string | null;
   logoUrl?: string | null;
+  regiaoId?: string | null;
 }
 
 interface Quadra {
   id: string;
   nome: string;
+}
+
+interface Apoiador {
+  id: string;
+  nome: string;
+  logoUrl?: string | null;
+  exibirColorido?: boolean;
 }
 
 interface HorariosDisponiveisResponse {
@@ -47,12 +55,29 @@ export default function AgendarPublicoPage() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
   const [atletaId, setAtletaId] = useState<string | null>(null);
+  const [apoiadores, setApoiadores] = useState<Apoiador[]>([]);
+  const [indiceApoiador, setIndiceApoiador] = useState(0);
 
   useEffect(() => {
     if (pointId) {
       carregarArena();
     }
   }, [pointId]);
+
+  useEffect(() => {
+    if (arena) {
+      buscarApoiadores(arena.regiaoId || null);
+    }
+  }, [arena]);
+
+  useEffect(() => {
+    if (apoiadores.length > 1) {
+      const interval = setInterval(() => {
+        setIndiceApoiador((prev) => (prev + 1) % apoiadores.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [apoiadores]);
 
   useEffect(() => {
     if (dataSelecionada && pointId) {
@@ -73,6 +98,7 @@ export default function AgendarPublicoPage() {
           nome: data.nome,
           endereco: data.endereco || null,
           logoUrl: data.logoUrl || null,
+          regiaoId: data.regiaoId || null,
         });
       } else {
         const errorData = await response.json();
@@ -81,6 +107,19 @@ export default function AgendarPublicoPage() {
     } catch (error) {
       console.error('Erro ao carregar arena:', error);
       setErro('Erro ao carregar informações da arena');
+    }
+  };
+
+  const buscarApoiadores = async (regiaoId: string | null) => {
+    try {
+      const url = regiaoId ? `/api/apoiadores?regiaoId=${regiaoId}` : `/api/apoiadores`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setApoiadores(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar apoiadores:', error);
     }
   };
 
@@ -269,194 +308,263 @@ export default function AgendarPublicoPage() {
   const dataMaximaStr = dataMaxima.toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Agendar Quadra
-            </h1>
-            {arena && (
-              <div className="flex flex-col items-center gap-2">
-                {arena.logoUrl ? (
-                  <div className="h-20 w-20 rounded-xl bg-white shadow-sm border border-gray-200 flex items-center justify-center overflow-hidden">
-                    <img
-                      src={arena.logoUrl}
-                      alt={arena.nome}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                ) : null}
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 py-8 px-4 flex items-center justify-center">
+      <div className="max-w-6xl mx-auto w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2">
+          
+          {/* Coluna Esquerda: Dados da Arena + Formulário */}
+          <div className="p-6 md:p-12 lg:border-r border-gray-100">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Agendar Quadra
+              </h1>
+              {arena && (
+                <div className="flex flex-col items-center gap-2">
+                  {arena.logoUrl ? (
+                    <div className="h-20 w-20 rounded-xl bg-white shadow-sm border border-gray-200 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={arena.logoUrl}
+                        alt={arena.nome}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  ) : null}
 
-                <p className="text-lg font-medium text-emerald-700">{arena.nome}</p>
+                  <p className="text-lg font-medium text-emerald-700">{arena.nome}</p>
 
-                {arena.endereco ? (
-                  <div className="flex items-center justify-center gap-2 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <p className="text-sm">{arena.endereco}</p>
-                  </div>
-                ) : null}
+                  {arena.endereco ? (
+                    <div className="flex items-center justify-center gap-2 text-gray-600">
+                      <MapPin className="w-4 h-4" />
+                      <p className="text-sm">{arena.endereco}</p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* Mensagem de sucesso */}
+            {sucesso && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-green-900">Agendamento realizado com sucesso!</p>
+                  <p className="text-sm text-green-700">
+                    Você receberá uma confirmação em breve.
+                  </p>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Mensagem de sucesso */}
-          {sucesso && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-green-900">Agendamento realizado com sucesso!</p>
-                <p className="text-sm text-green-700">
-                  Você receberá uma confirmação em breve.
-                </p>
+            {/* Mensagem de erro */}
+            {erro && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                <XCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
+                <p className="text-red-900">{erro}</p>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Mensagem de erro */}
-          {erro && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-              <XCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
-              <p className="text-red-900">{erro}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Dados pessoais */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Seus Dados
-              </h2>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome Completo *
-                </label>
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Seu nome completo"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Telefone *
-                </label>
-                <input
-                  type="tel"
-                  value={telefone}
-                  onChange={handleTelefoneChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="(00) 00000-0000"
-                  maxLength={15}
-                />
-              </div>
-            </div>
-
-            {/* Seleção de data e horário */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Data e Horário
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Dados pessoais */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Seus Dados
+                </h2>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data *
+                    Nome Completo *
                   </label>
                   <input
-                    type="date"
-                    value={dataSelecionada}
-                    onChange={(e) => setDataSelecionada(e.target.value)}
-                    min={hoje}
-                    max={dataMaximaStr}
+                    type="text"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="Seu nome completo"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Duração (minutos) *
+                    Telefone *
                   </label>
-                  <select
-                    value={duracao}
-                    onChange={(e) => setDuracao(parseInt(e.target.value))}
+                  <input
+                    type="tel"
+                    value={telefone}
+                    onChange={handleTelefoneChange}
+                    required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  >
-                    <option value={30}>30 minutos</option>
-                    <option value={60}>1 hora</option>
-                    <option value={90}>1h30</option>
-                    <option value={120}>2 horas</option>
-                  </select>
+                    placeholder="(00) 00000-0000"
+                    maxLength={15}
+                  />
                 </div>
               </div>
 
-              {/* Horários disponíveis */}
-              {dataSelecionada && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Horário Disponível *
-                  </label>
-                  {carregandoHorarios ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-                      <span className="ml-2 text-gray-600">Buscando horários...</span>
-                    </div>
-                  ) : horariosDisponiveis.length === 0 ? (
-                    <p className="text-sm text-gray-500 py-4 text-center">
-                      {dataSelecionada ? 'Nenhum horário disponível para esta data' : 'Selecione uma data'}
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                      {horariosDisponiveis.map((horario) => (
-                        <button
-                          key={horario}
-                          type="button"
-                          onClick={() => setHorarioSelecionado(horario)}
-                          className={`px-3 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
-                            horarioSelecionado === horario
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-emerald-300 hover:bg-emerald-50'
-                          }`}
-                        >
-                          <Clock className="w-4 h-4 inline mr-1" />
-                          {horario}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              {/* Seleção de data e horário */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Data e Horário
+                </h2>
 
-            {/* Botão de submit */}
-            <button
-              type="submit"
-              disabled={criandoAtleta || criandoAgendamento || !dataSelecionada || !horarioSelecionado || !nome.trim() || !telefone.trim()}
-              className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {(criandoAtleta || criandoAgendamento) ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {criandoAtleta ? 'Criando perfil...' : 'Agendando...'}
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Confirmar Agendamento
-                </>
-              )}
-            </button>
-          </form>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Data *
+                    </label>
+                    <input
+                      type="date"
+                      value={dataSelecionada}
+                      onChange={(e) => setDataSelecionada(e.target.value)}
+                      min={hoje}
+                      max={dataMaximaStr}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Duração (minutos) *
+                    </label>
+                    <select
+                      value={duracao}
+                      onChange={(e) => setDuracao(parseInt(e.target.value))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value={30}>30 minutos</option>
+                      <option value={60}>1 hora</option>
+                      <option value={90}>1h30</option>
+                      <option value={120}>2 horas</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Horários disponíveis */}
+                {dataSelecionada && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Horário Disponível *
+                    </label>
+                    {carregandoHorarios ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                        <span className="ml-2 text-gray-600">Buscando horários...</span>
+                      </div>
+                    ) : horariosDisponiveis.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-4 text-center">
+                        {dataSelecionada ? 'Nenhum horário disponível para esta data' : 'Selecione uma data'}
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                        {horariosDisponiveis.map((horario) => (
+                          <button
+                            key={horario}
+                            type="button"
+                            onClick={() => setHorarioSelecionado(horario)}
+                            className={`px-3 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
+                              horarioSelecionado === horario
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-emerald-300 hover:bg-emerald-50'
+                            }`}
+                          >
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            {horario}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Botão de submit */}
+              <button
+                type="submit"
+                disabled={criandoAtleta || criandoAgendamento || !dataSelecionada || !horarioSelecionado || !nome.trim() || !telefone.trim()}
+                className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {(criandoAtleta || criandoAgendamento) ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {criandoAtleta ? 'Criando perfil...' : 'Agendando...'}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Confirmar Agendamento
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Coluna Direita: Apoiadores (Slideshow) */}
+          <div className="bg-gray-50/50 flex flex-col justify-center h-full p-6 md:p-12 relative overflow-hidden">
+            {apoiadores.length > 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[400px] text-center w-full z-10">
+                <h3 className="text-sm font-medium text-gray-500 mb-12 uppercase tracking-wider">
+                  Nossos Apoiadores
+                </h3>
+                
+                <div className="flex-1 flex items-center justify-center w-full relative h-64">
+                  {apoiadores.map((apoiador, index) => (
+                    <div 
+                      key={apoiador.id} 
+                      className={`transition-all duration-1000 absolute w-full flex flex-col items-center justify-center transform ${
+                        index === indiceApoiador 
+                          ? 'opacity-100 translate-y-0 scale-100 blur-0' 
+                          : 'opacity-0 translate-y-4 scale-95 blur-sm pointer-events-none'
+                      }`}
+                    >
+                      {apoiador.logoUrl ? (
+                        <div className="flex flex-col items-center gap-6">
+                          <div className="h-48 w-full flex items-center justify-center">
+                            <img
+                              src={apoiador.logoUrl}
+                              alt={apoiador.nome}
+                              className={`max-h-full max-w-full object-contain drop-shadow-xl ${apoiador.exibirColorido ? '' : 'filter grayscale'}`}
+                            />
+                          </div>
+                          <span className="text-2xl font-bold text-gray-700 mt-4">{apoiador.nome}</span>
+                        </div>
+                      ) : (
+                        <span className="text-3xl font-bold text-gray-600">{apoiador.nome}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Indicadores */}
+                <div className="flex gap-2 mt-12">
+                  {apoiadores.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
+                        idx === indiceApoiador ? 'w-8 bg-emerald-500' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      onClick={() => setIndiceApoiador(idx)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 p-8">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                  <CheckCircle className="w-10 h-10 text-gray-300" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">Agendamento Simplificado</h3>
+                <p className="max-w-xs mx-auto">Agende sua quadra de forma rápida, fácil e sem burocracia.</p>
+              </div>
+            )}
+            
+            {/* Decoração de fundo */}
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-emerald-100 rounded-full blur-3xl opacity-30 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-blue-100 rounded-full blur-3xl opacity-30 pointer-events-none"></div>
+          </div>
+
         </div>
       </div>
     </div>

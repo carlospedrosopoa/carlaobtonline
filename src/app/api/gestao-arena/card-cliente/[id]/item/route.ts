@@ -185,7 +185,7 @@ export async function POST(
 
     // Verificar se o produto existe e está ativo
     const produtoResult = await query(
-      'SELECT "precoVenda", ativo FROM "Produto" WHERE id = $1',
+      'SELECT "precoVenda", "precoCusto", ativo FROM "Produto" WHERE id = $1',
       [produtoId]
     );
 
@@ -212,11 +212,11 @@ export async function POST(
     // Inserir item
     const itemResult = await query(
       `INSERT INTO "ItemCard" (
-        id, "cardId", "produtoId", quantidade, "precoUnitario", "precoTotal", observacoes, "createdAt", "updatedAt", "createdById"
+        id, "cardId", "produtoId", quantidade, "precoUnitario", "precoTotal", "precoCusto", observacoes, "createdAt", "updatedAt", "createdById"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW(), $7
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), $8
       ) RETURNING *`,
-      [cardId, produtoId, quantidade, precoUnit, precoTotal, observacoes || null, usuario.id]
+      [cardId, produtoId, quantidade, precoUnit, precoTotal, produtoResult.rows[0].precoCusto || null, observacoes || null, usuario.id]
     );
 
     // Atualizar valor total do card (itens + agendamentos)

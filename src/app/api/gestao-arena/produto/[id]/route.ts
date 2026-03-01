@@ -126,6 +126,7 @@ export async function PUT(
     const updates: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
+    let alterouPreco = false;
 
     if (body.nome !== undefined) {
       updates.push(`nome = $${paramCount}`);
@@ -141,11 +142,13 @@ export async function PUT(
       updates.push(`"precoVenda" = $${paramCount}`);
       values.push(body.precoVenda);
       paramCount++;
+      alterouPreco = true;
     }
     if (body.precoCusto !== undefined) {
       updates.push(`"precoCusto" = $${paramCount}`);
       values.push(body.precoCusto || null);
       paramCount++;
+      alterouPreco = true;
     }
     if (body.categoria !== undefined) {
       updates.push(`categoria = $${paramCount}`);
@@ -175,6 +178,10 @@ export async function PUT(
 
     if (updates.length === 0) {
       return withCors(NextResponse.json({ mensagem: 'Nenhum campo para atualizar' }, { status: 400 }), request);
+    }
+
+    if (alterouPreco) {
+      updates.push(`"dataUltimaAlteracaoPreco" = NOW()`);
     }
 
     updates.push(`"updatedAt" = NOW()`);

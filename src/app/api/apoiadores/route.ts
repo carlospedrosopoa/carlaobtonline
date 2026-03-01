@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return withCors(authResult, request);
-    }
-
+    // Rota pública, não requer autenticação
+    
     const { searchParams } = new URL(request.url);
     const regiaoId = searchParams.get('regiaoId');
 
