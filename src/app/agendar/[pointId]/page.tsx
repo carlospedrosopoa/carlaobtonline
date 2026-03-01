@@ -309,11 +309,11 @@ export default function AgendarPublicoPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 py-8 px-4 flex items-center justify-center">
-      <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        
-        {/* Coluna Esquerda: Dados da Arena + Formulário */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+      <div className="max-w-6xl mx-auto w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2">
+          
+          {/* Coluna Esquerda: Dados da Arena + Formulário */}
+          <div className="p-6 md:p-12 lg:border-r border-gray-100">
             {/* Header */}
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -500,61 +500,72 @@ export default function AgendarPublicoPage() {
               </button>
             </form>
           </div>
-        </div>
 
-        {/* Coluna Direita: Apoiadores (Slideshow) */}
-        <div className="flex flex-col justify-center h-full sticky top-8">
-          {apoiadores.length > 0 ? (
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-12 flex flex-col items-center justify-center min-h-[500px] text-center transition-all duration-500 border border-white/50">
-              <h3 className="text-sm font-medium text-gray-500 mb-8 uppercase tracking-wider">
-                Nossos Apoiadores
-              </h3>
-              
-              <div className="flex-1 flex items-center justify-center w-full">
-                {apoiadores.map((apoiador, index) => (
-                  <div 
-                    key={apoiador.id} 
-                    className={`transition-all duration-1000 absolute ${
-                      index === indiceApoiador ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-                    }`}
-                  >
-                    {apoiador.logoUrl ? (
-                      <div className="flex flex-col items-center gap-6">
-                        <div className="h-48 w-auto relative">
-                          <img
-                            src={apoiador.logoUrl}
-                            alt={apoiador.nome}
-                            className={`h-full w-auto object-contain drop-shadow-lg ${apoiador.exibirColorido ? '' : 'filter grayscale'}`}
-                          />
+          {/* Coluna Direita: Apoiadores (Slideshow) */}
+          <div className="bg-gray-50/50 flex flex-col justify-center h-full p-6 md:p-12 relative overflow-hidden">
+            {apoiadores.length > 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[400px] text-center w-full z-10">
+                <h3 className="text-sm font-medium text-gray-500 mb-12 uppercase tracking-wider">
+                  Nossos Apoiadores
+                </h3>
+                
+                <div className="flex-1 flex items-center justify-center w-full relative h-64">
+                  {apoiadores.map((apoiador, index) => (
+                    <div 
+                      key={apoiador.id} 
+                      className={`transition-all duration-1000 absolute w-full flex flex-col items-center justify-center transform ${
+                        index === indiceApoiador 
+                          ? 'opacity-100 translate-y-0 scale-100 blur-0' 
+                          : 'opacity-0 translate-y-4 scale-95 blur-sm pointer-events-none'
+                      }`}
+                    >
+                      {apoiador.logoUrl ? (
+                        <div className="flex flex-col items-center gap-6">
+                          <div className="h-48 w-full flex items-center justify-center">
+                            <img
+                              src={apoiador.logoUrl}
+                              alt={apoiador.nome}
+                              className={`max-h-full max-w-full object-contain drop-shadow-xl ${apoiador.exibirColorido ? '' : 'filter grayscale'}`}
+                            />
+                          </div>
+                          <span className="text-2xl font-bold text-gray-700 mt-4">{apoiador.nome}</span>
                         </div>
-                        <span className="text-2xl font-bold text-gray-700">{apoiador.nome}</span>
-                      </div>
-                    ) : (
-                      <span className="text-3xl font-bold text-gray-600">{apoiador.nome}</span>
-                    )}
-                  </div>
-                ))}
+                      ) : (
+                        <span className="text-3xl font-bold text-gray-600">{apoiador.nome}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Indicadores */}
+                <div className="flex gap-2 mt-12">
+                  {apoiadores.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
+                        idx === indiceApoiador ? 'w-8 bg-emerald-500' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      onClick={() => setIndiceApoiador(idx)}
+                    />
+                  ))}
+                </div>
               </div>
-              
-              {/* Indicadores */}
-              <div className="flex gap-2 mt-8">
-                {apoiadores.map((_, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      idx === indiceApoiador ? 'w-8 bg-emerald-500' : 'w-2 bg-gray-300'
-                    }`}
-                  />
-                ))}
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 p-8">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                  <CheckCircle className="w-10 h-10 text-gray-300" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">Agendamento Simplificado</h3>
+                <p className="max-w-xs mx-auto">Agende sua quadra de forma rápida, fácil e sem burocracia.</p>
               </div>
-            </div>
-          ) : (
-            <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-8 text-center text-gray-500 border border-white/30 hidden lg:block">
-              <p>Agende sua quadra de forma rápida e fácil.</p>
-            </div>
-          )}
-        </div>
+            )}
+            
+            {/* Decoração de fundo */}
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-emerald-100 rounded-full blur-3xl opacity-30 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-blue-100 rounded-full blur-3xl opacity-30 pointer-events-none"></div>
+          </div>
 
+        </div>
       </div>
     </div>
   );
