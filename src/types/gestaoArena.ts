@@ -116,6 +116,7 @@ export interface Produto {
   acessoRapido?: boolean; // flag opcional para produtos de acesso rápido
   autoAtendimento?: boolean; // flag para permitir/excluir do autoatendimento (kiosk)
   barcode?: string | null; // código de barras (opcional)
+  dataUltimaAlteracaoPreco?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -155,6 +156,7 @@ export interface ItemCard {
   quantidade: number;
   precoUnitario: number;
   precoTotal: number;
+  precoCusto?: number | null;
   observacoes?: string | null;
   createdAt: string;
   updatedAt: string;

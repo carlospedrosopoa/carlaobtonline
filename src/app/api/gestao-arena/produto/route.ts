@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const categoria = searchParams.get('categoria');
 
     let sql = `SELECT 
-      id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "createdAt", "updatedAt", "acessoRapido", "autoAtendimento", barcode
+      id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "createdAt", "updatedAt", "acessoRapido", "autoAtendimento", barcode, "dataUltimaAlteracaoPreco"
     FROM "Produto"
     WHERE 1=1`;
 
@@ -158,9 +158,9 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO "Produto" (
-        id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "acessoRapido", "autoAtendimento", barcode, "createdAt", "updatedAt"
+        id, "pointId", nome, descricao, "precoVenda", "precoCusto", categoria, ativo, "acessoRapido", "autoAtendimento", barcode, "dataUltimaAlteracaoPreco", "createdAt", "updatedAt"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW()
       ) RETURNING *`,
       [
         pointId,
