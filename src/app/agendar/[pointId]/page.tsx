@@ -56,6 +56,7 @@ export default function AgendarPublicoPage() {
   const [sucesso, setSucesso] = useState(false);
   const [atletaId, setAtletaId] = useState<string | null>(null);
   const [apoiadores, setApoiadores] = useState<Apoiador[]>([]);
+  const [indiceApoiador, setIndiceApoiador] = useState(0);
 
   useEffect(() => {
     if (pointId) {
@@ -68,6 +69,15 @@ export default function AgendarPublicoPage() {
       buscarApoiadores(arena.regiaoId || null);
     }
   }, [arena]);
+
+  useEffect(() => {
+    if (apoiadores.length > 1) {
+      const interval = setInterval(() => {
+        setIndiceApoiador((prev) => (prev + 1) % apoiadores.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [apoiadores]);
 
   useEffect(() => {
     if (dataSelecionada && pointId) {
@@ -298,224 +308,253 @@ export default function AgendarPublicoPage() {
   const dataMaximaStr = dataMaxima.toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Agendar Quadra
-            </h1>
-            {arena && (
-              <div className="flex flex-col items-center gap-2">
-                {arena.logoUrl ? (
-                  <div className="h-20 w-20 rounded-xl bg-white shadow-sm border border-gray-200 flex items-center justify-center overflow-hidden">
-                    <img
-                      src={arena.logoUrl}
-                      alt={arena.nome}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                ) : null}
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-blue-50 py-8 px-4 flex items-center justify-center">
+      <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        
+        {/* Coluna Esquerda: Dados da Arena + Formulário */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Agendar Quadra
+              </h1>
+              {arena && (
+                <div className="flex flex-col items-center gap-2">
+                  {arena.logoUrl ? (
+                    <div className="h-20 w-20 rounded-xl bg-white shadow-sm border border-gray-200 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={arena.logoUrl}
+                        alt={arena.nome}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  ) : null}
 
-                <p className="text-lg font-medium text-emerald-700">{arena.nome}</p>
+                  <p className="text-lg font-medium text-emerald-700">{arena.nome}</p>
 
-                {arena.endereco ? (
-                  <div className="flex items-center justify-center gap-2 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <p className="text-sm">{arena.endereco}</p>
-                  </div>
-                ) : null}
+                  {arena.endereco ? (
+                    <div className="flex items-center justify-center gap-2 text-gray-600">
+                      <MapPin className="w-4 h-4" />
+                      <p className="text-sm">{arena.endereco}</p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* Mensagem de sucesso */}
+            {sucesso && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-green-900">Agendamento realizado com sucesso!</p>
+                  <p className="text-sm text-green-700">
+                    Você receberá uma confirmação em breve.
+                  </p>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Mensagem de sucesso */}
-          {sucesso && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-green-900">Agendamento realizado com sucesso!</p>
-                <p className="text-sm text-green-700">
-                  Você receberá uma confirmação em breve.
-                </p>
+            {/* Mensagem de erro */}
+            {erro && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                <XCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
+                <p className="text-red-900">{erro}</p>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Mensagem de erro */}
-          {erro && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-              <XCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
-              <p className="text-red-900">{erro}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Dados pessoais */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Seus Dados
-              </h2>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome Completo *
-                </label>
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Seu nome completo"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Telefone *
-                </label>
-                <input
-                  type="tel"
-                  value={telefone}
-                  onChange={handleTelefoneChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="(00) 00000-0000"
-                  maxLength={15}
-                />
-              </div>
-            </div>
-
-            {/* Seleção de data e horário */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Data e Horário
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Dados pessoais */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Seus Dados
+                </h2>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data *
+                    Nome Completo *
                   </label>
                   <input
-                    type="date"
-                    value={dataSelecionada}
-                    onChange={(e) => setDataSelecionada(e.target.value)}
-                    min={hoje}
-                    max={dataMaximaStr}
+                    type="text"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="Seu nome completo"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Duração (minutos) *
+                    Telefone *
                   </label>
-                  <select
-                    value={duracao}
-                    onChange={(e) => setDuracao(parseInt(e.target.value))}
+                  <input
+                    type="tel"
+                    value={telefone}
+                    onChange={handleTelefoneChange}
+                    required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  >
-                    <option value={30}>30 minutos</option>
-                    <option value={60}>1 hora</option>
-                    <option value={90}>1h30</option>
-                    <option value={120}>2 horas</option>
-                  </select>
+                    placeholder="(00) 00000-0000"
+                    maxLength={15}
+                  />
                 </div>
               </div>
 
-              {/* Horários disponíveis */}
-              {dataSelecionada && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Horário Disponível *
-                  </label>
-                  {carregandoHorarios ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-                      <span className="ml-2 text-gray-600">Buscando horários...</span>
-                    </div>
-                  ) : horariosDisponiveis.length === 0 ? (
-                    <p className="text-sm text-gray-500 py-4 text-center">
-                      {dataSelecionada ? 'Nenhum horário disponível para esta data' : 'Selecione uma data'}
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                      {horariosDisponiveis.map((horario) => (
-                        <button
-                          key={horario}
-                          type="button"
-                          onClick={() => setHorarioSelecionado(horario)}
-                          className={`px-3 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
-                            horarioSelecionado === horario
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-emerald-300 hover:bg-emerald-50'
-                          }`}
-                        >
-                          <Clock className="w-4 h-4 inline mr-1" />
-                          {horario}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              {/* Seleção de data e horário */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Data e Horário
+                </h2>
 
-            {/* Botão de submit */}
-            <button
-              type="submit"
-              disabled={criandoAtleta || criandoAgendamento || !dataSelecionada || !horarioSelecionado || !nome.trim() || !telefone.trim()}
-              className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {(criandoAtleta || criandoAgendamento) ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {criandoAtleta ? 'Criando perfil...' : 'Agendando...'}
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Confirmar Agendamento
-                </>
-              )}
-            </button>
-          </form>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Data *
+                    </label>
+                    <input
+                      type="date"
+                      value={dataSelecionada}
+                      onChange={(e) => setDataSelecionada(e.target.value)}
+                      min={hoje}
+                      max={dataMaximaStr}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Duração (minutos) *
+                    </label>
+                    <select
+                      value={duracao}
+                      onChange={(e) => setDuracao(parseInt(e.target.value))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value={30}>30 minutos</option>
+                      <option value={60}>1 hora</option>
+                      <option value={90}>1h30</option>
+                      <option value={120}>2 horas</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Horários disponíveis */}
+                {dataSelecionada && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Horário Disponível *
+                    </label>
+                    {carregandoHorarios ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                        <span className="ml-2 text-gray-600">Buscando horários...</span>
+                      </div>
+                    ) : horariosDisponiveis.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-4 text-center">
+                        {dataSelecionada ? 'Nenhum horário disponível para esta data' : 'Selecione uma data'}
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                        {horariosDisponiveis.map((horario) => (
+                          <button
+                            key={horario}
+                            type="button"
+                            onClick={() => setHorarioSelecionado(horario)}
+                            className={`px-3 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
+                              horarioSelecionado === horario
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-emerald-300 hover:bg-emerald-50'
+                            }`}
+                          >
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            {horario}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Botão de submit */}
+              <button
+                type="submit"
+                disabled={criandoAtleta || criandoAgendamento || !dataSelecionada || !horarioSelecionado || !nome.trim() || !telefone.trim()}
+                className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {(criandoAtleta || criandoAgendamento) ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {criandoAtleta ? 'Criando perfil...' : 'Agendando...'}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Confirmar Agendamento
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* Apoiadores - Fora do card branco */}
-        {apoiadores.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-center text-sm font-medium text-gray-500 mb-6 uppercase tracking-wider">
-              Nossos Apoiadores
-            </h3>
-            <div className="flex flex-wrap justify-center gap-8 items-center bg-white/50 backdrop-blur-sm p-6 rounded-xl border border-white/50">
-              {apoiadores.map((apoiador) => (
-                <div key={apoiador.id} className="relative group">
-                  {apoiador.logoUrl ? (
-                    <div className={`h-16 w-auto transition-all duration-300 ${apoiador.exibirColorido ? '' : 'filter grayscale hover:grayscale-0'} opacity-80 hover:opacity-100 transform hover:scale-105`}>
-                      <img
-                        src={apoiador.logoUrl}
-                        alt={apoiador.nome}
-                        className="h-full w-auto object-contain"
-                        title={apoiador.nome}
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-base font-medium text-gray-500 hover:text-gray-700 transition-colors">
-                      {apoiador.nome}
-                    </span>
-                  )}
-                </div>
-              ))}
+        {/* Coluna Direita: Apoiadores (Slideshow) */}
+        <div className="flex flex-col justify-center h-full sticky top-8">
+          {apoiadores.length > 0 ? (
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-12 flex flex-col items-center justify-center min-h-[500px] text-center transition-all duration-500 border border-white/50">
+              <h3 className="text-sm font-medium text-gray-500 mb-8 uppercase tracking-wider">
+                Nossos Apoiadores
+              </h3>
+              
+              <div className="flex-1 flex items-center justify-center w-full">
+                {apoiadores.map((apoiador, index) => (
+                  <div 
+                    key={apoiador.id} 
+                    className={`transition-all duration-1000 absolute ${
+                      index === indiceApoiador ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+                    }`}
+                  >
+                    {apoiador.logoUrl ? (
+                      <div className="flex flex-col items-center gap-6">
+                        <div className="h-48 w-auto relative">
+                          <img
+                            src={apoiador.logoUrl}
+                            alt={apoiador.nome}
+                            className={`h-full w-auto object-contain drop-shadow-lg ${apoiador.exibirColorido ? '' : 'filter grayscale'}`}
+                          />
+                        </div>
+                        <span className="text-2xl font-bold text-gray-700">{apoiador.nome}</span>
+                      </div>
+                    ) : (
+                      <span className="text-3xl font-bold text-gray-600">{apoiador.nome}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Indicadores */}
+              <div className="flex gap-2 mt-8">
+                {apoiadores.map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      idx === indiceApoiador ? 'w-8 bg-emerald-500' : 'w-2 bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-8 text-center text-gray-500 border border-white/30 hidden lg:block">
+              <p>Agende sua quadra de forma rápida e fácil.</p>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
