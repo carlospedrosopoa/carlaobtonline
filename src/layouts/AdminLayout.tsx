@@ -16,6 +16,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { to: '/app/admin/quadras', label: 'Quadras' },
     { to: '/app/admin/tabela-precos', label: 'Tabela de Preços' },
     { to: '/app/admin/agendamentos', label: 'Agenda' },
+    { to: '/app/admin/regioes', label: 'Regiões' },
+    { to: '/app/admin/apoiadores', label: 'Apoiadores' },
     { to: '/app/admin/usuarios', label: 'Usuários' },
     { to: '/app/admin/organizers', label: 'Gestores de Arena' },
     { to: '/app/admin/professores', label: 'Professores' },

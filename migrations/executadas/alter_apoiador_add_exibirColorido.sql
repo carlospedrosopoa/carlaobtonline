@@ -1,0 +1,2 @@
+ALTER TABLE "Apoiador"
+ADD COLUMN IF NOT EXISTS "exibirColorido" BOOLEAN DEFAULT true;

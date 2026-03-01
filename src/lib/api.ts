@@ -50,10 +50,15 @@ async function apiRequest(
 ): Promise<Response> {
   const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
   
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
-  };
+  const rawHeaders = (options.headers as Record<string, string> | undefined) || {};
+  const headers: Record<string, string> = { ...rawHeaders };
+
+  const isFormDataBody =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+  if (!isFormDataBody && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   // Prioridade 1: JWT Bearer Token (método preferido)
   if (accessToken) {
