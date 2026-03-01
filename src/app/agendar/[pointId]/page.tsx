@@ -64,10 +64,10 @@ export default function AgendarPublicoPage() {
   }, [pointId]);
 
   useEffect(() => {
-    if (arena?.regiaoId) {
-      buscarApoiadores(arena.regiaoId);
+    if (arena) {
+      buscarApoiadores(arena.regiaoId || null);
     }
-  }, [arena?.regiaoId]);
+  }, [arena]);
 
   useEffect(() => {
     if (dataSelecionada && pointId) {
@@ -100,9 +100,10 @@ export default function AgendarPublicoPage() {
     }
   };
 
-  const buscarApoiadores = async (regiaoId: string) => {
+  const buscarApoiadores = async (regiaoId: string | null) => {
     try {
-      const response = await fetch(`/api/apoiadores?regiaoId=${regiaoId}`);
+      const url = regiaoId ? `/api/apoiadores?regiaoId=${regiaoId}` : `/api/apoiadores`;
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setApoiadores(data);
@@ -485,36 +486,36 @@ export default function AgendarPublicoPage() {
               )}
             </button>
           </form>
-
-          {/* Apoiadores */}
-          {apoiadores.length > 0 && (
-            <div className="mt-8 pt-6 border-t border-gray-100">
-              <h3 className="text-center text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">
-                Nossos Apoiadores
-              </h3>
-              <div className="flex flex-wrap justify-center gap-6 items-center">
-                {apoiadores.map((apoiador) => (
-                  <div key={apoiador.id} className="relative group">
-                    {apoiador.logoUrl ? (
-                      <div className={`h-12 w-auto transition-all duration-300 ${apoiador.exibirColorido ? '' : 'filter grayscale hover:grayscale-0'} opacity-70 hover:opacity-100`}>
-                        <img
-                          src={apoiador.logoUrl}
-                          alt={apoiador.nome}
-                          className="h-full w-auto object-contain"
-                          title={apoiador.nome}
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors">
-                        {apoiador.nome}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Apoiadores - Fora do card branco */}
+        {apoiadores.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-center text-sm font-medium text-gray-500 mb-6 uppercase tracking-wider">
+              Nossos Apoiadores
+            </h3>
+            <div className="flex flex-wrap justify-center gap-8 items-center bg-white/50 backdrop-blur-sm p-6 rounded-xl border border-white/50">
+              {apoiadores.map((apoiador) => (
+                <div key={apoiador.id} className="relative group">
+                  {apoiador.logoUrl ? (
+                    <div className={`h-16 w-auto transition-all duration-300 ${apoiador.exibirColorido ? '' : 'filter grayscale hover:grayscale-0'} opacity-80 hover:opacity-100 transform hover:scale-105`}>
+                      <img
+                        src={apoiador.logoUrl}
+                        alt={apoiador.nome}
+                        className="h-full w-auto object-contain"
+                        title={apoiador.nome}
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-base font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                      {apoiador.nome}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
