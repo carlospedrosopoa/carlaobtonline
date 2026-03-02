@@ -17,7 +17,8 @@ export default function TabelaPrecosPage() {
   const [salvando, setSalvando] = useState(false);
   const [busca, setBusca] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
-  const [alteracoes, setAlteracoes] = useState<Map<string, number>>(new Map());
+  const [alteracoesPrecoVenda, setAlteracoesPrecoVenda] = useState<Map<string, number>>(new Map());
+  const [alteracoesPrecoCusto, setAlteracoesPrecoCusto] = useState<Map<string, number>>(new Map());
   const [mensagem, setMensagem] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
 
   useEffect(() => {
@@ -33,7 +34,8 @@ export default function TabelaPrecosPage() {
       setLoading(true);
       const data = await produtoService.listar(usuario.pointIdGestor, true); // Apenas ativos
       setProdutos(data);
-      setAlteracoes(new Map());
+      setAlteracoesPrecoVenda(new Map());
+      setAlteracoesPrecoCusto(new Map());
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
       setMensagem({ tipo: 'erro', texto: 'Erro ao carregar produtos' });
@@ -42,8 +44,8 @@ export default function TabelaPrecosPage() {
     }
   };
 
-  const handlePrecoChange = (id: string, novoPreco: number) => {
-    setAlteracoes((prev) => {
+  const handlePrecoVendaChange = (id: string, novoPreco: number) => {
+    setAlteracoesPrecoVenda((prev) => {
       const newMap = new Map(prev);
       const produtoOriginal = produtos.find((p) => p.id === id);
       
@@ -57,17 +59,51 @@ export default function TabelaPrecosPage() {
     });
   };
 
+  const handlePrecoCustoChange = (id: string, novoPreco: number) => {
+    setAlteracoesPrecoCusto((prev) => {
+      const newMap = new Map(prev);
+      const produtoOriginal = produtos.find((p) => p.id === id);
+      
+      // Se o preço for igual ao original, remove da lista de alterações
+      // Tratamento para null/undefined no precoCusto original
+      const precoCustoOriginal = produtoOriginal?.precoCusto || 0;
+      
+      if (produtoOriginal && precoCustoOriginal === novoPreco) {
+        newMap.delete(id);
+      } else {
+        newMap.set(id, novoPreco);
+      }
+      return newMap;
+    });
+  };
+
   const salvarAlteracoes = async () => {
-    if (alteracoes.size === 0) return;
+    if (alteracoesPrecoVenda.size === 0 && alteracoesPrecoCusto.size === 0) return;
 
     try {
       setSalvando(true);
       setMensagem(null);
 
-      const updates = Array.from(alteracoes.entries()).map(([id, precoVenda]) => ({
-        id,
-        precoVenda,
-      }));
+      // Agrupar atualizações por produto
+      const updatesMap = new Map<string, { id: string, precoVenda?: number, precoCusto?: number }>();
+
+      // Adicionar alterações de preço de venda
+      alteracoesPrecoVenda.forEach((precoVenda, id) => {
+        if (!updatesMap.has(id)) {
+          updatesMap.set(id, { id });
+        }
+        updatesMap.get(id)!.precoVenda = precoVenda;
+      });
+
+      // Adicionar alterações de preço de custo
+      alteracoesPrecoCusto.forEach((precoCusto, id) => {
+        if (!updatesMap.has(id)) {
+          updatesMap.set(id, { id });
+        }
+        updatesMap.get(id)!.precoCusto = precoCusto;
+      });
+
+      const updates = Array.from(updatesMap.values());
 
       await produtoService.atualizarEmMassa(updates);
       
@@ -92,6 +128,8 @@ export default function TabelaPrecosPage() {
   });
 
   const categorias = Array.from(new Set(produtos.map((p) => p.categoria).filter((cat): cat is string => Boolean(cat))));
+
+  const totalAlteracoes = alteracoesPrecoVenda.size + alteracoesPrecoCusto.size;
 
   if (loading) {
     return (
@@ -120,10 +158,10 @@ export default function TabelaPrecosPage() {
           <p className="text-gray-600 mt-1">Atualize os preços dos produtos em massa</p>
         </div>
         
-        {alteracoes.size > 0 && (
+        {totalAlteracoes > 0 && (
           <div className="flex items-center gap-4 animate-fadeIn">
             <span className="text-sm font-medium text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-              {alteracoes.size} {alteracoes.size === 1 ? 'alteração pendente' : 'alterações pendentes'}
+              {totalAlteracoes} {totalAlteracoes === 1 ? 'alteração pendente' : 'alterações pendentes'}
             </span>
             <button
               onClick={salvarAlteracoes}
@@ -182,15 +220,20 @@ export default function TabelaPrecosPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
-                <th className="px-6 py-4 w-[40%]">Produto</th>
-                <th className="px-6 py-4 w-[30%]">Categoria</th>
-                <th className="px-6 py-4 w-[30%] text-right">Preço de Venda (R$)</th>
+                <th className="px-6 py-4 w-[35%]">Produto</th>
+                <th className="px-6 py-4 w-[25%]">Categoria</th>
+                <th className="px-6 py-4 w-[20%] text-right">Preço de Custo (R$)</th>
+                <th className="px-6 py-4 w-[20%] text-right">Preço de Venda (R$)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {produtosFiltrados.map((produto) => {
-                const precoAtual = alteracoes.has(produto.id) ? alteracoes.get(produto.id)! : produto.precoVenda;
-                const modificado = alteracoes.has(produto.id);
+                const precoVendaAtual = alteracoesPrecoVenda.has(produto.id) ? alteracoesPrecoVenda.get(produto.id)! : produto.precoVenda;
+                const precoCustoAtual = alteracoesPrecoCusto.has(produto.id) ? alteracoesPrecoCusto.get(produto.id)! : (produto.precoCusto || 0);
+                
+                const modificadoVenda = alteracoesPrecoVenda.has(produto.id);
+                const modificadoCusto = alteracoesPrecoCusto.has(produto.id);
+                const modificado = modificadoVenda || modificadoCusto;
 
                 return (
                   <tr key={produto.id} className={`hover:bg-gray-50 transition-colors ${modificado ? 'bg-amber-50/30' : ''}`}>
@@ -211,10 +254,22 @@ export default function TabelaPrecosPage() {
                     </td>
                     <td className="px-6 py-3 text-right">
                       <div className="flex justify-end">
-                        <div className={`w-32 ${modificado ? 'ring-2 ring-amber-400 rounded-lg' : ''}`}>
+                        <div className={`w-32 ${modificadoCusto ? 'ring-2 ring-amber-400 rounded-lg' : ''}`}>
                           <InputMonetario
-                            value={precoAtual}
-                            onChange={(val) => handlePrecoChange(produto.id, val || 0)}
+                            value={precoCustoAtual}
+                            onChange={(val) => handlePrecoCustoChange(produto.id, val || 0)}
+                            min={0}
+                            className="text-right font-medium text-gray-600 bg-gray-50"
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <div className="flex justify-end">
+                        <div className={`w-32 ${modificadoVenda ? 'ring-2 ring-amber-400 rounded-lg' : ''}`}>
+                          <InputMonetario
+                            value={precoVendaAtual}
+                            onChange={(val) => handlePrecoVendaChange(produto.id, val || 0)}
                             min={0}
                             className="text-right font-medium"
                           />
