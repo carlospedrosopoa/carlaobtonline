@@ -237,9 +237,15 @@ export const produtoService = {
     return res.data;
   },
 
-  atualizarEmMassa: async (updates: { id: string; precoVenda: number }[]): Promise<{ mensagem: string; count: number }> => {
-    const res = await api.put('/gestao-arena/produto/bulk-update', { updates });
-    return res.data;
+  atualizarEmMassa: async (produtos: Partial<Produto>[]): Promise<void> => {
+    // Para simplificar, faremos várias requisições em paralelo
+    // No futuro, podemos criar um endpoint específico para atualização em massa
+    const promises = produtos.map((p) => {
+      if (!p.id) return Promise.resolve();
+      return api.put(`/gestao-arena/produto/${p.id}`, p);
+    });
+    
+    await Promise.all(promises);
   },
 
   deletar: async (id: string): Promise<void> => {
