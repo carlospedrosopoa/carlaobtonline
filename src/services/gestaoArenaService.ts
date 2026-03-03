@@ -252,7 +252,7 @@ export const produtoService = {
     await api.delete(`/gestao-arena/produto/${id}`);
   },
 };
-
+// Rebuild trigger
 // ========== FORMAS DE PAGAMENTO ==========
 export const formaPagamentoService = {
   listar: async (pointId?: string, apenasAtivos?: boolean): Promise<FormaPagamento[]> => {
