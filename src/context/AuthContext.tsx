@@ -69,70 +69,74 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Prioridade 1: JWT Token (método preferido)
-    const storedAccessToken = localStorage.getItem('accessToken');
-    if (storedAccessToken) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(storedAccessToken);
-        // Verifica se token não expirou
-        if (decoded.exp && decoded.exp * 1000 > Date.now()) {
-          setToken(storedAccessToken);
-          setAccessToken(storedAccessToken); // Sincroniza com api.ts
-          setUsuario(decoded);
-          setAuthReady(true);
-          return;
-        } else {
-          // Token expirado, remove
+    try {
+      // Prioridade 1: JWT Token (método preferido)
+      const storedAccessToken = localStorage.getItem('accessToken');
+      if (storedAccessToken) {
+        try {
+          const decoded = jwtDecode<JwtPayload>(storedAccessToken);
+          // Verifica se token não expirou
+          if (decoded.exp && decoded.exp * 1000 > Date.now()) {
+            setToken(storedAccessToken);
+            setAccessToken(storedAccessToken); // Sincroniza com api.ts
+            setUsuario(decoded);
+            setAuthReady(true);
+            return;
+          } else {
+            // Token expirado, remove
+            localStorage.removeItem('accessToken');
+          }
+        } catch (error) {
+          console.error('Erro ao decodificar token:', error);
+          // Se token inválido, remove
           localStorage.removeItem('accessToken');
         }
-      } catch (error) {
-        console.error('Erro ao decodificar token:', error);
-        // Se token inválido, remove
-        localStorage.removeItem('accessToken');
       }
-    }
 
-    // Prioridade 2: Token antigo (compatibilidade)
-    const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(storedToken);
-        // Verifica se token não expirou
-        if (decoded.exp && decoded.exp * 1000 > Date.now()) {
-          // Migra para accessToken
-          setToken(storedToken);
-          setAccessToken(storedToken);
-          setUsuario(decoded);
-          localStorage.removeItem('token'); // Remove token antigo
-          localStorage.setItem('accessToken', storedToken);
-          setAuthReady(true);
-          return;
-        } else {
-          localStorage.removeItem('token');
-        }
-      } catch {}
-    }
+      // Prioridade 2: Token antigo (compatibilidade)
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        try {
+          const decoded = jwtDecode<JwtPayload>(storedToken);
+          // Verifica se token não expirou
+          if (decoded.exp && decoded.exp * 1000 > Date.now()) {
+            // Migra para accessToken
+            setToken(storedToken);
+            setAccessToken(storedToken);
+            setUsuario(decoded);
+            localStorage.removeItem('token'); // Remove token antigo
+            localStorage.setItem('accessToken', storedToken);
+            setAuthReady(true);
+            return;
+          } else {
+            localStorage.removeItem('token');
+          }
+        } catch {}
+      }
 
-    // Prioridade 3: Usuário armazenado (compatibilidade)
-    const storedUsuario = localStorage.getItem('usuario');
-    if (storedUsuario) {
-      try {
-        const u = JSON.parse(storedUsuario);
-        setUsuario(u);
-      } catch {}
-    }
+      // Prioridade 3: Usuário armazenado (compatibilidade)
+      const storedUsuario = localStorage.getItem('usuario');
+      if (storedUsuario) {
+        try {
+          const u = JSON.parse(storedUsuario);
+          setUsuario(u);
+        } catch {}
+      }
 
-    // Prioridade 4: Basic Auth (compatibilidade)
-    const storedCreds = localStorage.getItem('basicCreds');
-    if (storedCreds) {
-      try {
-        const creds = JSON.parse(storedCreds);
-        setBasicCreds(creds);
-        setBasicCredsApi(creds); // Sincroniza com api.ts
-      } catch {}
+      // Prioridade 4: Basic Auth (compatibilidade)
+      const storedCreds = localStorage.getItem('basicCreds');
+      if (storedCreds) {
+        try {
+          const creds = JSON.parse(storedCreds);
+          setBasicCreds(creds);
+          setBasicCredsApi(creds); // Sincroniza com api.ts
+        } catch {}
+      }
+    } catch (error) {
+      console.error('Erro fatal na inicialização da autenticação:', error);
+    } finally {
+      setAuthReady(true);
     }
-
-    setAuthReady(true);
   }, []);
 
   const logout = () => {
