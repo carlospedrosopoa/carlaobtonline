@@ -78,11 +78,17 @@ export async function PUT(
       return withCors(errorResponse, request);
     }
 
-    // Verificar se pode editar: apenas atletas temporários criados pela arena do usuário
-    const podeEditar = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
-    if (!podeEditar) {
+    // Verificar permissão de edição
+    // 1. O próprio atleta editando seu perfil
+    const isProprioAtleta = atletaExistente.usuarioId === user.id;
+    // 2. Admin
+    const isAdmin = user.role === 'ADMIN';
+    // 3. Arena editando atleta temporário criado por ela
+    const isArenaDonaDoTemporario = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
+
+    if (!isProprioAtleta && !isAdmin && !isArenaDonaDoTemporario) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Apenas atletas temporários criados pela sua arena podem ser editados' },
+        { mensagem: 'Você não tem permissão para editar este atleta' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
@@ -254,11 +260,17 @@ export async function DELETE(
       return withCors(errorResponse, request);
     }
 
-    // Verificar se pode deletar: apenas atletas temporários criados pela arena do usuário
-    const podeDeletar = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
-    if (!podeDeletar) {
+    // Verificar permissão de exclusão
+    // 1. O próprio atleta excluindo seu perfil
+    const isProprioAtleta = atletaExistente.usuarioId === user.id;
+    // 2. Admin
+    const isAdmin = user.role === 'ADMIN';
+    // 3. Arena excluindo atleta temporário criado por ela
+    const isArenaDonaDoTemporario = await atletaTemporarioCriadoPelaArena(atletaExistente, user);
+
+    if (!isProprioAtleta && !isAdmin && !isArenaDonaDoTemporario) {
       const errorResponse = NextResponse.json(
-        { mensagem: 'Apenas atletas temporários criados pela sua arena podem ser excluídos' },
+        { mensagem: 'Você não tem permissão para excluir este atleta' },
         { status: 403 }
       );
       return withCors(errorResponse, request);
