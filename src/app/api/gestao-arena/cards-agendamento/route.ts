@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { normalizarDataHora, query } from '@/lib/db';
 import { getUsuarioFromRequest } from '@/lib/auth';
 
 function ymdToUtcStart(ymd: string) {
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
       const card = byCliente.get(clienteId)!;
       card.agendamentos.push({
         id: String(row.id),
-        dataHora: new Date(row.dataHora).toISOString(),
+        dataHora: normalizarDataHora(row.dataHora),
         duracao: Number(row.duracao || 0),
         status: String(row.status),
         observacoes: row.observacoes ? String(row.observacoes) : null,

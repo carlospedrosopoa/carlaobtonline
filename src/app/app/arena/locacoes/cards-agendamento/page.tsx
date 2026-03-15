@@ -46,34 +46,75 @@ function getWeekRangeLocal(date: Date) {
   return { start, end };
 }
 
-function formatTime(dt: Date) {
-  const hh = String(dt.getHours()).padStart(2, '0');
-  const min = String(dt.getMinutes()).padStart(2, '0');
-  return `${hh}:${min}`;
+function parseIsoNoTz(dateIso: string) {
+  const match = dateIso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return null;
+  const [, yyyy, mm, dd, hh, min] = match;
+  return {
+    yyyy: Number(yyyy),
+    mm: Number(mm),
+    dd: Number(dd),
+    hh: Number(hh),
+    min: Number(min),
+  };
 }
 
-function formatDateTime(dateIso: string) {
-  const dt = new Date(dateIso);
-  const dd = String(dt.getDate()).padStart(2, '0');
-  const mm = String(dt.getMonth() + 1).padStart(2, '0');
-  const yyyy = dt.getFullYear();
-  return `${dd}/${mm}/${yyyy} ${formatTime(dt)}`;
+function formatDateTimeNoTz(dateIso: string) {
+  const parts = parseIsoNoTz(dateIso);
+  if (!parts) {
+    const dt = new Date(dateIso);
+    return dt.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  const dd = String(parts.dd).padStart(2, '0');
+  const mm = String(parts.mm).padStart(2, '0');
+  const yyyy = String(parts.yyyy);
+  const hh = String(parts.hh).padStart(2, '0');
+  const min = String(parts.min).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
 function formatDateTimeRange(dateIso: string, duracaoMinutos: number) {
-  const start = new Date(dateIso);
-  const end = new Date(start.getTime() + (Number(duracaoMinutos || 0) || 0) * 60 * 1000);
+  const startParts = parseIsoNoTz(dateIso);
+  if (!startParts) {
+    const start = new Date(dateIso);
+    const end = new Date(start.getTime() + (Number(duracaoMinutos || 0) || 0) * 60 * 1000);
+    const sameDay =
+      start.getFullYear() === end.getFullYear() &&
+      start.getMonth() === end.getMonth() &&
+      start.getDate() === end.getDate();
 
-  const sameDay =
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth() &&
-    start.getDate() === end.getDate();
+    if (sameDay) {
+      const endTime = end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return `${formatDateTimeNoTz(dateIso)} - ${endTime}`;
+    }
 
-  if (sameDay) {
-    return `${formatDateTime(dateIso)} - ${formatTime(end)}`;
+    return `${formatDateTimeNoTz(dateIso)} - ${formatDateTimeNoTz(end.toISOString())}`;
   }
 
-  return `${formatDateTime(dateIso)} - ${formatDateTime(end.toISOString())}`;
+  const startMinutes = startParts.hh * 60 + startParts.min;
+  const totalMinutes = startMinutes + (Number(duracaoMinutos || 0) || 0);
+  const endH = Math.floor(totalMinutes / 60) % 24;
+  const endM = totalMinutes % 60;
+
+  const startUtc = Date.UTC(startParts.yyyy, startParts.mm - 1, startParts.dd, startParts.hh, startParts.min, 0);
+  const endIso = new Date(startUtc + (Number(duracaoMinutos || 0) || 0) * 60 * 1000).toISOString();
+  const endParts = parseIsoNoTz(endIso);
+
+  const sameDay = !!endParts && endParts.yyyy === startParts.yyyy && endParts.mm === startParts.mm && endParts.dd === startParts.dd;
+  const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+
+  if (sameDay) {
+    return `${formatDateTimeNoTz(dateIso)} - ${endTime}`;
+  }
+
+  return `${formatDateTimeNoTz(dateIso)} - ${formatDateTimeNoTz(endIso)}`;
 }
 
 export default function ArenaLocacoesCardsAgendamentoPage() {
