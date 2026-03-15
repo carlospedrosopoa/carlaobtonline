@@ -462,7 +462,7 @@ export async function POST(
 
       // Atualizar updatedAt do card
       await query(
-        'UPDATE "CardCliente" SET "updatedAt" = NOW(), "updatedById" = $2 WHERE id = $1',
+        'UPDATE "CardCliente" SET "pagamentoPendente" = FALSE, "pagamentoPendenteAt" = NULL, "pagamentoPendenteById" = NULL, "updatedAt" = NOW(), "updatedById" = $2 WHERE id = $1',
         [cardId, usuario.id]
       );
 

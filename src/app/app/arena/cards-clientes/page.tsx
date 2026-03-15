@@ -47,8 +47,10 @@ export default function CardsClientesPage() {
   // Estados para pagamento rápido por card
   const [pagamentoRapidoAberto, setPagamentoRapidoAberto] = useState<Record<string, boolean>>({});
   const [formaPagamentoSelecionada, setFormaPagamentoSelecionada] = useState<Record<string, string>>({});
+  const [valorPagamentoInformado, setValorPagamentoInformado] = useState<Record<string, number | null>>({});
   const [valorRecebido, setValorRecebido] = useState<Record<string, number | null>>({});
   const [processandoPagamento, setProcessandoPagamento] = useState<Record<string, boolean>>({});
+  const [processandoPendencia, setProcessandoPendencia] = useState<Record<string, boolean>>({});
   
   // Carregar preferência de visualização do localStorage
   const [visualizacao, setVisualizacao] = useState<'lista' | 'cards'>(() => {
@@ -365,12 +367,14 @@ export default function CardsClientesPage() {
   const abrirPagamentoRapido = (cardId: string) => {
     setPagamentoRapidoAberto((prev) => ({ ...prev, [cardId]: true }));
     setFormaPagamentoSelecionada((prev) => ({ ...prev, [cardId]: '' }));
+    setValorPagamentoInformado((prev) => ({ ...prev, [cardId]: null }));
     setValorRecebido((prev) => ({ ...prev, [cardId]: null }));
   };
 
   const fecharPagamentoRapido = (cardId: string) => {
     setPagamentoRapidoAberto((prev) => ({ ...prev, [cardId]: false }));
     setFormaPagamentoSelecionada((prev) => ({ ...prev, [cardId]: '' }));
+    setValorPagamentoInformado((prev) => ({ ...prev, [cardId]: null }));
     setValorRecebido((prev) => ({ ...prev, [cardId]: null }));
   };
 
@@ -379,9 +383,27 @@ export default function CardsClientesPage() {
     
     const formaPagamentoId = formaPagamentoSelecionada[card.id];
     const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+    const temPagamentoParcial = (card.totalPago ?? 0) > 0;
     
-    // Se for dinheiro, usar valor recebido (mas limitado ao saldo), senão usar saldo completo
+    // Se já houve pagamento parcial, exigir valor informado
     let valorPagamento = saldo;
+    if (temPagamentoParcial) {
+      const informado = valorPagamentoInformado[card.id];
+      if (informado === null || informado === undefined) {
+        alert('Informe o valor que está sendo pago');
+        return;
+      }
+      if (informado <= 0) {
+        alert('O valor do pagamento deve ser maior que zero');
+        return;
+      }
+      if (informado > saldo) {
+        alert(`O valor do pagamento (${formatarMoeda(informado)}) não pode ser maior que o saldo (${formatarMoeda(saldo)})`);
+        return;
+      }
+      valorPagamento = informado;
+    }
+
     const formaPagamento = formasPagamento.find((fp) => fp.id === formaPagamentoId);
     const isDinheiro = formaPagamento?.nome?.toLowerCase().includes('dinheiro') || 
                        formaPagamento?.nome?.toLowerCase().includes('cash');
@@ -391,11 +413,10 @@ export default function CardsClientesPage() {
         alert('Informe o valor recebido');
         return;
       }
-      if (valorRecebido[card.id]! < saldo) {
-        alert(`O valor recebido (${formatarMoeda(valorRecebido[card.id]!)}) deve ser maior ou igual ao saldo (${formatarMoeda(saldo)})`);
+      if (valorRecebido[card.id]! < valorPagamento) {
+        alert(`O valor recebido (${formatarMoeda(valorRecebido[card.id]!)}) deve ser maior ou igual ao valor do pagamento (${formatarMoeda(valorPagamento)})`);
         return;
       }
-      valorPagamento = saldo; // Sempre pagar o saldo completo, o troco é calculado separadamente
     }
 
     if (valorPagamento <= 0) {
@@ -431,6 +452,7 @@ export default function CardsClientesPage() {
                   ...c,
                   status: 'FECHADO' as StatusCard,
                   saldo: 0,
+                  totalPago: (c.totalPago ?? 0) + valorPagamento,
                 }
               : c
           )
@@ -443,6 +465,7 @@ export default function CardsClientesPage() {
               ? {
                   ...c,
                   saldo: novoSaldo,
+                  totalPago: (c.totalPago ?? 0) + valorPagamento,
                 }
               : c
           )
@@ -458,11 +481,26 @@ export default function CardsClientesPage() {
     }
   };
 
+  const marcarPendenciaPagamento = async (card: CardCliente, pendente: boolean) => {
+    try {
+      setProcessandoPendencia((prev) => ({ ...prev, [card.id]: true }));
+      const updated = await cardClienteService.marcarPendenciaPagamento(card.id, pendente);
+      setCards((prevCards) => prevCards.map((c) => (c.id === card.id ? { ...c, ...updated } : c)));
+      fecharPagamentoRapido(card.id);
+    } catch (error: any) {
+      alert(error?.response?.data?.mensagem || 'Erro ao marcar pendência de pagamento');
+    } finally {
+      setProcessandoPendencia((prev) => ({ ...prev, [card.id]: false }));
+    }
+  };
+
   const calcularTroco = (card: CardCliente): number => {
     const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+    const temPagamentoParcial = (card.totalPago ?? 0) > 0;
+    const valorBase = temPagamentoParcial ? (valorPagamentoInformado[card.id] ?? 0) : saldo;
     const recebido = valorRecebido[card.id];
     if (recebido === null || recebido === undefined) return 0;
-    return Math.max(0, recebido - saldo);
+    return Math.max(0, recebido - valorBase);
   };
 
   const getStatusBadge = (status: StatusCard) => {
@@ -474,6 +512,34 @@ export default function CardsClientesPage() {
       case 'CANCELADO':
         return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 flex items-center gap-1"><XCircle className="w-3 h-3" /> Cancelado</span>;
     }
+  };
+
+  const formatarDataHoraPendencia = (ts?: string | null) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getPendenciaPagamentoInfo = (card: CardCliente, align: 'start' | 'end' = 'end') => {
+    if (!card.pagamentoPendente) return null;
+    const nomeOperador = card.pagamentoPendenteBy?.name || 'Operador';
+    const dataHora = formatarDataHoraPendencia(card.pagamentoPendenteAt);
+    return (
+      <div className={`flex flex-col gap-0.5 ${align === 'start' ? 'items-start' : 'items-end'}`}>
+        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          Pendente
+        </span>
+        <span className="text-[10px] text-orange-800/80">por {nomeOperador}{dataHora ? ` • ${dataHora}` : ''}</span>
+      </div>
+    );
   };
 
 
@@ -657,7 +723,7 @@ export default function CardsClientesPage() {
                 <tr
                   key={card.id}
                   onClick={() => abrirDetalhes(card)}
-                  className="cursor-pointer hover:bg-emerald-50 transition-colors"
+                  className={`cursor-pointer transition-colors ${card.pagamentoPendente ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-emerald-50'}`}
                 >
                   <td className="px-4 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -702,7 +768,10 @@ export default function CardsClientesPage() {
                     )}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    {getStatusBadge(card.status)}
+                    <div className="flex flex-col items-start gap-1">
+                      {getStatusBadge(card.status)}
+                      {getPendenciaPagamentoInfo(card, 'start')}
+                    </div>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-right">
                     <span className="font-semibold text-gray-900">{formatarMoeda(card.valorTotal)}</span>
@@ -801,14 +870,17 @@ export default function CardsClientesPage() {
             <div
               key={card.id}
               onClick={() => abrirDetalhes(card)}
-              className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-gray-200 p-4"
+              className={`rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer border p-4 ${card.pagamentoPendente ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-emerald-600" />
                   <span className="font-bold text-gray-900">#{card.numeroCard}</span>
                 </div>
-                {getStatusBadge(card.status)}
+                <div className="flex flex-col items-end gap-1">
+                  {getStatusBadge(card.status)}
+                  {getPendenciaPagamentoInfo(card, 'end')}
+                </div>
               </div>
               
               <div className="mb-3">
@@ -944,10 +1016,12 @@ export default function CardsClientesPage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setFormaPagamentoSelecionada((prev) => ({ ...prev, [card.id]: forma.id }));
+                                  setValorPagamentoInformado((prev) => ({ ...prev, [card.id]: null }));
                                   // Se for dinheiro, inicializar com o saldo
                                   if (isDinheiro) {
                                     const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
-                                    setValorRecebido((prev) => ({ ...prev, [card.id]: saldo }));
+                                    const temPagamentoParcial = (card.totalPago ?? 0) > 0;
+                                    setValorRecebido((prev) => ({ ...prev, [card.id]: temPagamentoParcial ? null : saldo }));
                                   } else {
                                     setValorRecebido((prev) => ({ ...prev, [card.id]: null }));
                                   }
@@ -965,6 +1039,67 @@ export default function CardsClientesPage() {
                         })()}
                       </div>
 
+                      {formaPagamentoSelecionada[card.id] && (() => {
+                        const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                        const temPagamentoParcial = (card.totalPago ?? 0) > 0;
+                        if (!temPagamentoParcial) return null;
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-gray-700 font-medium flex-1">
+                                Valor a Pagar:
+                              </label>
+                              <div className="flex-[2]">
+                                <InputMonetario
+                                  value={valorPagamentoInformado[card.id]}
+                                  onChange={(val) => setValorPagamentoInformado((prev) => ({ ...prev, [card.id]: val }))}
+                                  placeholder="0,00"
+                                  min={0.01}
+                                  max={saldo}
+                                />
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setValorPagamentoInformado((prev) => ({ ...prev, [card.id]: saldo }));
+                              }}
+                              className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium border border-gray-200"
+                            >
+                              Pagar Total ({formatarMoeda(saldo)})
+                            </button>
+                          </div>
+                        );
+                      })()}
+
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            marcarPendenciaPagamento(card, !(card.pagamentoPendente ?? false));
+                          }}
+                          disabled={processandoPendencia[card.id]}
+                          className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium border ${
+                            card.pagamentoPendente
+                              ? 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                              : 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <Clock className="w-4 h-4" />
+                          {card.pagamentoPendente ? 'Remover Pendência' : 'Deixar Pendente'}
+                        </button>
+                        {card.pagamentoPendente && (
+                          <span className="text-xs text-orange-800/80 truncate">
+                            {(() => {
+                              const dataHora = formatarDataHoraPendencia(card.pagamentoPendenteAt);
+                              return `${card.pagamentoPendenteBy?.name || 'Operador'}${dataHora ? ` • ${dataHora}` : ''}`;
+                            })()}
+                          </span>
+                        )}
+                      </div>
+
                       {/* Campo de Valor Recebido (apenas para dinheiro) */}
                       {formaPagamentoSelecionada[card.id] && (() => {
                         const formaSelecionada = formasPagamento.find(
@@ -975,6 +1110,9 @@ export default function CardsClientesPage() {
                         
                         if (isDinheiro) {
                           const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                          const temPagamentoParcial = (card.totalPago ?? 0) > 0;
+                          const valorBase = temPagamentoParcial ? valorPagamentoInformado[card.id] : saldo;
+                          const minRecebido = temPagamentoParcial ? (valorBase ?? 0) : saldo;
                           const troco = calcularTroco(card);
                           
                           return (
@@ -988,11 +1126,14 @@ export default function CardsClientesPage() {
                                     value={valorRecebido[card.id]}
                                     onChange={(val) => setValorRecebido((prev) => ({ ...prev, [card.id]: val }))}
                                     placeholder="0,00"
-                                    min={saldo}
+                                    min={minRecebido}
                                   />
                                 </div>
                               </div>
-                              {valorRecebido[card.id] !== null && valorRecebido[card.id] !== undefined && valorRecebido[card.id]! >= saldo && (
+                              {(!temPagamentoParcial || valorBase !== null) &&
+                                valorRecebido[card.id] !== null &&
+                                valorRecebido[card.id] !== undefined &&
+                                valorRecebido[card.id]! >= (valorBase ?? 0) && (
                                 <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200">
                                   <span className="text-xs font-medium text-green-700">Troco:</span>
                                   <span className="text-sm font-bold text-green-700">{formatarMoeda(troco)}</span>
@@ -1017,9 +1158,15 @@ export default function CardsClientesPage() {
                             );
                             const isDinheiro = formaSelecionada?.nome?.toLowerCase().includes('dinheiro') || 
                                              formaSelecionada?.nome?.toLowerCase().includes('cash');
+                            const temPagamentoParcial = (card.totalPago ?? 0) > 0;
+                            const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                            const valorPagamento = temPagamentoParcial ? valorPagamentoInformado[card.id] : saldo;
+                            if (temPagamentoParcial) {
+                              if (!valorPagamento || valorPagamento <= 0) return true;
+                              if (valorPagamento > saldo) return true;
+                            }
                             if (isDinheiro) {
-                              const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
-                              return !valorRecebido[card.id] || valorRecebido[card.id]! < saldo;
+                              return !valorRecebido[card.id] || valorRecebido[card.id]! < (valorPagamento || 0);
                             }
                             // Para outras formas de pagamento, sempre permitir
                             return false;

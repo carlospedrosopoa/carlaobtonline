@@ -33,16 +33,19 @@ export async function GET(
         c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
         c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", 
         c."createdById", c."updatedById",
+        c."pagamentoPendente", c."pagamentoPendenteAt", c."pagamentoPendenteById",
         u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
         NULL as "usuario_whatsapp",
         at.fone as "atleta_fone",
         uc.id as "createdBy_user_id", uc.name as "createdBy_user_name", uc.email as "createdBy_user_email",
-        uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email"
+        uu.id as "updatedBy_user_id", uu.name as "updatedBy_user_name", uu.email as "updatedBy_user_email",
+        pu.id as "pendenteBy_user_id", pu.name as "pendenteBy_user_name", pu.email as "pendenteBy_user_email"
       FROM "CardCliente" c
       LEFT JOIN "User" u ON c."usuarioId" = u.id
       LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
       LEFT JOIN "User" uc ON c."createdById" = uc.id
       LEFT JOIN "User" uu ON c."updatedById" = uu.id
+      LEFT JOIN "User" pu ON c."pagamentoPendenteById" = pu.id
       WHERE c.id = $1`,
       [id]
     );
@@ -70,6 +73,12 @@ export async function GET(
       updatedAt: row.updatedAt,
       createdById: row.createdById || null,
       updatedById: row.updatedById || null,
+      pagamentoPendente: row.pagamentoPendente ?? false,
+      pagamentoPendenteAt: row.pagamentoPendenteAt || null,
+      pagamentoPendenteById: row.pagamentoPendenteById || null,
+      pagamentoPendenteBy: row.pendenteBy_user_id
+        ? { id: row.pendenteBy_user_id, name: row.pendenteBy_user_name, email: row.pendenteBy_user_email }
+        : null,
       createdBy: row.createdBy_user_id ? {
         id: row.createdBy_user_id,
         name: row.createdBy_user_name,

@@ -21,6 +21,14 @@ export interface CardCliente {
   updatedAt: string;
   createdById?: string | null;
   updatedById?: string | null;
+  pagamentoPendente?: boolean;
+  pagamentoPendenteAt?: string | null;
+  pagamentoPendenteById?: string | null;
+  pagamentoPendenteBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   createdBy?: {
     id: string;
     name: string;

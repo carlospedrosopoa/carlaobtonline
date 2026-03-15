@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
         if (totalPago >= valorTotal) {
           await client.query(
             `UPDATE "CardCliente" 
-             SET status = 'FECHADO', "fechadoAt" = NOW(), "fechadoBy" = $1, "updatedAt" = NOW() 
+             SET status = 'FECHADO', "pagamentoPendente" = FALSE, "pagamentoPendenteAt" = NULL, "pagamentoPendenteById" = NULL, "fechadoAt" = NOW(), "fechadoBy" = $1, "updatedAt" = NOW() 
              WHERE id = $2`,
             [usuario.id, cardId]
           );
