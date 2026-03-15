@@ -165,6 +165,8 @@ export default function ArenaLocacoesCardsAgendamentoPage() {
   const clientes = response?.clientes || [];
   const arena = response?.arena;
   const arenaLogoUrl = arena?.logoUrl ? `/api/proxy/image?url=${encodeURIComponent(arena.logoUrl)}` : null;
+  const isMobileDevice =
+    typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
   const clientesFiltrados = useMemo(() => {
     const v = filtroAtleta.trim().toLowerCase();
@@ -172,40 +174,94 @@ export default function ArenaLocacoesCardsAgendamentoPage() {
     return clientes.filter((c) => c.origem === 'ATLETA' && c.nome.toLowerCase().includes(v));
   }, [clientes, filtroAtleta]);
 
+  const gerarImagemCard = async (clienteId: string) => {
+    const cardNode = cardRefs.current[clienteId];
+    if (!cardNode) return null;
+
+    const { toBlob } = await import('html-to-image');
+    const blob = await (toBlob as any)(cardNode, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      filter: (node: any) => {
+        try {
+          return !(node?.dataset?.noImage === '1');
+        } catch {
+          return true;
+        }
+      },
+    });
+
+    return blob || null;
+  };
+
+  const compartilharImagemCard = async (clienteId: string) => {
+    if (!arena) return;
+    const cliente = clientes.find((c) => c.id === clienteId);
+    if (!cliente) return;
+
+    try {
+      setCopiando((prev) => ({ ...prev, [clienteId]: true }));
+      setCopiado((prev) => ({ ...prev, [clienteId]: false }));
+
+      const blob = await gerarImagemCard(clienteId);
+      if (!blob) throw new Error('Não foi possível gerar a imagem do card');
+
+      const file = new File([blob], `card-agendamento-${clienteId}.png`, { type: 'image/png' });
+      const canShareFiles =
+        typeof navigator !== 'undefined' &&
+        typeof (navigator as any).share === 'function' &&
+        typeof (navigator as any).canShare === 'function' &&
+        (navigator as any).canShare({ files: [file] });
+
+      if (canShareFiles) {
+        await (navigator as any).share({
+          title: `${arena.nome} - ${cliente.nome}`,
+          text: `${arena.nome} - ${cliente.nome}`,
+          files: [file],
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `card-agendamento-${clienteId}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      }
+
+      setCopiado((prev) => ({ ...prev, [clienteId]: true }));
+      setTimeout(() => {
+        setCopiado((prev) => ({ ...prev, [clienteId]: false }));
+      }, 1500);
+    } catch (e: any) {
+      setErro(e?.message || 'Não foi possível compartilhar a imagem do card');
+    } finally {
+      setCopiando((prev) => ({ ...prev, [clienteId]: false }));
+    }
+  };
+
   const copiarCard = async (clienteId: string) => {
     if (!arena) return;
 
     const cliente = clientes.find((c) => c.id === clienteId);
     if (!cliente) return;
 
-    const cardNode = cardRefs.current[clienteId];
-
     try {
       setCopiando((prev) => ({ ...prev, [clienteId]: true }));
       setCopiado((prev) => ({ ...prev, [clienteId]: false }));
 
       const canWriteImage =
+        !isMobileDevice &&
         typeof navigator !== 'undefined' &&
         !!navigator.clipboard &&
         typeof (navigator.clipboard as any).write === 'function' &&
         typeof (window as any).ClipboardItem !== 'undefined';
 
-      if (canWriteImage && cardNode) {
-        const { toBlob } = await import('html-to-image');
-        const blob = await (toBlob as any)(cardNode, {
-          cacheBust: true,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-          filter: (node: any) => {
-            try {
-              return !(node?.dataset?.noImage === '1');
-            } catch {
-              return true;
-            }
-          },
-        });
-
+      if (canWriteImage) {
+        const blob = await gerarImagemCard(clienteId);
         if (!blob) {
           throw new Error('Não foi possível gerar a imagem do card');
         }
@@ -236,6 +292,15 @@ export default function ArenaLocacoesCardsAgendamentoPage() {
       ].filter(Boolean);
 
       const textPlain = linhas.join('\n');
+
+      if (isMobileDevice) {
+        await navigator.clipboard.writeText(textPlain);
+        setCopiado((prev) => ({ ...prev, [clienteId]: true }));
+        setTimeout(() => {
+          setCopiado((prev) => ({ ...prev, [clienteId]: false }));
+        }, 1500);
+        return;
+      }
 
       const htmlRows = (cliente.agendamentos || [])
         .map((ag) => {
@@ -452,15 +517,39 @@ export default function ArenaLocacoesCardsAgendamentoPage() {
                     </div>
                   </div>
                   <div className="text-right text-sm text-gray-700">
+                    {isMobileDevice && (
+                      <button
+                        type="button"
+                        onClick={() => compartilharImagemCard(cliente.id)}
+                        disabled={copiando[cliente.id]}
+                        className="mb-2 mr-2 text-xs px-2 py-1 rounded border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Compartilha a imagem do card (WhatsApp, etc.)"
+                        data-no-image="1"
+                      >
+                        {copiado[cliente.id] ? 'Ok' : copiando[cliente.id] ? 'Enviando...' : 'Compartilhar'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => copiarCard(cliente.id)}
                       disabled={copiando[cliente.id]}
                       className="mb-2 text-xs px-2 py-1 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Copia o conteúdo do card para colar em outras ferramentas"
+                      title={
+                        isMobileDevice
+                          ? 'Copia o texto do card para colar em outras ferramentas'
+                          : 'Copia o card como imagem para colar em outras ferramentas'
+                      }
                       data-no-image="1"
                     >
-                      {copiado[cliente.id] ? 'Copiado' : copiando[cliente.id] ? 'Copiando...' : 'Copiar imagem'}
+                      {copiado[cliente.id]
+                        ? isMobileDevice
+                          ? 'Copiado'
+                          : 'Copiado'
+                        : copiando[cliente.id]
+                          ? 'Copiando...'
+                          : isMobileDevice
+                            ? 'Copiar'
+                            : 'Copiar imagem'}
                     </button>
                     <div>
                       <span className="font-semibold">{cliente.agendamentos.length}</span> agend.
