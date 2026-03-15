@@ -142,6 +142,11 @@ export const cardClienteService = {
     return res.data;
   },
 
+  marcarPendenciaPagamento: async (cardId: string, pendente: boolean = true): Promise<Pick<CardCliente, 'id' | 'pagamentoPendente' | 'pagamentoPendenteAt' | 'pagamentoPendenteById' | 'pagamentoPendenteBy'>> => {
+    const res = await api.put(`/gestao-arena/card-cliente/${cardId}/pendencia`, { pendente });
+    return res.data;
+  },
+
   lancamentoLote: async (payload: {
     pointId: string;
     produtoId: string;

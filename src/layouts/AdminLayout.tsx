@@ -22,6 +22,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { to: '/app/admin/organizers', label: 'Gestores de Arena' },
     { to: '/app/admin/professores', label: 'Professores' },
     { to: '/app/admin/atletas', label: 'Atletas' },
+    { to: '/app/admin/importacao/tabelas-basicas', label: 'Importação: Tabelas' },
+    { to: '/app/admin/importacao/movimentacao', label: 'Importação: Movimentação' },
     { to: '/app/admin/configuracoes-plataforma', label: 'Configurações' },
   ];
 
