@@ -378,6 +378,11 @@ export default function ArenaAgendaMobilePage() {
                                 <span className="text-gray-400"> · </span>
                                 <span>{getNomeCliente(agendamento)}</span>
                               </div>
+                              {!!agendamento.observacoes?.trim() && (
+                                <div className="mt-1 text-xs text-gray-600 break-words">
+                                  {agendamento.observacoes}
+                                </div>
+                              )}
                             </div>
                             <div className="flex-shrink-0">
                               <ChevronRight className="w-5 h-5 text-gray-500" />
