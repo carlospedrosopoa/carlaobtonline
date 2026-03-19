@@ -1,6 +1,6 @@
 // app/api/agendamento/[id]/route.ts - Rotas de API para Agendamento individual (GET, PUT, DELETE)
 import { NextRequest, NextResponse } from 'next/server';
-import { query, normalizarDataHora } from '@/lib/db';
+import { query, normalizarDataHora, transaction } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAQuadra } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { temRecorrencia, gerarAgendamentosRecorrentes } from '@/lib/recorrenciaService';
@@ -379,6 +379,8 @@ export async function PUT(
       professorId?: string | null;
     };
 
+    const duracaoAlterada = duracao !== undefined && duracao !== agendamentoAtual.duracao;
+
     // Se quadraId foi alterado, verificar se o usuário tem acesso à nova quadra
     const quadraIdFinal = quadraId || agendamentoAtual.quadraId;
     if (quadraId && quadraId !== agendamentoAtual.quadraId) {
@@ -734,7 +736,11 @@ export async function PUT(
       paramCount++;
     }
 
-    if (valorNegociado !== undefined) {
+    if (duracaoAlterada) {
+      updates.push(`"valorNegociado" = $${paramCount}`);
+      paramsUpdate.push(null);
+      paramCount++;
+    } else if (valorNegociado !== undefined) {
       updates.push(`"valorNegociado" = $${paramCount}`);
       // Permitir que 0 seja salvo corretamente (não usar || null que converte 0 em null)
       paramsUpdate.push(valorNegociado !== null && valorNegociado !== undefined ? valorNegociado : null);
@@ -836,6 +842,304 @@ export async function PUT(
       temTipo: recorrencia?.tipo,
       recorrenciaIdAtual,
     });
+
+    if (temRecorrenciaAtual && aplicarARecorrencia && (!recorrencia || !recorrencia.tipo) && recorrenciaIdAtual) {
+      const mHora = dataHora ? dataHora.match(/T(\d{2}):(\d{2})/) : null;
+      const horaNova = mHora ? Number(mHora[1]) : null;
+      const minutoNovo = mHora ? Number(mHora[2]) : null;
+
+      const quadraPoint = await query('SELECT "pointId" FROM "Quadra" WHERE id = $1', [quadraIdFinal]);
+      if (quadraPoint.rows.length === 0) {
+        const errorResponse = NextResponse.json({ mensagem: 'Quadra não encontrada' }, { status: 404 });
+        return withCors(errorResponse, request);
+      }
+      const pointIdDaQuadra = quadraPoint.rows[0].pointId as string;
+      const horariosAtendimento = await carregarHorariosAtendimentoPoint(pointIdDaQuadra);
+
+      const duracaoFinal = duracao !== undefined ? duracao : dadosAtuais.duracao;
+      const ehAulaFinal = ehAula !== undefined ? ehAula : Boolean(dadosAtuais.ehAula);
+      const professorIdFinal = professorId !== undefined ? professorId : dadosAtuais.professorId;
+
+      const tabelaPrecoResult = await query(
+        `SELECT "valorHora", "valorHoraAula", "inicioMinutoDia", "fimMinutoDia"
+         FROM "TabelaPreco"
+         WHERE "quadraId" = $1 AND ativo = true
+         ORDER BY "inicioMinutoDia" ASC`,
+        [quadraIdFinal]
+      );
+      const tabelaPrecos = tabelaPrecoResult.rows || [];
+
+      const afetados = await query(
+        `SELECT id, "dataHora"
+         FROM "Agendamento"
+         WHERE "recorrenciaId" = $1
+           AND "dataHora" >= $2
+           AND status <> 'CANCELADO'
+         ORDER BY "dataHora" ASC`,
+        [recorrenciaIdAtual, dataHoraAtualRecorrencia.toISOString()]
+      );
+
+      const foraHorarioEncontrados: string[] = [];
+      const conflitosEncontrados: string[] = [];
+
+      for (const row of afetados.rows) {
+        const isoRow = normalizarDataHora(row.dataHora);
+        const dataPart = isoRow.split('T')[0];
+
+        const dataHoraAplicada = horaNova !== null && minutoNovo !== null
+          ? (() => {
+              if (row.id === id && dataHora) {
+                const [dp, hp] = dataHora.split('T');
+                const [ano, mes, dia] = dp.split('-').map(Number);
+                const [hora, minuto] = hp.split(':').map(Number);
+                return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
+              }
+              const [ano, mes, dia] = dataPart.split('-').map(Number);
+              return new Date(Date.UTC(ano, mes - 1, dia, horaNova, minutoNovo, 0));
+            })()
+          : new Date(isoRow);
+
+        const inicioMin = dataHoraAplicada.getUTCHours() * 60 + dataHoraAplicada.getUTCMinutes();
+        const diaSemana = dataHoraAplicada.getUTCDay();
+        if (usuario.role !== 'ORGANIZER' && !inicioDentroDoHorario(horariosAtendimento, diaSemana, inicioMin)) {
+          foraHorarioEncontrados.push(dataHoraAplicada.toISOString());
+          continue;
+        }
+
+        const dataFimAgendamento = new Date(dataHoraAplicada.getTime() + duracaoFinal * 60000);
+        const conflitos = await query(
+          `SELECT id FROM "Agendamento"
+           WHERE "quadraId" = $1
+           AND status = 'CONFIRMADO'
+           AND id != $2
+           AND ("recorrenciaId" IS NULL OR "recorrenciaId" <> $6)
+           AND "dataHora" < $4
+           AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
+          [quadraIdFinal, row.id, dataHoraAplicada.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal, recorrenciaIdAtual]
+        );
+
+        if (conflitos.rows.length > 0) {
+          conflitosEncontrados.push(dataHoraAplicada.toISOString());
+        }
+      }
+
+      if (foraHorarioEncontrados.length > 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: `Existem ${foraHorarioEncontrados.length} agendamento(s) da recorrência fora do horário de atendimento` },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      if (conflitosEncontrados.length > 0) {
+        const errorResponse = NextResponse.json(
+          { mensagem: `Existem conflitos em ${conflitosEncontrados.length} agendamento(s) da recorrência` },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+
+      await transaction(async (client) => {
+        for (const row of afetados.rows) {
+          const isoRow = normalizarDataHora(row.dataHora);
+          const dataPart = isoRow.split('T')[0];
+
+          const dataHoraAplicada = horaNova !== null && minutoNovo !== null
+            ? (() => {
+                if (row.id === id && dataHora) {
+                  const [dp, hp] = dataHora.split('T');
+                  const [ano, mes, dia] = dp.split('-').map(Number);
+                  const [hora, minuto] = hp.split(':').map(Number);
+                  return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
+                }
+                const [ano, mes, dia] = dataPart.split('-').map(Number);
+                return new Date(Date.UTC(ano, mes - 1, dia, horaNova, minutoNovo, 0));
+              })()
+            : new Date(isoRow);
+
+          const minutoDia = dataHoraAplicada.getUTCHours() * 60 + dataHoraAplicada.getUTCMinutes();
+          const precoAplicavel = tabelaPrecos.find((tp: any) => minutoDia >= tp.inicioMinutoDia && minutoDia < tp.fimMinutoDia);
+
+          const valorHoraCalculado = precoAplicavel
+            ? (ehAulaFinal
+                ? (precoAplicavel.valorHoraAula !== null && precoAplicavel.valorHoraAula !== undefined
+                    ? parseFloat(precoAplicavel.valorHoraAula)
+                    : parseFloat(precoAplicavel.valorHora))
+                : parseFloat(precoAplicavel.valorHora))
+            : null;
+
+          const valorCalculadoCalculado =
+            valorHoraCalculado !== null ? (valorHoraCalculado * duracaoFinal) / 60 : null;
+
+          const sets: string[] = [];
+          const params: any[] = [];
+          let pc = 1;
+
+          if (quadraId !== undefined) {
+            sets.push(`"quadraId" = $${pc}`);
+            params.push(quadraIdFinal);
+            pc++;
+          }
+
+          if (dataHora !== undefined && horaNova !== null && minutoNovo !== null) {
+            sets.push(`"dataHora" = $${pc}`);
+            params.push(dataHoraAplicada.toISOString());
+            pc++;
+          }
+
+          if (duracao !== undefined) {
+            sets.push(`duracao = $${pc}`);
+            params.push(duracaoFinal);
+            pc++;
+          }
+
+          if (observacoes !== undefined) {
+            sets.push(`observacoes = $${pc}`);
+            params.push(observacoes || null);
+            pc++;
+          }
+
+          if (atletaId !== undefined) {
+            sets.push(`"atletaId" = $${pc}`);
+            params.push(atletaId || null);
+            pc++;
+          }
+
+          if (nomeAvulso !== undefined) {
+            sets.push(`"nomeAvulso" = $${pc}`);
+            params.push(nomeAvulso || null);
+            pc++;
+          }
+
+          if (telefoneAvulso !== undefined) {
+            sets.push(`"telefoneAvulso" = $${pc}`);
+            params.push(telefoneAvulso || null);
+            pc++;
+          }
+
+          if (ehAula !== undefined) {
+            sets.push(`"ehAula" = $${pc}`);
+            params.push(ehAulaFinal);
+            pc++;
+          }
+
+          if (professorId !== undefined) {
+            sets.push(`"professorId" = $${pc}`);
+            params.push(professorIdFinal || null);
+            pc++;
+          }
+
+          if (valorHoraCalculado !== null) {
+            sets.push(`"valorHora" = $${pc}`);
+            params.push(valorHoraCalculado);
+            pc++;
+            sets.push(`"valorCalculado" = $${pc}`);
+            params.push(valorCalculadoCalculado);
+            pc++;
+          }
+
+          if (duracaoAlterada) {
+            sets.push(`"valorNegociado" = NULL`);
+          } else if (valorNegociado !== undefined) {
+            sets.push(`"valorNegociado" = $${pc}`);
+            params.push(valorNegociado !== null && valorNegociado !== undefined ? valorNegociado : null);
+            pc++;
+          }
+
+          sets.push(`"updatedAt" = NOW()`);
+          sets.push(`"updatedById" = $${pc}`);
+          params.push(usuario.id);
+          pc++;
+
+          params.push(row.id);
+          await client.query(
+            `UPDATE "Agendamento" SET ${sets.join(', ')} WHERE id = $${pc}`,
+            params
+          );
+        }
+      });
+
+      let agendamentoCompleto;
+      try {
+        agendamentoCompleto = await query(
+          `SELECT 
+            a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
+            a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
+            a.status, a.observacoes, a."recorrenciaId", a."recorrenciaConfig", a."createdAt", a."updatedAt",
+            q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
+            p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
+            u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
+            at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+          FROM "Agendamento" a
+          LEFT JOIN "Quadra" q ON a."quadraId" = q.id
+          LEFT JOIN "Point" p ON q."pointId" = p.id
+          LEFT JOIN "User" u ON a."usuarioId" = u.id
+          LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+          WHERE a.id = $1`,
+          [id]
+        );
+      } catch (error: any) {
+        if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig')) {
+          agendamentoCompleto = await query(
+            `SELECT 
+              a.id, a."quadraId", a."usuarioId", a."atletaId", a."nomeAvulso", a."telefoneAvulso",
+              a."dataHora", a.duracao, a."valorHora", a."valorCalculado", a."valorNegociado",
+              a.status, a.observacoes, a."createdAt", a."updatedAt",
+              q.id as "quadra_id", q.nome as "quadra_nome", q."pointId" as "quadra_pointId",
+              p.id as "point_id", p.nome as "point_nome", p."logoUrl" as "point_logoUrl",
+              u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email",
+              at.id as "atleta_id", at.nome as "atleta_nome", at.fone as "atleta_fone"
+            FROM "Agendamento" a
+            LEFT JOIN "Quadra" q ON a."quadraId" = q.id
+            LEFT JOIN "Point" p ON q."pointId" = p.id
+            LEFT JOIN "User" u ON a."usuarioId" = u.id
+            LEFT JOIN "Atleta" at ON a."atletaId" = at.id
+            WHERE a.id = $1`,
+            [id]
+          );
+        } else {
+          throw error;
+        }
+      }
+
+      const row = agendamentoCompleto.rows[0];
+      const agendamentoRetorno: any = {
+        id: row.id,
+        quadraId: row.quadraId,
+        usuarioId: row.usuarioId,
+        atletaId: row.atletaId,
+        nomeAvulso: row.nomeAvulso,
+        telefoneAvulso: row.telefoneAvulso,
+        dataHora: normalizarDataHora(row.dataHora),
+        duracao: row.duracao,
+        valorHora: row.valorHora,
+        valorCalculado: row.valorCalculado,
+        valorNegociado: row.valorNegociado,
+        status: row.status,
+        observacoes: row.observacoes,
+        recorrenciaId: row.recorrenciaId || null,
+        recorrenciaConfig: row.recorrenciaConfig
+          ? (typeof row.recorrenciaConfig === 'string' ? JSON.parse(row.recorrenciaConfig) : row.recorrenciaConfig)
+          : null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        quadra: {
+          id: row.quadra_id,
+          nome: row.quadra_nome,
+          pointId: row.quadra_pointId,
+          point: {
+            id: row.point_id,
+            nome: row.point_nome,
+            logoUrl: row.point_logoUrl || null,
+          },
+        },
+        usuario: row.usuario_id ? { id: row.usuario_id, name: row.usuario_name, email: row.usuario_email } : null,
+        atleta: row.atleta_id ? { id: row.atleta_id, nome: row.atleta_nome, fone: row.atleta_fone } : null,
+      };
+
+      const response = NextResponse.json(agendamentoRetorno);
+      return withCors(response, request);
+    }
     
     if (temRecorrenciaAtual && aplicarARecorrencia && recorrencia && recorrencia.tipo) {
       console.log('[API] Entrando no bloco: Recriar recorrência');
@@ -881,7 +1185,7 @@ export async function PUT(
       const duracaoFinal = duracao !== undefined ? duracao : dadosAtuais.duracao;
       const valorHoraFinal = valorHora !== null ? valorHora : dadosAtuais.valorHora;
       const valorCalculadoFinal = valorCalculado !== null ? valorCalculado : dadosAtuais.valorCalculado;
-      const valorNegociadoFinal = valorNegociado !== null ? valorNegociado : dadosAtuais.valorNegociado;
+      const valorNegociadoFinal = duracaoAlterada ? null : (valorNegociado !== null ? valorNegociado : dadosAtuais.valorNegociado);
       
       // 3. Atualizar o agendamento atual primeiro
       paramsUpdate.push(id);
