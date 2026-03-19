@@ -605,6 +605,22 @@ export interface DashboardOperacionalData {
   };
 }
 
+export interface DashboardOperacionalComandaConsiderada {
+  id: string;
+  numeroCard: number;
+  status: StatusCard;
+  clienteNome: string;
+  totalItens: number;
+  total: number;
+  primeiroItemAt: string;
+  ultimoItemAt: string;
+}
+
+export interface DashboardOperacionalComandasConsideradasResponse {
+  total: number;
+  itens: DashboardOperacionalComandaConsiderada[];
+}
+
 // ============================================
 // HISTÓRICO DO ATLETA NA ARENA
 // ============================================

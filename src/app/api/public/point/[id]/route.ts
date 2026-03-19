@@ -44,7 +44,43 @@ export async function GET(
       );
     }
 
-    return withCors(NextResponse.json(point), request);
+    const quadrasResult = await query(
+      `SELECT "tiposEsporte"
+       FROM "Quadra"
+       WHERE "pointId" = $1 AND ativo = true`,
+      [id]
+    );
+
+    const esportesSet = new Set<string>();
+    for (const row of quadrasResult.rows as any[]) {
+      const raw = row.tiposEsporte;
+      let arr: any[] = [];
+      if (!raw) {
+        arr = [];
+      } else if (Array.isArray(raw)) {
+        arr = raw;
+      } else if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw);
+          arr = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          arr = [];
+        }
+      }
+
+      for (const v of arr) {
+        const s = String(v || '').trim();
+        if (s) esportesSet.add(s);
+      }
+    }
+
+    return withCors(
+      NextResponse.json({
+        ...point,
+        esportesDisponiveis: Array.from(esportesSet).sort((a, b) => a.localeCompare(b)),
+      }),
+      request
+    );
   } catch (error: any) {
     console.error('Erro ao obter arena pública:', error);
     return withCors(

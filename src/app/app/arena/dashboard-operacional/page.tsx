@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { dashboardOperacionalService, type DashboardOperacionalData } from '@/services/gestaoArenaService';
-import { Clock, Package, Receipt, TrendingUp } from 'lucide-react';
+import { cardClienteService, dashboardOperacionalService, type DashboardOperacionalData } from '@/services/gestaoArenaService';
+import { Clock, FileText, Package, Receipt, TrendingUp } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -22,13 +22,40 @@ import {
   formatarMoeda,
 } from '@/components/dashboard-operacional/DashboardOperacionalWidgets';
 import { FiltrosPeriodo, KpisSkeleton, ProdutosTable } from '@/components/dashboard-operacional/DashboardOperacionalSections';
+import ModalComandasConsideradas from '@/components/dashboard-operacional/ModalComandasConsideradas';
+import type { CardCliente } from '@/types/gestaoArena';
+import GerenciarCardModal from '@/components/GerenciarCardModal';
 
 function isoStartOfDay(dateStr: string): string {
-  return new Date(`${dateStr}T00:00:00.000Z`).toISOString();
+  const probe = new Date(`${dateStr}T12:00:00.000Z`);
+  const tzPart = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    timeZoneName: 'shortOffset',
+  })
+    .formatToParts(probe)
+    .find((p) => p.type === 'timeZoneName')?.value;
+
+  const m = tzPart ? tzPart.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/) : null;
+  const hh = m ? String(Math.abs(parseInt(m[1], 10))).padStart(2, '0') : '03';
+  const mm = m && m[2] ? m[2] : '00';
+  const sign = m ? (parseInt(m[1], 10) >= 0 ? '+' : '-') : '-';
+  return new Date(`${dateStr}T00:00:00.000${sign}${hh}:${mm}`).toISOString();
 }
 
 function isoEndOfDay(dateStr: string): string {
-  return new Date(`${dateStr}T23:59:59.999Z`).toISOString();
+  const probe = new Date(`${dateStr}T12:00:00.000Z`);
+  const tzPart = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    timeZoneName: 'shortOffset',
+  })
+    .formatToParts(probe)
+    .find((p) => p.type === 'timeZoneName')?.value;
+
+  const m = tzPart ? tzPart.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/) : null;
+  const hh = m ? String(Math.abs(parseInt(m[1], 10))).padStart(2, '0') : '03';
+  const mm = m && m[2] ? m[2] : '00';
+  const sign = m ? (parseInt(m[1], 10) >= 0 ? '+' : '-') : '-';
+  return new Date(`${dateStr}T23:59:59.999${sign}${hh}:${mm}`).toISOString();
 }
 
 export default function DashboardOperacionalArenaPage() {
@@ -38,14 +65,18 @@ export default function DashboardOperacionalArenaPage() {
     const hoje = new Date();
     const inicio = new Date(hoje);
     inicio.setDate(hoje.getDate() - 30);
-    return inicio.toISOString().split('T')[0];
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(inicio);
   });
   const [dataAte, setDataAte] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
   });
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [dados, setDados] = useState<DashboardOperacionalData | null>(null);
+  const [modalComandasConsideradasAberto, setModalComandasConsideradasAberto] = useState(false);
+  const [abrindoCard, setAbrindoCard] = useState(false);
+  const [cardParaAbrir, setCardParaAbrir] = useState<CardCliente | null>(null);
+  const [modalCardAberto, setModalCardAberto] = useState(false);
 
   const podeAplicar = Boolean(usuario?.pointIdGestor && dataDe && dataAte && dataDe <= dataAte);
 
@@ -168,6 +199,18 @@ export default function DashboardOperacionalArenaPage() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard Operacional</h1>
           <p className="text-gray-600 mt-1">Agendamentos e comandas com filtro por período</p>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setModalComandasConsideradasAberto(true)}
+            disabled={!usuario?.pointIdGestor || abrindoCard}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
+            title="Listar comandas consideradas no cálculo do dashboard"
+          >
+            <FileText className="w-4 h-4" />
+            Auditar comandas
+          </button>
+        </div>
       </div>
 
       <FiltrosPeriodo
@@ -179,8 +222,8 @@ export default function DashboardOperacionalArenaPage() {
           const hoje = new Date();
           const inicio = new Date(hoje);
           inicio.setDate(hoje.getDate() - 30);
-          setDataDe(inicio.toISOString().split('T')[0]);
-          setDataAte(hoje.toISOString().split('T')[0]);
+          setDataDe(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(inicio));
+          setDataAte(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(hoje));
         }}
         onAplicar={carregar}
         loading={loading}
@@ -291,6 +334,41 @@ export default function DashboardOperacionalArenaPage() {
 
           <ProdutosTable produtos={view.produtos} />
         </>
+      )}
+
+      {usuario?.pointIdGestor && (
+        <ModalComandasConsideradas
+          isOpen={modalComandasConsideradasAberto}
+          onClose={() => setModalComandasConsideradasAberto(false)}
+          pointId={usuario.pointIdGestor}
+          dataInicio={isoStartOfDay(dataDe)}
+          dataFim={isoEndOfDay(dataAte)}
+          onAbrirCard={async (cardId) => {
+            try {
+              setAbrindoCard(true);
+              const card = await cardClienteService.obter(cardId, true, true, true);
+              setCardParaAbrir(card);
+              setModalCardAberto(true);
+            } catch (e) {
+              setErro('Erro ao abrir comanda');
+            } finally {
+              setAbrindoCard(false);
+            }
+          }}
+        />
+      )}
+
+      {modalCardAberto && cardParaAbrir && (
+        <GerenciarCardModal
+          isOpen={modalCardAberto}
+          card={cardParaAbrir}
+          readOnly
+          onClose={() => {
+            setModalCardAberto(false);
+            setCardParaAbrir(null);
+          }}
+          onSuccess={() => {}}
+        />
       )}
     </div>
   );

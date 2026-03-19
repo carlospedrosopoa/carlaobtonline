@@ -15,7 +15,7 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { quadraId, dataHora, duracao, atletaId, usuarioId, observacoes } = body;
+    const { quadraId, dataHora, duracao, atletaId, usuarioId, observacoes, esporte } = body;
 
     if (!quadraId) {
       return withCors(
@@ -38,9 +38,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!esporte || !String(esporte).trim()) {
+      return withCors(
+        NextResponse.json({ mensagem: 'esporte é obrigatório' }, { status: 400 }),
+        request
+      );
+    }
+
     // Verificar se a quadra existe e está ativa
     const quadraResult = await query(
-      'SELECT id, nome, "pointId", ativo FROM "Quadra" WHERE id = $1',
+      'SELECT id, nome, "pointId", ativo, "tiposEsporte" FROM "Quadra" WHERE id = $1',
       [quadraId]
     );
 
@@ -55,6 +62,31 @@ export async function POST(request: NextRequest) {
     if (!quadra.ativo) {
       return withCors(
         NextResponse.json({ mensagem: 'Quadra não está ativa' }, { status: 400 }),
+        request
+      );
+    }
+
+    let tiposEsporteArray: string[] = [];
+    if (quadra.tiposEsporte) {
+      if (Array.isArray(quadra.tiposEsporte)) {
+        tiposEsporteArray = quadra.tiposEsporte;
+      } else if (typeof quadra.tiposEsporte === 'string') {
+        try {
+          const parsed = JSON.parse(quadra.tiposEsporte);
+          tiposEsporteArray = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          tiposEsporteArray = [];
+        }
+      }
+    }
+
+    const esporteStr = String(esporte).trim();
+    const esporteValido = tiposEsporteArray.some(
+      (t) => String(t || '').trim().toLowerCase() === esporteStr.toLowerCase()
+    );
+    if (!esporteValido) {
+      return withCors(
+        NextResponse.json({ mensagem: 'Esporte não disponível para esta quadra' }, { status: 400 }),
         request
       );
     }
@@ -211,6 +243,10 @@ export async function POST(request: NextRequest) {
 
     const valorCalculado = valorHora ? (valorHora * duracaoMinutos) / 60 : null;
 
+    const observacoesFinal = [`Esporte: ${esporteStr}`, observacoes ? String(observacoes) : null]
+      .filter(Boolean)
+      .join('\n');
+
     // Criar agendamento
     // Se o atleta tem usuarioId, vincular ao usuário (como se fosse feito pelo app do atleta)
     // Se não tem usuarioId, é agendamento público/temporário
@@ -230,7 +266,7 @@ export async function POST(request: NextRequest) {
         duracaoMinutos,
         valorHora,
         valorCalculado,
-        observacoes || null,
+        observacoesFinal || null,
       ]
     );
 
