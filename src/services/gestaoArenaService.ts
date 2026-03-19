@@ -37,6 +37,7 @@ import type {
   FecharAberturaCaixaPayload,
   LancamentoFluxoCaixa,
   DashboardOperacionalData,
+  DashboardOperacionalComandasConsideradasResponse,
   HistoricoAtletaResumo,
   HistoricoAtletaConsumoItem,
   HistoricoAtletaPagamento,
@@ -82,6 +83,7 @@ export type {
   FecharAberturaCaixaPayload,
   LancamentoFluxoCaixa,
   DashboardOperacionalData,
+  DashboardOperacionalComandasConsideradasResponse,
   HistoricoAtletaResumo,
   HistoricoAtletaConsumoItem,
   HistoricoAtletaPagamento,
@@ -492,6 +494,18 @@ export const dashboardOperacionalService = {
   obter: async (pointId: string, dataInicio: string, dataFim: string): Promise<DashboardOperacionalData> => {
     const res = await api.get('/gestao-arena/dashboard-operacional', {
       params: { pointId, dataInicio, dataFim }
+    });
+    return res.data;
+  },
+
+  listarComandasConsideradas: async (
+    pointId: string,
+    dataInicio: string,
+    dataFim: string,
+    opts?: { q?: string; limit?: number; offset?: number }
+  ): Promise<DashboardOperacionalComandasConsideradasResponse> => {
+    const res = await api.get('/gestao-arena/dashboard-operacional/comandas-consideradas', {
+      params: { pointId, dataInicio, dataFim, q: opts?.q, limit: opts?.limit, offset: opts?.offset },
     });
     return res.data;
   }

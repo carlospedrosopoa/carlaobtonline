@@ -84,17 +84,17 @@ export async function GET(request: NextRequest) {
       WITH base AS (
         SELECT
           a.duracao::int as duracao,
-          EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int as hora,
+          EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int as hora,
           CASE
-            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 6 AND 11 THEN 'Manhã'
-            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 12 AND 17 THEN 'Tarde'
-            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 18 AND 23 THEN 'Noite'
+            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 6 AND 11 THEN 'Manhã'
+            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 12 AND 17 THEN 'Tarde'
+            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 18 AND 23 THEN 'Noite'
             ELSE 'Madrugada'
           END as turno,
           CASE
-            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 6 AND 11 THEN 1
-            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 12 AND 17 THEN 2
-            WHEN EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int BETWEEN 18 AND 23 THEN 3
+            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 6 AND 11 THEN 1
+            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 12 AND 17 THEN 2
+            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 18 AND 23 THEN 3
             ELSE 4
           END as turno_ordem
         FROM "Agendamento" a
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     const porDiaSemanaSql = `
       SELECT
-        EXTRACT(DOW FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int as "diaSemana",
+        EXTRACT(DOW FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int as "diaSemana",
         COUNT(*)::int as quantidade,
         COALESCE(SUM(a.duracao), 0)::int as "totalMinutos"
       FROM "Agendamento" a
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       WITH base AS (
         SELECT
           a.duracao::int as duracao,
-          EXTRACT(HOUR FROM (a."dataHora" AT TIME ZONE 'America/Sao_Paulo'))::int as hora
+          EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int as hora
         FROM "Agendamento" a
         JOIN "Quadra" q ON q.id = a."quadraId"
         WHERE q."pointId" = $1
