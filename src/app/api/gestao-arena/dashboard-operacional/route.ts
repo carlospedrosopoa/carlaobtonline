@@ -60,8 +60,8 @@ export async function GET(request: NextRequest) {
       JOIN "Quadra" q ON q.id = a."quadraId"
       WHERE q."pointId" = $1
         AND a.status <> 'CANCELADO'
-        AND a."dataHora" >= $2
-        AND a."dataHora" <= $3
+        AND a."dataHora" >= ($2::timestamptz AT TIME ZONE 'America/Sao_Paulo')
+        AND a."dataHora" <= ($3::timestamptz AT TIME ZONE 'America/Sao_Paulo')
     `;
 
     const duracaoRankingSql = `
@@ -73,8 +73,8 @@ export async function GET(request: NextRequest) {
       JOIN "Quadra" q ON q.id = a."quadraId"
       WHERE q."pointId" = $1
         AND a.status <> 'CANCELADO'
-        AND a."dataHora" >= $2
-        AND a."dataHora" <= $3
+        AND a."dataHora" >= ($2::timestamptz AT TIME ZONE 'America/Sao_Paulo')
+        AND a."dataHora" <= ($3::timestamptz AT TIME ZONE 'America/Sao_Paulo')
       GROUP BY a.duracao
       ORDER BY "totalMinutos" DESC, quantidade DESC
       LIMIT 12
@@ -84,25 +84,25 @@ export async function GET(request: NextRequest) {
       WITH base AS (
         SELECT
           a.duracao::int as duracao,
-          EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int as hora,
+          EXTRACT(HOUR FROM a."dataHora")::int as hora,
           CASE
-            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 6 AND 11 THEN 'Manhã'
-            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 12 AND 17 THEN 'Tarde'
-            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 18 AND 23 THEN 'Noite'
+            WHEN EXTRACT(HOUR FROM a."dataHora")::int BETWEEN 6 AND 11 THEN 'Manhã'
+            WHEN EXTRACT(HOUR FROM a."dataHora")::int BETWEEN 12 AND 17 THEN 'Tarde'
+            WHEN EXTRACT(HOUR FROM a."dataHora")::int BETWEEN 18 AND 23 THEN 'Noite'
             ELSE 'Madrugada'
           END as turno,
           CASE
-            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 6 AND 11 THEN 1
-            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 12 AND 17 THEN 2
-            WHEN EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int BETWEEN 18 AND 23 THEN 3
+            WHEN EXTRACT(HOUR FROM a."dataHora")::int BETWEEN 6 AND 11 THEN 1
+            WHEN EXTRACT(HOUR FROM a."dataHora")::int BETWEEN 12 AND 17 THEN 2
+            WHEN EXTRACT(HOUR FROM a."dataHora")::int BETWEEN 18 AND 23 THEN 3
             ELSE 4
           END as turno_ordem
         FROM "Agendamento" a
         JOIN "Quadra" q ON q.id = a."quadraId"
         WHERE q."pointId" = $1
           AND a.status <> 'CANCELADO'
-          AND a."dataHora" >= $2
-          AND a."dataHora" <= $3
+          AND a."dataHora" >= ($2::timestamptz AT TIME ZONE 'America/Sao_Paulo')
+          AND a."dataHora" <= ($3::timestamptz AT TIME ZONE 'America/Sao_Paulo')
       )
       SELECT
         turno,
@@ -115,15 +115,15 @@ export async function GET(request: NextRequest) {
 
     const porDiaSemanaSql = `
       SELECT
-        EXTRACT(DOW FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int as "diaSemana",
+        EXTRACT(DOW FROM a."dataHora")::int as "diaSemana",
         COUNT(*)::int as quantidade,
         COALESCE(SUM(a.duracao), 0)::int as "totalMinutos"
       FROM "Agendamento" a
       JOIN "Quadra" q ON q.id = a."quadraId"
       WHERE q."pointId" = $1
         AND a.status <> 'CANCELADO'
-        AND a."dataHora" >= $2
-        AND a."dataHora" <= $3
+        AND a."dataHora" >= ($2::timestamptz AT TIME ZONE 'America/Sao_Paulo')
+        AND a."dataHora" <= ($3::timestamptz AT TIME ZONE 'America/Sao_Paulo')
       GROUP BY 1
       ORDER BY 1
     `;
@@ -132,13 +132,13 @@ export async function GET(request: NextRequest) {
       WITH base AS (
         SELECT
           a.duracao::int as duracao,
-          EXTRACT(HOUR FROM timezone('America/Sao_Paulo', a."dataHora" AT TIME ZONE 'UTC'))::int as hora
+          EXTRACT(HOUR FROM a."dataHora")::int as hora
         FROM "Agendamento" a
         JOIN "Quadra" q ON q.id = a."quadraId"
         WHERE q."pointId" = $1
           AND a.status <> 'CANCELADO'
-          AND a."dataHora" >= $2
-          AND a."dataHora" <= $3
+          AND a."dataHora" >= ($2::timestamptz AT TIME ZONE 'America/Sao_Paulo')
+          AND a."dataHora" <= ($3::timestamptz AT TIME ZONE 'America/Sao_Paulo')
       )
       SELECT
         hora,
