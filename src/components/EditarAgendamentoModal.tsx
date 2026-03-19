@@ -12,6 +12,7 @@ import type { ProfessorAdmin } from '@/services/professorService';
 import { Calendar, Clock, MapPin, AlertCircle, User, Users, UserPlus, Repeat, CreditCard } from 'lucide-react';
 import type { RecorrenciaConfig, TipoRecorrencia } from '@/types/agendamento';
 import InputMonetario from './InputMonetario';
+import ConfirmarEdicaoRecorrenteModal from './ConfirmarEdicaoRecorrenteModal';
 
 interface Atleta {
   id: string;
@@ -151,6 +152,8 @@ export default function EditarAgendamentoModal({
     telefoneAvulso?: string;
     valor: number;
   }>>([]);
+  const [modalConfirmarEdicaoRecorrenteAberto, setModalConfirmarEdicaoRecorrenteAberto] = useState(false);
+  const [payloadPendente, setPayloadPendente] = useState<any | null>(null);
 
   // Função para normalizar texto removendo acentuação
   const normalizarTexto = (texto: string): string => {
@@ -1075,6 +1078,119 @@ export default function EditarAgendamentoModal({
       return;
     }
 
+    const executarAtualizacao = async (payload: any, aplicarParaRecorrencia: boolean) => {
+      if (!agendamento) return;
+      setSalvando(true);
+      try {
+        const agendamentoAtualizado = await agendamentoService.atualizar(agendamento.id, {
+          ...payload,
+          aplicarARecorrencia: aplicarParaRecorrencia,
+        });
+
+        setValorHora(agendamentoAtualizado.valorHora || null);
+        setValorCalculado(agendamentoAtualizado.valorCalculado || null);
+        setValorNegociado(agendamentoAtualizado.valorNegociado || null);
+
+        const dataHoraStr = agendamentoAtualizado.dataHora;
+        const dataResult = dataHoraStr.split('T')[0];
+        const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+        const horaResult = match ? `${match[1]}:${match[2]}` : '00:00';
+
+        setValoresOriginais({
+          quadraId: agendamentoAtualizado.quadraId,
+          dataHora: `${dataResult}T${horaResult}:00`,
+          duracao: agendamentoAtualizado.duracao,
+          observacoes: agendamentoAtualizado.observacoes || '',
+          valorHora: agendamentoAtualizado.valorHora ?? null,
+          valorCalculado: agendamentoAtualizado.valorCalculado ?? null,
+          valorNegociado: agendamentoAtualizado.valorNegociado ?? null,
+          atletaId: agendamentoAtualizado.atletaId || null,
+          nomeAvulso: agendamentoAtualizado.nomeAvulso || '',
+          telefoneAvulso: agendamentoAtualizado.telefoneAvulso || '',
+          atletasParticipantesIds:
+            agendamentoAtualizado.atletasParticipantes
+              ?.map((ap: any) => ap.atletaId)
+              .filter((id: string) => id) || [],
+          participantesAvulsos:
+            agendamentoAtualizado.atletasParticipantes
+              ?.filter((ap: any) => !ap.atletaId && ap.atleta?.nome)
+              .map((ap: any) => ({ nome: ap.atleta.nome })) || [],
+          ehAula: agendamentoAtualizado.ehAula || false,
+          professorId: agendamentoAtualizado.professorId || null,
+        });
+
+        if (gerarCardsAoSalvar) {
+          setAgendamentoCompleto(agendamentoAtualizado);
+          setTimeout(() => {
+            abrirModalDistribuicaoValores(agendamentoAtualizado);
+          }, 100);
+          setSalvando(false);
+          return;
+        }
+
+        onSuccess();
+        onClose();
+      } catch (error: any) {
+        console.error('Erro ao atualizar agendamento:', error);
+        setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao atualizar agendamento. Tente novamente.');
+      } finally {
+        setSalvando(false);
+      }
+    };
+
+    const executarCriacao = async (payload: any) => {
+      setSalvando(true);
+      try {
+        const novoAgendamento = await agendamentoService.criar(payload);
+
+        setValorHora(novoAgendamento.valorHora || null);
+        setValorCalculado(novoAgendamento.valorCalculado || null);
+        setValorNegociado(novoAgendamento.valorNegociado || null);
+
+        setValoresOriginais({
+          valorHora: novoAgendamento.valorHora,
+          valorCalculado: novoAgendamento.valorCalculado,
+          valorNegociado: novoAgendamento.valorNegociado,
+        });
+
+        if (gerarCardsAoSalvar) {
+          setAgendamentoCompleto(novoAgendamento);
+          setTimeout(() => {
+            abrirModalDistribuicaoValores(novoAgendamento);
+          }, 100);
+          setSalvando(false);
+          return;
+        }
+
+        if (manterNaTela && canGerenciarAgendamento) {
+          setQuadraId('');
+          setAtletasParticipantesIds([]);
+          setParticipantesCompletos([]);
+          setMostrarSelecaoAtletas(false);
+          setBuscaAtletasParticipantes('');
+          setValorHora(null);
+          setValorCalculado(null);
+          setTemRecorrencia(false);
+          setTipoRecorrencia(null);
+          setIntervaloRecorrencia(1);
+          setDiasSemanaRecorrencia([]);
+          setDiaMesRecorrencia(1);
+          setDataFimRecorrencia('');
+          setQuantidadeOcorrencias(12);
+          setErro('');
+          onSuccess();
+        } else {
+          onSuccess();
+          onClose();
+        }
+      } catch (error: any) {
+        console.error('Erro ao criar agendamento:', error);
+        setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao criar agendamento. Tente novamente.');
+      } finally {
+        setSalvando(false);
+      }
+    };
+
     try {
       // Enviar o horário escolhido pelo usuário sem conversão de timezone
       // O backend vai salvar exatamente como informado (tratando como UTC direto)
@@ -1105,6 +1221,7 @@ export default function EditarAgendamentoModal({
         // Só enviar duracao se realmente mudou
         if (duracao !== agendamento.duracao) {
           payload.duracao = duracao;
+          payload.valorNegociado = null;
         }
       } else {
         // Modo criação - enviar todos os campos obrigatórios
@@ -1131,7 +1248,9 @@ export default function EditarAgendamentoModal({
       // Valor negociado (ADMIN e ORGANIZER podem informar)
       // Sempre enviar valorNegociado quando canGerenciarAgendamento for true, mesmo se for null
       if (canGerenciarAgendamento) {
-        payload.valorNegociado = valorNegociado !== null && valorNegociado !== undefined ? valorNegociado : null;
+        if (payload.valorNegociado === undefined) {
+          payload.valorNegociado = valorNegociado !== null && valorNegociado !== undefined ? valorNegociado : null;
+        }
       }
 
       // Sempre enviar valores calculados quando houver qualquer alteração (para permitir recalcular valores)
@@ -1210,130 +1329,16 @@ export default function EditarAgendamentoModal({
       console.log('[EditarAgendamentoModal] canGerenciarAgendamento:', canGerenciarAgendamento);
       console.log('[EditarAgendamentoModal] ============================================');
 
-      // Executar salvamento diretamente (sem modal de confirmação)
-      // A lógica de aplicar aos futuros foi removida - sempre edita apenas o agendamento atual
       if (agendamento) {
-        // Modo edição
-        setSalvando(true);
-        try {
-          const agendamentoAtualizado = await agendamentoService.atualizar(agendamento.id, payload);
-          
-          // Atualizar estado com valores atualizados
-          setValorHora(agendamentoAtualizado.valorHora || null);
-          setValorCalculado(agendamentoAtualizado.valorCalculado || null);
-          setValorNegociado(agendamentoAtualizado.valorNegociado || null);
-          
-          // Armazenar valores originais para comparação futura
-          const dataHoraStr = agendamentoAtualizado.dataHora;
-          const dataResult = dataHoraStr.split('T')[0];
-          const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
-          const horaResult = match ? `${match[1]}:${match[2]}` : '00:00';
-          
-          setValoresOriginais({
-            quadraId: agendamentoAtualizado.quadraId,
-            dataHora: `${dataResult}T${horaResult}:00`,
-            duracao: agendamentoAtualizado.duracao,
-            observacoes: agendamentoAtualizado.observacoes || '',
-            valorHora: agendamentoAtualizado.valorHora ?? null,
-            valorCalculado: agendamentoAtualizado.valorCalculado ?? null,
-            valorNegociado: agendamentoAtualizado.valorNegociado ?? null,
-            atletaId: agendamentoAtualizado.atletaId || null,
-            nomeAvulso: agendamentoAtualizado.nomeAvulso || '',
-            telefoneAvulso: agendamentoAtualizado.telefoneAvulso || '',
-            atletasParticipantesIds: agendamentoAtualizado.atletasParticipantes?.map((ap: any) => ap.atletaId).filter((id: string) => id) || [],
-            participantesAvulsos: agendamentoAtualizado.atletasParticipantes?.filter((ap: any) => !ap.atletaId && ap.atleta?.nome).map((ap: any) => ({ nome: ap.atleta.nome })) || [],
-            ehAula: agendamentoAtualizado.ehAula || false,
-            professorId: agendamentoAtualizado.professorId || null,
-          });
-
-          // Se tiver flag para gerar cards, abre a modal de distribuição
-          if (gerarCardsAoSalvar) {
-             // Atualizar o agendamento completo local para usar na modal
-             setAgendamentoCompleto(agendamentoAtualizado);
-             // Pequeno timeout para garantir que o state atualizou
-             setTimeout(() => {
-               abrirModalDistribuicaoValores(agendamentoAtualizado);
-             }, 100);
-             setSalvando(false);
-             return; // Interrompe o fechamento
-          }
-          
-          onSuccess();
-          onClose();
-        } catch (error: any) {
-          console.error('Erro ao atualizar agendamento:', error);
-          setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao atualizar agendamento. Tente novamente.');
-        } finally {
-          setSalvando(false);
+        if (agendamento.recorrenciaId) {
+          setPayloadPendente(payload);
+          setModalConfirmarEdicaoRecorrenteAberto(true);
+          return;
         }
+
+        await executarAtualizacao(payload, false);
       } else {
-        // Modo criação
-        setSalvando(true);
-        try {
-          const novoAgendamento = await agendamentoService.criar(payload);
-          
-          // Atualizar estado com valores calculados
-          setValorHora(novoAgendamento.valorHora || null);
-          setValorCalculado(novoAgendamento.valorCalculado || null);
-          setValorNegociado(novoAgendamento.valorNegociado || null);
-          
-          // Armazenar valores originais para comparação futura
-          setValoresOriginais({
-            valorHora: novoAgendamento.valorHora,
-            valorCalculado: novoAgendamento.valorCalculado,
-            valorNegociado: novoAgendamento.valorNegociado,
-          });
-
-          // Se tiver flag para gerar cards, abre a modal de distribuição
-          if (gerarCardsAoSalvar) {
-             // Atualizar o agendamento completo local para usar na modal
-             // Precisamos definir o ID no agendamento para a modal funcionar
-             // Como é novo, 'agendamento' (prop) é null, então passamos o objeto criado
-             setAgendamentoCompleto(novoAgendamento);
-             // Pequeno timeout para garantir que o state atualizou
-             setTimeout(() => {
-               abrirModalDistribuicaoValores(novoAgendamento);
-             }, 100);
-             setSalvando(false);
-             return; // Interrompe o fechamento
-          }
-          
-          // Se a flag "manterNaTela" estiver marcada (apenas para gestores), manter modal aberto e limpar apenas quadra/participantes
-          if (manterNaTela && canGerenciarAgendamento) {
-            // Limpar apenas seleção de quadras e participantes
-            setQuadraId('');
-            setAtletasParticipantesIds([]);
-            setParticipantesCompletos([]);
-            setMostrarSelecaoAtletas(false);
-            setBuscaAtletasParticipantes('');
-            // Limpar valores calculados (serão recalculados quando selecionar nova quadra)
-            setValorHora(null);
-            setValorCalculado(null);
-            // Limpar campos de recorrência (cada agendamento deve ser único)
-            setTemRecorrencia(false);
-            setTipoRecorrencia(null);
-            setIntervaloRecorrencia(1);
-            setDiasSemanaRecorrencia([]);
-            setDiaMesRecorrencia(1);
-            setDataFimRecorrencia('');
-            setQuantidadeOcorrencias(12);
-            // Limpar erro se houver
-            setErro('');
-            // Manter todos os outros dados (data, hora, duracao, observacoes, valorNegociado, modo, atletaId, etc)
-            // Não fechar o modal - mantém aberto
-            onSuccess(); // Atualiza a lista de agendamentos
-            // NÃO chamar onClose() - mantém o modal aberto
-          } else {
-            // Comportamento normal: fechar o modal
-            onSuccess();
-            onClose();
-          }
-        } catch (error: any) {
-          console.error('Erro ao criar agendamento:', error);
-          setErro(error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao criar agendamento. Tente novamente.');
-        } finally {
-          setSalvando(false);
-        }
+        await executarCriacao(payload);
       }
     } catch (error: any) {
       console.error(`Erro ao preparar ${agendamento ? 'atualização' : 'criação'} de agendamento:`, error);
@@ -1968,7 +1973,13 @@ export default function EditarAgendamentoModal({
                 <label className="block text-sm font-medium text-gray-700 mb-2">Duração (min) *</label>
                 <select
                   value={duracao}
-                  onChange={(e) => setDuracao(Number(e.target.value))}
+                  onChange={(e) => {
+                    const novaDuracao = Number(e.target.value);
+                    setDuracao(novaDuracao);
+                    if (agendamento && novaDuracao !== agendamento.duracao) {
+                      setValorNegociado(null);
+                    }
+                  }}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
@@ -2368,6 +2379,82 @@ export default function EditarAgendamentoModal({
         </Dialog.Panel>
       </div>
     </Dialog>
+
+    <ConfirmarEdicaoRecorrenteModal
+      isOpen={modalConfirmarEdicaoRecorrenteAberto}
+      agendamento={agendamento}
+      onClose={() => {
+        setModalConfirmarEdicaoRecorrenteAberto(false);
+        setPayloadPendente(null);
+      }}
+      onConfirmar={async (aplicar) => {
+        setModalConfirmarEdicaoRecorrenteAberto(false);
+        if (!payloadPendente) return;
+        const payload = payloadPendente;
+        setPayloadPendente(null);
+        await (async () => {
+          if (!agendamento) return;
+          setSalvando(true);
+          try {
+            const agendamentoAtualizado = await agendamentoService.atualizar(agendamento.id, {
+              ...payload,
+              aplicarARecorrencia: aplicar,
+            });
+
+            setValorHora(agendamentoAtualizado.valorHora || null);
+            setValorCalculado(agendamentoAtualizado.valorCalculado || null);
+            setValorNegociado(agendamentoAtualizado.valorNegociado || null);
+
+            const dataHoraStr = agendamentoAtualizado.dataHora;
+            const dataResult = dataHoraStr.split('T')[0];
+            const match = dataHoraStr.match(/T(\d{2}):(\d{2})/);
+            const horaResult = match ? `${match[1]}:${match[2]}` : '00:00';
+
+            setValoresOriginais({
+              quadraId: agendamentoAtualizado.quadraId,
+              dataHora: `${dataResult}T${horaResult}:00`,
+              duracao: agendamentoAtualizado.duracao,
+              observacoes: agendamentoAtualizado.observacoes || '',
+              valorHora: agendamentoAtualizado.valorHora ?? null,
+              valorCalculado: agendamentoAtualizado.valorCalculado ?? null,
+              valorNegociado: agendamentoAtualizado.valorNegociado ?? null,
+              atletaId: agendamentoAtualizado.atletaId || null,
+              nomeAvulso: agendamentoAtualizado.nomeAvulso || '',
+              telefoneAvulso: agendamentoAtualizado.telefoneAvulso || '',
+              atletasParticipantesIds:
+                agendamentoAtualizado.atletasParticipantes
+                  ?.map((ap: any) => ap.atletaId)
+                  .filter((id: string) => id) || [],
+              participantesAvulsos:
+                agendamentoAtualizado.atletasParticipantes
+                  ?.filter((ap: any) => !ap.atletaId && ap.atleta?.nome)
+                  .map((ap: any) => ({ nome: ap.atleta.nome })) || [],
+              ehAula: agendamentoAtualizado.ehAula || false,
+              professorId: agendamentoAtualizado.professorId || null,
+            });
+
+            if (gerarCardsAoSalvar) {
+              setAgendamentoCompleto(agendamentoAtualizado);
+              setTimeout(() => {
+                abrirModalDistribuicaoValores(agendamentoAtualizado);
+              }, 100);
+              setSalvando(false);
+              return;
+            }
+
+            onSuccess();
+            onClose();
+          } catch (error: any) {
+            console.error('Erro ao atualizar agendamento:', error);
+            setErro(
+              error?.response?.data?.mensagem || error?.data?.mensagem || 'Erro ao atualizar agendamento. Tente novamente.'
+            );
+          } finally {
+            setSalvando(false);
+          }
+        })();
+      }}
+    />
 
       {/* Modal de Confirmação de Valores para Geração de Cards */}
       <Dialog 
