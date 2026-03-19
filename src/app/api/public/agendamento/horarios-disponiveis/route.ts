@@ -54,6 +54,12 @@ export async function GET(request: NextRequest) {
 
     // Obter esporte do parâmetro (opcional)
     const esporte = searchParams.get('esporte');
+    if (!esporte || !esporte.trim()) {
+      return withCors(
+        NextResponse.json({ mensagem: 'esporte é obrigatório' }, { status: 400 }),
+        request
+      );
+    }
 
     // Buscar quadras ativas da arena (ordenadas alfabeticamente)
     const quadrasResult = await query(
@@ -63,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     let quadras = quadrasResult.rows;
     
-    // Filtrar por esporte se informado
+    // Filtrar por esporte
     if (esporte) {
       quadras = quadras.filter((quadra: any) => {
         let tiposEsporteArray: string[] = [];

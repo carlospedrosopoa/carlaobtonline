@@ -11,6 +11,7 @@ interface Arena {
   endereco?: string | null;
   logoUrl?: string | null;
   regiaoId?: string | null;
+  esportesDisponiveis?: string[] | null;
 }
 
 interface Quadra {
@@ -45,6 +46,8 @@ export default function AgendarPublicoPage() {
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
   const [carregandoHorarios, setCarregandoHorarios] = useState(false);
+  const [esportesDisponiveis, setEsportesDisponiveis] = useState<string[]>([]);
+  const [esporteSelecionado, setEsporteSelecionado] = useState('');
   
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -80,13 +83,13 @@ export default function AgendarPublicoPage() {
   }, [apoiadores]);
 
   useEffect(() => {
-    if (dataSelecionada && pointId) {
+    if (dataSelecionada && pointId && esporteSelecionado) {
       buscarHorariosDisponiveis();
     } else {
       setHorariosDisponiveis([]);
       setHorarioSelecionado('');
     }
-  }, [dataSelecionada, pointId, duracao]);
+  }, [dataSelecionada, pointId, duracao, esporteSelecionado]);
 
   const carregarArena = async () => {
     try {
@@ -99,7 +102,13 @@ export default function AgendarPublicoPage() {
           endereco: data.endereco || null,
           logoUrl: data.logoUrl || null,
           regiaoId: data.regiaoId || null,
+          esportesDisponiveis: Array.isArray(data.esportesDisponiveis) ? data.esportesDisponiveis : null,
         });
+        const esportes = Array.isArray(data.esportesDisponiveis) ? data.esportesDisponiveis : [];
+        setEsportesDisponiveis(esportes);
+        if (esportes.length === 1) {
+          setEsporteSelecionado(esportes[0]);
+        }
       } else {
         const errorData = await response.json();
         setErro(errorData.mensagem || 'Arena não encontrada');
@@ -124,7 +133,7 @@ export default function AgendarPublicoPage() {
   };
 
   const buscarHorariosDisponiveis = async () => {
-    if (!dataSelecionada || !pointId) return;
+    if (!dataSelecionada || !pointId || !esporteSelecionado) return;
 
     setCarregandoHorarios(true);
     setErro('');
@@ -132,7 +141,7 @@ export default function AgendarPublicoPage() {
 
     try {
       const response = await fetch(
-        `/api/public/agendamento/horarios-disponiveis?pointId=${pointId}&data=${dataSelecionada}&duracao=${duracao}`
+        `/api/public/agendamento/horarios-disponiveis?pointId=${pointId}&data=${dataSelecionada}&duracao=${duracao}&esporte=${encodeURIComponent(esporteSelecionado)}`
       );
 
       if (!response.ok) {
@@ -214,6 +223,11 @@ export default function AgendarPublicoPage() {
   };
 
   const criarAgendamento = async (atletaIdParaUsar?: string | null) => {
+    if (!esporteSelecionado) {
+      setErro('Selecione o esporte');
+      return;
+    }
+
     if (!dataSelecionada || !horarioSelecionado) {
       setErro('Selecione data e horário');
       return;
@@ -249,6 +263,7 @@ export default function AgendarPublicoPage() {
           duracao,
           atletaId: atletaIdFinal,
           usuarioId: usuarioIdFromUrl, // Passar usuarioId da URL se disponível
+          esporte: esporteSelecionado,
           observacoes: `Agendamento público - ${nome}`,
         }),
       });
@@ -409,6 +424,35 @@ export default function AgendarPublicoPage() {
                   Data e Horário
                 </h2>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Esporte *
+                  </label>
+                  <select
+                    value={esporteSelecionado}
+                    onChange={(e) => {
+                      setEsporteSelecionado(e.target.value);
+                      setHorarioSelecionado('');
+                      setHorariosDisponiveis([]);
+                    }}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-60"
+                    disabled={esportesDisponiveis.length === 0}
+                  >
+                    <option value="">Selecione...</option>
+                    {esportesDisponiveis.map((esporte) => (
+                      <option key={esporte} value={esporte}>
+                        {esporte}
+                      </option>
+                    ))}
+                  </select>
+                  {esportesDisponiveis.length === 0 && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      Arena sem esportes configurados nas quadras.
+                    </p>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -421,6 +465,7 @@ export default function AgendarPublicoPage() {
                       min={hoje}
                       max={dataMaximaStr}
                       required
+                      disabled={!esporteSelecionado}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
@@ -443,7 +488,7 @@ export default function AgendarPublicoPage() {
                 </div>
 
                 {/* Horários disponíveis */}
-                {dataSelecionada && (
+                {dataSelecionada && esporteSelecionado && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Horário Disponível *
@@ -483,7 +528,15 @@ export default function AgendarPublicoPage() {
               {/* Botão de submit */}
               <button
                 type="submit"
-                disabled={criandoAtleta || criandoAgendamento || !dataSelecionada || !horarioSelecionado || !nome.trim() || !telefone.trim()}
+                disabled={
+                  criandoAtleta ||
+                  criandoAgendamento ||
+                  !esporteSelecionado ||
+                  !dataSelecionada ||
+                  !horarioSelecionado ||
+                  !nome.trim() ||
+                  !telefone.trim()
+                }
                 className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {(criandoAtleta || criandoAgendamento) ? (
