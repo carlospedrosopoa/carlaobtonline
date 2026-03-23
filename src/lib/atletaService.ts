@@ -20,6 +20,8 @@ export async function criarAtleta(usuarioId: string, dados: {
   fotoUrl?: string | null;
   esportePreferido?: string | null;
   esportesPratica?: string[];
+  tipoCamiseta?: string | null;
+  tamanhoCamiseta?: string | null;
   pointIdPrincipal?: string | null;
   pointIdsFrequentes?: string[];
 }) {
@@ -30,8 +32,8 @@ export async function criarAtleta(usuarioId: string, dados: {
     : null;
   
   await query(
-    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "esportePreferido", "esportesPratica", "pointIdPrincipal", "aceitaLembretesAgendamento", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())',
-    [id, dados.nome, dataNasc, dados.categoria || null, dados.genero || null, dados.fone || null, dados.fotoUrl || null, usuarioId, dados.esportePreferido || null, esportesPraticaJson, dados.pointIdPrincipal || null, true]
+    'INSERT INTO "Atleta" (id, nome, "dataNascimento", categoria, genero, fone, "fotoUrl", "usuarioId", "esportePreferido", "esportesPratica", "tipoCamiseta", "tamanhoCamiseta", "pointIdPrincipal", "aceitaLembretesAgendamento", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())',
+    [id, dados.nome, dataNasc, dados.categoria || null, dados.genero || null, dados.fone || null, dados.fotoUrl || null, usuarioId, dados.esportePreferido || null, esportesPraticaJson, dados.tipoCamiseta || null, dados.tamanhoCamiseta || null, dados.pointIdPrincipal || null, true]
   );
   
   // Inserir arenas frequentes
@@ -425,6 +427,8 @@ export async function atualizarAtleta(atletaId: string, dados: {
   esportePreferido?: string | null;
   esportesPratica?: string[];
   aceitaLembretesAgendamento?: boolean;
+  tipoCamiseta?: string | null;
+  tamanhoCamiseta?: string | null;
   pointIdPrincipal?: string | null;
   pointIdsFrequentes?: string[];
 }) {
@@ -470,6 +474,14 @@ export async function atualizarAtleta(atletaId: string, dados: {
   if (dados.aceitaLembretesAgendamento !== undefined) {
     campos.push(`"aceitaLembretesAgendamento" = $${paramIndex++}`);
     valores.push(dados.aceitaLembretesAgendamento);
+  }
+  if (dados.tipoCamiseta !== undefined) {
+    campos.push(`"tipoCamiseta" = $${paramIndex++}`);
+    valores.push(dados.tipoCamiseta || null);
+  }
+  if (dados.tamanhoCamiseta !== undefined) {
+    campos.push(`"tamanhoCamiseta" = $${paramIndex++}`);
+    valores.push(dados.tamanhoCamiseta || null);
   }
   if (dados.pointIdPrincipal !== undefined) {
     campos.push(`"pointIdPrincipal" = $${paramIndex++}`);

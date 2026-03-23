@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const { user } = authResult;
     const body = await request.json();
-    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, esportePreferido, esportesPratica, pointIdPrincipal, pointIdsFrequentes } = body;
+    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, esportePreferido, esportesPratica, pointIdPrincipal, pointIdsFrequentes, tipoCamiseta, tamanhoCamiseta } = body;
 
     if (!nome || !dataNascimento) {
       const errorResponse = NextResponse.json(
@@ -73,6 +73,8 @@ export async function POST(request: NextRequest) {
       esportesPratica: Array.isArray(esportesPratica) ? esportesPratica : [],
       pointIdPrincipal: pointIdPrincipal || null,
       pointIdsFrequentes: Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [],
+      tipoCamiseta: tipoCamiseta || null,
+      tamanhoCamiseta: tamanhoCamiseta || null,
     });
 
     const response = NextResponse.json(novoAtleta, { status: 201 });
