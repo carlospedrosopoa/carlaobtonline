@@ -355,6 +355,7 @@ export async function PUT(
       telefoneAvulso,
       valorNegociado,
       aplicarARecorrencia = false, // false = apenas este, true = este e todos futuros
+      ignorarConflitoHorario = false,
       recorrencia, // Configuração de recorrência (opcional, para criar ou atualizar recorrência)
       atletasParticipantesIds, // IDs dos atletas participantes
       participantesAvulsos, // Participantes avulsos (não são atletas cadastrados)
@@ -372,6 +373,7 @@ export async function PUT(
       valorHora?: number | null;
       valorCalculado?: number | null;
       aplicarARecorrencia?: boolean;
+      ignorarConflitoHorario?: boolean;
       recorrencia?: RecorrenciaConfig;
       atletasParticipantesIds?: string[] | null;
       participantesAvulsos?: Array<{ nome: string }> | null;
@@ -546,22 +548,24 @@ export async function PUT(
         return withCors(errorResponse, request);
       }
 
-      const conflitos = await query(
-        `SELECT id FROM "Agendamento"
-         WHERE "quadraId" = $1
-         AND id != $2
-         AND status = 'CONFIRMADO'
-         AND "dataHora" < $4
-         AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
-        [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal]
-      );
-
-      if (conflitos.rows.length > 0) {
-        const errorResponse = NextResponse.json(
-          { mensagem: 'Já existe um agendamento confirmado neste horário para esta quadra' },
-          { status: 400 }
+      if (!ignorarConflitoHorario) {
+        const conflitos = await query(
+          `SELECT id FROM "Agendamento"
+           WHERE "quadraId" = $1
+           AND id != $2
+           AND status = 'CONFIRMADO'
+           AND "dataHora" < $4
+           AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
+          [quadraIdFinal, id, dataHoraUTC.toISOString(), dataHoraFim.toISOString(), duracaoFinal]
         );
-        return withCors(errorResponse, request);
+
+        if (conflitos.rows.length > 0) {
+          const errorResponse = NextResponse.json(
+            { mensagem: 'Já existe um agendamento confirmado neste horário para esta quadra' },
+            { status: 400 }
+          );
+          return withCors(errorResponse, request);
+        }
       }
     }
 
@@ -907,19 +911,21 @@ export async function PUT(
         }
 
         const dataFimAgendamento = new Date(dataHoraAplicada.getTime() + duracaoFinal * 60000);
-        const conflitos = await query(
-          `SELECT id FROM "Agendamento"
-           WHERE "quadraId" = $1
-           AND status = 'CONFIRMADO'
-           AND id != $2
-           AND ("recorrenciaId" IS NULL OR "recorrenciaId" <> $6)
-           AND "dataHora" < $4
-           AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
-          [quadraIdFinal, row.id, dataHoraAplicada.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal, recorrenciaIdAtual]
-        );
+        if (!ignorarConflitoHorario) {
+          const conflitos = await query(
+            `SELECT id FROM "Agendamento"
+             WHERE "quadraId" = $1
+             AND status = 'CONFIRMADO'
+             AND id != $2
+             AND ("recorrenciaId" IS NULL OR "recorrenciaId" <> $6)
+             AND "dataHora" < $4
+             AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
+            [quadraIdFinal, row.id, dataHoraAplicada.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal, recorrenciaIdAtual]
+          );
 
-        if (conflitos.rows.length > 0) {
-          conflitosEncontrados.push(dataHoraAplicada.toISOString());
+          if (conflitos.rows.length > 0) {
+            conflitosEncontrados.push(dataHoraAplicada.toISOString());
+          }
         }
       }
 
@@ -931,7 +937,7 @@ export async function PUT(
         return withCors(errorResponse, request);
       }
 
-      if (conflitosEncontrados.length > 0) {
+      if (!ignorarConflitoHorario && conflitosEncontrados.length > 0) {
         const errorResponse = NextResponse.json(
           { mensagem: `Existem conflitos em ${conflitosEncontrados.length} agendamento(s) da recorrência` },
           { status: 400 }
@@ -940,23 +946,7 @@ export async function PUT(
       }
 
       await transaction(async (client) => {
-        for (const row of afetados.rows) {
-          const isoRow = normalizarDataHora(row.dataHora);
-          const dataPart = isoRow.split('T')[0];
-
-          const dataHoraAplicada = horaNova !== null && minutoNovo !== null
-            ? (() => {
-                if (row.id === id && dataHora) {
-                  const [dp, hp] = dataHora.split('T');
-                  const [ano, mes, dia] = dp.split('-').map(Number);
-                  const [hora, minuto] = hp.split(':').map(Number);
-                  return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
-                }
-                const [ano, mes, dia] = dataPart.split('-').map(Number);
-                return new Date(Date.UTC(ano, mes - 1, dia, horaNova, minutoNovo, 0));
-              })()
-            : new Date(isoRow);
-
+        const atualizarLinha = async (rowId: string, dataHoraAplicada: Date) => {
           const minutoDia = dataHoraAplicada.getUTCHours() * 60 + dataHoraAplicada.getUTCMinutes();
           const precoAplicavel = tabelaPrecos.find((tp: any) => minutoDia >= tp.inicioMinutoDia && minutoDia < tp.fimMinutoDia);
 
@@ -1051,11 +1041,48 @@ export async function PUT(
           params.push(usuario.id);
           pc++;
 
-          params.push(row.id);
+          params.push(rowId);
           await client.query(
             `UPDATE "Agendamento" SET ${sets.join(', ')} WHERE id = $${pc}`,
             params
           );
+        };
+
+        let atualFoiAtualizado = false;
+        for (const row of afetados.rows) {
+          if (row.id === id) {
+            atualFoiAtualizado = true;
+          }
+          const isoRow = normalizarDataHora(row.dataHora);
+          const dataPart = isoRow.split('T')[0];
+
+          const dataHoraAplicada = horaNova !== null && minutoNovo !== null
+            ? (() => {
+                if (row.id === id && dataHora) {
+                  const [dp, hp] = dataHora.split('T');
+                  const [ano, mes, dia] = dp.split('-').map(Number);
+                  const [hora, minuto] = hp.split(':').map(Number);
+                  return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
+                }
+                const [ano, mes, dia] = dataPart.split('-').map(Number);
+                return new Date(Date.UTC(ano, mes - 1, dia, horaNova, minutoNovo, 0));
+              })()
+            : new Date(isoRow);
+
+          await atualizarLinha(row.id, dataHoraAplicada);
+        }
+
+        if (!atualFoiAtualizado) {
+          const dataHoraAtualAplicada =
+            horaNova !== null && minutoNovo !== null && dataHora
+              ? (() => {
+                  const [dp, hp] = dataHora.split('T');
+                  const [ano, mes, dia] = dp.split('-').map(Number);
+                  const [hora, minuto] = hp.split(':').map(Number);
+                  return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, 0));
+                })()
+              : dataHoraAtualRecorrencia;
+          await atualizarLinha(id, dataHoraAtualAplicada);
         }
       });
 
@@ -1280,18 +1307,20 @@ export async function PUT(
           continue;
         }
         const dataFimAgendamento = new Date(dataAgendamento.getTime() + duracaoFinal * 60000);
-        const conflitos = await query(
-          `SELECT id FROM "Agendamento"
-           WHERE "quadraId" = $1
-           AND status = 'CONFIRMADO'
-           AND id != $2
-           AND "dataHora" < $4
-           AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
-          [quadraIdFinal, id, dataAgendamento.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal]
-        );
+        if (!ignorarConflitoHorario) {
+          const conflitos = await query(
+            `SELECT id FROM "Agendamento"
+             WHERE "quadraId" = $1
+             AND status = 'CONFIRMADO'
+             AND id != $2
+             AND "dataHora" < $4
+             AND ("dataHora" + ($5 * INTERVAL '1 minute')) > $3`,
+            [quadraIdFinal, id, dataAgendamento.toISOString(), dataFimAgendamento.toISOString(), duracaoFinal]
+          );
 
-        if (conflitos.rows.length > 0) {
-          conflitosEncontrados.push(dataAgendamento.toISOString());
+          if (conflitos.rows.length > 0) {
+            conflitosEncontrados.push(dataAgendamento.toISOString());
+          }
         }
       }
 
@@ -1303,7 +1332,7 @@ export async function PUT(
         return withCors(errorResponse, request);
       }
 
-      if (conflitosEncontrados.length > 0) {
+      if (!ignorarConflitoHorario && conflitosEncontrados.length > 0) {
         const errorResponse = NextResponse.json(
           { mensagem: `Existem conflitos em ${conflitosEncontrados.length} agendamento(s) da recorrência` },
           { status: 400 }

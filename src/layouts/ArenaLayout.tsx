@@ -56,7 +56,6 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         { to: '/app/arena/agendamentos/agenda', label: 'Agenda Semanal' },
         { to: '/app/arena/agendamentos/agenda-mobile', label: 'Agenda Mobile' },
         { to: '/app/arena/agendamentos', label: 'Agenda' },
-        { to: '/app/arena/agendamentos/manutencao', label: 'Manutenção de Agenda' },
         { to: '/app/arena/locacoes/cards-agendamento', label: 'Cards de Agendamento' },
         { to: '/app/arena/quadras', label: 'Minhas Quadras' },
         { to: '/app/arena/tabela-precos', label: 'Tabela de Preços' },

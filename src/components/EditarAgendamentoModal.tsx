@@ -126,6 +126,7 @@ export default function EditarAgendamentoModal({
   const [diaMesRecorrencia, setDiaMesRecorrencia] = useState<number>(1);
   const [dataFimRecorrencia, setDataFimRecorrencia] = useState('');
   const [quantidadeOcorrencias, setQuantidadeOcorrencias] = useState<number>(12);
+  const [ignorarConflitoHorario, setIgnorarConflitoHorario] = useState(false);
   const [aplicarARecorrencia, setAplicarARecorrencia] = useState(false); // Para agendamentos recorrentes: aplicar apenas neste ou em todos os futuros (não usado mais, mas mantido para compatibilidade)
   const [agendamentoJaRecorrente, setAgendamentoJaRecorrente] = useState(false); // Indica se o agendamento já é recorrente (não usado mais, mas mantido para compatibilidade)
   const [manterNaTela, setManterNaTela] = useState(false); // Flag para manter na tela após salvar (apenas para gestores)
@@ -438,6 +439,7 @@ export default function EditarAgendamentoModal({
     setDiaMesRecorrencia(1);
     setDataFimRecorrencia('');
     setQuantidadeOcorrencias(12);
+    setIgnorarConflitoHorario(false);
     setAgendamentoJaRecorrente(false);
   };
 
@@ -578,6 +580,7 @@ export default function EditarAgendamentoModal({
     
     // Resetar opção de aplicar recorrência
     setAplicarARecorrencia(false);
+    setIgnorarConflitoHorario(false);
 
     // Preencher atletas participantes e participantes avulsos
     if (agendamentoParaUsar.atletasParticipantes && agendamentoParaUsar.atletasParticipantes.length > 0) {
@@ -1072,10 +1075,12 @@ export default function EditarAgendamentoModal({
       return;
     }
 
-    const conflito = verificarConflito();
-    if (conflito) {
-      setErro(conflito);
-      return;
+    if (!ignorarConflitoHorario) {
+      const conflito = verificarConflito();
+      if (conflito) {
+        setErro(conflito);
+        return;
+      }
     }
 
     const executarAtualizacao = async (payload: any, aplicarParaRecorrencia: boolean) => {
@@ -1085,6 +1090,7 @@ export default function EditarAgendamentoModal({
         const agendamentoAtualizado = await agendamentoService.atualizar(agendamento.id, {
           ...payload,
           aplicarARecorrencia: aplicarParaRecorrencia,
+          ignorarConflitoHorario,
         });
 
         setValorHora(agendamentoAtualizado.valorHora || null);
@@ -1198,6 +1204,7 @@ export default function EditarAgendamentoModal({
       const payload: any = {
         // Sempre incluir observacoes (mesmo que seja string vazia, enviar como null)
         observacoes: observacoes || null,
+        ignorarConflitoHorario,
       };
 
       // Só enviar dataHora, quadraId e duracao se estiver editando E realmente alterou, ou se estiver criando
@@ -1351,7 +1358,7 @@ export default function EditarAgendamentoModal({
     }
   };
 
-  const conflito = verificarConflito();
+  const conflito = ignorarConflitoHorario ? null : verificarConflito();
 
   const formatCurrency = (v: number | null) =>
     v == null
@@ -2257,11 +2264,26 @@ export default function EditarAgendamentoModal({
                             ? `Serão criados ${quantidadeOcorrencias} agendamento(s)`
                             : 'A recorrência continuará até ser cancelada manualmente'}
                         </p>
+
                       </>
                     )}
                   </div>
                 )}
               </div>
+
+            {agendamento && canGerenciarAgendamento && (
+              <label className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={ignorarConflitoHorario}
+                  onChange={(e) => setIgnorarConflitoHorario(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                />
+                <span className="text-xs text-amber-800">
+                  Ignorar concorrência de horário e salvar mesmo com sobreposição.
+                </span>
+              </label>
+            )}
 
 
             {/* Botão Gerar Cards - apenas para agendamentos existentes com valor e com cliente vinculado */}
@@ -2399,6 +2421,7 @@ export default function EditarAgendamentoModal({
             const agendamentoAtualizado = await agendamentoService.atualizar(agendamento.id, {
               ...payload,
               aplicarARecorrencia: aplicar,
+              ignorarConflitoHorario,
             });
 
             setValorHora(agendamentoAtualizado.valorHora || null);
