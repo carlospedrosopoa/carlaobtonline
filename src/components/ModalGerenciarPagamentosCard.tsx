@@ -4,9 +4,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { cardClienteService, pagamentoCardService, itemCardService, formaPagamentoService } from '@/services/gestaoArenaService';
+import { pointService } from '@/services/agendamentoService';
 import type { CardCliente, FormaPagamento, PagamentoCard, ItemCard, CriarPagamentoCardPayload } from '@/types/gestaoArena';
-import { X, Plus, Trash2, CreditCard, DollarSign } from 'lucide-react';
+import { X, Plus, Trash2, CreditCard, DollarSign, QrCode } from 'lucide-react';
 import InputMonetario from './InputMonetario';
+import { gerarPixCopiaECola, gerarPixQrCodeUrl } from '@/lib/pix';
 
 interface ModalGerenciarPagamentosCardProps {
   isOpen: boolean;
@@ -33,6 +35,9 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
   const [itensSelecionadosPagamento, setItensSelecionadosPagamento] = useState<string[]>([]);
   const [numeroPessoas, setNumeroPessoas] = useState<number>(1);
   const [valorPorPessoa, setValorPorPessoa] = useState<number | null>(null);
+  const [pixChaveArena, setPixChaveArena] = useState<string | null>(null);
+  const [nomeArena, setNomeArena] = useState<string>('PLAY NA QUADRA');
+  const QRCODE_PIX_OPTION = '__QRCODE_PIX__';
 
   useEffect(() => {
     if (isOpen && card) {
@@ -47,11 +52,12 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       setLoading(true);
       setErro('');
 
-      const [cardData, formasData, pagamentosData, itensData] = await Promise.all([
+      const [cardData, formasData, pagamentosData, itensData, pointData] = await Promise.all([
         cardClienteService.obter(card.id, false, true, false), // incluirAgendamentos: false
         formaPagamentoService.listar(usuario.pointIdGestor, true),
         pagamentoCardService.listar(card.id),
         itemCardService.listar(card.id),
+        pointService.obter(usuario.pointIdGestor),
       ]);
 
       const ordem = ['Pix', 'Cartão de Débito', 'Cartão de Crédito', 'Dinheiro', 'Infinite Pay', 'Conta Corrente'];
@@ -68,6 +74,8 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       setFormasPagamento(formasOrdenadas);
       setPagamentos(pagamentosData);
       setItens(itensData);
+      setPixChaveArena(pointData?.pixChave || null);
+      setNomeArena(pointData?.nome || 'PLAY NA QUADRA');
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao carregar dados');
     } finally {
@@ -157,6 +165,14 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
       setErro('Preencha todos os campos obrigatórios');
       return;
     }
+    const formaPix = formasPagamento.find((fp) => fp.nome?.toLowerCase() === 'pix');
+    const formaPagamentoEfetiva = formaPagamentoSelecionada === QRCODE_PIX_OPTION
+      ? (formaPix?.id || '')
+      : formaPagamentoSelecionada;
+    if (!formaPagamentoEfetiva) {
+      setErro('Forma Pix não encontrada para registrar o pagamento');
+      return;
+    }
 
     // Validar número de pessoas (apenas para cálculo, não cria múltiplos pagamentos)
     if (numeroPessoas < 1 || numeroPessoas > 20) {
@@ -206,7 +222,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
 
       const payload: CriarPagamentoCardPayload = {
         cardId: cardCompleto.id,
-        formaPagamentoId: formaPagamentoSelecionada,
+        formaPagamentoId: formaPagamentoEfetiva,
         valor: valorFinal,
         observacoes: observacoesComPessoa,
         itemIds: itensSelecionadosPagamento.length > 0 ? itensSelecionadosPagamento : undefined,
@@ -651,11 +667,52 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={() => setFormaPagamentoSelecionada(QRCODE_PIX_OPTION)}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                      formaPagamentoSelecionada === QRCODE_PIX_OPTION
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                    }`}
+                  >
+                    QRCode
+                  </button>
                 </div>
                 {formaPagamentoSelecionada === '' && (
                   <p className="mt-2 text-xs text-red-500">Selecione uma forma de pagamento.</p>
                 )}
               </div>
+
+              {formaPagamentoSelecionada === QRCODE_PIX_OPTION && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const valorBase = numeroPessoas > 1 ? valorPorPessoa : valorPagamento;
+                    if (!valorBase || valorBase <= 0) {
+                      setErro('Informe um valor válido para abrir o QRCode');
+                      return;
+                    }
+                    if (!pixChaveArena) {
+                      setErro('A arena não possui chave Pix cadastrada');
+                      return;
+                    }
+                    const copiaECola = gerarPixCopiaECola({
+                      pixKey: pixChaveArena,
+                      amount: valorBase,
+                      merchantName: nomeArena,
+                      merchantCity: 'PORTO ALEGRE',
+                      txid: `CARD${cardCompleto?.numeroCard || ''}`,
+                    });
+                    const qrUrl = gerarPixQrCodeUrl(copiaECola);
+                    window.open(qrUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors text-sm font-medium"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Abrir QRCode Pix
+                </button>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button
@@ -669,6 +726,7 @@ export default function ModalGerenciarPagamentosCard({ isOpen, card, onClose, on
                   disabled={
                     salvando || 
                     !formaPagamentoSelecionada || 
+                    (formaPagamentoSelecionada === QRCODE_PIX_OPTION && !pixChaveArena) ||
                     (numeroPessoas === 1 && (valorPagamento === null || valorPagamento <= 0)) ||
                     (numeroPessoas > 1 && (valorPorPessoa === null || valorPorPessoa <= 0))
                   }

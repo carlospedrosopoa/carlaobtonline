@@ -12,12 +12,13 @@ import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
 import ModalUnificarComanda from '@/components/ModalUnificarComanda';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt, Merge, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt, Merge, ArrowUpDown, ArrowUp, ArrowDown, QrCode } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
 import { formaPagamentoService, pagamentoCardService } from '@/services/gestaoArenaService';
 import type { FormaPagamento } from '@/types/gestaoArena';
 import InputMonetario from '@/components/InputMonetario';
+import { gerarPixCopiaECola, gerarPixQrCodeUrl } from '@/lib/pix';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
@@ -51,6 +52,8 @@ export default function CardsClientesPage() {
   const [valorRecebido, setValorRecebido] = useState<Record<string, number | null>>({});
   const [processandoPagamento, setProcessandoPagamento] = useState<Record<string, boolean>>({});
   const [processandoPendencia, setProcessandoPendencia] = useState<Record<string, boolean>>({});
+  const [pixChaveArena, setPixChaveArena] = useState<string | null>(null);
+  const QRCODE_PIX_OPTION = '__QRCODE_PIX__';
   
   // Carregar preferência de visualização do localStorage
   const [visualizacao, setVisualizacao] = useState<'lista' | 'cards'>(() => {
@@ -102,6 +105,7 @@ export default function CardsClientesPage() {
       const point = await pointService.obter(usuario.pointIdGestor);
       if (point) {
         setNomeArena(point.nome);
+        setPixChaveArena(point.pixChave || null);
       }
     } catch (error) {
       console.error('Erro ao carregar nome da arena:', error);
@@ -381,7 +385,13 @@ export default function CardsClientesPage() {
   const processarPagamentoRapido = async (card: CardCliente) => {
     if (!formaPagamentoSelecionada[card.id]) return;
     
-    const formaPagamentoId = formaPagamentoSelecionada[card.id];
+    const formaSelecionada = formaPagamentoSelecionada[card.id];
+    const formaPix = formasPagamento.find((fp) => fp.nome?.toLowerCase() === 'pix');
+    const formaPagamentoId = formaSelecionada === QRCODE_PIX_OPTION ? (formaPix?.id || '') : formaSelecionada;
+    if (!formaPagamentoId) {
+      alert('Forma Pix não encontrada para registrar o pagamento');
+      return;
+    }
     const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
     const temPagamentoParcial = (card.totalPago ?? 0) > 0;
     
@@ -1037,7 +1047,56 @@ export default function CardsClientesPage() {
                             );
                           });
                         })()}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormaPagamentoSelecionada((prev) => ({ ...prev, [card.id]: QRCODE_PIX_OPTION }));
+                            setValorPagamentoInformado((prev) => ({ ...prev, [card.id]: null }));
+                            setValorRecebido((prev) => ({ ...prev, [card.id]: null }));
+                          }}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg border-2 transition-all ${
+                            formaPagamentoSelecionada[card.id] === QRCODE_PIX_OPTION
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-emerald-300'
+                          }`}
+                        >
+                          QRCode
+                        </button>
                       </div>
+
+                      {formaPagamentoSelecionada[card.id] === QRCODE_PIX_OPTION && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!pixChaveArena) {
+                              alert('A arena não possui chave Pix cadastrada');
+                              return;
+                            }
+                            const saldoAtual = card.saldo !== undefined ? card.saldo : card.valorTotal;
+                            const temPagamentoParcialAtual = (card.totalPago ?? 0) > 0;
+                            const valorAtual = temPagamentoParcialAtual ? valorPagamentoInformado[card.id] : saldoAtual;
+                            if (!valorAtual || valorAtual <= 0) {
+                              alert('Informe o valor do pagamento antes de abrir o QRCode');
+                              return;
+                            }
+                            const copiaECola = gerarPixCopiaECola({
+                              pixKey: pixChaveArena,
+                              amount: valorAtual,
+                              merchantName: nomeArena || 'PLAY NA QUADRA',
+                              merchantCity: 'PORTO ALEGRE',
+                              txid: `CARD${card.numeroCard}`,
+                            });
+                            const qrUrl = gerarPixQrCodeUrl(copiaECola);
+                            window.open(qrUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors text-sm font-medium"
+                        >
+                          <QrCode className="w-4 h-4" />
+                          Abrir QRCode Pix
+                        </button>
+                      )}
 
                       {formaPagamentoSelecionada[card.id] && (() => {
                         const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
@@ -1153,11 +1212,13 @@ export default function CardsClientesPage() {
                             processarPagamentoRapido(card);
                           }}
                           disabled={processandoPagamento[card.id] || (() => {
-                            const formaSelecionada = formasPagamento.find(
-                              (fp) => fp.id === formaPagamentoSelecionada[card.id]
+                            const formaSelecionadaId = formaPagamentoSelecionada[card.id];
+                            const formaPixInterna = formasPagamento.find((fp) => fp.nome?.toLowerCase() === 'pix');
+                            const formaEfetiva = formasPagamento.find(
+                              (fp) => fp.id === (formaSelecionadaId === QRCODE_PIX_OPTION ? formaPixInterna?.id : formaSelecionadaId)
                             );
-                            const isDinheiro = formaSelecionada?.nome?.toLowerCase().includes('dinheiro') || 
-                                             formaSelecionada?.nome?.toLowerCase().includes('cash');
+                            const isDinheiro = formaEfetiva?.nome?.toLowerCase().includes('dinheiro') || 
+                                             formaEfetiva?.nome?.toLowerCase().includes('cash');
                             const temPagamentoParcial = (card.totalPago ?? 0) > 0;
                             const saldo = card.saldo !== undefined ? card.saldo : card.valorTotal;
                             const valorPagamento = temPagamentoParcial ? valorPagamentoInformado[card.id] : saldo;
@@ -1165,6 +1226,7 @@ export default function CardsClientesPage() {
                               if (!valorPagamento || valorPagamento <= 0) return true;
                               if (valorPagamento > saldo) return true;
                             }
+                            if (formaSelecionadaId === QRCODE_PIX_OPTION && !pixChaveArena) return true;
                             if (isDinheiro) {
                               return !valorRecebido[card.id] || valorRecebido[card.id]! < (valorPagamento || 0);
                             }
