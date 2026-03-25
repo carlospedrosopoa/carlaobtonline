@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest) {
     const { user } = authResult;
     const body = await request.json();
     
-    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, esportePreferido, esportesPratica, aceitaLembretesAgendamento, pointIdPrincipal, pointIdsFrequentes } = body;
+    const { nome, categoria, dataNascimento, genero, fone, fotoUrl, esportePreferido, esportesPratica, aceitaLembretesAgendamento, pointIdPrincipal, pointIdsFrequentes, tipoCamiseta, tamanhoCamiseta } = body;
 
     // Buscar o atleta do usuário autenticado
     const atletaExistente = await verificarAtletaUsuario(user.id);
@@ -142,6 +142,8 @@ export async function PUT(request: NextRequest) {
       aceitaLembretesAgendamento?: boolean;
       pointIdPrincipal?: string | null;
       pointIdsFrequentes?: string[];
+      tipoCamiseta?: string | null;
+      tamanhoCamiseta?: string | null;
     } = {};
 
     if (nome !== undefined) dadosAtualizacao.nome = nome;
@@ -155,6 +157,8 @@ export async function PUT(request: NextRequest) {
     if (aceitaLembretesAgendamento !== undefined) dadosAtualizacao.aceitaLembretesAgendamento = aceitaLembretesAgendamento;
     if (pointIdPrincipal !== undefined) dadosAtualizacao.pointIdPrincipal = pointIdPrincipal || null;
     if (pointIdsFrequentes !== undefined) dadosAtualizacao.pointIdsFrequentes = Array.isArray(pointIdsFrequentes) ? pointIdsFrequentes : [];
+    if (tipoCamiseta !== undefined) dadosAtualizacao.tipoCamiseta = tipoCamiseta || null;
+    if (tamanhoCamiseta !== undefined) dadosAtualizacao.tamanhoCamiseta = tamanhoCamiseta || null;
 
     console.log('[ATUALIZAR PERFIL] Dados de atualização:', dadosAtualizacao);
     const atletaAtualizado = await atualizarAtleta(atletaExistente.id, dadosAtualizacao);
