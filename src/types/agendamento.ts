@@ -255,6 +255,7 @@ export interface AtualizarAgendamentoPayload {
   atletasParticipantesIds?: string[] | null; // IDs dos atletas que participarão do agendamento
   // Opções de recorrência
   aplicarARecorrencia?: boolean; // true = aplicar a este e todos futuros, false = apenas este
+  ignorarConflitoHorario?: boolean;
 }
 
 export interface FiltrosAgendamento {
