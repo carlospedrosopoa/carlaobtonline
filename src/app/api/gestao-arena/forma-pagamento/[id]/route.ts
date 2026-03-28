@@ -81,7 +81,7 @@ export async function PUT(
 
     // Verificar se a forma de pagamento existe
     const existe = await query(
-      'SELECT "pointId" FROM "FormaPagamento" WHERE id = $1',
+      'SELECT "pointId", nome, "origemFinanceiraPadrao", "contaBancariaIdPadrao" FROM "FormaPagamento" WHERE id = $1',
       [id]
     );
 
@@ -119,6 +119,35 @@ export async function PUT(
       }
     }
 
+    const origemFinanceira = body.origemFinanceiraPadrao === 'CONTA_BANCARIA' ? 'CONTA_BANCARIA' : body.origemFinanceiraPadrao === 'CAIXA' ? 'CAIXA' : undefined;
+
+    if (origemFinanceira === 'CONTA_BANCARIA' || body.contaBancariaIdPadrao !== undefined) {
+      const contaBancariaId = origemFinanceira === 'CONTA_BANCARIA'
+        ? body.contaBancariaIdPadrao
+        : body.contaBancariaIdPadrao !== undefined
+          ? body.contaBancariaIdPadrao
+          : formaPagamentoAtual.contaBancariaIdPadrao;
+
+      if ((origemFinanceira || formaPagamentoAtual.origemFinanceiraPadrao) === 'CONTA_BANCARIA') {
+        if (!contaBancariaId) {
+          return NextResponse.json(
+            { mensagem: 'Conta bancária padrão é obrigatória para origem bancária' },
+            { status: 400 }
+          );
+        }
+        const contaBancariaResult = await query(
+          `SELECT id, ativo, "pointId" FROM "ContaBancaria" WHERE id = $1`,
+          [contaBancariaId]
+        );
+        if (contaBancariaResult.rows.length === 0 || !contaBancariaResult.rows[0].ativo || contaBancariaResult.rows[0].pointId !== formaPagamentoAtual.pointId) {
+          return NextResponse.json(
+            { mensagem: 'Conta bancária padrão inválida para esta arena' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Construir query de atualização dinamicamente
     const updates: string[] = [];
     const values: any[] = [];
@@ -137,6 +166,19 @@ export async function PUT(
     if (body.tipo !== undefined) {
       updates.push(`tipo = $${paramCount}`);
       values.push(body.tipo);
+      paramCount++;
+    }
+    if (origemFinanceira !== undefined) {
+      updates.push(`"origemFinanceiraPadrao" = $${paramCount}`);
+      values.push(origemFinanceira);
+      paramCount++;
+      if (origemFinanceira === 'CAIXA' && body.contaBancariaIdPadrao === undefined) {
+        updates.push(`"contaBancariaIdPadrao" = NULL`);
+      }
+    }
+    if (body.contaBancariaIdPadrao !== undefined) {
+      updates.push(`"contaBancariaIdPadrao" = $${paramCount}`);
+      values.push(body.contaBancariaIdPadrao || null);
       paramCount++;
     }
     if (body.ativo !== undefined) {

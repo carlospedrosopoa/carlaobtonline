@@ -132,9 +132,21 @@ export async function GET(request: NextRequest) {
         );
         const totalSaidasDinheiro = parseFloat(saidasDinheiroResult.rows[0].total);
 
+        const transferenciasEntradaResult = await query(
+          `SELECT COALESCE(SUM(valor), 0) as total FROM "TransferenciaFinanceira" WHERE "destinoAberturaCaixaId" = $1`,
+          [row.id]
+        );
+        const totalTransferenciasEntrada = parseFloat(transferenciasEntradaResult.rows[0].total);
+
+        const transferenciasSaidaResult = await query(
+          `SELECT COALESCE(SUM(valor), 0) as total FROM "TransferenciaFinanceira" WHERE "origemAberturaCaixaId" = $1`,
+          [row.id]
+        );
+        const totalTransferenciasSaida = parseFloat(transferenciasSaidaResult.rows[0].total);
+
         // Calcular saldo atual
-        const saldoAtual = parseFloat(row.saldoInicial) + totalEntradas - totalSaidas;
-        const saldoAtualDinheiro = parseFloat(row.saldoInicial) + totalEntradasDinheiro - totalSaidasDinheiro;
+        const saldoAtual = parseFloat(row.saldoInicial) + totalEntradas - totalSaidas + totalTransferenciasEntrada - totalTransferenciasSaida;
+        const saldoAtualDinheiro = parseFloat(row.saldoInicial) + totalEntradasDinheiro - totalSaidasDinheiro + totalTransferenciasEntrada - totalTransferenciasSaida;
 
         return {
           id: row.id,
@@ -156,6 +168,8 @@ export async function GET(request: NextRequest) {
           totalEntradasDinheiro,
           totalSaidasDinheiro,
           saldoAtualDinheiro,
+          totalTransferenciasEntrada,
+          totalTransferenciasSaida,
         };
       })
     );

@@ -23,7 +23,7 @@ export default function FluxoCaixaPage() {
     const hoje = new Date();
     return hoje.toISOString().split('T')[0];
   });
-  const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'ENTRADA' | 'SAIDA'>('TODOS');
+  const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'ENTRADA' | 'SAIDA' | 'TRANSFERENCIA'>('TODOS');
   const [busca, setBusca] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   
@@ -447,6 +447,18 @@ export default function FluxoCaixaPage() {
     }
   };
 
+  const ehEstornoComanda = (lancamento: LancamentoFluxoCaixa) =>
+    lancamento.tipo === 'SAIDA' && lancamento.descricao.toLowerCase().includes('estorno pagamento de comanda');
+
+  const ehPagamentoComandaNoCaixa = (lancamento: LancamentoFluxoCaixa) => {
+    if (lancamento.tipo !== 'ENTRADA_MANUAL') return false;
+    const descricao = lancamento.descricao.toLowerCase();
+    return descricao.includes('pagamento card #') || descricao.includes('pagamento de comanda #');
+  };
+
+  const podeExcluirLancamento = (lancamento: LancamentoFluxoCaixa) =>
+    (lancamento.tipo === 'ENTRADA_MANUAL' || lancamento.tipo === 'SAIDA') && !ehEstornoComanda(lancamento) && !ehPagamentoComandaNoCaixa(lancamento);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -643,12 +655,13 @@ export default function FluxoCaixaPage() {
             />
             <select
               value={tipoFiltro}
-              onChange={(e) => setTipoFiltro(e.target.value as 'TODOS' | 'ENTRADA' | 'SAIDA')}
+              onChange={(e) => setTipoFiltro(e.target.value as 'TODOS' | 'ENTRADA' | 'SAIDA' | 'TRANSFERENCIA')}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             >
               <option value="TODOS">Todos</option>
               <option value="ENTRADA">Entradas</option>
               <option value="SAIDA">Saídas</option>
+              <option value="TRANSFERENCIA">Transferências</option>
             </select>
           </div>
         </div>
@@ -732,8 +745,19 @@ export default function FluxoCaixaPage() {
                       </span>
                     )}
                     {lancamento.tipo === 'SAIDA' && (
-                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                        Saída
+                      ehEstornoComanda(lancamento) ? (
+                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                          Estorno Comanda
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                          Saída
+                        </span>
+                      )
+                    )}
+                    {lancamento.tipo === 'TRANSFERENCIA' && (
+                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                        Transferência
                       </span>
                     )}
                   </td>
@@ -749,18 +773,26 @@ export default function FluxoCaixaPage() {
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {lancamento.tipo === 'SAIDA' && (
                       <div>
+                        {ehEstornoComanda(lancamento) && <div className="text-xs text-amber-700">Lançamento automático de estorno</div>}
                         {lancamento.centroCusto?.nome && <div>{lancamento.centroCusto.nome}</div>}
                         {lancamento.tipoDespesa?.nome && (
                           <div className="text-xs text-gray-500">{lancamento.tipoDespesa.nome}</div>
                         )}
                       </div>
                     )}
-                    {lancamento.tipo !== 'SAIDA' && '-'}
+                    {lancamento.tipo === 'TRANSFERENCIA' && (
+                      <div className="text-xs">
+                        <div>
+                          {lancamento.origemTipo === 'CAIXA' ? 'Caixa' : `Conta: ${lancamento.origemContaNome || '-'}`} → {lancamento.destinoTipo === 'CAIXA' ? 'Caixa' : `Conta: ${lancamento.destinoContaNome || '-'}`}
+                        </div>
+                      </div>
+                    )}
+                    {(lancamento.tipo === 'ENTRADA_MANUAL' || lancamento.tipo === 'ENTRADA_CARD') && '-'}
                   </td>
                   <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${
-                    lancamento.tipo === 'SAIDA' ? 'text-red-600' : 'text-green-600'
+                    lancamento.tipo === 'SAIDA' ? 'text-red-600' : lancamento.tipo === 'TRANSFERENCIA' ? 'text-purple-700' : 'text-green-600'
                   }`}>
-                    {lancamento.tipo === 'SAIDA' ? '-' : '+'}{formatarMoeda(lancamento.valor)}
+                    {lancamento.tipo === 'SAIDA' ? '-' : lancamento.tipo === 'TRANSFERENCIA' ? '↔' : '+'}{formatarMoeda(lancamento.valor)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {lancamento.createdBy ? (
@@ -773,9 +805,9 @@ export default function FluxoCaixaPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                    {(lancamento.tipo === 'ENTRADA_MANUAL' || lancamento.tipo === 'SAIDA') && (
+                    {podeExcluirLancamento(lancamento) && (
                       <button
-                        onClick={() => excluirLancamento(lancamento.id, lancamento.tipo)}
+                        onClick={() => excluirLancamento(lancamento.id, lancamento.tipo === 'SAIDA' ? 'SAIDA' : 'ENTRADA_MANUAL')}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Excluir lançamento"
                       >

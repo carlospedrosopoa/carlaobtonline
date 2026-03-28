@@ -7,11 +7,12 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { pointService } from '@/services/agendamentoService';
-import { Menu, X, ChevronRight } from 'lucide-react';
+import { Menu, X, ChevronRight, ChartColumn } from 'lucide-react';
 
 interface NavItem {
-  to: string;
+  to?: string;
   label: string;
+  items?: NavItem[];
 }
 
 interface NavGroup {
@@ -28,6 +29,8 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
   const [logoArena, setLogoArena] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [openSubmenuDesktop, setOpenSubmenuDesktop] = useState<string | null>(null);
+  const [openSubmenuMobile, setOpenSubmenuMobile] = useState<string | null>(null);
 
   useEffect(() => {
     const carregarNomeArena = async () => {
@@ -71,10 +74,16 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       label: 'Financeiro',
       items: [
         { to: '/app/arena/fluxo-caixa', label: 'Fluxo de Caixa' },
-        { to: '/app/arena/historico-caixa', label: 'Histórico de Caixa' },
-        { to: '/app/arena/dashboard-caixa', label: 'Dashboard do Caixa' },
-        { to: '/app/arena/dashboard-operacional', label: 'Dashboard Operacional' },
-        { to: '/app/arena/conta-corrente', label: 'Conta Corrente' },
+        { to: '/app/arena/contas-bancarias', label: 'Contas Bancárias' },
+        { to: '/app/arena/contas-pagar', label: 'Contas a Pagar' },
+        {
+          label: 'Relatório',
+          items: [
+            { to: '/app/arena/historico-caixa', label: 'Histórico de Caixa' },
+            { to: '/app/arena/dashboard-caixa', label: 'Dashboard do Caixa' },
+            { to: '/app/arena/dashboard-operacional', label: 'Dashboard Operacional' },
+          ],
+        },
       ],
     },
     {
@@ -97,6 +106,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       items: [
         { to: '/app/arena/atletas', label: 'Atletas Vinculados' },
         { to: '/app/arena/historico-atleta?aba=historico', label: 'Histórico do Atleta' },
+        { to: '/app/arena/conta-corrente', label: 'Conta Corrente' },
         { to: '/app/arena/panelinhas', label: 'Panelinhas' },
       ],
     },
@@ -120,11 +130,15 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
     },
   ];
 
-  const isItemActive = (item: NavItem) => {
+  const isItemActive = (item: NavItem): boolean => {
+    if (item.items && item.items.length > 0) {
+      return item.items.some((subItem) => isItemActive(subItem));
+    }
+    if (!item.to) return false;
     return pathname === item.to || pathname.startsWith(item.to + '/');
   };
 
-  const isGroupActive = (group: NavGroup) => {
+  const isGroupActive = (group: NavGroup): boolean => {
     return group.items.some((item) => isItemActive(item));
   };
 
@@ -140,6 +154,8 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
   const handleLinkClick = () => {
     setMenuOpen(false);
     setOpenGroup(null);
+    setOpenSubmenuDesktop(null);
+    setOpenSubmenuMobile(null);
   };
 
   return (
@@ -193,6 +209,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
                 if (group.items.length === 1) {
                   // Link direto
                   const item = group.items[0];
+                  if (!item.to) return null;
                   return (
                     <Link
                       key={group.label}
@@ -213,6 +230,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
                   <div
                     key={group.label}
                     className="relative group"
+                    onMouseLeave={() => setOpenSubmenuDesktop(null)}
                   >
                     <button
                       className={`px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap flex items-center gap-1 ${
@@ -225,19 +243,57 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
                       <ChevronRight className="w-4 h-4 rotate-90" />
                     </button>
                     <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[200px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                      {group.items.map((item) => (
-                        <Link
-                          key={item.to}
-                          href={item.to}
-                          className={`block px-4 py-2 text-sm hover:bg-emerald-50 ${
-                            isItemActive(item)
-                              ? 'text-emerald-700 font-medium bg-emerald-50'
-                              : 'text-gray-700'
-                          }`}
-                        >
-                          {item.label}
-                        </Link>
-                      ))}
+                      {group.items.map((item) => {
+                        if (item.items && item.items.length > 0) {
+                          const submenuKey = `${group.label}:${item.label}`;
+                          const submenuOpen = openSubmenuDesktop === submenuKey;
+                          return (
+                            <div key={item.label} className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => setOpenSubmenuDesktop(submenuOpen ? null : submenuKey)}
+                                className="w-full px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center justify-between hover:bg-emerald-50"
+                              >
+                                <span className="inline-flex items-center gap-1">
+                                  {item.label === 'Relatório' && <ChartColumn className="w-3 h-3 text-indigo-500" />}
+                                  {item.label}
+                                </span>
+                                <ChevronRight className={`w-3 h-3 transition-transform ${submenuOpen ? 'rotate-90' : ''}`} />
+                              </button>
+                              {submenuOpen && item.items.map((subItem) => {
+                                if (!subItem.to) return null;
+                                return (
+                                  <Link
+                                    key={subItem.to}
+                                    href={subItem.to}
+                                    className={`block pl-8 pr-4 py-2 text-sm hover:bg-emerald-50 ${
+                                      isItemActive(subItem)
+                                        ? 'text-emerald-700 font-medium bg-emerald-50'
+                                        : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {subItem.label}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+                        if (!item.to) return null;
+                        return (
+                          <Link
+                            key={item.to}
+                            href={item.to}
+                            className={`block px-4 py-2 text-sm hover:bg-emerald-50 ${
+                              isItemActive(item)
+                                ? 'text-emerald-700 font-medium bg-emerald-50'
+                                : 'text-gray-700'
+                            }`}
+                          >
+                            {item.label}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -287,6 +343,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
                 if (group.items.length === 1) {
                   // Link direto
                   const item = group.items[0];
+                  if (!item.to) return null;
                   return (
                     <Link
                       key={group.label}
@@ -323,20 +380,59 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
                     </button>
                     {openGroup === group.label && (
                       <div className="ml-4 mt-2 space-y-1">
-                        {group.items.map((item) => (
-                          <Link
-                            key={item.to}
-                            href={item.to}
-                            onClick={handleLinkClick}
-                            className={`block px-4 py-2 rounded-lg text-sm transition-colors ${
-                              isItemActive(item)
-                                ? 'bg-emerald-100 text-emerald-700 font-medium'
-                                : 'text-gray-600 hover:bg-gray-50'
-                            }`}
-                          >
-                            {item.label}
-                          </Link>
-                        ))}
+                        {group.items.map((item) => {
+                          if (item.items && item.items.length > 0) {
+                            const submenuKey = `${group.label}:${item.label}`;
+                            const submenuOpen = openSubmenuMobile === submenuKey;
+                            return (
+                              <div key={item.label} className="space-y-1 py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenSubmenuMobile(submenuOpen ? null : submenuKey)}
+                                  className="w-full px-4 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center justify-between hover:bg-gray-50 rounded-lg"
+                                >
+                                  <span className="inline-flex items-center gap-1">
+                                    {item.label === 'Relatório' && <ChartColumn className="w-3 h-3 text-indigo-500" />}
+                                    {item.label}
+                                  </span>
+                                  <ChevronRight className={`w-3 h-3 transition-transform ${submenuOpen ? 'rotate-90' : ''}`} />
+                                </button>
+                                {submenuOpen && item.items.map((subItem) => {
+                                  if (!subItem.to) return null;
+                                  return (
+                                    <Link
+                                      key={subItem.to}
+                                      href={subItem.to}
+                                      onClick={handleLinkClick}
+                                      className={`block ml-2 px-4 py-2 rounded-lg text-sm transition-colors ${
+                                        isItemActive(subItem)
+                                          ? 'bg-emerald-100 text-emerald-700 font-medium'
+                                          : 'text-gray-600 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {subItem.label}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }
+                          if (!item.to) return null;
+                          return (
+                            <Link
+                              key={item.to}
+                              href={item.to}
+                              onClick={handleLinkClick}
+                              className={`block px-4 py-2 rounded-lg text-sm transition-colors ${
+                                isItemActive(item)
+                                  ? 'bg-emerald-100 text-emerald-700 font-medium'
+                                  : 'text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              {item.label}
+                            </Link>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

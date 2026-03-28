@@ -28,8 +28,12 @@ export async function GET(request: NextRequest) {
     const apenasAtivos = searchParams.get('apenasAtivos') === 'true';
 
     let sql = `SELECT 
-      id, "pointId", nome, descricao, tipo, ativo, "createdAt", "updatedAt"
-    FROM "FormaPagamento"
+      fp.id, fp."pointId", fp.nome, fp.descricao, fp.tipo,
+      fp."origemFinanceiraPadrao", fp."contaBancariaIdPadrao",
+      cb.nome AS "contaBancariaNomePadrao",
+      fp.ativo, fp."createdAt", fp."updatedAt"
+    FROM "FormaPagamento" fp
+    LEFT JOIN "ContaBancaria" cb ON cb.id = fp."contaBancariaIdPadrao"
     WHERE 1=1`;
 
     const params: any[] = [];
@@ -37,12 +41,12 @@ export async function GET(request: NextRequest) {
 
     // Se for ORGANIZER, mostrar apenas formas de pagamento da sua arena
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
-      sql += ` AND "pointId" = $${paramCount}`;
+      sql += ` AND fp."pointId" = $${paramCount}`;
       params.push(usuario.pointIdGestor);
       paramCount++;
     } else if (pointId) {
       // ADMIN pode filtrar por pointId se quiser
-      sql += ` AND "pointId" = $${paramCount}`;
+      sql += ` AND fp."pointId" = $${paramCount}`;
       params.push(pointId);
       paramCount++;
     } else if (usuario.role !== 'ADMIN') {
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (apenasAtivos) {
-      sql += ` AND ativo = true`;
+      sql += ` AND fp.ativo = true`;
     }
 
     sql += ` ORDER BY nome ASC`;
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CriarFormaPagamentoPayload = await request.json();
-    const { pointId, nome, descricao, tipo, ativo = true } = body;
+    const { pointId, nome, descricao, tipo, origemFinanceiraPadrao = 'CAIXA', contaBancariaIdPadrao, ativo = true } = body;
 
     if (!pointId || !nome || !tipo) {
       const errorResponse = NextResponse.json(
@@ -103,6 +107,31 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
       return withCors(errorResponse, request);
+    }
+
+    const origemFinanceira = origemFinanceiraPadrao === 'CONTA_BANCARIA' ? 'CONTA_BANCARIA' : 'CAIXA';
+    let contaBancariaId: string | null = null;
+
+    if (origemFinanceira === 'CONTA_BANCARIA') {
+      if (!contaBancariaIdPadrao) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Selecione a conta bancária padrão para esta forma de pagamento' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+      const contaBancariaResult = await query(
+        `SELECT id, ativo, "pointId" FROM "ContaBancaria" WHERE id = $1`,
+        [contaBancariaIdPadrao]
+      );
+      if (contaBancariaResult.rows.length === 0 || !contaBancariaResult.rows[0].ativo || contaBancariaResult.rows[0].pointId !== pointId) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Conta bancária padrão inválida para esta arena' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+      contaBancariaId = contaBancariaIdPadrao;
     }
 
     // Verificar se ORGANIZER tem acesso a este point
@@ -132,11 +161,11 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO "FormaPagamento" (
-        id, "pointId", nome, descricao, tipo, ativo, "createdAt", "updatedAt"
+        id, "pointId", nome, descricao, tipo, "origemFinanceiraPadrao", "contaBancariaIdPadrao", ativo, "createdAt", "updatedAt"
       ) VALUES (
-        gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), NOW()
+        gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
       ) RETURNING *`,
-      [pointId, nome, descricao || null, tipo, ativo]
+      [pointId, nome, descricao || null, tipo, origemFinanceira, contaBancariaId, ativo]
     );
 
     const response = NextResponse.json(result.rows[0], { status: 201 });

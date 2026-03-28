@@ -38,6 +38,15 @@ import type {
   LancamentoFluxoCaixa,
   DashboardOperacionalData,
   DashboardOperacionalComandasConsideradasResponse,
+  ContaPagarItem,
+  CriarContaPagarPayload,
+  ContaPagarDespesaResponse,
+  ContaBancaria,
+  CriarContaBancariaPayload,
+  AtualizarContaBancariaPayload,
+  MovimentacaoContaBancaria,
+  TransferenciaFinanceira,
+  CriarTransferenciaFinanceiraPayload,
   HistoricoAtletaResumo,
   HistoricoAtletaConsumoItem,
   HistoricoAtletaPagamento,
@@ -84,6 +93,15 @@ export type {
   LancamentoFluxoCaixa,
   DashboardOperacionalData,
   DashboardOperacionalComandasConsideradasResponse,
+  ContaPagarItem,
+  CriarContaPagarPayload,
+  ContaPagarDespesaResponse,
+  ContaBancaria,
+  CriarContaBancariaPayload,
+  AtualizarContaBancariaPayload,
+  MovimentacaoContaBancaria,
+  TransferenciaFinanceira,
+  CriarTransferenciaFinanceiraPayload,
   HistoricoAtletaResumo,
   HistoricoAtletaConsumoItem,
   HistoricoAtletaPagamento,
@@ -476,7 +494,7 @@ export const fluxoCaixaService = {
     aberturaCaixaId?: string,
     dataInicio?: string,
     dataFim?: string,
-    tipo?: 'ENTRADA' | 'SAIDA' | 'TODOS'
+    tipo?: 'ENTRADA' | 'SAIDA' | 'TRANSFERENCIA' | 'TODOS'
   ): Promise<LancamentoFluxoCaixa[]> => {
     const params = new URLSearchParams();
     if (pointId) params.append('pointId', pointId);
@@ -486,6 +504,116 @@ export const fluxoCaixaService = {
     if (tipo) params.append('tipo', tipo);
     const query = params.toString();
     const res = await api.get(`/gestao-arena/fluxo-caixa${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+};
+
+export const contaBancariaService = {
+  listar: async (pointId?: string, apenasAtivas?: boolean): Promise<ContaBancaria[]> => {
+    const params = new URLSearchParams();
+    if (pointId) params.append('pointId', pointId);
+    if (apenasAtivas) params.append('apenasAtivas', 'true');
+    const query = params.toString();
+    const res = await api.get(`/gestao-arena/conta-bancaria${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+
+  obter: async (id: string): Promise<ContaBancaria> => {
+    const res = await api.get(`/gestao-arena/conta-bancaria/${id}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarContaBancariaPayload): Promise<ContaBancaria> => {
+    const res = await api.post('/gestao-arena/conta-bancaria', payload);
+    return res.data;
+  },
+
+  atualizar: async (id: string, payload: AtualizarContaBancariaPayload): Promise<ContaBancaria> => {
+    const res = await api.put(`/gestao-arena/conta-bancaria/${id}`, payload);
+    return res.data;
+  },
+
+  deletar: async (id: string): Promise<void> => {
+    await api.delete(`/gestao-arena/conta-bancaria/${id}`);
+  },
+
+  listarMovimentacoes: async (id: string): Promise<MovimentacaoContaBancaria[]> => {
+    const res = await api.get(`/gestao-arena/conta-bancaria/${id}/movimentacao`);
+    return res.data;
+  },
+
+  criarMovimentacao: async (
+    id: string,
+    payload: { tipo: 'ENTRADA' | 'SAIDA'; valor: number; data: string; descricao: string; observacoes?: string }
+  ): Promise<MovimentacaoContaBancaria> => {
+    const res = await api.post(`/gestao-arena/conta-bancaria/${id}/movimentacao`, payload);
+    return res.data;
+  },
+};
+
+export const transferenciaFinanceiraService = {
+  listar: async (params: { pointId?: string; dataInicio?: string; dataFim?: string }): Promise<TransferenciaFinanceira[]> => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) search.append(key, value);
+    });
+    const res = await api.get(`/gestao-arena/transferencia-financeira${search.toString() ? `?${search.toString()}` : ''}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarTransferenciaFinanceiraPayload): Promise<TransferenciaFinanceira> => {
+    const res = await api.post('/gestao-arena/transferencia-financeira', payload);
+    return res.data;
+  },
+};
+
+export const contaPagarService = {
+  listar: async (params: {
+    pointId?: string;
+    status?: string;
+    pessoa?: string;
+    vencimentoInicio?: string;
+    vencimentoFim?: string;
+    fornecedorId?: string;
+    statusParcela?: string;
+    tipoDespesaId?: string;
+    centroCustoId?: string;
+    valorMin?: string;
+    valorMax?: string;
+  }): Promise<ContaPagarItem[]> => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) search.append(key, value);
+    });
+    const res = await api.get(`/gestao-arena/contas-pagar${search.toString() ? `?${search.toString()}` : ''}`);
+    return res.data;
+  },
+
+  criar: async (payload: CriarContaPagarPayload): Promise<any> => {
+    const res = await api.post('/gestao-arena/contas-pagar', payload);
+    return res.data;
+  },
+
+  obterDespesa: async (parcelaId: string): Promise<ContaPagarDespesaResponse> => {
+    const res = await api.get(`/gestao-arena/contas-pagar/parcelas/${parcelaId}`);
+    return res.data;
+  },
+
+  atualizarDespesa: async (parcelaId: string, payload: { vencimento: string; valor: number; observacoes?: string }) => {
+    const res = await api.put(`/gestao-arena/contas-pagar/parcelas/${parcelaId}`, payload);
+    return res.data;
+  },
+
+  liquidarParcela: async (payload: {
+    parcelaId: string;
+    data: string;
+    valor: number;
+    formaPagamentoId: string;
+    observacoes?: string;
+    origemFinanceira?: 'CAIXA' | 'CONTA_BANCARIA';
+    contaBancariaId?: string;
+  }) => {
+    const res = await api.post('/gestao-arena/contas-pagar/liquidacoes', payload);
     return res.data;
   },
 };
