@@ -67,7 +67,19 @@ export async function GET(
     );
     const totalSaidas = parseFloat(saidasResult.rows[0].total);
 
-    const saldoAtual = parseFloat(abertura.saldoInicial) + totalEntradas - totalSaidas;
+    const transferenciasEntradaResult = await query(
+      `SELECT COALESCE(SUM(valor), 0) as total FROM "TransferenciaFinanceira" WHERE "destinoAberturaCaixaId" = $1`,
+      [id]
+    );
+    const totalTransferenciasEntrada = parseFloat(transferenciasEntradaResult.rows[0].total);
+
+    const transferenciasSaidaResult = await query(
+      `SELECT COALESCE(SUM(valor), 0) as total FROM "TransferenciaFinanceira" WHERE "origemAberturaCaixaId" = $1`,
+      [id]
+    );
+    const totalTransferenciasSaida = parseFloat(transferenciasSaidaResult.rows[0].total);
+
+    const saldoAtual = parseFloat(abertura.saldoInicial) + totalEntradas - totalSaidas + totalTransferenciasEntrada - totalTransferenciasSaida;
 
     const response = NextResponse.json({
       id: abertura.id,
@@ -86,6 +98,8 @@ export async function GET(
       totalEntradas,
       totalSaidas,
       saldoAtual,
+      totalTransferenciasEntrada,
+      totalTransferenciasSaida,
     });
     return withCors(response, request);
   } catch (error: any) {
@@ -173,7 +187,19 @@ export async function PUT(
     );
     const totalSaidas = parseFloat(saidasResult.rows[0].total);
 
-    const saldoAtual = parseFloat(abertura.saldoInicial) + totalEntradas - totalSaidas;
+    const transferenciasEntradaResult = await query(
+      `SELECT COALESCE(SUM(valor), 0) as total FROM "TransferenciaFinanceira" WHERE "destinoAberturaCaixaId" = $1`,
+      [id]
+    );
+    const totalTransferenciasEntrada = parseFloat(transferenciasEntradaResult.rows[0].total);
+
+    const transferenciasSaidaResult = await query(
+      `SELECT COALESCE(SUM(valor), 0) as total FROM "TransferenciaFinanceira" WHERE "origemAberturaCaixaId" = $1`,
+      [id]
+    );
+    const totalTransferenciasSaida = parseFloat(transferenciasSaidaResult.rows[0].total);
+
+    const saldoAtual = parseFloat(abertura.saldoInicial) + totalEntradas - totalSaidas + totalTransferenciasEntrada - totalTransferenciasSaida;
 
     // Fechar abertura
     const saldoFinalValue = saldoFinal !== undefined ? saldoFinal : saldoAtual;
@@ -204,6 +230,8 @@ export async function PUT(
       totalEntradas,
       totalSaidas,
       saldoAtual,
+      totalTransferenciasEntrada,
+      totalTransferenciasSaida,
     });
     return withCors(response, request);
   } catch (error: any) {

@@ -140,7 +140,7 @@ export async function DELETE(
 
     // Verificar se a saída existe
     const existe = await query(
-      'SELECT "pointId" FROM "SaidaCaixa" WHERE id = $1',
+      'SELECT "pointId", descricao FROM "SaidaCaixa" WHERE id = $1',
       [id]
     );
 
@@ -153,6 +153,13 @@ export async function DELETE(
     }
 
     const saida = existe.rows[0];
+    if (typeof saida.descricao === 'string' && saida.descricao.toLowerCase().includes('estorno pagamento de comanda')) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Lançamentos de estorno não podem ser deletados' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
 
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {

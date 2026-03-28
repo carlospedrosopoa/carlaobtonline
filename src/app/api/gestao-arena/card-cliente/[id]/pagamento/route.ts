@@ -225,7 +225,7 @@ export async function POST(
 
     // Verificar se a forma de pagamento existe
     const formaPagamentoResult = await query(
-      'SELECT id, nome, tipo, ativo FROM "FormaPagamento" WHERE id = $1',
+      'SELECT id, nome, tipo, ativo, "origemFinanceiraPadrao", "contaBancariaIdPadrao" FROM "FormaPagamento" WHERE id = $1',
       [formaPagamentoId]
     );
 
@@ -238,6 +238,8 @@ export async function POST(
     }
 
     const formaPagamento = formaPagamentoResult.rows[0];
+    const origemFinanceira = formaPagamento.origemFinanceiraPadrao === 'CONTA_BANCARIA' ? 'CONTA_BANCARIA' : 'CAIXA';
+    const contaBancariaIdPadrao = formaPagamento.contaBancariaIdPadrao || null;
 
     if (!formaPagamento.ativo) {
       const errorResponse = NextResponse.json(
@@ -258,7 +260,7 @@ export async function POST(
         );
         return withCors(errorResponse, request);
       }
-    } else {
+    } else if (origemFinanceira === 'CAIXA') {
       // Verificar se há uma abertura de caixa aberta
       const aberturaAbertaResult = await query(
         'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
@@ -273,6 +275,25 @@ export async function POST(
         return withCors(errorResponse, request);
       }
       aberturaCaixaId = aberturaAbertaResult.rows[0].id;
+    } else {
+      if (!contaBancariaIdPadrao) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'A forma de pagamento não possui conta bancária padrão configurada' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
+      const contaBancariaResult = await query(
+        `SELECT id, ativo, "pointId" FROM "ContaBancaria" WHERE id = $1`,
+        [contaBancariaIdPadrao]
+      );
+      if (contaBancariaResult.rows.length === 0 || !contaBancariaResult.rows[0].ativo || contaBancariaResult.rows[0].pointId !== card.pointId) {
+        const errorResponse = NextResponse.json(
+          { mensagem: 'Conta bancária padrão inválida para esta forma de pagamento' },
+          { status: 400 }
+        );
+        return withCors(errorResponse, request);
+      }
     }
 
     // Calcular total já pago
@@ -437,7 +458,7 @@ export async function POST(
         );
 
       } else {
-        // Inserir pagamento normal (com abertura de caixa)
+        // Inserir pagamento normal (com abertura de caixa quando origem CAIXA)
         const pagamentoResult = await query(
           `INSERT INTO "PagamentoCard" (
             id, "cardId", "formaPagamentoId", valor, observacoes, "aberturaCaixaId", "createdAt", "createdById"
@@ -447,6 +468,26 @@ export async function POST(
           [cardId, formaPagamentoId, valor, observacoes || null, aberturaCaixaId, usuario.id]
         );
         pagamentoId = pagamentoResult.rows[0].id;
+
+        if (origemFinanceira === 'CONTA_BANCARIA') {
+          await query(
+            `
+            INSERT INTO "MovimentacaoContaBancaria" (
+              id, "contaBancariaId", tipo, valor, data, descricao, origem, observacoes, "pagamentoCardId", "createdAt", "createdById"
+            ) VALUES (
+              gen_random_uuid()::text, $1, 'ENTRADA', $2, NOW()::date, $3, 'PAGAMENTO_COMANDA', $4, $5, NOW(), $6
+            )
+            `,
+            [
+              contaBancariaIdPadrao,
+              valor,
+              `Pagamento de Comanda #${card.numeroCard}`,
+              observacoes || null,
+              pagamentoId,
+              usuario.id,
+            ]
+          );
+        }
       }
 
       // Vincular itens ao pagamento se informados (comum para ambos)

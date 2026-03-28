@@ -3,13 +3,14 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { formaPagamentoService } from '@/services/gestaoArenaService';
-import type { FormaPagamento, CriarFormaPagamentoPayload, AtualizarFormaPagamentoPayload } from '@/types/gestaoArena';
+import { contaBancariaService, formaPagamentoService } from '@/services/gestaoArenaService';
+import type { ContaBancaria, FormaPagamento, CriarFormaPagamentoPayload, AtualizarFormaPagamentoPayload } from '@/types/gestaoArena';
 import { Plus, Search, CreditCard, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
 
 export default function FormasPagamentoPage() {
   const { usuario } = useAuth();
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
+  const [contasBancarias, setContasBancarias] = useState<ContaBancaria[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
@@ -23,6 +24,8 @@ export default function FormasPagamentoPage() {
     nome: '',
     descricao: '',
     tipo: 'DINHEIRO',
+    origemFinanceiraPadrao: 'CAIXA',
+    contaBancariaIdPadrao: '',
     ativo: true,
   });
 
@@ -30,6 +33,7 @@ export default function FormasPagamentoPage() {
     if (usuario?.pointIdGestor) {
       setForm((prev) => ({ ...prev, pointId: usuario.pointIdGestor! }));
       carregarFormasPagamento();
+      carregarContasBancarias();
     }
   }, [usuario?.pointIdGestor, apenasAtivos]);
 
@@ -47,6 +51,16 @@ export default function FormasPagamentoPage() {
     }
   };
 
+  const carregarContasBancarias = async () => {
+    if (!usuario?.pointIdGestor) return;
+    try {
+      const data = await contaBancariaService.listar(usuario.pointIdGestor, true);
+      setContasBancarias(data);
+    } catch (error) {
+      console.error('Erro ao carregar contas bancárias:', error);
+    }
+  };
+
   const abrirModal = (formaPagamento?: FormaPagamento) => {
     if (formaPagamento) {
       setFormaPagamentoEditando(formaPagamento);
@@ -55,6 +69,8 @@ export default function FormasPagamentoPage() {
         nome: formaPagamento.nome,
         descricao: formaPagamento.descricao || '',
         tipo: formaPagamento.tipo,
+        origemFinanceiraPadrao: formaPagamento.origemFinanceiraPadrao || 'CAIXA',
+        contaBancariaIdPadrao: formaPagamento.contaBancariaIdPadrao || '',
         ativo: formaPagamento.ativo,
       });
     } else {
@@ -64,6 +80,8 @@ export default function FormasPagamentoPage() {
         nome: '',
         descricao: '',
         tipo: 'DINHEIRO',
+        origemFinanceiraPadrao: 'CAIXA',
+        contaBancariaIdPadrao: '',
         ativo: true,
       });
     }
@@ -82,6 +100,10 @@ export default function FormasPagamentoPage() {
       setErro('Nome e tipo são obrigatórios');
       return;
     }
+    if (form.origemFinanceiraPadrao === 'CONTA_BANCARIA' && !form.contaBancariaIdPadrao) {
+      setErro('Selecione a conta bancária padrão para esta forma');
+      return;
+    }
 
     try {
       setSalvando(true);
@@ -92,6 +114,8 @@ export default function FormasPagamentoPage() {
           nome: form.nome,
           descricao: form.descricao || undefined,
           tipo: form.tipo,
+          origemFinanceiraPadrao: form.origemFinanceiraPadrao,
+          contaBancariaIdPadrao: form.origemFinanceiraPadrao === 'CONTA_BANCARIA' ? form.contaBancariaIdPadrao : '',
           ativo: form.ativo,
         };
         await formaPagamentoService.atualizar(formaPagamentoEditando.id, payload);
@@ -215,6 +239,11 @@ export default function FormasPagamentoPage() {
                     {getTipoLabel(forma.tipo)}
                   </span>
                 </div>
+                <div className="mb-2">
+                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
+                    {forma.origemFinanceiraPadrao === 'CONTA_BANCARIA' ? `Conta: ${forma.contaBancariaNomePadrao || '-'}` : 'Caixa'}
+                  </span>
+                </div>
                 {forma.ativo ? (
                   <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex items-center gap-1 w-fit">
                     <CheckCircle className="w-3 h-3" /> Ativo
@@ -306,6 +335,34 @@ export default function FormasPagamentoPage() {
                   placeholder="Descrição da forma de pagamento (opcional)"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Destino Financeiro *</label>
+                <select
+                  value={form.origemFinanceiraPadrao || 'CAIXA'}
+                  onChange={(e) => setForm({ ...form, origemFinanceiraPadrao: e.target.value as 'CAIXA' | 'CONTA_BANCARIA', contaBancariaIdPadrao: e.target.value === 'CONTA_BANCARIA' ? form.contaBancariaIdPadrao : '' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                >
+                  <option value="CAIXA">Caixa</option>
+                  <option value="CONTA_BANCARIA">Conta bancária</option>
+                </select>
+              </div>
+
+              {form.origemFinanceiraPadrao === 'CONTA_BANCARIA' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Conta bancária padrão *</label>
+                  <select
+                    value={form.contaBancariaIdPadrao || ''}
+                    onChange={(e) => setForm({ ...form, contaBancariaIdPadrao: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    <option value="">Selecione</option>
+                    {contasBancarias.map((conta) => (
+                      <option key={conta.id} value={conta.id}>{conta.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <input

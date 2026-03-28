@@ -133,7 +133,7 @@ export async function DELETE(
 
     // Verificar se a entrada existe
     const existe = await query(
-      'SELECT "pointId" FROM "EntradaCaixa" WHERE id = $1',
+      'SELECT "pointId", descricao FROM "EntradaCaixa" WHERE id = $1',
       [id]
     );
 
@@ -146,6 +146,14 @@ export async function DELETE(
     }
 
     const entrada = existe.rows[0];
+    const descricaoEntrada = String(entrada.descricao || '').toLowerCase();
+    if (descricaoEntrada.includes('pagamento card #') || descricaoEntrada.includes('pagamento de comanda #')) {
+      const errorResponse = NextResponse.json(
+        { mensagem: 'Lançamento de pagamento de comanda no caixa não pode ser deletado' },
+        { status: 400 }
+      );
+      return withCors(errorResponse, request);
+    }
 
     // Verificar se ORGANIZER tem acesso
     if (usuario.role === 'ORGANIZER') {

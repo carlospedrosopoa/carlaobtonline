@@ -161,21 +161,16 @@ export async function POST(request: NextRequest) {
       // 5. Adicionar pagamento se informado
       let pagamentoId: string | null = null;
       if (pagamento) {
-        // Verificar se há uma abertura de caixa aberta
-        const aberturaAbertaResult = await client.query(
-          'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
-          [pointId, 'ABERTA']
+        const formaPagamentoResult = await client.query(
+          `SELECT id, nome, ativo, "origemFinanceiraPadrao", "contaBancariaIdPadrao" FROM "FormaPagamento" WHERE id = $1`,
+          [pagamento.formaPagamentoId]
         );
-
-        if (aberturaAbertaResult.rows.length === 0) {
-          await client.query('ROLLBACK');
-          if (client) client.release();
-          const errorResponse = NextResponse.json(
-            { mensagem: 'O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.' },
-            { status: 400 }
-          );
-          return withCors(errorResponse, request);
+        if (formaPagamentoResult.rows.length === 0 || !formaPagamentoResult.rows[0].ativo) {
+          throw new Error('Forma de pagamento inválida para o pagamento');
         }
+        const formaPagamento = formaPagamentoResult.rows[0];
+        const origemFinanceira = formaPagamento.origemFinanceiraPadrao === 'CONTA_BANCARIA' ? 'CONTA_BANCARIA' : 'CAIXA';
+        const contaBancariaIdPadrao = formaPagamento.contaBancariaIdPadrao || null;
 
         // Validar valor do pagamento
         if (pagamento.valor > valorTotal) {
@@ -192,12 +187,28 @@ export async function POST(request: NextRequest) {
           throw new Error('Um ou mais itens não pertencem a este card');
         }
 
-        // Buscar abertura de caixa aberta atual
-        const aberturaResult = await client.query(
-          'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
-          [pointId, 'ABERTA']
-        );
-        const aberturaCaixaId = aberturaResult.rows.length > 0 ? aberturaResult.rows[0].id : null;
+        let aberturaCaixaId = null;
+        if (origemFinanceira === 'CAIXA') {
+          const aberturaResult = await client.query(
+            'SELECT id FROM "AberturaCaixa" WHERE "pointId" = $1 AND status = $2 LIMIT 1',
+            [pointId, 'ABERTA']
+          );
+          if (aberturaResult.rows.length === 0) {
+            throw new Error('O caixa está fechado. Por favor, abra o caixa antes de realizar pagamentos.');
+          }
+          aberturaCaixaId = aberturaResult.rows[0].id;
+        } else {
+          if (!contaBancariaIdPadrao) {
+            throw new Error('A forma de pagamento não possui conta bancária padrão configurada');
+          }
+          const contaBancariaResult = await client.query(
+            `SELECT id, ativo, "pointId" FROM "ContaBancaria" WHERE id = $1`,
+            [contaBancariaIdPadrao]
+          );
+          if (contaBancariaResult.rows.length === 0 || !contaBancariaResult.rows[0].ativo || contaBancariaResult.rows[0].pointId !== pointId) {
+            throw new Error('Conta bancária padrão inválida para esta forma de pagamento');
+          }
+        }
 
         const pagamentoResult = await client.query(
           `INSERT INTO "PagamentoCard" (
@@ -209,6 +220,26 @@ export async function POST(request: NextRequest) {
         );
 
         pagamentoId = pagamentoResult.rows[0].id;
+
+        if (origemFinanceira === 'CONTA_BANCARIA') {
+          await client.query(
+            `
+            INSERT INTO "MovimentacaoContaBancaria" (
+              id, "contaBancariaId", tipo, valor, data, descricao, origem, observacoes, "pagamentoCardId", "createdAt", "createdById"
+            ) VALUES (
+              gen_random_uuid()::text, $1, 'ENTRADA', $2, NOW()::date, $3, 'PAGAMENTO_COMANDA', $4, $5, NOW(), $6
+            )
+            `,
+            [
+              contaBancariaIdPadrao,
+              pagamento.valor,
+              `Pagamento de Comanda #${numeroCard}`,
+              pagamento.observacoes || null,
+              pagamentoId,
+              usuario.id,
+            ]
+          );
+        }
 
         // Vincular itens ao pagamento
         for (const itemId of itemIdsParaPagamento) {

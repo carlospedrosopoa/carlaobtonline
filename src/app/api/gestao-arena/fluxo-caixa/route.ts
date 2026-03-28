@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const aberturaCaixaId = searchParams.get('aberturaCaixaId'); // Filtrar por abertura específica
     const dataInicio = searchParams.get('dataInicio');
     const dataFim = searchParams.get('dataFim');
-    const tipo = searchParams.get('tipo'); // 'ENTRADA' | 'SAIDA' | 'TODOS'
+    const tipo = searchParams.get('tipo'); // 'ENTRADA' | 'SAIDA' | 'TRANSFERENCIA' | 'TODOS'
 
     let pointIdFiltro = pointId;
     if (usuario.role === 'ORGANIZER' && usuario.pointIdGestor) {
@@ -105,9 +105,13 @@ export async function GET(request: NextRequest) {
 
       const resultEntradas = await query(sqlEntradas, paramsEntradas);
       
-      lancamentos.push(...resultEntradas.rows.map((row: any) => ({
+      lancamentos.push(...resultEntradas.rows.map((row: any) => {
+        const descricaoEntrada = String(row.descricao || '');
+        const matchHistoricoComanda = descricaoEntrada.match(/Pagamento Card #(\d+)\s*-\s*registro histórico/i);
+        const tipoLancamento = matchHistoricoComanda ? 'ENTRADA_CARD' : 'ENTRADA_MANUAL';
+        return {
         id: row.id,
-        tipo: 'ENTRADA_MANUAL',
+        tipo: tipoLancamento,
         pointId: row.pointId,
         valor: parseFloat(row.valor),
         descricao: row.descricao,
@@ -115,12 +119,13 @@ export async function GET(request: NextRequest) {
         data: normalizarData(row.data),
         createdAt: row.createdAt,
         createdBy: row.createdBy,
+        numeroCard: matchHistoricoComanda ? parseInt(matchHistoricoComanda[1], 10) : undefined,
         formaPagamento: row.formaPagamento_id ? {
           id: row.formaPagamento_id,
           nome: row.formaPagamento_nome,
           tipo: row.formaPagamento_tipo,
         } : null,
-      })));
+      }}));
     }
 
     // Buscar pagamentos de cards (entradas automáticas)
@@ -138,7 +143,8 @@ export async function GET(request: NextRequest) {
       INNER JOIN "CardCliente" c ON p."cardId" = c.id
       LEFT JOIN "User" u ON c."usuarioId" = u.id
       LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
-      WHERE c.status != 'CANCELADO'`;
+      WHERE c.status != 'CANCELADO'
+        AND p."aberturaCaixaId" IS NOT NULL`;
 
       const paramsPagamentos: any[] = [];
       let paramCount = 1;
@@ -273,6 +279,97 @@ export async function GET(request: NextRequest) {
           tipo: row.formaPagamento_tipo,
         } : null,
       })));
+    }
+
+    if (!tipo || tipo === 'TRANSFERENCIA' || tipo === 'TODOS') {
+      let sqlTransferencias = `SELECT
+        t.id, t."pointId", t.valor, t.descricao, t.observacoes, t.data, t."createdAt", t."createdById",
+        t."origemTipo", t."destinoTipo",
+        oc.nome AS "origemContaNome",
+        dc.nome AS "destinoContaNome"
+      FROM "TransferenciaFinanceira" t
+      LEFT JOIN "ContaBancaria" oc ON oc.id = t."origemContaBancariaId"
+      LEFT JOIN "ContaBancaria" dc ON dc.id = t."destinoContaBancariaId"
+      WHERE 1=1`;
+
+      const paramsTransferencias: any[] = [];
+      let paramCount = 1;
+
+      if (pointIdFiltro) {
+        sqlTransferencias += ` AND t."pointId" = $${paramCount}`;
+        paramsTransferencias.push(pointIdFiltro);
+        paramCount++;
+      }
+
+      if (aberturaCaixaId) {
+        sqlTransferencias += ` AND (t."origemAberturaCaixaId" = $${paramCount} OR t."destinoAberturaCaixaId" = $${paramCount})`;
+        paramsTransferencias.push(aberturaCaixaId);
+        paramCount++;
+      }
+
+      if (dataInicio) {
+        sqlTransferencias += ` AND t.data >= $${paramCount}`;
+        paramsTransferencias.push(dataInicio);
+        paramCount++;
+      }
+
+      if (dataFim) {
+        sqlTransferencias += ` AND t.data <= $${paramCount}`;
+        paramsTransferencias.push(dataFim);
+        paramCount++;
+      }
+
+      sqlTransferencias += ` ORDER BY t.data DESC, t."createdAt" DESC`;
+
+      const resultTransferencias = await query(sqlTransferencias, paramsTransferencias);
+      lancamentos.push(...resultTransferencias.rows.map((row: any) => ({
+        id: row.id,
+        tipo: 'TRANSFERENCIA',
+        pointId: row.pointId,
+        valor: parseFloat(row.valor),
+        descricao: row.descricao,
+        observacoes: row.observacoes,
+        data: normalizarData(row.data),
+        createdAt: row.createdAt,
+        createdById: row.createdById,
+        origemTipo: row.origemTipo,
+        destinoTipo: row.destinoTipo,
+        origemContaNome: row.origemContaNome,
+        destinoContaNome: row.destinoContaNome,
+      })));
+    }
+
+    const entradaComandaKeys = new Set(
+      lancamentos
+        .filter((l) => l.tipo === 'ENTRADA_CARD')
+        .map((l) => `${l.pointId}|${l.numeroCard || ''}|${Number(l.valor).toFixed(2)}`)
+    );
+
+    const estornosComanda = lancamentos.filter((l) =>
+      l.tipo === 'SAIDA' && /^Estorno pagamento de Comanda #\d+/i.test(String(l.descricao || ''))
+    );
+
+    for (const estorno of estornosComanda) {
+      const match = String(estorno.descricao || '').match(/^Estorno pagamento de Comanda #(\d+)/i);
+      if (!match) continue;
+      const numeroCard = parseInt(match[1], 10);
+      const key = `${estorno.pointId}|${numeroCard}|${Number(estorno.valor).toFixed(2)}`;
+      if (entradaComandaKeys.has(key)) continue;
+
+      entradaComandaKeys.add(key);
+      lancamentos.push({
+        id: `historico-${estorno.id}`,
+        tipo: 'ENTRADA_CARD',
+        pointId: estorno.pointId,
+        valor: Number(estorno.valor),
+        descricao: `Pagamento Card #${numeroCard} - registro histórico`,
+        observacoes: estorno.observacoes || null,
+        data: estorno.data,
+        createdAt: estorno.createdAt,
+        createdBy: estorno.createdBy,
+        numeroCard,
+        formaPagamento: estorno.formaPagamento || null,
+      });
     }
 
     // Ordenar todos os lançamentos por data (mais recente primeiro)

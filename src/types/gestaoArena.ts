@@ -209,6 +209,9 @@ export interface FormaPagamento {
   nome: string;
   descricao?: string | null;
   tipo: TipoFormaPagamento;
+  origemFinanceiraPadrao?: 'CAIXA' | 'CONTA_BANCARIA';
+  contaBancariaIdPadrao?: string | null;
+  contaBancariaNomePadrao?: string | null;
   ativo: boolean;
   createdAt: string;
   updatedAt: string;
@@ -219,6 +222,8 @@ export interface CriarFormaPagamentoPayload {
   nome: string;
   descricao?: string;
   tipo: TipoFormaPagamento;
+  origemFinanceiraPadrao?: 'CAIXA' | 'CONTA_BANCARIA';
+  contaBancariaIdPadrao?: string;
   ativo?: boolean;
 }
 
@@ -226,6 +231,8 @@ export interface AtualizarFormaPagamentoPayload {
   nome?: string;
   descricao?: string;
   tipo?: TipoFormaPagamento;
+  origemFinanceiraPadrao?: 'CAIXA' | 'CONTA_BANCARIA';
+  contaBancariaIdPadrao?: string;
   ativo?: boolean;
 }
 
@@ -421,6 +428,8 @@ export interface AberturaCaixa {
   totalEntradasDinheiro?: number;
   totalSaidasDinheiro?: number;
   saldoAtualDinheiro?: number;
+  totalTransferenciasEntrada?: number;
+  totalTransferenciasSaida?: number;
 }
 
 export interface CriarAberturaCaixaPayload {
@@ -529,12 +538,173 @@ export interface CriarSaidaCaixaPayload {
   dataSaida?: string; // Se não informado, usa a data atual
 }
 
+export type TipoContaBancaria = 'CONTA_CORRENTE' | 'CONTA_POUPANCA' | 'CARTEIRA' | 'OUTRO';
+export type TipoMovimentacaoBancaria = 'ENTRADA' | 'SAIDA';
+export type TipoOrigemDestinoTransferencia = 'CAIXA' | 'CONTA_BANCARIA';
+
+export interface ContaBancaria {
+  id: string;
+  pointId: string;
+  nome: string;
+  banco?: string | null;
+  agencia?: string | null;
+  conta?: string | null;
+  tipo: TipoContaBancaria;
+  saldoInicial: number | string;
+  saldoAtual?: number | string;
+  ativo: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+}
+
+export interface CriarContaBancariaPayload {
+  pointId: string;
+  nome: string;
+  banco?: string;
+  agencia?: string;
+  conta?: string;
+  tipo?: TipoContaBancaria;
+  saldoInicial?: number;
+  ativo?: boolean;
+}
+
+export interface AtualizarContaBancariaPayload {
+  nome?: string;
+  banco?: string;
+  agencia?: string;
+  conta?: string;
+  tipo?: TipoContaBancaria;
+  saldoInicial?: number;
+  ativo?: boolean;
+}
+
+export interface MovimentacaoContaBancaria {
+  id: string;
+  contaBancariaId: string;
+  tipo: TipoMovimentacaoBancaria;
+  valor: number | string;
+  data: string;
+  descricao: string;
+  origem: string;
+  observacoes?: string | null;
+  createdAt: string;
+  createdById?: string | null;
+  liquidacaoContaPagarId?: string | null;
+  transferenciaFinanceiraId?: string | null;
+}
+
+export interface TransferenciaFinanceira {
+  id: string;
+  pointId: string;
+  data: string;
+  valor: number | string;
+  descricao: string;
+  observacoes?: string | null;
+  origemTipo: TipoOrigemDestinoTransferencia;
+  origemAberturaCaixaId?: string | null;
+  origemContaBancariaId?: string | null;
+  origemContaBancariaNome?: string | null;
+  destinoTipo: TipoOrigemDestinoTransferencia;
+  destinoAberturaCaixaId?: string | null;
+  destinoContaBancariaId?: string | null;
+  destinoContaBancariaNome?: string | null;
+  createdAt: string;
+  createdById?: string | null;
+}
+
+export interface CriarTransferenciaFinanceiraPayload {
+  pointId: string;
+  data: string;
+  valor: number;
+  descricao: string;
+  observacoes?: string;
+  origemTipo: TipoOrigemDestinoTransferencia;
+  origemContaBancariaId?: string;
+  destinoTipo: TipoOrigemDestinoTransferencia;
+  destinoContaBancariaId?: string;
+}
+
+export type StatusContaPagar = 'ABERTA' | 'PARCIAL' | 'LIQUIDADA' | 'CANCELADA';
+export type StatusContaPagarParcela = 'PENDENTE' | 'PARCIAL' | 'LIQUIDADA' | 'CANCELADA';
+
+export interface ContaPagarItem {
+  parcelaId: string;
+  contaId: string;
+  pointId: string;
+  fornecedorId?: string | null;
+  fornecedorNome?: string | null;
+  tipoDespesaNome?: string | null;
+  centroCustoNome?: string | null;
+  descricao: string;
+  statusConta: StatusContaPagar;
+  statusParcela: StatusContaPagarParcela;
+  numero: number;
+  totalParcelas: number;
+  dataLancamento: string;
+  vencimento: string;
+  valor: string;
+  valorLiquidado: string;
+}
+
+export interface CriarContaPagarPayload {
+  pointId: string;
+  fornecedorId?: string | null;
+  descricao: string;
+  tipoDespesaId?: string | null;
+  centroCustoId?: string | null;
+  codigoExterno?: string;
+  observacoes?: string;
+  parcelas: Array<{
+    numero?: number;
+    vencimento: string;
+    valor: number;
+    observacoes?: string;
+  }>;
+}
+
+export interface ContaPagarDespesaDetalhe {
+  parcelaId: string;
+  contaId: string;
+  pointId: string;
+  fornecedorId?: string | null;
+  fornecedorNome?: string | null;
+  descricao: string;
+  statusConta: StatusContaPagar;
+  statusParcela: StatusContaPagarParcela;
+  numero: number;
+  dataLancamento: string;
+  vencimento: string;
+  valor: string;
+  observacoes?: string | null;
+  valorLiquidado: string;
+}
+
+export interface ContaPagarLiquidacao {
+  id: string;
+  data: string;
+  valor: string;
+  observacoes?: string | null;
+  createdAt: string;
+  formaPagamentoId?: string | null;
+  formaPagamentoNome?: string | null;
+  origemFinanceira?: 'CAIXA' | 'CONTA_BANCARIA';
+  contaBancariaId?: string | null;
+  contaBancariaNome?: string | null;
+}
+
+export interface ContaPagarDespesaResponse {
+  despesa: ContaPagarDespesaDetalhe;
+  liquidacoes: ContaPagarLiquidacao[];
+}
+
 // ============================================
 // FLUXO DE CAIXA (Unificado)
 // ============================================
 export interface LancamentoFluxoCaixa {
   id: string;
-  tipo: 'ENTRADA_MANUAL' | 'ENTRADA_CARD' | 'SAIDA';
+  tipo: 'ENTRADA_MANUAL' | 'ENTRADA_CARD' | 'SAIDA' | 'TRANSFERENCIA';
   pointId: string;
   valor: number;
   descricao: string;
@@ -563,6 +733,10 @@ export interface LancamentoFluxoCaixa {
   categoriaSaida?: CategoriaSaida;
   tipoDespesa?: TipoDespesa;
   centroCusto?: CentroCusto;
+  origemTipo?: TipoOrigemDestinoTransferencia;
+  destinoTipo?: TipoOrigemDestinoTransferencia;
+  origemContaNome?: string | null;
+  destinoContaNome?: string | null;
 }
 
 // ============================================
@@ -580,7 +754,7 @@ export interface FiltrosFluxoCaixa {
   pointId?: string;
   dataInicio?: string;
   dataFim?: string;
-  tipo?: 'ENTRADA' | 'SAIDA' | 'TODOS';
+  tipo?: 'ENTRADA' | 'SAIDA' | 'TRANSFERENCIA' | 'TODOS';
 }
 
 // ============================================

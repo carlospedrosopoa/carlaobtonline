@@ -81,7 +81,11 @@ export async function DELETE(
 
     // Verificar se o pagamento existe e pertence ao card
     const pagamentoResult = await query(
-      `SELECT p.id, p.valor, c."numeroCard", fp.nome as "formaPagamento_nome"
+      `SELECT 
+        p.id, p.valor, p.observacoes, p."aberturaCaixaId", p."formaPagamentoId", p."createdAt", c."numeroCard",
+        fp.nome as "formaPagamento_nome",
+        fp."origemFinanceiraPadrao" as "formaPagamento_origemFinanceiraPadrao",
+        fp."contaBancariaIdPadrao" as "formaPagamento_contaBancariaIdPadrao"
        FROM "PagamentoCard" p
        INNER JOIN "CardCliente" c ON p."cardId" = c.id
        LEFT JOIN "FormaPagamento" fp ON p."formaPagamentoId" = fp.id
@@ -102,6 +106,8 @@ export async function DELETE(
     const valorPagamento = parseFloat(pagamento.valor);
     const formaPagamentoNome = (pagamento.formaPagamento_nome as string | null) || null;
     const isContaCorrente = (formaPagamentoNome || '').trim().toUpperCase() === 'CONTA CORRENTE';
+    const origemFinanceiraPadrao = (pagamento.formaPagamento_origemFinanceiraPadrao as string | null) || 'CAIXA';
+    const contaBancariaIdPadrao = (pagamento.formaPagamento_contaBancariaIdPadrao as string | null) || null;
 
     await query('BEGIN');
     try {
@@ -204,26 +210,144 @@ export async function DELETE(
             [contaCorrenteId, valorPagamento, `Estorno de pagamento (Comanda #${numeroCard})`, usuario.id]
           );
         }
-      } else {
-        // Excluir entrada de caixa relacionada (se existir)
-        // Buscar entrada manual que tenha descrição relacionada ao card
+      } else if (origemFinanceiraPadrao === 'CONTA_BANCARIA') {
+        let contaBancariaId = contaBancariaIdPadrao;
+
         try {
-          const entradaResult = await query(
-            `SELECT id FROM "EntradaCaixa" 
-             WHERE "pointId" = $1 
-             AND valor = $2
-             AND descricao LIKE $3
+          const movEntradaResult = await query(
+            `SELECT id, "contaBancariaId"
+             FROM "MovimentacaoContaBancaria"
+             WHERE "pagamentoCardId" = $1 AND tipo = 'ENTRADA'
              ORDER BY "createdAt" DESC
              LIMIT 1`,
-            [card.pointId, valorPagamento, `%Card #${numeroCard}%`]
+            [pagamentoId]
+          );
+          if (movEntradaResult.rows.length > 0) {
+            contaBancariaId = movEntradaResult.rows[0].contaBancariaId;
+          }
+        } catch {}
+
+        if (!contaBancariaId) {
+          const movFallbackResult = await query(
+            `SELECT id, "contaBancariaId"
+             FROM "MovimentacaoContaBancaria"
+             WHERE origem = 'PAGAMENTO_COMANDA'
+               AND tipo = 'ENTRADA'
+               AND valor = $1
+               AND descricao = $2
+             ORDER BY "createdAt" DESC
+             LIMIT 1`,
+            [valorPagamento, `Pagamento de Comanda #${numeroCard}`]
+          );
+          if (movFallbackResult.rows.length > 0) {
+            contaBancariaId = movFallbackResult.rows[0].contaBancariaId;
+          }
+        }
+
+        if (contaBancariaId) {
+          await query(
+            `
+            INSERT INTO "MovimentacaoContaBancaria" (
+              id, "contaBancariaId", tipo, valor, data, descricao, origem, observacoes, "pagamentoCardId", "createdAt", "createdById"
+            ) VALUES (
+              gen_random_uuid()::text, $1, 'SAIDA', $2, NOW()::date, $3, 'ESTORNO_PAGAMENTO_COMANDA', $4, $5, NOW(), $6
+            )
+            `,
+            [
+              contaBancariaId,
+              valorPagamento,
+              `Estorno pagamento de Comanda #${numeroCard}`,
+              pagamento.observacoes || null,
+              pagamentoId,
+              usuario.id,
+            ]
+          );
+        }
+      } else {
+        if (pagamento.aberturaCaixaId) {
+          let formaPagamentoIdEstorno: string | null = pagamento.formaPagamentoId || null;
+          if (!formaPagamentoIdEstorno) {
+            const formaPagamentoResult = await query(
+              `
+              SELECT id
+              FROM "FormaPagamento"
+              WHERE "pointId" = $1 AND ativo = true
+              ORDER BY CASE WHEN UPPER(nome) = 'DINHEIRO' THEN 0 ELSE 1 END, nome ASC
+              LIMIT 1
+              `,
+              [card.pointId]
+            );
+            formaPagamentoIdEstorno = formaPagamentoResult.rows[0]?.id || null;
+          }
+          if (!formaPagamentoIdEstorno) {
+            throw new Error('Não foi possível localizar forma de pagamento para lançar estorno no caixa');
+          }
+
+          let centroCustoIdEstorno: string | null = null;
+          const centroCustoPreferencialResult = await query(
+            `
+            SELECT id
+            FROM "CentroCusto"
+            WHERE "pointId" = $1 AND ativo = true
+            ORDER BY CASE WHEN nome ILIKE '%estorno%' THEN 0 ELSE 1 END, nome ASC
+            LIMIT 1
+            `,
+            [card.pointId]
+          );
+          centroCustoIdEstorno = centroCustoPreferencialResult.rows[0]?.id || null;
+
+          if (!centroCustoIdEstorno) {
+            const centroCustoNovoResult = await query(
+              `
+              INSERT INTO "CentroCusto" (id, "pointId", nome, descricao, ativo, "createdAt", "updatedAt")
+              VALUES (gen_random_uuid()::text, $1, 'Estornos', 'Lançamentos automáticos de estorno', true, NOW(), NOW())
+              RETURNING id
+              `,
+              [card.pointId]
+            );
+            centroCustoIdEstorno = centroCustoNovoResult.rows[0].id;
+          }
+
+          await query(
+            `
+            INSERT INTO "EntradaCaixa" (
+              id, "pointId", "aberturaCaixaId", valor, descricao, "formaPagamentoId", observacoes, "dataEntrada", "createdAt", "createdById"
+            ) VALUES (
+              gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, NOW(), $8
+            )
+            `,
+            [
+              card.pointId,
+              pagamento.aberturaCaixaId,
+              valorPagamento,
+              `Pagamento Card #${numeroCard} - registro histórico`,
+              formaPagamentoIdEstorno,
+              pagamento.observacoes || null,
+              pagamento.createdAt,
+              usuario.id,
+            ]
           );
 
-          if (entradaResult.rows.length > 0) {
-            await query('DELETE FROM "EntradaCaixa" WHERE id = $1', [entradaResult.rows[0].id]);
-          }
-        } catch (error: any) {
-          // Log do erro mas não falha a exclusão do pagamento
-          console.error('Erro ao excluir entrada de caixa relacionada:', error);
+          await query(
+            `
+            INSERT INTO "SaidaCaixa" (
+              id, "pointId", "aberturaCaixaId", valor, descricao, "fornecedorId", "categoriaSaidaId", "tipoDespesaId", "centroCustoId",
+              "formaPagamentoId", observacoes, "dataSaida", "createdAt", "createdById"
+            ) VALUES (
+              gen_random_uuid()::text, $1, $2, $3, $4, NULL, NULL, NULL, $5, $6, $7, NOW()::date, NOW(), $8
+            )
+            `,
+            [
+              card.pointId,
+              pagamento.aberturaCaixaId,
+              valorPagamento,
+              `Estorno pagamento de Comanda #${numeroCard}`,
+              centroCustoIdEstorno,
+              formaPagamentoIdEstorno,
+              pagamento.observacoes || null,
+              usuario.id,
+            ]
+          );
         }
       }
 
