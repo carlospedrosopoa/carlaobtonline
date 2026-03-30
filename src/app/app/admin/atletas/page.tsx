@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { pointService } from '@/services/agendamentoService';
 import type { Point } from '@/types/agendamento';
-import { Crown, UserPlus, Phone, MessageCircle, Copy, Check } from 'lucide-react';
+import { Crown, UserPlus, Phone, MessageCircle, Copy, Check, Shirt, Printer } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface Atleta {
@@ -14,6 +14,8 @@ interface Atleta {
   dataNascimento: string;
   genero?: string;
   categoria?: string;
+  tipoCamiseta?: string | null;
+  tamanhoCamiseta?: string | null;
   idade?: number;
   fotoUrl?: string;
   fone?: string;
@@ -855,6 +857,7 @@ export default function AdminAtletasPage() {
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [buscando, setBuscando] = useState(false);
+  const [gerandoRelatorioCamisetas, setGerandoRelatorioCamisetas] = useState(false);
 
   const isAtletaPendente = (atleta: Atleta): boolean => {
     // Atleta pendente se não tem usuarioId
@@ -987,6 +990,107 @@ export default function AdminAtletasPage() {
     }
   };
 
+  const obterLinhasRelatorioCamisetas = () => {
+    return atletas
+      .filter((a) => (a.tipoCamiseta || '').trim() && (a.tamanhoCamiseta || '').trim())
+      .map((a) => ({
+        nome: a.nome || '',
+        tipoCamiseta: (a.tipoCamiseta || '').trim(),
+        tamanhoCamiseta: (a.tamanhoCamiseta || '').trim(),
+      }));
+  };
+
+  const gerarRelatorioCamisetas = () => {
+    try {
+      setGerandoRelatorioCamisetas(true);
+      const linhas = obterLinhasRelatorioCamisetas();
+
+      if (!linhas.length) {
+        alert('Nenhum atleta da lista atual possui tipo e tamanho de camiseta preenchidos.');
+        return;
+      }
+
+      const csvHeader = 'Nome do Atleta,Tipo Camiseta,Tamanho Camiseta';
+      const csvRows = linhas.map((l) => {
+        const nome = `"${String(l.nome).replace(/"/g, '""')}"`;
+        const tipo = `"${String(l.tipoCamiseta).replace(/"/g, '""')}"`;
+        const tamanho = `"${String(l.tamanhoCamiseta).replace(/"/g, '""')}"`;
+        return `${nome},${tipo},${tamanho}`;
+      });
+      const csv = [csvHeader, ...csvRows].join('\n');
+      const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio-camisetas-atletas-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setGerandoRelatorioCamisetas(false);
+    }
+  };
+
+  const imprimirRelatorioCamisetas = () => {
+    const linhas = obterLinhasRelatorioCamisetas();
+    if (!linhas.length) {
+      alert('Nenhum atleta da lista atual possui tipo e tamanho de camiseta preenchidos.');
+      return;
+    }
+
+    const linhasHtml = linhas
+      .map((l, i) => `<tr><td>${i + 1}</td><td>${l.nome}</td><td>${l.tipoCamiseta}</td><td>${l.tamanhoCamiseta}</td></tr>`)
+      .join('');
+    const buscaAtual = (busca || '').trim();
+    const janela = window.open('', '_blank', 'width=1100,height=800');
+    if (!janela) {
+      alert('Não foi possível abrir a janela de impressão.');
+      return;
+    }
+    janela.document.open();
+    janela.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório de Camisetas</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+    h1 { margin: 0 0 8px 0; font-size: 24px; }
+    .meta { margin-bottom: 16px; font-size: 13px; color: #4b5563; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d1d5db; padding: 8px; font-size: 13px; text-align: left; }
+    th { background: #f3f4f6; }
+    .right { text-align: right; }
+    @media print { body { margin: 12mm; } }
+  </style>
+</head>
+<body>
+  <h1>Relatório de Camisetas - Lista de Atletas</h1>
+  <div class="meta">
+    <div>Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
+    <div>Filtro de busca: ${buscaAtual ? buscaAtual : 'Sem filtro'}</div>
+    <div>Total de atletas no relatório: ${linhas.length}</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th class="right">#</th>
+        <th>Nome do Atleta</th>
+        <th>Tipo Camiseta</th>
+        <th>Tamanho Camiseta</th>
+      </tr>
+    </thead>
+    <tbody>${linhasHtml}</tbody>
+  </table>
+</body>
+</html>`);
+    janela.document.close();
+    janela.focus();
+    janela.print();
+  };
+
   if (carregando) {
     return (
       <div className="space-y-6">
@@ -1006,15 +1110,34 @@ export default function AdminAtletasPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-1">Lista de Atletas</h1>
           <p className="text-sm text-gray-600">Gerencie os perfis de atletas cadastrados</p>
         </div>
-        {podeCriarUsuarioIncompleto && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setModalCriarUsuarioIncompleto(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            onClick={imprimirRelatorioCamisetas}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium bg-slate-700 text-white hover:bg-slate-800"
           >
-            <UserPlus className="w-5 h-5" />
-            Criar / Vincular Atleta
+            <Printer className="w-5 h-5" />
+            Imprimir Relatório
           </button>
-        )}
+          <button
+            onClick={gerarRelatorioCamisetas}
+            disabled={gerandoRelatorioCamisetas}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${
+              gerandoRelatorioCamisetas ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            <Shirt className="w-5 h-5" />
+            {gerandoRelatorioCamisetas ? 'Gerando...' : 'Relatório Camisetas'}
+          </button>
+          {podeCriarUsuarioIncompleto && (
+            <button
+              onClick={() => setModalCriarUsuarioIncompleto(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              <UserPlus className="w-5 h-5" />
+              Criar / Vincular Atleta
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Campo de busca */}
