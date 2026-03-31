@@ -113,5 +113,10 @@ export const competicaoService = {
     const res = await api.post(`/competicao/${competicaoId}/reabrir`);
     return res.data;
   },
+
+  relatorioCamisetas: async (competicaoId: string): Promise<Array<{ atletaId: string; nome: string; tipoCamiseta: string; tamanhoCamiseta: string }>> => {
+    const res = await api.get(`/competicao/${competicaoId}/relatorio-camisetas`);
+    return res.data;
+  },
 };
 

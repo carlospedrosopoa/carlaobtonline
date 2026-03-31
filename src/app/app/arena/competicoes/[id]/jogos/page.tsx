@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { competicaoService } from '@/services/competicaoService';
 import type { Competicao } from '@/types/competicao';
-import { PlayCircle, ArrowLeft, Trophy, Users, Settings } from 'lucide-react';
+import { PlayCircle, ArrowLeft, Trophy, Users, Settings, Shirt } from 'lucide-react';
 
 export default function JogosCompeticaoPage() {
   const router = useRouter();
@@ -23,6 +23,7 @@ export default function JogosCompeticaoPage() {
   const [gamesAtleta2, setGamesAtleta2] = useState<string>('');
   const [atleta1Selecionado, setAtleta1Selecionado] = useState<string>('');
   const [atleta2Selecionado, setAtleta2Selecionado] = useState<string>('');
+  const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
 
   useEffect(() => {
     if (competicaoId) {
@@ -177,6 +178,75 @@ export default function JogosCompeticaoPage() {
     }
   };
 
+  const baixarRelatorioCamisetas = async () => {
+    if (!competicaoId) return;
+    try {
+      setGerandoRelatorio(true);
+      const linhas = await competicaoService.relatorioCamisetas(competicaoId);
+      if (!Array.isArray(linhas) || linhas.length === 0) {
+        alert('Nenhum atleta com tipo e tamanho de camiseta preenchidos.');
+        return;
+      }
+
+      const resumoMap = new Map<string, { tipo: string; tamanho: string; quantidade: number }>();
+      for (const l of linhas) {
+        const tipo = String(l.tipoCamiseta || '').trim();
+        const tamanho = String(l.tamanhoCamiseta || '').trim();
+        const key = `${tipo}__${tamanho}`;
+        const current = resumoMap.get(key);
+        if (current) {
+          current.quantidade += 1;
+        } else {
+          resumoMap.set(key, { tipo, tamanho, quantidade: 1 });
+        }
+      }
+      const resumoRows = Array.from(resumoMap.values()).sort((a, b) => {
+        const tipoCmp = a.tipo.localeCompare(b.tipo, 'pt-BR');
+        if (tipoCmp !== 0) return tipoCmp;
+        return a.tamanho.localeCompare(b.tamanho, 'pt-BR');
+      });
+
+      const detalheHeader = 'Nome do Atleta,Tipo Camiseta,Tamanho Camiseta';
+      const detalheRows = linhas.map((l) => {
+        const nome = `"${String(l.nome || '').replace(/"/g, '""')}"`;
+        const tipo = `"${String(l.tipoCamiseta || '').replace(/"/g, '""')}"`;
+        const tamanho = `"${String(l.tamanhoCamiseta || '').replace(/"/g, '""')}"`;
+        return `${nome},${tipo},${tamanho}`;
+      });
+
+      const resumoHeader = 'Tipo Camiseta,Tamanho Camiseta,Quantidade';
+      const resumoCsvRows = resumoRows.map((r) => {
+        const tipo = `"${r.tipo.replace(/"/g, '""')}"`;
+        const tamanho = `"${r.tamanho.replace(/"/g, '""')}"`;
+        return `${tipo},${tamanho},${r.quantidade}`;
+      });
+
+      const csv = [
+        'Resumo por Tipo/Tamanho',
+        resumoHeader,
+        ...resumoCsvRows,
+        '',
+        'Detalhamento por Atleta',
+        detalheHeader,
+        ...detalheRows,
+      ].join('\n');
+      const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio-camisetas-${competicao?.nome?.replace(/[^\w\-]+/g, '-').toLowerCase() || competicaoId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Erro ao gerar relatório de camisetas:', error);
+      alert(error?.response?.data?.mensagem || 'Erro ao gerar relatório de camisetas');
+    } finally {
+      setGerandoRelatorio(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -241,14 +311,27 @@ export default function JogosCompeticaoPage() {
             <PlayCircle className="w-8 h-8 text-blue-500" />
             Jogos - {competicao.nome}
           </h1>
-          <button
-            onClick={() => router.push(`/app/arena/competicoes/${competicaoId}/jogos/manutencao`)}
-            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-            title="Manutenção de jogos - Editar atletas rodada por rodada"
-          >
-            <Settings className="w-4 h-4" />
-            Manutenção
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={baixarRelatorioCamisetas}
+              disabled={gerandoRelatorio}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                gerandoRelatorio ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+              title="Baixar relatório de camisetas (somente atletas com tipo e tamanho preenchidos)"
+            >
+              <Shirt className="w-4 h-4" />
+              {gerandoRelatorio ? 'Gerando...' : 'Relatório Camisetas'}
+            </button>
+            <button
+              onClick={() => router.push(`/app/arena/competicoes/${competicaoId}/jogos/manutencao`)}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+              title="Manutenção de jogos - Editar atletas rodada por rodada"
+            >
+              <Settings className="w-4 h-4" />
+              Manutenção
+            </button>
+          </div>
         </div>
       </div>
 

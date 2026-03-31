@@ -116,6 +116,8 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
         dataNascimento: row.dataNascimento,
         genero: row.genero,
         categoria: row.categoria,
+        tipoCamiseta: row.tipoCamiseta || null,
+        tamanhoCamiseta: row.tamanhoCamiseta || null,
         esportePreferido: row.esportePreferido || null,
         fotoUrl: row.fotoUrl,
         fone: row.fone,
@@ -172,6 +174,8 @@ export async function listarAtletas(usuario: { id: string; role: string; pointId
       
       return {
         ...row,
+        tipoCamiseta: row.tipoCamiseta || null,
+        tamanhoCamiseta: row.tamanhoCamiseta || null,
         usuarioId: row.usuario_id || null,
         usuarioEmail: usuarioEmail,
         usuario: row.usuario_id ? { 
