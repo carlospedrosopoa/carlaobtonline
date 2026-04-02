@@ -639,6 +639,34 @@ export const dashboardOperacionalService = {
   }
 };
 
+export type DashboardFinanceiroData = {
+  periodo: { dataInicio: string; dataFim: string };
+  despesasPorFornecedor: Array<{
+    fornecedorId: string;
+    fornecedorNome: string;
+    total: number;
+    caixa: number;
+    banco: number;
+  }>;
+  receitas: { locacao: number; evento: number; produtos: number; total: number };
+  projecaoProximoMes: {
+    dataInicio: string;
+    dataFim: string;
+    despesasProvisionadas: number;
+    receitasProvisionadas: number;
+    saldoProjetado: number;
+  };
+};
+
+export const dashboardFinanceiroService = {
+  obter: async (pointId: string, dataInicio?: string, dataFim?: string): Promise<DashboardFinanceiroData> => {
+    const res = await api.get('/gestao-arena/dashboard-financeiro', {
+      params: { pointId, dataInicio, dataFim },
+    });
+    return res.data;
+  },
+};
+
 export const historicoAtletaArenaService = {
   listarConsumo: async (pointId: string, atletaId: string, dataInicio?: string, dataFim?: string): Promise<HistoricoAtletaConsumoItem[]> => {
     const params = new URLSearchParams();

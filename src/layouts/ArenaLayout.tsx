@@ -81,6 +81,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
           items: [
             { to: '/app/arena/historico-caixa', label: 'Histórico de Caixa' },
             { to: '/app/arena/dashboard-caixa', label: 'Dashboard do Caixa' },
+            { to: '/app/arena/dashboard-financeiro', label: 'Dashboard Financeiro' },
             { to: '/app/arena/dashboard-operacional', label: 'Dashboard Operacional' },
           ],
         },
