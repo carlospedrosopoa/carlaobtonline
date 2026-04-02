@@ -3,6 +3,18 @@ import { query } from '@/lib/db';
 import { getUsuarioFromRequest, usuarioTemAcessoAoPoint } from '@/lib/auth';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
 
+async function tableExists(tableName: string) {
+  const result = await query(
+    `SELECT EXISTS (
+      SELECT FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+        AND table_name = $1
+    ) AS exists`,
+    [tableName]
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
 function ymd(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const v = value.trim();
@@ -69,6 +81,28 @@ export async function GET(request: NextRequest) {
     const nextInicio = toYMD(nextMonth.start);
     const nextFim = toYMD(nextMonth.end);
 
+    const exists = {
+      SaidaCaixa: false,
+      Fornecedor: false,
+      MovimentacaoContaBancaria: false,
+      ContaBancaria: false,
+      ContaPagarLiquidacao: false,
+      ContaPagarParcela: false,
+      ContaPagar: false,
+      ItemCard: false,
+      CardCliente: false,
+      Produto: false,
+      CardAgendamento: false,
+      Agendamento: false,
+      Quadra: false,
+    };
+
+    await Promise.all(
+      Object.keys(exists).map(async (k) => {
+        (exists as any)[k] = await tableExists(k);
+      })
+    );
+
     const despesasCaixaSql = `
       SELECT
         f.id as "fornecedorId",
@@ -104,8 +138,15 @@ export async function GET(request: NextRequest) {
     `;
 
     const [despesasCaixa, despesasBanco] = await Promise.all([
-      query(despesasCaixaSql, [pointId, dataInicio, dataFim]),
-      query(despesasBancoSql, [pointId, dataInicio, dataFim]),
+      exists.SaidaCaixa && exists.Fornecedor ? query(despesasCaixaSql, [pointId, dataInicio, dataFim]) : ({ rows: [] } as any),
+      exists.MovimentacaoContaBancaria &&
+      exists.ContaBancaria &&
+      exists.ContaPagarLiquidacao &&
+      exists.ContaPagarParcela &&
+      exists.ContaPagar &&
+      exists.Fornecedor
+        ? query(despesasBancoSql, [pointId, dataInicio, dataFim])
+        : ({ rows: [] } as any),
     ]);
 
     const map = new Map<
@@ -143,19 +184,32 @@ export async function GET(request: NextRequest) {
 
     const despesasPorFornecedor = Array.from(map.values()).sort((a, b) => b.total - a.total);
 
-    const receitasItensSql = `
-      SELECT
-        COALESCE(p.categoria, '') as categoria,
-        COALESCE(SUM(i."precoTotal"), 0)::numeric(14,2) as total
-      FROM "ItemCard" i
-      INNER JOIN "CardCliente" c ON c.id = i."cardId"
-      LEFT JOIN "Produto" p ON p.id = i."produtoId"
-      WHERE c."pointId" = $1
-        AND i."createdAt"::date >= $2::date
-        AND i."createdAt"::date <= $3::date
-        AND c.status <> 'CANCELADO'
-      GROUP BY COALESCE(p.categoria, '')
-    `;
+    const receitasItensSql = exists.Produto
+      ? `
+        SELECT
+          COALESCE(p.categoria, '') as categoria,
+          COALESCE(SUM(i."precoTotal"), 0)::numeric(14,2) as total
+        FROM "ItemCard" i
+        INNER JOIN "CardCliente" c ON c.id = i."cardId"
+        LEFT JOIN "Produto" p ON p.id = i."produtoId"
+        WHERE c."pointId" = $1
+          AND i."createdAt"::date >= $2::date
+          AND i."createdAt"::date <= $3::date
+          AND c.status <> 'CANCELADO'
+        GROUP BY COALESCE(p.categoria, '')
+      `
+      : `
+        SELECT
+          '' as categoria,
+          COALESCE(SUM(i."precoTotal"), 0)::numeric(14,2) as total
+        FROM "ItemCard" i
+        INNER JOIN "CardCliente" c ON c.id = i."cardId"
+        WHERE c."pointId" = $1
+          AND i."createdAt"::date >= $2::date
+          AND i."createdAt"::date <= $3::date
+          AND c.status <> 'CANCELADO'
+        GROUP BY 1
+      `;
 
     const receitasAgendamentoSql = `
       SELECT
@@ -169,8 +223,8 @@ export async function GET(request: NextRequest) {
     `;
 
     const [receitasItens, receitasAgendamentos] = await Promise.all([
-      query(receitasItensSql, [pointId, dataInicio, dataFim]),
-      query(receitasAgendamentoSql, [pointId, dataInicio, dataFim]),
+      exists.ItemCard && exists.CardCliente ? query(receitasItensSql, [pointId, dataInicio, dataFim]) : ({ rows: [] } as any),
+      exists.CardAgendamento && exists.CardCliente ? query(receitasAgendamentoSql, [pointId, dataInicio, dataFim]) : ({ rows: [{ total: 0 }] } as any),
     ]);
 
     let receitaLocacao = 0;
@@ -210,7 +264,7 @@ export async function GET(request: NextRequest) {
         AND p.vencimento <= $3::date
     `;
 
-    const projecaoReceitasSql = `
+    const projecaoReceitasSqlPreferencial = `
       SELECT
         COALESCE(SUM(COALESCE(a."valorNegociado", a."valorCalculado", 0)::numeric(14,2)), 0)::numeric(14,2) as total
       FROM "Agendamento" a
@@ -221,10 +275,30 @@ export async function GET(request: NextRequest) {
         AND a."dataHora" < (($3::date + INTERVAL '1 day')::timestamptz)
     `;
 
-    const [projecaoDespesas, projecaoReceitas] = await Promise.all([
-      query(projecaoDespesasSql, [pointId, nextInicio, nextFim]),
-      query(projecaoReceitasSql, [pointId, nextInicio, nextFim]),
-    ]);
+    const projecaoReceitasSqlFallback = `
+      SELECT
+        COALESCE(SUM(COALESCE(a."valorCalculado", 0)::numeric(14,2)), 0)::numeric(14,2) as total
+      FROM "Agendamento" a
+      INNER JOIN "Quadra" q ON q.id = a."quadraId"
+      WHERE q."pointId" = $1
+        AND a.status <> 'CANCELADO'
+        AND a."dataHora" >= ($2::date::timestamptz)
+        AND a."dataHora" < (($3::date + INTERVAL '1 day')::timestamptz)
+    `;
+
+    const projecaoDespesasPromise =
+      exists.ContaPagarParcela && exists.ContaPagar && exists.ContaPagarLiquidacao
+        ? query(projecaoDespesasSql, [pointId, nextInicio, nextFim])
+        : ({ rows: [{ total: 0 }] } as any);
+
+    const projecaoReceitasPromise =
+      exists.Agendamento && exists.Quadra
+        ? query(projecaoReceitasSqlPreferencial, [pointId, nextInicio, nextFim]).catch(async () => {
+            return query(projecaoReceitasSqlFallback, [pointId, nextInicio, nextFim]);
+          })
+        : ({ rows: [{ total: 0 }] } as any);
+
+    const [projecaoDespesas, projecaoReceitas] = await Promise.all([projecaoDespesasPromise, projecaoReceitasPromise]);
 
     const despesasProvisionadas = parseNumber(projecaoDespesas.rows[0]?.total);
     const receitasProvisionadas = parseNumber(projecaoReceitas.rows[0]?.total);
@@ -245,10 +319,9 @@ export async function GET(request: NextRequest) {
     return withCors(response, request);
   } catch (error: any) {
     const resp = NextResponse.json(
-      { mensagem: 'Erro ao gerar dashboard financeiro', error: error?.message || 'Erro interno' },
+      { mensagem: 'Erro ao gerar dashboard financeiro', error: error?.message || 'Erro interno', code: error?.code || null },
       { status: 500 }
     );
     return withCors(resp, request);
   }
 }
-
