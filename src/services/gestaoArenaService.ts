@@ -651,12 +651,52 @@ export type DashboardFinanceiroData = {
   }>;
   receitas: { locacao: number; evento: number; produtos: number; total: number };
   receitasPorCategoriaProduto: Array<{ categoria: string; total: number }>;
+  valorItensComandasMesAnteriorPendentes: number;
+  devedores: Array<{
+    devedorId: string;
+    nome: string;
+    email: string;
+    telefone: string;
+    cardsEmAberto: number;
+    cardMaisAntigoAt: string;
+    saldoDevedor: number;
+  }>;
+  despesasVencimentoPeriodo: Array<{
+    parcelaId: string;
+    contaId: string;
+    descricao: string;
+    statusConta: string;
+    numero: number;
+    totalParcelas: number;
+    vencimento: string;
+    statusParcela: string;
+    fornecedorId: string;
+    fornecedorNome: string;
+    valor: number;
+    valorLiquidado: number;
+    saldo: number;
+  }>;
   projecaoProximoMes: {
     dataInicio: string;
     dataFim: string;
     despesasProvisionadas: number;
     receitasProvisionadas: number;
     saldoProjetado: number;
+    despesasDetalhadas: Array<{
+      parcelaId: string;
+      contaId: string;
+      descricao: string;
+      statusConta: string;
+      numero: number;
+      totalParcelas: number;
+      vencimento: string;
+      statusParcela: string;
+      fornecedorId: string;
+      fornecedorNome: string;
+      valor: number;
+      valorLiquidado: number;
+      saldo: number;
+    }>;
   };
 };
 

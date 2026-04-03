@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { dashboardFinanceiroService } from '@/services/gestaoArenaService';
-import { BarChart3, Calendar, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { BarChart3, Calendar, TrendingDown, TrendingUp, Users, Wallet } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
 type PeriodoFiltro = 'mesAtual' | 'mesAnterior' | 'intervalo';
@@ -73,14 +73,6 @@ export default function DashboardFinanceiroPage() {
     return (data?.despesasPorFornecedor || []).reduce((sum, r) => sum + (Number(r.total) || 0), 0);
   }, [data]);
 
-  const chartTopFornecedores = useMemo(() => {
-    const rows = (data?.despesasPorFornecedor || []).slice(0, 10);
-    return rows.map((r) => ({
-      fornecedor: r.fornecedorNome.length > 16 ? `${r.fornecedorNome.slice(0, 16)}…` : r.fornecedorNome,
-      total: Number(r.total) || 0,
-    }));
-  }, [data]);
-
   const receitasPorCategoriaProduto = useMemo(() => {
     return (data?.receitasPorCategoriaProduto || [])
       .map((r) => ({ categoria: r.categoria, total: Number(r.total) || 0 }))
@@ -97,6 +89,10 @@ export default function DashboardFinanceiroPage() {
 
   const proj = data?.projecaoProximoMes;
   const receitas = data?.receitas;
+  const devedores = data?.devedores || [];
+  const despesasVencimentoPeriodo = data?.despesasVencimentoPeriodo || [];
+  const valorItensComandasMesAnteriorPendentes = Number(data?.valorItensComandasMesAnteriorPendentes) || 0;
+  const [mostrarDespesasProjetadas, setMostrarDespesasProjetadas] = useState(false);
 
   if (loading) {
     return (
@@ -181,7 +177,7 @@ export default function DashboardFinanceiroPage() {
 
       {erro && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-5">
           <div className="flex items-center justify-between">
             <div>
@@ -213,6 +209,20 @@ export default function DashboardFinanceiroPage() {
         <div className="bg-white rounded-lg shadow p-5">
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm font-medium text-gray-600">Comandas pendentes (mês anterior)</p>
+              <p className="text-2xl font-bold text-amber-700">{formatarMoeda(valorItensComandasMesAnteriorPendentes)}</p>
+            </div>
+            <Users className="w-8 h-8 text-amber-700" />
+          </div>
+          <div className="mt-3 text-sm text-gray-600 flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Lançado no mês anterior
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-5">
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm font-medium text-gray-600">Projeção (próximo mês)</p>
               <p className={`text-2xl font-bold ${(proj?.saldoProjetado || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                 {formatarMoeda(proj?.saldoProjetado || 0)}
@@ -227,31 +237,7 @@ export default function DashboardFinanceiroPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Top fornecedores (despesa)</h2>
-            <div className="text-sm text-gray-500">Caixa + Conta bancária</div>
-          </div>
-          {chartTopFornecedores.length === 0 ? (
-            <div className="py-10 text-center text-gray-500">Sem despesas com fornecedor no período.</div>
-          ) : (
-            <div className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartTopFornecedores} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                  <XAxis dataKey="fornecedor" tick={{ fontSize: 12 }} interval={0} angle={-18} textAnchor="end" height={70} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(value: any) => formatarMoeda(Number(value) || 0)}
-                    labelStyle={{ fontWeight: 700 }}
-                  />
-                  <Bar dataKey="total" fill="#ef4444" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-lg shadow p-5">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Receitas (categorias)</h2>
           <div className="space-y-3">
@@ -318,6 +304,52 @@ export default function DashboardFinanceiroPage() {
               </div>
             </div>
           </div>
+
+          <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between gap-4">
+            <div className="text-sm text-gray-700">Mostrar despesas projetadas (próximo mês) detalhadas</div>
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={mostrarDespesasProjetadas}
+                onChange={(e) => setMostrarDespesasProjetadas(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              Ativar
+            </label>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Devedores (comandas abertas)</h2>
+            <div className="text-sm text-gray-500">Meses anteriores</div>
+          </div>
+          {devedores.length === 0 ? (
+            <div className="py-10 text-center text-gray-500">Nenhum devedor encontrado.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-600 border-b">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium w-full">Cliente</th>
+                    <th className="px-3 py-2 text-left font-medium">Contato</th>
+                    <th className="px-3 py-2 text-center font-medium">Cards</th>
+                    <th className="px-3 py-2 text-right font-medium">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {devedores.map((d) => (
+                    <tr key={d.devedorId} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium text-gray-900">{d.nome}</td>
+                      <td className="px-3 py-2 text-gray-700">{d.telefone || d.email || '-'}</td>
+                      <td className="px-3 py-2 text-center text-gray-700">{d.cardsEmAberto}</td>
+                      <td className="px-3 py-2 text-right font-bold text-red-700">{formatarMoeda(Number(d.saldoDevedor) || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
@@ -341,6 +373,92 @@ export default function DashboardFinanceiroPage() {
           </div>
         )}
       </div>
+
+      <div className="bg-white rounded-lg shadow p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">Despesas (vencimento no período)</h2>
+          <div className="text-sm text-gray-500">
+            {data?.periodo?.dataInicio} → {data?.periodo?.dataFim}
+          </div>
+        </div>
+        {despesasVencimentoPeriodo.length === 0 ? (
+          <div className="py-10 text-center text-gray-500">Nenhuma despesa encontrada com vencimento no período.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600 border-b">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Venc.</th>
+                  <th className="px-3 py-2 text-left font-medium">Fornecedor</th>
+                  <th className="px-3 py-2 text-left font-medium w-full">Descrição</th>
+                  <th className="px-3 py-2 text-center font-medium">Status</th>
+                  <th className="px-3 py-2 text-right font-medium">Valor</th>
+                  <th className="px-3 py-2 text-right font-medium">Liquidado</th>
+                  <th className="px-3 py-2 text-right font-medium">Saldo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {despesasVencimentoPeriodo.map((r) => (
+                  <tr key={r.parcelaId} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 text-gray-700">{String(r.vencimento).slice(0, 10)}</td>
+                    <td className="px-3 py-2 text-gray-700">{r.fornecedorNome}</td>
+                    <td className="px-3 py-2 text-gray-900">{r.descricao}</td>
+                    <td className="px-3 py-2 text-center text-gray-700">{r.statusParcela}</td>
+                    <td className="px-3 py-2 text-right text-gray-700">{formatarMoeda(Number(r.valor) || 0)}</td>
+                    <td className="px-3 py-2 text-right text-gray-700">{formatarMoeda(Number(r.valorLiquidado) || 0)}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatarMoeda(Number(r.saldo) || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {mostrarDespesasProjetadas && (
+        <div className="bg-white rounded-lg shadow p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Despesas projetadas (próximo mês)</h2>
+            <div className="text-sm text-gray-500">
+              {proj?.dataInicio} → {proj?.dataFim}
+            </div>
+          </div>
+          {proj?.despesasDetalhadas?.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-600 border-b">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Venc.</th>
+                    <th className="px-3 py-2 text-left font-medium">Fornecedor</th>
+                    <th className="px-3 py-2 text-left font-medium w-full">Descrição</th>
+                    <th className="px-3 py-2 text-center font-medium">Parcela</th>
+                    <th className="px-3 py-2 text-right font-medium">Valor</th>
+                    <th className="px-3 py-2 text-right font-medium">Liquidado</th>
+                    <th className="px-3 py-2 text-right font-medium">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {proj.despesasDetalhadas.map((r) => (
+                    <tr key={r.parcelaId} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-700">{String(r.vencimento).slice(0, 10)}</td>
+                      <td className="px-3 py-2 text-gray-700">{r.fornecedorNome}</td>
+                      <td className="px-3 py-2 text-gray-900">{r.descricao}</td>
+                      <td className="px-3 py-2 text-center text-gray-700">
+                        {r.numero}/{r.totalParcelas}
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-700">{formatarMoeda(Number(r.valor) || 0)}</td>
+                      <td className="px-3 py-2 text-right text-gray-700">{formatarMoeda(Number(r.valorLiquidado) || 0)}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatarMoeda(Number(r.saldo) || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="py-10 text-center text-gray-500">Nenhuma despesa projetada encontrada.</div>
+          )}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow p-5">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Despesas por fornecedor (detalhado)</h2>

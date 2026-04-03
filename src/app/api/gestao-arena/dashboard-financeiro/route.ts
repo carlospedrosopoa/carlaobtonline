@@ -36,6 +36,13 @@ function getNextMonthRange() {
   return { start, end };
 }
 
+function getPreviousMonthRange() {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59, 999));
+  return { start, end };
+}
+
 function toYMD(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -81,6 +88,12 @@ export async function GET(request: NextRequest) {
     const nextInicio = toYMD(nextMonth.start);
     const nextFim = toYMD(nextMonth.end);
 
+    const prevMonth = getPreviousMonthRange();
+    const prevInicio = toYMD(prevMonth.start);
+    const prevFim = toYMD(prevMonth.end);
+
+    const inicioMesAtual = toYMD(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1, 0, 0, 0, 0)));
+
     const exists = {
       SaidaCaixa: false,
       Fornecedor: false,
@@ -95,6 +108,8 @@ export async function GET(request: NextRequest) {
       CardAgendamento: false,
       Agendamento: false,
       Quadra: false,
+      PagamentoCard: false,
+      User: false,
     };
 
     await Promise.all(
@@ -175,71 +190,62 @@ export async function GET(request: NextRequest) {
       GROUP BY s."fornecedorId"
     `;
 
-    const despesasLiquidacoesSqlWithFornecedor = `
+    const despesasContasPagarVencimentoSqlWithFornecedor = `
       SELECT
         COALESCE(f.id, 'SEM_FORNECEDOR') as "fornecedorId",
         COALESCE(f.nome, 'Fornecedor não informado') as "fornecedorNome",
-        l."origemFinanceira" as origem,
-        COALESCE(SUM(l.valor), 0)::numeric(14,2) as total
-      FROM "ContaPagarLiquidacao" l
-      INNER JOIN "ContaPagarParcela" p ON p.id = l."parcelaId"
-      INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
-      LEFT JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
-      WHERE cp."pointId" = $1
-        AND l.data::date >= $2::date
-        AND l.data::date <= $3::date
-      GROUP BY COALESCE(f.id, 'SEM_FORNECEDOR'), COALESCE(f.nome, 'Fornecedor não informado'), l."origemFinanceira"
-    `;
-
-    const despesasLiquidacoesSqlSemFornecedor = `
-      SELECT
-        COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR') as "fornecedorId",
-        COALESCE(cp."fornecedorId", 'Fornecedor não informado') as "fornecedorNome",
-        l."origemFinanceira" as origem,
-        COALESCE(SUM(l.valor), 0)::numeric(14,2) as total
-      FROM "ContaPagarLiquidacao" l
-      INNER JOIN "ContaPagarParcela" p ON p.id = l."parcelaId"
-      INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
-      WHERE cp."pointId" = $1
-        AND l.data::date >= $2::date
-        AND l.data::date <= $3::date
-      GROUP BY COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR'), COALESCE(cp."fornecedorId", 'Fornecedor não informado'), l."origemFinanceira"
-    `;
-
-    const despesasProvisionadasFornecedorSqlWithFornecedor = `
-      SELECT
-        COALESCE(f.id, 'SEM_FORNECEDOR') as "fornecedorId",
-        COALESCE(f.nome, 'Fornecedor não informado') as "fornecedorNome",
-        COALESCE(SUM(GREATEST(p.valor::numeric(14,2) - COALESCE(l.total_liquidado, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as total
+        COALESCE(SUM(COALESCE(l.pago_caixa, 0)::numeric(14,2)), 0)::numeric(14,2) as "pagoCaixa",
+        COALESCE(SUM(COALESCE(l.pago_banco, 0)::numeric(14,2)), 0)::numeric(14,2) as "pagoBanco",
+        COALESCE(SUM(
+          CASE
+            WHEN p.status IN ('PENDENTE', 'PARCIAL') THEN GREATEST(p.valor::numeric(14,2) - COALESCE(l.total_liquidado, 0)::numeric(14,2), 0)
+            ELSE 0
+          END
+        ), 0)::numeric(14,2) as "provisionado"
       FROM "ContaPagarParcela" p
       INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
       LEFT JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
       LEFT JOIN (
-        SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
+        SELECT
+          "parcelaId",
+          COALESCE(SUM(CASE WHEN "origemFinanceira" = 'CAIXA' THEN valor ELSE 0 END), 0)::numeric(14,2) AS pago_caixa,
+          COALESCE(SUM(CASE WHEN "origemFinanceira" = 'CONTA_BANCARIA' THEN valor ELSE 0 END), 0)::numeric(14,2) AS pago_banco,
+          COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
         FROM "ContaPagarLiquidacao"
         GROUP BY "parcelaId"
       ) l ON l."parcelaId" = p.id
       WHERE cp."pointId" = $1
-        AND p.status IN ('PENDENTE', 'PARCIAL')
+        AND p.status <> 'CANCELADA'
         AND p.vencimento >= $2::date
         AND p.vencimento <= $3::date
       GROUP BY COALESCE(f.id, 'SEM_FORNECEDOR'), COALESCE(f.nome, 'Fornecedor não informado')
     `;
 
-    const despesasProvisionadasFornecedorSqlSemFornecedor = `
+    const despesasContasPagarVencimentoSqlSemFornecedor = `
       SELECT
         COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR') as "fornecedorId",
         COALESCE(cp."fornecedorId", 'Fornecedor não informado') as "fornecedorNome",
-        COALESCE(SUM(GREATEST(p.valor::numeric(14,2) - COALESCE(l.total_liquidado, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as total
+        COALESCE(SUM(COALESCE(l.pago_caixa, 0)::numeric(14,2)), 0)::numeric(14,2) as "pagoCaixa",
+        COALESCE(SUM(COALESCE(l.pago_banco, 0)::numeric(14,2)), 0)::numeric(14,2) as "pagoBanco",
+        COALESCE(SUM(
+          CASE
+            WHEN p.status IN ('PENDENTE', 'PARCIAL') THEN GREATEST(p.valor::numeric(14,2) - COALESCE(l.total_liquidado, 0)::numeric(14,2), 0)
+            ELSE 0
+          END
+        ), 0)::numeric(14,2) as "provisionado"
       FROM "ContaPagarParcela" p
       INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
       LEFT JOIN (
-        SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
+        SELECT
+          "parcelaId",
+          COALESCE(SUM(CASE WHEN "origemFinanceira" = 'CAIXA' THEN valor ELSE 0 END), 0)::numeric(14,2) AS pago_caixa,
+          COALESCE(SUM(CASE WHEN "origemFinanceira" = 'CONTA_BANCARIA' THEN valor ELSE 0 END), 0)::numeric(14,2) AS pago_banco,
+          COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
         FROM "ContaPagarLiquidacao"
         GROUP BY "parcelaId"
       ) l ON l."parcelaId" = p.id
       WHERE cp."pointId" = $1
-        AND p.status IN ('PENDENTE', 'PARCIAL')
+        AND p.status <> 'CANCELADA'
         AND p.vencimento >= $2::date
         AND p.vencimento <= $3::date
       GROUP BY COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR'), COALESCE(cp."fornecedorId", 'Fornecedor não informado')
@@ -276,29 +282,19 @@ export async function GET(request: NextRequest) {
           : query(exists.Fornecedor ? despesasCaixaSqlWithFornecedor : despesasCaixaSqlSemFornecedor, [pointId, dataInicio, dataFim])
         : ({ rows: [] } as any);
 
-    const despesasLiquidacoesPromise =
-      exists.ContaPagarLiquidacao && exists.ContaPagarParcela && exists.ContaPagar
-        ? query(exists.Fornecedor ? despesasLiquidacoesSqlWithFornecedor : despesasLiquidacoesSqlSemFornecedor, [
-            pointId,
-            dataInicio,
-            dataFim,
-          ])
-        : ({ rows: [] } as any);
-
-    const despesasProvisionadasFornecedorPromise =
+    const despesasContasPagarVencimentoPromise =
       exists.ContaPagarParcela && exists.ContaPagar && exists.ContaPagarLiquidacao
-        ? query(exists.Fornecedor ? despesasProvisionadasFornecedorSqlWithFornecedor : despesasProvisionadasFornecedorSqlSemFornecedor, [
+        ? query(exists.Fornecedor ? despesasContasPagarVencimentoSqlWithFornecedor : despesasContasPagarVencimentoSqlSemFornecedor, [
             pointId,
             dataInicio,
             dataFim,
           ])
         : ({ rows: [] } as any);
 
-    const [despesasCaixaSemFornecedor, despesasCaixa, despesasLiquidacoes, despesasProvisionadasFornecedor] = await Promise.all([
+    const [despesasCaixaSemFornecedor, despesasCaixa, despesasContasPagarVencimento] = await Promise.all([
       despesasCaixaSemFornecedorPromise,
       despesasCaixaPromise,
-      despesasLiquidacoesPromise,
-      despesasProvisionadasFornecedorPromise,
+      despesasContasPagarVencimentoPromise,
     ]);
 
     const map = new Map<
@@ -336,7 +332,7 @@ export async function GET(request: NextRequest) {
       map.set(id, current);
     }
 
-    for (const row of despesasLiquidacoes.rows as any[]) {
+    for (const row of despesasContasPagarVencimento.rows as any[]) {
       const id = String(row.fornecedorId);
       const current = map.get(id) ?? {
         fornecedorId: id,
@@ -346,25 +342,9 @@ export async function GET(request: NextRequest) {
         banco: 0,
         provisionado: 0,
       };
-      const origem = String(row.origem || '').toUpperCase();
-      if (origem === 'CAIXA') current.caixa += parseNumber(row.total);
-      else if (origem === 'CONTA_BANCARIA') current.banco += parseNumber(row.total);
-      else current.caixa += parseNumber(row.total);
-      current.total = current.caixa + current.banco + current.provisionado;
-      map.set(id, current);
-    }
-
-    for (const row of despesasProvisionadasFornecedor.rows as any[]) {
-      const id = String(row.fornecedorId);
-      const current = map.get(id) ?? {
-        fornecedorId: id,
-        fornecedorNome: String(row.fornecedorNome),
-        total: 0,
-        caixa: 0,
-        banco: 0,
-        provisionado: 0,
-      };
-      current.provisionado += parseNumber(row.total);
+      current.caixa += parseNumber(row.pagoCaixa);
+      current.banco += parseNumber(row.pagoBanco);
+      current.provisionado += parseNumber(row.provisionado);
       current.total = current.caixa + current.banco + current.provisionado;
       map.set(id, current);
     }
@@ -444,6 +424,280 @@ export async function GET(request: NextRequest) {
       .map(([categoria, total]) => ({ categoria, total }))
       .sort((a, b) => b.total - a.total);
 
+    const valorItensPendentesMesAnteriorSql = `
+      SELECT
+        COALESCE(SUM(i."precoTotal"), 0)::numeric(14,2) as total
+      FROM "ItemCard" i
+      INNER JOIN "CardCliente" c ON c.id = i."cardId"
+      LEFT JOIN (
+        SELECT "cardId", COALESCE(SUM(valor), 0)::numeric(14,2) as total_pago
+        FROM "PagamentoCard"
+        GROUP BY "cardId"
+      ) pg ON pg."cardId" = c.id
+      WHERE c."pointId" = $1
+        AND c.status <> 'CANCELADO'
+        AND i."createdAt"::date >= $2::date
+        AND i."createdAt"::date <= $3::date
+        AND (
+          COALESCE(c."pagamentoPendente", false) = true
+          OR (c.status = 'ABERTO' AND (c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2)) > 0)
+        )
+    `;
+
+    const devedoresSqlWithUser = `
+      SELECT
+        COALESCE(u.id, CONCAT('AVULSO:', COALESCE(c."telefoneAvulso", c."nomeAvulso", c.id))) as "devedorId",
+        COALESCE(u.name, c."nomeAvulso", 'Cliente') as nome,
+        COALESCE(u.email, '') as email,
+        COALESCE(u.whatsapp, c."telefoneAvulso", '') as telefone,
+        COUNT(*)::int as "cardsEmAberto",
+        MIN(c."createdAt") as "cardMaisAntigoAt",
+        COALESCE(SUM(GREATEST(c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as "saldoDevedor"
+      FROM "CardCliente" c
+      LEFT JOIN "User" u ON u.id = c."usuarioId"
+      LEFT JOIN (
+        SELECT "cardId", COALESCE(SUM(valor), 0)::numeric(14,2) as total_pago
+        FROM "PagamentoCard"
+        GROUP BY "cardId"
+      ) pg ON pg."cardId" = c.id
+      WHERE c."pointId" = $1
+        AND c.status = 'ABERTO'
+        AND c."createdAt"::date < $2::date
+        AND (c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2)) > 0
+      GROUP BY 1, 2, 3, 4
+      ORDER BY "saldoDevedor" DESC
+      LIMIT 50
+    `;
+
+    const devedoresSqlSemUser = `
+      SELECT
+        CONCAT('AVULSO:', COALESCE(c."telefoneAvulso", c."nomeAvulso", c.id)) as "devedorId",
+        COALESCE(c."nomeAvulso", 'Cliente') as nome,
+        '' as email,
+        COALESCE(c."telefoneAvulso", '') as telefone,
+        COUNT(*)::int as "cardsEmAberto",
+        MIN(c."createdAt") as "cardMaisAntigoAt",
+        COALESCE(SUM(GREATEST(c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as "saldoDevedor"
+      FROM "CardCliente" c
+      LEFT JOIN (
+        SELECT "cardId", COALESCE(SUM(valor), 0)::numeric(14,2) as total_pago
+        FROM "PagamentoCard"
+        GROUP BY "cardId"
+      ) pg ON pg."cardId" = c.id
+      WHERE c."pointId" = $1
+        AND c.status = 'ABERTO'
+        AND c."createdAt"::date < $2::date
+        AND (c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2)) > 0
+      GROUP BY 1, 2, 3, 4
+      ORDER BY "saldoDevedor" DESC
+      LIMIT 50
+    `;
+
+    const despesasVencimentoPeriodoSqlWithFornecedor = `
+      SELECT
+        p.id as "parcelaId",
+        cp.id as "contaId",
+        cp.descricao as descricao,
+        cp.status as "statusConta",
+        p.numero as numero,
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
+        p.vencimento as vencimento,
+        p.status as "statusParcela",
+        COALESCE(f.id, 'SEM_FORNECEDOR') as "fornecedorId",
+        COALESCE(f.nome, 'Fornecedor não informado') as "fornecedorNome",
+        p.valor::numeric(14,2) as valor,
+        COALESCE(l.total_liquidado, 0)::numeric(14,2) as "valorLiquidado"
+      FROM "ContaPagarParcela" p
+      INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
+      LEFT JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
+      LEFT JOIN (
+        SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
+        FROM "ContaPagarLiquidacao"
+        GROUP BY "parcelaId"
+      ) l ON l."parcelaId" = p.id
+      WHERE cp."pointId" = $1
+        AND p.status <> 'CANCELADA'
+        AND p.vencimento >= $2::date
+        AND p.vencimento <= $3::date
+      ORDER BY p.vencimento ASC, "fornecedorNome" ASC, cp.descricao ASC
+    `;
+
+    const despesasVencimentoPeriodoSqlSemFornecedor = `
+      SELECT
+        p.id as "parcelaId",
+        cp.id as "contaId",
+        cp.descricao as descricao,
+        cp.status as "statusConta",
+        p.numero as numero,
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
+        p.vencimento as vencimento,
+        p.status as "statusParcela",
+        COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR') as "fornecedorId",
+        COALESCE(cp."fornecedorId", 'Fornecedor não informado') as "fornecedorNome",
+        p.valor::numeric(14,2) as valor,
+        COALESCE(l.total_liquidado, 0)::numeric(14,2) as "valorLiquidado"
+      FROM "ContaPagarParcela" p
+      INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
+      LEFT JOIN (
+        SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
+        FROM "ContaPagarLiquidacao"
+        GROUP BY "parcelaId"
+      ) l ON l."parcelaId" = p.id
+      WHERE cp."pointId" = $1
+        AND p.status <> 'CANCELADA'
+        AND p.vencimento >= $2::date
+        AND p.vencimento <= $3::date
+      ORDER BY p.vencimento ASC, "fornecedorNome" ASC, cp.descricao ASC
+    `;
+
+    const despesasProjetadasProximoMesSqlWithFornecedor = `
+      SELECT
+        p.id as "parcelaId",
+        cp.id as "contaId",
+        cp.descricao as descricao,
+        cp.status as "statusConta",
+        p.numero as numero,
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
+        p.vencimento as vencimento,
+        p.status as "statusParcela",
+        COALESCE(f.id, 'SEM_FORNECEDOR') as "fornecedorId",
+        COALESCE(f.nome, 'Fornecedor não informado') as "fornecedorNome",
+        p.valor::numeric(14,2) as valor,
+        COALESCE(l.total_liquidado, 0)::numeric(14,2) as "valorLiquidado"
+      FROM "ContaPagarParcela" p
+      INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
+      LEFT JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
+      LEFT JOIN (
+        SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
+        FROM "ContaPagarLiquidacao"
+        GROUP BY "parcelaId"
+      ) l ON l."parcelaId" = p.id
+      WHERE cp."pointId" = $1
+        AND p.status IN ('PENDENTE', 'PARCIAL')
+        AND p.vencimento >= $2::date
+        AND p.vencimento <= $3::date
+      ORDER BY p.vencimento ASC, "fornecedorNome" ASC, cp.descricao ASC
+    `;
+
+    const despesasProjetadasProximoMesSqlSemFornecedor = `
+      SELECT
+        p.id as "parcelaId",
+        cp.id as "contaId",
+        cp.descricao as descricao,
+        cp.status as "statusConta",
+        p.numero as numero,
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
+        p.vencimento as vencimento,
+        p.status as "statusParcela",
+        COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR') as "fornecedorId",
+        COALESCE(cp."fornecedorId", 'Fornecedor não informado') as "fornecedorNome",
+        p.valor::numeric(14,2) as valor,
+        COALESCE(l.total_liquidado, 0)::numeric(14,2) as "valorLiquidado"
+      FROM "ContaPagarParcela" p
+      INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
+      LEFT JOIN (
+        SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
+        FROM "ContaPagarLiquidacao"
+        GROUP BY "parcelaId"
+      ) l ON l."parcelaId" = p.id
+      WHERE cp."pointId" = $1
+        AND p.status IN ('PENDENTE', 'PARCIAL')
+        AND p.vencimento >= $2::date
+        AND p.vencimento <= $3::date
+      ORDER BY p.vencimento ASC, "fornecedorNome" ASC, cp.descricao ASC
+    `;
+
+    const [valorItensPendentesMesAnterior, devedores, despesasVencimentoPeriodo, despesasProjetadasProximoMes] = await Promise.all([
+      exists.ItemCard && exists.CardCliente && exists.PagamentoCard
+        ? query(valorItensPendentesMesAnteriorSql, [pointId, prevInicio, prevFim])
+        : ({ rows: [{ total: 0 }] } as any),
+      exists.CardCliente && exists.PagamentoCard
+        ? query(exists.User ? devedoresSqlWithUser : devedoresSqlSemUser, [pointId, inicioMesAtual])
+        : ({ rows: [] } as any),
+      exists.ContaPagarParcela && exists.ContaPagar && exists.ContaPagarLiquidacao
+        ? query(exists.Fornecedor ? despesasVencimentoPeriodoSqlWithFornecedor : despesasVencimentoPeriodoSqlSemFornecedor, [
+            pointId,
+            dataInicio,
+            dataFim,
+          ])
+        : ({ rows: [] } as any),
+      exists.ContaPagarParcela && exists.ContaPagar && exists.ContaPagarLiquidacao
+        ? query(exists.Fornecedor ? despesasProjetadasProximoMesSqlWithFornecedor : despesasProjetadasProximoMesSqlSemFornecedor, [
+            pointId,
+            nextInicio,
+            nextFim,
+          ])
+        : ({ rows: [] } as any),
+    ]);
+
+    const valorItensComandasMesAnteriorPendentes = parseNumber(valorItensPendentesMesAnterior.rows[0]?.total);
+
+    const despesasVencimentoPeriodoItens = (despesasVencimentoPeriodo.rows as any[]).map((r) => {
+      const valor = parseNumber(r.valor);
+      const valorLiquidado = parseNumber(r.valorLiquidado);
+      const saldo = Math.max(valor - valorLiquidado, 0);
+      return {
+        parcelaId: String(r.parcelaId),
+        contaId: String(r.contaId),
+        descricao: String(r.descricao || ''),
+        statusConta: String(r.statusConta || ''),
+        numero: Number(r.numero) || 0,
+        totalParcelas: Number(r.totalParcelas) || 0,
+        vencimento: String(r.vencimento),
+        statusParcela: String(r.statusParcela || ''),
+        fornecedorId: String(r.fornecedorId || 'SEM_FORNECEDOR'),
+        fornecedorNome: String(r.fornecedorNome || 'Fornecedor não informado'),
+        valor,
+        valorLiquidado,
+        saldo,
+      };
+    });
+
+    const despesasProjetadasProximoMesItens = (despesasProjetadasProximoMes.rows as any[]).map((r) => {
+      const valor = parseNumber(r.valor);
+      const valorLiquidado = parseNumber(r.valorLiquidado);
+      const saldo = Math.max(valor - valorLiquidado, 0);
+      return {
+        parcelaId: String(r.parcelaId),
+        contaId: String(r.contaId),
+        descricao: String(r.descricao || ''),
+        statusConta: String(r.statusConta || ''),
+        numero: Number(r.numero) || 0,
+        totalParcelas: Number(r.totalParcelas) || 0,
+        vencimento: String(r.vencimento),
+        statusParcela: String(r.statusParcela || ''),
+        fornecedorId: String(r.fornecedorId || 'SEM_FORNECEDOR'),
+        fornecedorNome: String(r.fornecedorNome || 'Fornecedor não informado'),
+        valor,
+        valorLiquidado,
+        saldo,
+      };
+    });
+
     const projecaoDespesasSql = `
       SELECT
         COALESCE(SUM(GREATEST(p.valor::numeric(14,2) - COALESCE(l.total_liquidado, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as total
@@ -504,12 +758,16 @@ export async function GET(request: NextRequest) {
       despesasPorFornecedor,
       receitas,
       receitasPorCategoriaProduto,
+      valorItensComandasMesAnteriorPendentes,
+      devedores: devedores.rows,
+      despesasVencimentoPeriodo: despesasVencimentoPeriodoItens,
       projecaoProximoMes: {
         dataInicio: nextInicio,
         dataFim: nextFim,
         despesasProvisionadas,
         receitasProvisionadas,
         saldoProjetado: receitasProvisionadas - despesasProvisionadas,
+        despesasDetalhadas: despesasProjetadasProximoMesItens,
       },
     });
 
