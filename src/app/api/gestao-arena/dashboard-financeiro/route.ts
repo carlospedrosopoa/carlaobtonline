@@ -500,7 +500,7 @@ export async function GET(request: NextRequest) {
         cp.descricao as descricao,
         cp.status as "statusConta",
         p.numero as numero,
-        p."totalParcelas" as "totalParcelas",
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
         p.vencimento as vencimento,
         p.status as "statusParcela",
         COALESCE(f.id, 'SEM_FORNECEDOR') as "fornecedorId",
@@ -510,6 +510,12 @@ export async function GET(request: NextRequest) {
       FROM "ContaPagarParcela" p
       INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
       LEFT JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
       LEFT JOIN (
         SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
         FROM "ContaPagarLiquidacao"
@@ -529,7 +535,7 @@ export async function GET(request: NextRequest) {
         cp.descricao as descricao,
         cp.status as "statusConta",
         p.numero as numero,
-        p."totalParcelas" as "totalParcelas",
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
         p.vencimento as vencimento,
         p.status as "statusParcela",
         COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR') as "fornecedorId",
@@ -538,6 +544,12 @@ export async function GET(request: NextRequest) {
         COALESCE(l.total_liquidado, 0)::numeric(14,2) as "valorLiquidado"
       FROM "ContaPagarParcela" p
       INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
       LEFT JOIN (
         SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
         FROM "ContaPagarLiquidacao"
@@ -557,7 +569,7 @@ export async function GET(request: NextRequest) {
         cp.descricao as descricao,
         cp.status as "statusConta",
         p.numero as numero,
-        p."totalParcelas" as "totalParcelas",
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
         p.vencimento as vencimento,
         p.status as "statusParcela",
         COALESCE(f.id, 'SEM_FORNECEDOR') as "fornecedorId",
@@ -567,6 +579,12 @@ export async function GET(request: NextRequest) {
       FROM "ContaPagarParcela" p
       INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
       LEFT JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
       LEFT JOIN (
         SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
         FROM "ContaPagarLiquidacao"
@@ -586,7 +604,7 @@ export async function GET(request: NextRequest) {
         cp.descricao as descricao,
         cp.status as "statusConta",
         p.numero as numero,
-        p."totalParcelas" as "totalParcelas",
+        COALESCE(tp."totalParcelas", 1) as "totalParcelas",
         p.vencimento as vencimento,
         p.status as "statusParcela",
         COALESCE(cp."fornecedorId", 'SEM_FORNECEDOR') as "fornecedorId",
@@ -595,6 +613,12 @@ export async function GET(request: NextRequest) {
         COALESCE(l.total_liquidado, 0)::numeric(14,2) as "valorLiquidado"
       FROM "ContaPagarParcela" p
       INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
+      LEFT JOIN (
+        SELECT "contaPagarId", COUNT(*) AS "totalParcelas"
+        FROM "ContaPagarParcela"
+        WHERE status <> 'CANCELADA'
+        GROUP BY "contaPagarId"
+      ) tp ON tp."contaPagarId" = cp.id
       LEFT JOIN (
         SELECT "parcelaId", COALESCE(SUM(valor), 0)::numeric(14,2) AS total_liquidado
         FROM "ContaPagarLiquidacao"
