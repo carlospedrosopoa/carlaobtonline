@@ -103,6 +103,20 @@ export async function GET(request: NextRequest) {
       })
     );
 
+    const despesasCaixaSemFornecedorSql = `
+      SELECT
+        'SEM_FORNECEDOR' as "fornecedorId",
+        'Fornecedor não informado' as "fornecedorNome",
+        COALESCE(SUM(s.valor), 0)::numeric(14,2) as total
+      FROM "SaidaCaixa" s
+      LEFT JOIN "ContaPagarLiquidacao" l ON l."saidaCaixaId" = s.id
+      WHERE s."pointId" = $1
+        AND s."fornecedorId" IS NULL
+        AND (l.id IS NULL)
+        AND s."dataSaida"::date >= $2::date
+        AND s."dataSaida"::date <= $3::date
+    `;
+
     const despesasCaixaManualSql = `
       SELECT
         f.id as "fornecedorId",
@@ -135,20 +149,39 @@ export async function GET(request: NextRequest) {
 
     const despesasLiquidacoesSql = `
       SELECT
-        f.id as "fornecedorId",
-        f.nome as "fornecedorNome",
+        COALESCE(f.id, 'SEM_FORNECEDOR') as "fornecedorId",
+        COALESCE(f.nome, 'Fornecedor não informado') as "fornecedorNome",
         l."origemFinanceira" as origem,
         COALESCE(SUM(l.valor), 0)::numeric(14,2) as total
       FROM "ContaPagarLiquidacao" l
       INNER JOIN "ContaPagarParcela" p ON p.id = l."parcelaId"
       INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
-      INNER JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
+      LEFT JOIN "Fornecedor" f ON f.id = cp."fornecedorId"
       WHERE cp."pointId" = $1
-        AND cp."fornecedorId" IS NOT NULL
         AND l.data::date >= $2::date
         AND l.data::date <= $3::date
-      GROUP BY f.id, f.nome, l."origemFinanceira"
+      GROUP BY COALESCE(f.id, 'SEM_FORNECEDOR'), COALESCE(f.nome, 'Fornecedor não informado'), l."origemFinanceira"
     `;
+
+    const despesasCaixaSemFornecedorPromise =
+      exists.SaidaCaixa && exists.ContaPagarLiquidacao
+        ? query(despesasCaixaSemFornecedorSql, [pointId, dataInicio, dataFim])
+        : exists.SaidaCaixa
+          ? query(
+              `
+              SELECT
+                'SEM_FORNECEDOR' as "fornecedorId",
+                'Fornecedor não informado' as "fornecedorNome",
+                COALESCE(SUM(s.valor), 0)::numeric(14,2) as total
+              FROM "SaidaCaixa" s
+              WHERE s."pointId" = $1
+                AND s."fornecedorId" IS NULL
+                AND s."dataSaida"::date >= $2::date
+                AND s."dataSaida"::date <= $3::date
+              `,
+              [pointId, dataInicio, dataFim]
+            )
+          : ({ rows: [] } as any);
 
     const despesasCaixaPromise =
       exists.SaidaCaixa && exists.Fornecedor
@@ -162,7 +195,11 @@ export async function GET(request: NextRequest) {
         ? query(despesasLiquidacoesSql, [pointId, dataInicio, dataFim])
         : ({ rows: [] } as any);
 
-    const [despesasCaixa, despesasLiquidacoes] = await Promise.all([despesasCaixaPromise, despesasLiquidacoesPromise]);
+    const [despesasCaixaSemFornecedor, despesasCaixa, despesasLiquidacoes] = await Promise.all([
+      despesasCaixaSemFornecedorPromise,
+      despesasCaixaPromise,
+      despesasLiquidacoesPromise,
+    ]);
 
     const map = new Map<
       string,
@@ -174,6 +211,20 @@ export async function GET(request: NextRequest) {
       const current = map.get(id) ?? {
         fornecedorId: id,
         fornecedorNome: String(row.fornecedorNome),
+        total: 0,
+        caixa: 0,
+        banco: 0,
+      };
+      current.caixa += parseNumber(row.total);
+      current.total = current.caixa + current.banco;
+      map.set(id, current);
+    }
+
+    for (const row of despesasCaixaSemFornecedor.rows as any[]) {
+      const id = String(row.fornecedorId || 'SEM_FORNECEDOR');
+      const current = map.get(id) ?? {
+        fornecedorId: id,
+        fornecedorNome: String(row.fornecedorNome || 'Fornecedor não informado'),
         total: 0,
         caixa: 0,
         banco: 0,
