@@ -81,6 +81,20 @@ export default function DashboardFinanceiroPage() {
     }));
   }, [data]);
 
+  const receitasPorCategoriaProduto = useMemo(() => {
+    return (data?.receitasPorCategoriaProduto || [])
+      .map((r) => ({ categoria: r.categoria, total: Number(r.total) || 0 }))
+      .filter((r) => r.total > 0);
+  }, [data]);
+
+  const chartReceitasPorCategoriaProduto = useMemo(() => {
+    const rows = receitasPorCategoriaProduto.slice(0, 12);
+    return rows.map((r) => ({
+      categoria: r.categoria.length > 16 ? `${r.categoria.slice(0, 16)}…` : r.categoria,
+      total: r.total,
+    }));
+  }, [receitasPorCategoriaProduto]);
+
   const proj = data?.projecaoProximoMes;
   const receitas = data?.receitas;
 
@@ -260,6 +274,32 @@ export default function DashboardFinanceiroPage() {
           </div>
 
           <div className="mt-8">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">Receitas por categoria de produto</h3>
+            {receitasPorCategoriaProduto.length === 0 ? (
+              <div className="text-sm text-gray-500">Sem receitas por produto no período.</div>
+            ) : (
+              <div className="max-h-[220px] overflow-auto rounded-lg border border-gray-100">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-600 border-b">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium w-full">Categoria</th>
+                      <th className="px-3 py-2 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {receitasPorCategoriaProduto.slice(0, 20).map((r) => (
+                      <tr key={r.categoria} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-gray-700">{r.categoria}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatarMoeda(r.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-8">
             <h3 className="text-sm font-bold text-gray-900 mb-3">Projeção próximo mês</h3>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
@@ -279,6 +319,27 @@ export default function DashboardFinanceiroPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">Receitas por categoria de produto (gráfico)</h2>
+          <div className="text-sm text-gray-500">Baseado em itens de comandas</div>
+        </div>
+        {chartReceitasPorCategoriaProduto.length === 0 ? (
+          <div className="py-10 text-center text-gray-500">Sem receitas de produtos no período.</div>
+        ) : (
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartReceitasPorCategoriaProduto} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <XAxis dataKey="categoria" tick={{ fontSize: 12 }} interval={0} angle={-18} textAnchor="end" height={70} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(value: any) => formatarMoeda(Number(value) || 0)} labelStyle={{ fontWeight: 700 }} />
+                <Bar dataKey="total" fill="#10b981" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow p-5">
@@ -313,4 +374,3 @@ export default function DashboardFinanceiroPage() {
     </div>
   );
 }
-
