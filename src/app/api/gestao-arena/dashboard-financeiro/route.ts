@@ -449,7 +449,7 @@ export async function GET(request: NextRequest) {
         COALESCE(u.id, CONCAT('AVULSO:', COALESCE(c."telefoneAvulso", c."nomeAvulso", c.id))) as "devedorId",
         COALESCE(u.name, c."nomeAvulso", 'Cliente') as nome,
         COALESCE(u.email, '') as email,
-        COALESCE(u.telefone, u.whatsapp, c."telefoneAvulso", '') as telefone,
+        COALESCE(u.whatsapp, c."telefoneAvulso", '') as telefone,
         COUNT(*)::int as "cardsEmAberto",
         MIN(c."createdAt") as "cardMaisAntigoAt",
         COALESCE(SUM(GREATEST(c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as "saldoDevedor"
