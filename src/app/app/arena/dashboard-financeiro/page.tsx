@@ -352,6 +352,7 @@ export default function DashboardFinanceiroPage() {
                   <th className="px-4 py-3 text-left font-medium w-full">Fornecedor</th>
                   <th className="px-3 py-3 text-right font-medium">Caixa</th>
                   <th className="px-3 py-3 text-right font-medium">Banco</th>
+                  <th className="px-3 py-3 text-right font-medium">Provisionado</th>
                   <th className="px-3 py-3 text-right font-medium">Total</th>
                 </tr>
               </thead>
@@ -361,6 +362,7 @@ export default function DashboardFinanceiroPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">{r.fornecedorNome}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{formatarMoeda(r.caixa)}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{formatarMoeda(r.banco)}</td>
+                    <td className="px-3 py-3 text-right text-gray-700">{formatarMoeda(r.provisionado)}</td>
                     <td className="px-3 py-3 text-right font-bold text-gray-900">{formatarMoeda(r.total)}</td>
                   </tr>
                 ))}

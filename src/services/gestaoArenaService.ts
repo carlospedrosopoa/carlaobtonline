@@ -647,6 +647,7 @@ export type DashboardFinanceiroData = {
     total: number;
     caixa: number;
     banco: number;
+    provisionado: number;
   }>;
   receitas: { locacao: number; evento: number; produtos: number; total: number };
   receitasPorCategoriaProduto: Array<{ categoria: string; total: number }>;
