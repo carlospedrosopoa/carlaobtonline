@@ -599,7 +599,19 @@ export const contaPagarService = {
     return res.data;
   },
 
-  atualizarDespesa: async (parcelaId: string, payload: { vencimento: string; valor: number; observacoes?: string }) => {
+  atualizarDespesa: async (
+    parcelaId: string,
+    payload: {
+      vencimento: string;
+      valor: number;
+      descricao?: string;
+      fornecedorId?: string;
+      tipoDespesaId?: string;
+      centroCustoId?: string;
+      codigoExterno?: string;
+      observacoes?: string;
+    }
+  ) => {
     const res = await api.put(`/gestao-arena/contas-pagar/parcelas/${parcelaId}`, payload);
     return res.data;
   },
@@ -614,6 +626,16 @@ export const contaPagarService = {
     contaBancariaId?: string;
   }) => {
     const res = await api.post('/gestao-arena/contas-pagar/liquidacoes', payload);
+    return res.data;
+  },
+
+  excluirLiquidacao: async (liquidacaoId: string) => {
+    const res = await api.delete('/gestao-arena/contas-pagar/liquidacoes', { params: { id: liquidacaoId } });
+    return res.data;
+  },
+
+  excluirDespesa: async (parcelaId: string) => {
+    const res = await api.delete(`/gestao-arena/contas-pagar/parcelas/${parcelaId}`);
     return res.data;
   },
 };

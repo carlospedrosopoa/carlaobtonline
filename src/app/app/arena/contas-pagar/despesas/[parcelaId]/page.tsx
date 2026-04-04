@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { contaPagarService, formaPagamentoService } from '@/services/gestaoArenaService';
-import type { ContaPagarDespesaResponse, FormaPagamento } from '@/types/gestaoArena';
-import { ArrowLeft, Save, Wallet } from 'lucide-react';
+import { centroCustoService, contaPagarService, fornecedorService, formaPagamentoService, tipoDespesaService } from '@/services/gestaoArenaService';
+import type { CentroCusto, ContaPagarDespesaResponse, Fornecedor, FormaPagamento, TipoDespesa } from '@/types/gestaoArena';
+import { ArrowLeft, Save, Trash2, Wallet } from 'lucide-react';
 import InputMonetario from '@/components/InputMonetario';
 
 export default function DespesaContaPagarPage() {
@@ -13,11 +13,20 @@ export default function DespesaContaPagarPage() {
   const parcelaId = params?.parcelaId;
   const [dados, setDados] = useState<ContaPagarDespesaResponse | null>(null);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [tiposDespesa, setTiposDespesa] = useState<TipoDespesa[]>([]);
+  const [centrosCusto, setCentrosCusto] = useState<CentroCusto[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [liquidando, setLiquidando] = useState(false);
   const [erro, setErro] = useState('');
   const [ok, setOk] = useState('');
+
+  const [descricao, setDescricao] = useState('');
+  const [fornecedorId, setFornecedorId] = useState('');
+  const [tipoDespesaId, setTipoDespesaId] = useState('');
+  const [centroCustoId, setCentroCustoId] = useState('');
+  const [codigoExterno, setCodigoExterno] = useState('');
 
   const [vencimento, setVencimento] = useState('');
   const [valor, setValor] = useState<number | null>(null);
@@ -40,12 +49,25 @@ export default function DespesaContaPagarPage() {
       setVencimento(response.despesa.vencimento?.slice(0, 10));
       setValor(Number(response.despesa.valor));
       setObservacoes(response.despesa.observacoes || '');
+      setDescricao(response.despesa.descricao || '');
+      setFornecedorId(response.despesa.fornecedorId || '');
+      setTipoDespesaId(response.despesa.tipoDespesaId || '');
+      setCentroCustoId(response.despesa.centroCustoId || '');
+      setCodigoExterno(response.despesa.codigoExterno || '');
 
       const saldo = Number(response.despesa.valor) - Number(response.despesa.valorLiquidado || 0);
       setValorLiquidacao(saldo > 0 ? saldo : 0);
 
-      const formas = await formaPagamentoService.listar(response.despesa.pointId, true);
+      const [formas, fornecs, tipos, centros] = await Promise.all([
+        formaPagamentoService.listar(response.despesa.pointId, true),
+        fornecedorService.listar(response.despesa.pointId, true),
+        tipoDespesaService.listar(response.despesa.pointId, true),
+        centroCustoService.listar(response.despesa.pointId, true),
+      ]);
       setFormasPagamento(formas);
+      setFornecedores(fornecs);
+      setTiposDespesa(tipos);
+      setCentrosCusto(centros);
       if (!formaPagamentoId && formas.length > 0) {
         setFormaPagamentoId(formas[0].id);
       }
@@ -79,7 +101,16 @@ export default function DespesaContaPagarPage() {
       setSalvando(true);
       setErro('');
       setOk('');
-      await contaPagarService.atualizarDespesa(parcelaId, { vencimento, valor, observacoes });
+      await contaPagarService.atualizarDespesa(parcelaId, {
+        vencimento,
+        valor,
+        descricao,
+        fornecedorId,
+        tipoDespesaId,
+        centroCustoId,
+        codigoExterno,
+        observacoes,
+      });
       setOk('Despesa atualizada com sucesso');
       await carregar();
     } catch (error: any) {
@@ -112,6 +143,35 @@ export default function DespesaContaPagarPage() {
       setErro(error?.response?.data?.mensagem || 'Erro ao liquidar parcela');
     } finally {
       setLiquidando(false);
+    }
+  };
+
+  const excluirDespesa = async () => {
+    if (!parcelaId) return;
+    const okConfirm = window.confirm('Excluir esta despesa? Não é permitido excluir se houver pagamentos.');
+    if (!okConfirm) return;
+    try {
+      setErro('');
+      setOk('');
+      await contaPagarService.excluirDespesa(parcelaId);
+      router.push('/app/arena/contas-pagar');
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao excluir despesa');
+    }
+  };
+
+  const excluirLiquidacao = async (liquidacaoId: string) => {
+    if (!liquidacaoId) return;
+    const okConfirm = window.confirm('Excluir este pagamento? Esta ação irá estornar o lançamento no caixa/conta bancária.');
+    if (!okConfirm) return;
+    try {
+      setErro('');
+      setOk('');
+      await contaPagarService.excluirLiquidacao(liquidacaoId);
+      setOk('Pagamento excluído com sucesso');
+      await carregar();
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao excluir pagamento');
     }
   };
 
@@ -160,6 +220,71 @@ export default function DespesaContaPagarPage() {
 
       <div className="bg-white rounded-lg shadow p-5 space-y-4">
         <h2 className="text-lg font-semibold text-gray-900">Dados da despesa</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Descrição</label>
+            <input
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Código externo</label>
+            <input
+              value={codigoExterno}
+              onChange={(e) => setCodigoExterno(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Fornecedor</label>
+            <select
+              value={fornecedorId}
+              onChange={(e) => setFornecedorId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1"
+            >
+              <option value="">Selecione</option>
+              {fornecedores.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Tipo de despesa</label>
+            <select
+              value={tipoDespesaId}
+              onChange={(e) => setTipoDespesaId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1"
+            >
+              <option value="">Selecione</option>
+              {tiposDespesa.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Centro de custo</label>
+            <select
+              value={centroCustoId}
+              onChange={(e) => setCentroCustoId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1"
+            >
+              <option value="">Selecione</option>
+              {centrosCusto.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label className="text-sm font-medium text-gray-700">Vencimento</label>
@@ -179,10 +304,19 @@ export default function DespesaContaPagarPage() {
           <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1" rows={3} />
         </div>
         <div className="flex justify-end">
-          <button onClick={salvarDespesa} disabled={salvando} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50">
-            <Save className="w-4 h-4" />
-            {salvando ? 'Salvando...' : 'Salvar'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={excluirDespesa}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              Excluir
+            </button>
+            <button onClick={salvarDespesa} disabled={salvando} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50">
+              <Save className="w-4 h-4" />
+              {salvando ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -235,6 +369,7 @@ export default function DespesaContaPagarPage() {
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Forma</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Valor</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Observações</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -245,11 +380,22 @@ export default function DespesaContaPagarPage() {
                 <td className="px-4 py-3 text-sm text-gray-700">{l.formaPagamentoNome || '-'}</td>
                 <td className="px-4 py-3 text-sm text-gray-900">R$ {Number(l.valor).toFixed(2).replace('.', ',')}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{l.observacoes || '-'}</td>
+                <td className="px-4 py-3 text-sm text-right">
+                  <button
+                    type="button"
+                    onClick={() => excluirLiquidacao(l.id)}
+                    disabled={!l.createdById}
+                    title={!l.createdById ? 'Pagamento não pode ser excluído por aqui' : 'Excluir pagamento'}
+                    className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-red-700 disabled:opacity-50 disabled:hover:text-slate-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
               </tr>
             ))}
             {dados.liquidacoes.length === 0 && (
               <tr>
-                <td className="px-4 py-8 text-center text-gray-500" colSpan={5}>Nenhuma liquidação registrada</td>
+                <td className="px-4 py-8 text-center text-gray-500" colSpan={6}>Nenhuma liquidação registrada</td>
               </tr>
             )}
           </tbody>
