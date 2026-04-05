@@ -219,3 +219,97 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const usuario = await getUsuarioFromRequest(request);
+    if (!usuario) {
+      return withCors(NextResponse.json({ mensagem: 'Não autenticado' }, { status: 401 }), request);
+    }
+    if (usuario.role !== 'ADMIN' && usuario.role !== 'ORGANIZER') {
+      return withCors(NextResponse.json({ mensagem: 'Sem permissão' }, { status: 403 }), request);
+    }
+
+    const { searchParams } = new URL(request.url);
+    const liquidacaoId = typeof searchParams.get('id') === 'string' ? searchParams.get('id')!.trim() : '';
+    if (!liquidacaoId) {
+      return withCors(NextResponse.json({ mensagem: 'id é obrigatório' }, { status: 400 }), request);
+    }
+
+    const result = await transaction(async (client) => {
+      const liquidacaoResult = await client.query(
+        `
+        SELECT
+          l.id, l."parcelaId", l."origemFinanceira", l."contaBancariaId", l."saidaCaixaId", l.data, l.valor,
+          l."formaPagamentoId", l."createdById", p."contaPagarId", cp."pointId"
+        FROM "ContaPagarLiquidacao" l
+        INNER JOIN "ContaPagarParcela" p ON p.id = l."parcelaId"
+        INNER JOIN "ContaPagar" cp ON cp.id = p."contaPagarId"
+        WHERE l.id = $1
+        `,
+        [liquidacaoId]
+      );
+      if (liquidacaoResult.rows.length === 0) {
+        return { ok: false as const, status: 404, mensagem: 'Liquidação não encontrada' };
+      }
+
+      const liquidacao = liquidacaoResult.rows[0];
+      if (usuario.role === 'ORGANIZER' && !usuarioTemAcessoAoPoint(usuario, liquidacao.pointId)) {
+        return { ok: false as const, status: 403, mensagem: 'Sem acesso a esta arena' };
+      }
+
+      if (!liquidacao.createdById) {
+        return { ok: false as const, status: 400, mensagem: 'Não é possível excluir: pagamento não foi registrado manualmente no Contas a Pagar' };
+      }
+
+      if (liquidacao.origemFinanceira === 'CAIXA') {
+        if (!liquidacao.saidaCaixaId) {
+          return { ok: false as const, status: 400, mensagem: 'Não é possível excluir: pagamento não é do fluxo de Contas a Pagar' };
+        }
+        await client.query(`DELETE FROM "SaidaCaixa" WHERE id = $1`, [liquidacao.saidaCaixaId]);
+      } else {
+        const mov = await client.query(
+          `SELECT id FROM "MovimentacaoContaBancaria" WHERE "liquidacaoContaPagarId" = $1 LIMIT 1`,
+          [liquidacaoId]
+        );
+        if (mov.rows.length === 0) {
+          return { ok: false as const, status: 400, mensagem: 'Não é possível excluir: pagamento não é do fluxo de Contas a Pagar' };
+        }
+        await client.query(
+          `DELETE FROM "MovimentacaoContaBancaria" WHERE "liquidacaoContaPagarId" = $1`,
+          [liquidacaoId]
+        );
+      }
+
+      await client.query(`DELETE FROM "ContaPagarLiquidacao" WHERE id = $1`, [liquidacaoId]);
+
+      const somaResult = await client.query(
+        `SELECT COALESCE(SUM(valor), 0)::numeric(14,2) AS total FROM "ContaPagarLiquidacao" WHERE "parcelaId" = $1`,
+        [liquidacao.parcelaId]
+      );
+      const totalLiquidado = Number(somaResult.rows[0]?.total ?? 0);
+
+      const parcelaResult = await client.query(`SELECT valor FROM "ContaPagarParcela" WHERE id = $1`, [liquidacao.parcelaId]);
+      const valorParcela = Number(parcelaResult.rows[0]?.valor ?? 0);
+      const statusParcela = totalLiquidado >= valorParcela ? 'LIQUIDADA' : totalLiquidado > 0 ? 'PARCIAL' : 'PENDENTE';
+
+      await client.query(
+        `UPDATE "ContaPagarParcela" SET status = $2, "updatedAt" = NOW() WHERE id = $1`,
+        [liquidacao.parcelaId, statusParcela]
+      );
+      await recalcularStatusConta(client, liquidacao.contaPagarId);
+
+      return { ok: true as const, statusParcela, totalLiquidado };
+    });
+
+    if (!result.ok) {
+      return withCors(NextResponse.json({ mensagem: result.mensagem }, { status: result.status }), request);
+    }
+    return withCors(NextResponse.json(result), request);
+  } catch (error: any) {
+    return withCors(
+      NextResponse.json({ mensagem: 'Erro ao excluir liquidação', error: error.message }, { status: 500 }),
+      request
+    );
+  }
+}

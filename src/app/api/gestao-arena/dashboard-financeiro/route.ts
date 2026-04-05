@@ -15,6 +15,19 @@ async function tableExists(tableName: string) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function columnExists(tableName: string, columnName: string) {
+  const result = await query(
+    `SELECT EXISTS (
+      SELECT FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+    ) AS exists`,
+    [tableName, columnName]
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
 function ymd(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const v = value.trim();
@@ -117,6 +130,20 @@ export async function GET(request: NextRequest) {
         (exists as any)[k] = await tableExists(k);
       })
     );
+
+    const cols = {
+      userWhatsapp: false,
+      cardPagamentoPendente: false,
+      cardNomeAvulso: false,
+      cardTelefoneAvulso: false,
+    };
+
+    await Promise.all([
+      exists.User ? columnExists('User', 'whatsapp').then((v) => (cols.userWhatsapp = v)) : Promise.resolve(),
+      exists.CardCliente ? columnExists('CardCliente', 'pagamentoPendente').then((v) => (cols.cardPagamentoPendente = v)) : Promise.resolve(),
+      exists.CardCliente ? columnExists('CardCliente', 'nomeAvulso').then((v) => (cols.cardNomeAvulso = v)) : Promise.resolve(),
+      exists.CardCliente ? columnExists('CardCliente', 'telefoneAvulso').then((v) => (cols.cardTelefoneAvulso = v)) : Promise.resolve(),
+    ]);
 
     const despesasCaixaSemFornecedorSql = `
       SELECT
@@ -424,6 +451,10 @@ export async function GET(request: NextRequest) {
       .map(([categoria, total]) => ({ categoria, total }))
       .sort((a, b) => b.total - a.total);
 
+    const pagamentoPendenteFiltroSql = cols.cardPagamentoPendente
+      ? `COALESCE(c."pagamentoPendente", false) = true OR`
+      : '';
+
     const valorItensPendentesMesAnteriorSql = `
       SELECT
         COALESCE(SUM(i."precoTotal"), 0)::numeric(14,2) as total
@@ -439,17 +470,19 @@ export async function GET(request: NextRequest) {
         AND i."createdAt"::date >= $2::date
         AND i."createdAt"::date <= $3::date
         AND (
-          COALESCE(c."pagamentoPendente", false) = true
-          OR (c.status = 'ABERTO' AND (c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2)) > 0)
+          ${pagamentoPendenteFiltroSql}
+          (c.status = 'ABERTO' AND (c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2)) > 0)
         )
     `;
 
+    const nomeAvulsoSql = cols.cardNomeAvulso ? `c."nomeAvulso"` : `NULL`;
+    const telefoneAvulsoSql = cols.cardTelefoneAvulso ? `c."telefoneAvulso"` : `NULL`;
     const devedoresSqlWithUser = `
       SELECT
-        COALESCE(u.id, CONCAT('AVULSO:', COALESCE(c."telefoneAvulso", c."nomeAvulso", c.id))) as "devedorId",
-        COALESCE(u.name, c."nomeAvulso", 'Cliente') as nome,
+        COALESCE(u.id, CONCAT('AVULSO:', COALESCE(${telefoneAvulsoSql}, ${nomeAvulsoSql}, c.id))) as "devedorId",
+        COALESCE(u.name, ${nomeAvulsoSql}, 'Cliente') as nome,
         COALESCE(u.email, '') as email,
-        COALESCE(u.whatsapp, c."telefoneAvulso", '') as telefone,
+        COALESCE(${telefoneAvulsoSql}, '') as telefone,
         COUNT(*)::int as "cardsEmAberto",
         MIN(c."createdAt") as "cardMaisAntigoAt",
         COALESCE(SUM(GREATEST(c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as "saldoDevedor"
@@ -471,10 +504,10 @@ export async function GET(request: NextRequest) {
 
     const devedoresSqlSemUser = `
       SELECT
-        CONCAT('AVULSO:', COALESCE(c."telefoneAvulso", c."nomeAvulso", c.id)) as "devedorId",
-        COALESCE(c."nomeAvulso", 'Cliente') as nome,
+        CONCAT('AVULSO:', COALESCE(${telefoneAvulsoSql}, ${nomeAvulsoSql}, c.id)) as "devedorId",
+        COALESCE(${nomeAvulsoSql}, 'Cliente') as nome,
         '' as email,
-        COALESCE(c."telefoneAvulso", '') as telefone,
+        COALESCE(${telefoneAvulsoSql}, '') as telefone,
         COUNT(*)::int as "cardsEmAberto",
         MIN(c."createdAt") as "cardMaisAntigoAt",
         COALESCE(SUM(GREATEST(c."valorTotal"::numeric(14,2) - COALESCE(pg.total_pago, 0)::numeric(14,2), 0)), 0)::numeric(14,2) as "saldoDevedor"

@@ -670,6 +670,11 @@ export interface ContaPagarDespesaDetalhe {
   pointId: string;
   fornecedorId?: string | null;
   fornecedorNome?: string | null;
+  tipoDespesaId?: string | null;
+  tipoDespesaNome?: string | null;
+  centroCustoId?: string | null;
+  centroCustoNome?: string | null;
+  codigoExterno?: string | null;
   descricao: string;
   statusConta: StatusContaPagar;
   statusParcela: StatusContaPagarParcela;
@@ -678,6 +683,7 @@ export interface ContaPagarDespesaDetalhe {
   vencimento: string;
   valor: string;
   observacoes?: string | null;
+  observacoesParcela?: string | null;
   valorLiquidado: string;
 }
 
@@ -687,6 +693,7 @@ export interface ContaPagarLiquidacao {
   valor: string;
   observacoes?: string | null;
   createdAt: string;
+  createdById?: string | null;
   formaPagamentoId?: string | null;
   formaPagamentoNome?: string | null;
   origemFinanceira?: 'CAIXA' | 'CONTA_BANCARIA';
