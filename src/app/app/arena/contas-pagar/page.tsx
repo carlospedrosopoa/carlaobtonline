@@ -18,6 +18,18 @@ function somarDias(base: string, dias: number) {
   return `${y}-${m}-${dd}`;
 }
 
+function formatarDataPtBr(value: string) {
+  const v = String(value || '');
+  const ymd = v.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const [y, m, d] = ymd.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  const dt = new Date(v);
+  if (!Number.isNaN(dt.getTime())) return dt.toLocaleDateString('pt-BR');
+  return v;
+}
+
 function statusColor(status: string) {
   if (status === 'LIQUIDADA') return 'bg-green-100 text-green-700';
   if (status === 'PARCIAL') return 'bg-amber-100 text-amber-700';
@@ -279,7 +291,7 @@ export default function ContasPagarPage() {
           <tbody>
             {itens.map((item) => (
               <tr key={item.parcelaId} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm text-gray-700">{new Date(item.vencimento).toLocaleDateString('pt-BR')}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{formatarDataPtBr(item.vencimento)}</td>
                 <td className="px-4 py-3 text-sm text-gray-900">{item.descricao}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{item.fornecedorNome || '-'}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{item.numero}/{item.totalParcelas}</td>

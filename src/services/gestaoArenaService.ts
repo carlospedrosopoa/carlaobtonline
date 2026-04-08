@@ -544,7 +544,7 @@ export const contaBancariaService = {
 
   criarMovimentacao: async (
     id: string,
-    payload: { tipo: 'ENTRADA' | 'SAIDA'; valor: number; data: string; descricao: string; observacoes?: string }
+    payload: { tipo: 'ENTRADA' | 'SAIDA'; valor: number; data: string; descricao: string; observacoes?: string; fornecedorId?: string }
   ): Promise<MovimentacaoContaBancaria> => {
     const res = await api.post(`/gestao-arena/conta-bancaria/${id}/movimentacao`, payload);
     return res.data;

@@ -7,6 +7,18 @@ import type { CentroCusto, ContaPagarDespesaResponse, Fornecedor, FormaPagamento
 import { ArrowLeft, Save, Trash2, Wallet } from 'lucide-react';
 import InputMonetario from '@/components/InputMonetario';
 
+function formatarDataPtBr(value: string) {
+  const v = String(value || '');
+  const ymd = v.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const [y, m, d] = ymd.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  const dt = new Date(v);
+  if (!Number.isNaN(dt.getTime())) return dt.toLocaleDateString('pt-BR');
+  return v;
+}
+
 export default function DespesaContaPagarPage() {
   const params = useParams<{ parcelaId: string }>();
   const router = useRouter();
@@ -375,7 +387,7 @@ export default function DespesaContaPagarPage() {
           <tbody>
             {dados.liquidacoes.map((l) => (
               <tr key={l.id} className="border-b">
-                <td className="px-4 py-3 text-sm text-gray-700">{new Date(l.data).toLocaleDateString('pt-BR')}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{formatarDataPtBr(l.data)}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{l.origemFinanceira === 'CONTA_BANCARIA' ? `Conta: ${l.contaBancariaNome || '-'}` : 'Caixa'}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{l.formaPagamentoNome || '-'}</td>
                 <td className="px-4 py-3 text-sm text-gray-900">R$ {Number(l.valor).toFixed(2).replace('.', ',')}</td>
