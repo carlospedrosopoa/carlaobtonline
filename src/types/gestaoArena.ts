@@ -589,6 +589,8 @@ export interface MovimentacaoContaBancaria {
   descricao: string;
   origem: string;
   observacoes?: string | null;
+  fornecedorId?: string | null;
+  fornecedorNome?: string | null;
   createdAt: string;
   createdById?: string | null;
   liquidacaoContaPagarId?: string | null;

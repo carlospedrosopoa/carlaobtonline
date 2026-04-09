@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { contaBancariaService, transferenciaFinanceiraService } from '@/services/gestaoArenaService';
-import type { ContaBancaria, MovimentacaoContaBancaria, TransferenciaFinanceira } from '@/types/gestaoArena';
+import { contaBancariaService, fornecedorService, transferenciaFinanceiraService } from '@/services/gestaoArenaService';
+import type { ContaBancaria, Fornecedor, MovimentacaoContaBancaria, TransferenciaFinanceira } from '@/types/gestaoArena';
 import { Plus, Landmark, ArrowDownCircle, ArrowUpCircle, Edit, Trash2, ArrowRightLeft } from 'lucide-react';
 import InputMonetario from '@/components/InputMonetario';
 
@@ -16,10 +16,23 @@ const labelOrigemMovimentacao = (origem: string) => {
   return origem;
 };
 
+function formatarDataPtBr(value: string) {
+  const v = String(value || '');
+  const ymd = v.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const [y, m, d] = ymd.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  const dt = new Date(v);
+  if (!Number.isNaN(dt.getTime())) return dt.toLocaleDateString('pt-BR');
+  return v;
+}
+
 export default function ContasBancariasPage() {
   const { usuario } = useAuth();
   const [contas, setContas] = useState<ContaBancaria[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<Record<string, MovimentacaoContaBancaria[]>>({});
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [modalConta, setModalConta] = useState(false);
@@ -48,6 +61,7 @@ export default function ContasBancariasPage() {
     data: hojeStr,
     descricao: '',
     observacoes: '',
+    fornecedorId: '',
   });
 
   const [formTransferencia, setFormTransferencia] = useState({
@@ -66,10 +80,14 @@ export default function ContasBancariasPage() {
     try {
       setLoading(true);
       setErro('');
-      const data = await contaBancariaService.listar(usuario.pointIdGestor);
+      const [data, transf, forn] = await Promise.all([
+        contaBancariaService.listar(usuario.pointIdGestor),
+        transferenciaFinanceiraService.listar({ pointId: usuario.pointIdGestor }),
+        fornecedorService.listar(usuario.pointIdGestor, true),
+      ]);
       setContas(data);
-      const transf = await transferenciaFinanceiraService.listar({ pointId: usuario.pointIdGestor });
       setTransferencias(transf);
+      setFornecedores(forn);
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao carregar contas bancárias');
     } finally {
@@ -169,6 +187,7 @@ export default function ContasBancariasPage() {
       data: hojeStr,
       descricao: '',
       observacoes: '',
+      fornecedorId: '',
     });
     setModalMov(true);
     try {
@@ -184,6 +203,10 @@ export default function ContasBancariasPage() {
       setErro('Preencha os dados da movimentação');
       return;
     }
+    if (formMov.tipo === 'SAIDA' && !formMov.fornecedorId) {
+      setErro('Informe o fornecedor para a saída');
+      return;
+    }
     try {
       setSalvando(true);
       setErro('');
@@ -193,11 +216,12 @@ export default function ContasBancariasPage() {
         data: formMov.data,
         descricao: formMov.descricao.trim(),
         observacoes: formMov.observacoes.trim() || undefined,
+        fornecedorId: formMov.fornecedorId || undefined,
       });
       const data = await contaBancariaService.listarMovimentacoes(contaMov.id);
       setMovimentacoes((prev) => ({ ...prev, [contaMov.id]: data }));
       await carregar();
-      setFormMov((prev) => ({ ...prev, valor: null, descricao: '', observacoes: '' }));
+      setFormMov((prev) => ({ ...prev, valor: null, descricao: '', observacoes: '', fornecedorId: '' }));
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao lançar movimentação');
     } finally {
@@ -355,7 +379,7 @@ export default function ContasBancariasPage() {
           <tbody>
             {transferencias.map((t) => (
               <tr key={t.id} className="border-b">
-                <td className="px-4 py-3 text-sm text-gray-700">{new Date(t.data).toLocaleDateString('pt-BR')}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{formatarDataPtBr(t.data)}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{t.origemTipo === 'CAIXA' ? 'Caixa' : (t.origemContaBancariaNome || 'Conta bancária')}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{t.destinoTipo === 'CAIXA' ? 'Caixa' : (t.destinoContaBancariaNome || 'Conta bancária')}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{t.descricao}</td>
@@ -444,6 +468,21 @@ export default function ContasBancariasPage() {
                 <label className="text-sm font-medium text-gray-700">Descrição</label>
                 <input value={formMov.descricao} onChange={(e) => setFormMov((p) => ({ ...p, descricao: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1" />
               </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Fornecedor</label>
+                <select
+                  value={formMov.fornecedorId}
+                  onChange={(e) => setFormMov((p) => ({ ...p, fornecedorId: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1"
+                >
+                  <option value="">Selecione</option>
+                  {fornecedores.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="md:col-span-4">
                 <label className="text-sm font-medium text-gray-700">Observações</label>
                 <input value={formMov.observacoes} onChange={(e) => setFormMov((p) => ({ ...p, observacoes: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1" />
@@ -462,6 +501,7 @@ export default function ContasBancariasPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Data</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tipo</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Origem</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fornecedor</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Descrição</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Valor</th>
                   </tr>
@@ -469,7 +509,7 @@ export default function ContasBancariasPage() {
                 <tbody>
                   {(movimentacoes[contaMov.id] || []).map((mov) => (
                     <tr key={mov.id} className="border-b">
-                      <td className="px-4 py-3 text-sm text-gray-700">{new Date(mov.data).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{formatarDataPtBr(mov.data)}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`inline-flex items-center gap-1 ${mov.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}`}>
                           {mov.tipo === 'ENTRADA' ? <ArrowUpCircle className="w-4 h-4" /> : <ArrowDownCircle className="w-4 h-4" />}
@@ -481,6 +521,7 @@ export default function ContasBancariasPage() {
                           {labelOrigemMovimentacao(mov.origem)}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{mov.fornecedorNome || '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{mov.descricao}</td>
                       <td className={`px-4 py-3 text-sm text-right font-medium ${mov.tipo === 'ENTRADA' ? 'text-green-700' : 'text-red-700'}`}>
                         {formatarMoeda(Number(mov.valor) * (mov.tipo === 'ENTRADA' ? 1 : -1))}
@@ -489,7 +530,7 @@ export default function ContasBancariasPage() {
                   ))}
                   {(movimentacoes[contaMov.id] || []).length === 0 && (
                     <tr>
-                      <td className="px-4 py-8 text-center text-gray-500" colSpan={5}>Nenhuma movimentação encontrada</td>
+                      <td className="px-4 py-8 text-center text-gray-500" colSpan={6}>Nenhuma movimentação encontrada</td>
                     </tr>
                   )}
                 </tbody>

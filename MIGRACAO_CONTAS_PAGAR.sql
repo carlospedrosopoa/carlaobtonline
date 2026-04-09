@@ -130,6 +130,9 @@ ALTER TABLE "MovimentacaoContaBancaria"
 ALTER TABLE "MovimentacaoContaBancaria"
   ADD COLUMN IF NOT EXISTS "pagamentoCardId" TEXT;
 
+ALTER TABLE "MovimentacaoContaBancaria"
+  ADD COLUMN IF NOT EXISTS "fornecedorId" TEXT;
+
 ALTER TABLE "FormaPagamento"
   ADD COLUMN IF NOT EXISTS "origemFinanceiraPadrao" TEXT NOT NULL DEFAULT 'CAIXA';
 
@@ -163,6 +166,21 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_mov_bancaria_pagamento_card ON "MovimentacaoContaBancaria"("pagamentoCardId");
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_mov_bancaria_fornecedor'
+      AND table_name = 'MovimentacaoContaBancaria'
+  ) THEN
+    ALTER TABLE "MovimentacaoContaBancaria"
+      ADD CONSTRAINT fk_mov_bancaria_fornecedor
+      FOREIGN KEY ("fornecedorId") REFERENCES "Fornecedor"(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_mov_bancaria_fornecedor ON "MovimentacaoContaBancaria"("fornecedorId");
 
 DO $$
 BEGIN
