@@ -11,6 +11,21 @@ function horaParaMinutos(hora: string): number {
   return h * 60 + m;
 }
 
+function parseYmd(value: unknown) {
+  if (typeof value !== 'string') return null;
+  const ymd = value.trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
+  return null;
+}
+
+function ymdToIsoInicio(ymd: string) {
+  return `${ymd}T00:00:00.000Z`;
+}
+
+function ymdToIsoFim(ymd: string) {
+  return `${ymd}T23:59:59.999Z`;
+}
+
 // GET /api/bloqueio-agenda - Listar bloqueios com filtros
 export async function GET(request: NextRequest) {
   try {
@@ -56,18 +71,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (dataInicio) {
-      // dataInicio vem como ISO string UTC (ex: "2024-01-15T00:00:00.000Z")
-      // Usar diretamente como UTC para comparação no banco
+      const ymd = parseYmd(dataInicio);
+      const iso = ymd ? ymdToIsoInicio(ymd) : dataInicio;
       sql += ` AND b."dataFim" >= $${paramCount}`;
-      params.push(dataInicio);
+      params.push(iso);
       paramCount++;
     }
 
     if (dataFim) {
-      // dataFim vem como ISO string UTC (ex: "2024-01-15T23:59:59.999Z")
-      // Usar diretamente como UTC para comparação no banco
+      const ymd = parseYmd(dataFim);
+      const iso = ymd ? ymdToIsoFim(ymd) : dataFim;
       sql += ` AND b."dataInicio" <= $${paramCount}`;
-      params.push(dataFim);
+      params.push(iso);
       paramCount++;
     }
 
@@ -170,9 +185,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Converter datas para timestamp
-    const dataInicio = new Date(body.dataInicio);
-    const dataFim = new Date(body.dataFim);
+    const ymdInicio = parseYmd(body.dataInicio);
+    const ymdFim = parseYmd(body.dataFim);
+    if (!ymdInicio || !ymdFim) {
+      const errorResponse = NextResponse.json({ mensagem: 'dataInicio/dataFim inválidas (use YYYY-MM-DD)' }, { status: 400 });
+      return withCors(errorResponse, request);
+    }
+
+    // Converter datas para período completo (dia inteiro)
+    const dataInicio = new Date(ymdToIsoInicio(ymdInicio));
+    const dataFim = new Date(ymdToIsoFim(ymdFim));
 
     // Validar que dataInicio <= dataFim
     if (dataInicio > dataFim) {

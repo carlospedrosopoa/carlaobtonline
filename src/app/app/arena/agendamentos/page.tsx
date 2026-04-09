@@ -1069,13 +1069,21 @@ export default function ArenaAgendamentosPage() {
           </h2>
           <div className="space-y-3">
             {bloqueios.map((bloqueio) => {
-              const dataInicio = new Date(bloqueio.dataInicio);
-              const dataFim = new Date(bloqueio.dataFim);
+              const ymdInicio = String(bloqueio.dataInicio || '').slice(0, 10);
+              const ymdFim = String(bloqueio.dataFim || '').slice(0, 10);
+
+              const formatar = (ymd: string) => {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+                  const [y, m, d] = ymd.split('-');
+                  return `${d}/${m}/${y}`;
+                }
+                return ymd;
+              };
               
               // Formatar período
-              const periodoTexto = dataInicio.toDateString() === dataFim.toDateString()
-                ? dataInicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                : `${dataInicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${dataFim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+              const periodoTexto = ymdInicio === ymdFim
+                ? formatar(ymdInicio)
+                : `${formatar(ymdInicio).slice(0, 5)} a ${formatar(ymdFim)}`;
 
               // Formatar horário
               let horarioTexto = '';

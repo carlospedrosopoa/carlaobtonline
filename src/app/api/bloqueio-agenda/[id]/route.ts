@@ -11,6 +11,21 @@ function horaParaMinutos(hora: string): number {
   return h * 60 + m;
 }
 
+function parseYmd(value: unknown) {
+  if (typeof value !== 'string') return null;
+  const ymd = value.trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
+  return null;
+}
+
+function ymdToIsoInicio(ymd: string) {
+  return `${ymd}T00:00:00.000Z`;
+}
+
+function ymdToIsoFim(ymd: string) {
+  return `${ymd}T23:59:59.999Z`;
+}
+
 // GET /api/bloqueio-agenda/[id] - Obter bloqueio específico
 export async function GET(
   request: NextRequest,
@@ -167,13 +182,15 @@ export async function PUT(
 
     if (body.dataInicio !== undefined) {
       updates.push(`"dataInicio" = $${paramCount}`);
-      params.push(new Date(body.dataInicio).toISOString());
+      const ymd = parseYmd(body.dataInicio);
+      params.push(new Date(ymd ? ymdToIsoInicio(ymd) : body.dataInicio).toISOString());
       paramCount++;
     }
 
     if (body.dataFim !== undefined) {
       updates.push(`"dataFim" = $${paramCount}`);
-      params.push(new Date(body.dataFim).toISOString());
+      const ymd = parseYmd(body.dataFim);
+      params.push(new Date(ymd ? ymdToIsoFim(ymd) : body.dataFim).toISOString());
       paramCount++;
     }
 

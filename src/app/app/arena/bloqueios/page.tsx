@@ -21,6 +21,22 @@ function horaParaMinutos(hora: string): number {
   return h * 60 + m;
 }
 
+function ymdFromValue(value: string) {
+  const v = String(value || '');
+  const ymd = v.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
+  return '';
+}
+
+function formatarDataPtBr(value: string) {
+  const ymd = ymdFromValue(value);
+  if (ymd) {
+    const [y, m, d] = ymd.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  return value;
+}
+
 export default function ArenaBloqueiosPage() {
   const { usuario } = useAuth();
   const [bloqueios, setBloqueios] = useState<BloqueioAgenda[]>([]);
@@ -67,8 +83,8 @@ export default function ArenaBloqueiosPage() {
   const abrirModal = (bloqueio?: BloqueioAgenda) => {
     if (bloqueio) {
       setBloqueioEditando(bloqueio);
-      const dataInicio = new Date(bloqueio.dataInicio).toISOString().split('T')[0];
-      const dataFim = new Date(bloqueio.dataFim).toISOString().split('T')[0];
+      const dataInicio = ymdFromValue(bloqueio.dataInicio);
+      const dataFim = ymdFromValue(bloqueio.dataFim);
       const temHorario = bloqueio.horaInicio !== null && bloqueio.horaFim !== null;
       
       setForm({
@@ -125,7 +141,7 @@ export default function ArenaBloqueiosPage() {
       return;
     }
 
-    if (new Date(form.dataInicio) > new Date(form.dataFim)) {
+    if (form.dataInicio > form.dataFim) {
       setErro('Data de início deve ser anterior ou igual à data de fim');
       return;
     }
@@ -195,13 +211,9 @@ export default function ArenaBloqueiosPage() {
     }
   };
 
-  const formatarData = (data: string) => {
-    return new Date(data).toLocaleDateString('pt-BR');
-  };
-
   const formatarPeriodo = (bloqueio: BloqueioAgenda) => {
-    const dataInicio = formatarData(bloqueio.dataInicio);
-    const dataFim = formatarData(bloqueio.dataFim);
+    const dataInicio = formatarDataPtBr(bloqueio.dataInicio);
+    const dataFim = formatarDataPtBr(bloqueio.dataFim);
     
     if (dataInicio === dataFim) {
       if (bloqueio.horaInicio !== null && bloqueio.horaInicio !== undefined && bloqueio.horaFim !== null && bloqueio.horaFim !== undefined) {
