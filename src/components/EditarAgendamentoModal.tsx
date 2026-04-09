@@ -721,25 +721,10 @@ export default function EditarAgendamentoModal({
     const minutosFim = minutosInicio + duracao;
 
     for (const bloqueio of bloqueiosExistentes) {
-      const dataInicioBloqueio = new Date(bloqueio.dataInicio);
-      const dataFimBloqueio = new Date(bloqueio.dataFim);
-      
-      // Verificar se o dia está dentro do período do bloqueio
-      const anoDia = dataHoraSelecionada.getFullYear();
-      const mesDia = dataHoraSelecionada.getMonth();
-      const diaDia = dataHoraSelecionada.getDate();
-      
-      const anoInicio = dataInicioBloqueio.getFullYear();
-      const mesInicio = dataInicioBloqueio.getMonth();
-      const diaInicio = dataInicioBloqueio.getDate();
-      
-      const anoFim = dataFimBloqueio.getFullYear();
-      const mesFim = dataFimBloqueio.getMonth();
-      const diaFim = dataFimBloqueio.getDate();
-      
-      const diaEstaNoPeriodo = 
-        (anoDia > anoInicio || (anoDia === anoInicio && mesDia > mesInicio) || (anoDia === anoInicio && mesDia === mesInicio && diaDia >= diaInicio)) &&
-        (anoDia < anoFim || (anoDia === anoFim && mesDia < mesFim) || (anoDia === anoFim && mesDia === mesFim && diaDia <= diaFim));
+      const diaYmd = `${dataHoraSelecionada.getFullYear()}-${String(dataHoraSelecionada.getMonth() + 1).padStart(2, '0')}-${String(dataHoraSelecionada.getDate()).padStart(2, '0')}`;
+      const inicioYmd = String(bloqueio.dataInicio || '').slice(0, 10);
+      const fimYmd = String(bloqueio.dataFim || '').slice(0, 10);
+      const diaEstaNoPeriodo = diaYmd >= inicioYmd && diaYmd <= fimYmd;
 
       if (!diaEstaNoPeriodo) continue;
 

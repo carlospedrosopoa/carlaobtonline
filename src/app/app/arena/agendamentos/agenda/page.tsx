@@ -365,6 +365,19 @@ export default function ArenaAgendaSemanalPage() {
     return Math.max(1, Math.ceil(duracaoMinutos / 30));
   };
 
+  const ymdFromLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const ymdFromValue = (value: string) => {
+    const v = String(value || '');
+    const ymd = v.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : '';
+  };
+
   // Verificar se um horário está bloqueado para uma quadra específica
   const estaBloqueado = (dia: Date, hora: number, minuto: number, quadraId: string) => {
     const minutosSlot = hora * 60 + minuto;
@@ -372,25 +385,12 @@ export default function ArenaAgendaSemanalPage() {
     return bloqueios.some((bloqueio) => {
       if (!bloqueio.ativo) return false;
 
-      const dataInicio = new Date(bloqueio.dataInicio);
-      const dataFim = new Date(bloqueio.dataFim);
-      
-      // Verificar se o dia está dentro do período do bloqueio
-      const anoDia = dia.getFullYear();
-      const mesDia = dia.getMonth();
-      const diaDia = dia.getDate();
-      
-      const anoInicio = dataInicio.getFullYear();
-      const mesInicio = dataInicio.getMonth();
-      const diaInicio = dataInicio.getDate();
-      
-      const anoFim = dataFim.getFullYear();
-      const mesFim = dataFim.getMonth();
-      const diaFim = dataFim.getDate();
-      
-      const diaEstaNoPeriodo = 
-        (anoDia > anoInicio || (anoDia === anoInicio && mesDia > mesInicio) || (anoDia === anoInicio && mesDia === mesInicio && diaDia >= diaInicio)) &&
-        (anoDia < anoFim || (anoDia === anoFim && mesDia < mesFim) || (anoDia === anoFim && mesDia === mesFim && diaDia <= diaFim));
+      const diaYmd = ymdFromLocalDate(dia);
+      const inicioYmd = ymdFromValue(bloqueio.dataInicio);
+      const fimYmd = ymdFromValue(bloqueio.dataFim);
+      if (!diaYmd || !inicioYmd || !fimYmd) return false;
+
+      const diaEstaNoPeriodo = diaYmd >= inicioYmd && diaYmd <= fimYmd;
 
       if (!diaEstaNoPeriodo) return false;
 
@@ -421,24 +421,12 @@ export default function ArenaAgendaSemanalPage() {
     return bloqueios.filter((bloqueio) => {
       if (!bloqueio.ativo) return false;
 
-      const dataInicio = new Date(bloqueio.dataInicio);
-      const dataFim = new Date(bloqueio.dataFim);
-      
-      const anoDia = dia.getFullYear();
-      const mesDia = dia.getMonth();
-      const diaDia = dia.getDate();
-      
-      const anoInicio = dataInicio.getFullYear();
-      const mesInicio = dataInicio.getMonth();
-      const diaInicio = dataInicio.getDate();
-      
-      const anoFim = dataFim.getFullYear();
-      const mesFim = dataFim.getMonth();
-      const diaFim = dataFim.getDate();
-      
-      const diaEstaNoPeriodo = 
-        (anoDia > anoInicio || (anoDia === anoInicio && mesDia > mesInicio) || (anoDia === anoInicio && mesDia === mesInicio && diaDia >= diaInicio)) &&
-        (anoDia < anoFim || (anoDia === anoFim && mesDia < mesFim) || (anoDia === anoFim && mesDia === mesFim && diaDia <= diaFim));
+      const diaYmd = ymdFromLocalDate(dia);
+      const inicioYmd = ymdFromValue(bloqueio.dataInicio);
+      const fimYmd = ymdFromValue(bloqueio.dataFim);
+      if (!diaYmd || !inicioYmd || !fimYmd) return false;
+
+      const diaEstaNoPeriodo = diaYmd >= inicioYmd && diaYmd <= fimYmd;
 
       if (!diaEstaNoPeriodo) return false;
 
