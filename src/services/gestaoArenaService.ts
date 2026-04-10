@@ -112,12 +112,19 @@ export type {
 
 // ========== CARDS DE CLIENTES ==========
 export const cardClienteService = {
-  listar: async (pointId?: string, status?: string, incluirItens?: boolean, incluirPagamentos?: boolean): Promise<CardCliente[]> => {
+  listar: async (
+    pointId?: string,
+    status?: string,
+    incluirItens?: boolean,
+    incluirPagamentos?: boolean,
+    opts?: { favoritos?: boolean }
+  ): Promise<CardCliente[]> => {
     const params = new URLSearchParams();
     if (pointId) params.append('pointId', pointId);
     if (status) params.append('status', status);
     if (incluirItens) params.append('incluirItens', 'true');
     if (incluirPagamentos) params.append('incluirPagamentos', 'true');
+    if (opts?.favoritos) params.append('favoritos', 'true');
     const query = params.toString();
     const res = await api.get(`/gestao-arena/card-cliente${query ? `?${query}` : ''}`);
     return res.data;
@@ -164,6 +171,11 @@ export const cardClienteService = {
 
   marcarPendenciaPagamento: async (cardId: string, pendente: boolean = true): Promise<Pick<CardCliente, 'id' | 'pagamentoPendente' | 'pagamentoPendenteAt' | 'pagamentoPendenteById' | 'pagamentoPendenteBy'>> => {
     const res = await api.put(`/gestao-arena/card-cliente/${cardId}/pendencia`, { pendente });
+    return res.data;
+  },
+
+  definirFavorito: async (cardId: string, favorito: boolean): Promise<{ id: string; favorito: boolean }> => {
+    const res = await api.put(`/gestao-arena/card-cliente/${cardId}/favorito`, { favorito });
     return res.data;
   },
 

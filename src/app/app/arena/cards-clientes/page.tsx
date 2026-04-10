@@ -12,7 +12,7 @@ import VendaRapidaModal from '@/components/VendaRapidaModal';
 import ModalGerenciarItensCard from '@/components/ModalGerenciarItensCard';
 import ModalGerenciarPagamentosCard from '@/components/ModalGerenciarPagamentosCard';
 import ModalUnificarComanda from '@/components/ModalUnificarComanda';
-import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt, Merge, ArrowUpDown, ArrowUp, ArrowDown, QrCode } from 'lucide-react';
+import { Search, CreditCard, User, Calendar, Clock, CheckCircle, XCircle, Zap, FileText, MessageCircle, ShoppingCart, DollarSign, RotateCw, LayoutGrid, List, Bolt, Merge, ArrowUpDown, ArrowUp, ArrowDown, QrCode, Star } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { pointService } from '@/services/agendamentoService';
 import { formaPagamentoService, pagamentoCardService } from '@/services/gestaoArenaService';
@@ -22,10 +22,13 @@ import { gerarPixCopiaECola, gerarPixQrCodeUrl } from '@/lib/pix';
 
 export default function CardsClientesPage() {
   const { usuario } = useAuth();
+  const obterHojeSP = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
   const [cards, setCards] = useState<CardCliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<StatusCard | ''>('ABERTO'); // Iniciar com apenas cards abertos
   const [busca, setBusca] = useState('');
+  const [apenasFavoritos, setApenasFavoritos] = useState(false);
+  const [filtroDataUltimoMovimento, setFiltroDataUltimoMovimento] = useState(() => obterHojeSP());
   const [cardSelecionado, setCardSelecionado] = useState<CardCliente | null>(null);
   const [modalDetalhesAberto, setModalDetalhesAberto] = useState(false);
   const [modalCriarEditarAberto, setModalCriarEditarAberto] = useState(false);
@@ -54,6 +57,7 @@ export default function CardsClientesPage() {
   const [processandoPendencia, setProcessandoPendencia] = useState<Record<string, boolean>>({});
   const [pixChaveArena, setPixChaveArena] = useState<string | null>(null);
   const QRCODE_PIX_OPTION = '__QRCODE_PIX__';
+  const hojeSP = obterHojeSP();
   
   // Carregar preferência de visualização do localStorage
   const [visualizacao, setVisualizacao] = useState<'lista' | 'cards'>(() => {
@@ -87,6 +91,12 @@ export default function CardsClientesPage() {
       carregarCards();
     }
   }, [filtroStatus]);
+
+  useEffect(() => {
+    if (usuario?.pointIdGestor) {
+      carregarCards();
+    }
+  }, [apenasFavoritos]);
   
   const carregarFormasPagamento = async () => {
     if (!usuario?.pointIdGestor) return;
@@ -129,14 +139,16 @@ export default function CardsClientesPage() {
       
       console.log('[carregarCards] Carregando cards (resumido):', {
         pointId: usuario.pointIdGestor,
-        status: filtroStatus || undefined
+        status: filtroStatus || undefined,
+        favoritos: apenasFavoritos,
       });
       
       const data = await cardClienteService.listar(
         usuario.pointIdGestor,
         filtroStatus || undefined,
         incluirItens,
-        incluirPagamentos
+        incluirPagamentos,
+        { favoritos: apenasFavoritos }
       );
       
       console.log('[carregarCards] Cards recebidos:', Array.isArray(data) ? data.length : 'não é array', data);
@@ -146,6 +158,16 @@ export default function CardsClientesPage() {
       setCards([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const alterarFavorito = async (card: CardCliente, favorito: boolean) => {
+    try {
+      await cardClienteService.definirFavorito(card.id, favorito);
+      setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, favorito } : c)));
+    } catch (error) {
+      console.error('Erro ao alterar favorito:', error);
+      alert('Não foi possível atualizar o favorito.');
     }
   };
 
@@ -173,13 +195,20 @@ export default function CardsClientesPage() {
     // 1. Filtrar
     const listaFiltrada = cards.filter((card) => {
       const termo = busca.toLowerCase();
+      const dataMovimento = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+        new Date(card.updatedAt || card.createdAt)
+      );
       return (
-        busca === '' || 
-        card.numeroCard.toString().includes(busca) ||
-        card.usuario?.name?.toLowerCase().includes(termo) ||
-        card.usuario?.email?.toLowerCase().includes(termo) ||
-        card.nomeAvulso?.toLowerCase().includes(termo) ||
-        card.telefoneAvulso?.includes(busca)
+        (!apenasFavoritos || !!card.favorito) &&
+        (!filtroDataUltimoMovimento || dataMovimento === filtroDataUltimoMovimento) &&
+        (
+          busca === '' || 
+          card.numeroCard.toString().includes(busca) ||
+          card.usuario?.name?.toLowerCase().includes(termo) ||
+          card.usuario?.email?.toLowerCase().includes(termo) ||
+          card.nomeAvulso?.toLowerCase().includes(termo) ||
+          card.telefoneAvulso?.includes(busca)
+        )
       );
     });
 
@@ -232,7 +261,7 @@ export default function CardsClientesPage() {
       if (valorA > valorB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [cards, busca, sortField, sortOrder]);
+  }, [cards, busca, sortField, sortOrder, apenasFavoritos, filtroDataUltimoMovimento]);
 
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -608,7 +637,7 @@ export default function CardsClientesPage() {
 
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-4 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
+        <div className="w-full sm:w-72 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
@@ -617,6 +646,42 @@ export default function CardsClientesPage() {
             onChange={(e) => setBusca(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
+        </div>
+        <div className="w-full sm:w-80 flex items-center gap-2">
+          <div className="flex-1 relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="date"
+              value={filtroDataUltimoMovimento || ''}
+              onChange={(e) => setFiltroDataUltimoMovimento(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              title="Data do último movimento"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltroDataUltimoMovimento('')}
+            className={`px-3 py-2 border rounded-lg transition-colors ${
+              !filtroDataUltimoMovimento
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+            title="Não filtrar por data"
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroDataUltimoMovimento(obterHojeSP())}
+            className={`px-3 py-2 border rounded-lg transition-colors ${
+              filtroDataUltimoMovimento === hojeSP
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+            title="Filtrar pelo dia de hoje"
+          >
+            Hoje
+          </button>
         </div>
         <select
           value={filtroStatus}
@@ -628,6 +693,19 @@ export default function CardsClientesPage() {
           <option value="FECHADO">Fechado</option>
           <option value="CANCELADO">Cancelado</option>
         </select>
+        <button
+          type="button"
+          onClick={() => setApenasFavoritos((v) => !v)}
+          className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
+            apenasFavoritos
+              ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Filtrar por favoritos"
+        >
+          <Star className="w-5 h-5" fill={apenasFavoritos ? 'currentColor' : 'none'} />
+          Favoritos
+        </button>
         {/* Botões de alternância de visualização */}
         <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-1 bg-gray-50">
           <button
@@ -737,6 +815,19 @@ export default function CardsClientesPage() {
                 >
                   <td className="px-4 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          alterarFavorito(card, !card.favorito);
+                        }}
+                        className={`p-1 rounded hover:bg-yellow-50 ${
+                          card.favorito ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-500'
+                        }`}
+                        title={card.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                      >
+                        <Star className="w-4 h-4" fill={card.favorito ? 'currentColor' : 'none'} />
+                      </button>
                       <CreditCard className="w-5 h-5 text-emerald-600" />
                       <span className="font-bold text-gray-900">#{card.numeroCard}</span>
                     </div>
@@ -884,6 +975,19 @@ export default function CardsClientesPage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      alterarFavorito(card, !card.favorito);
+                    }}
+                    className={`p-1 rounded hover:bg-yellow-50 ${
+                      card.favorito ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-500'
+                    }`}
+                    title={card.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                  >
+                    <Star className="w-4 h-4" fill={card.favorito ? 'currentColor' : 'none'} />
+                  </button>
                   <CreditCard className="w-5 h-5 text-emerald-600" />
                   <span className="font-bold text-gray-900">#{card.numeroCard}</span>
                 </div>
