@@ -10,6 +10,7 @@ export interface CardCliente {
   pointId: string;
   numeroCard: number;
   status: StatusCard;
+  favorito?: boolean;
   observacoes?: string | null;
   valorTotal: number;
   totalPago?: number; // Total já pago (calculado)

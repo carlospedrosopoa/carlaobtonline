@@ -31,12 +31,14 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') as StatusCard | null;
     const incluirItens = searchParams.get('incluirItens') === 'true';
     const incluirPagamentos = searchParams.get('incluirPagamentos') === 'true';
+    const apenasFavoritos = searchParams.get('favoritos') === 'true';
 
     // Query base - usar NULL para whatsapp pois a coluna não existe na tabela User
     let sql = `SELECT 
       c.id, c."pointId", c."numeroCard", c.status, c.observacoes, c."valorTotal",
       c."usuarioId", c."nomeAvulso", c."telefoneAvulso", c."createdAt", c."updatedAt", c."createdById", c."updatedById",
       c."pagamentoPendente", c."pagamentoPendenteAt", c."pagamentoPendenteById",
+      CASE WHEN fav.id IS NULL THEN FALSE ELSE TRUE END as favorito,
       u.id as "usuario_id", u.name as "usuario_name", u.email as "usuario_email", 
       NULL as "usuario_whatsapp",
       COALESCE(at.fone, ar.fone) as "atleta_fone",
@@ -46,6 +48,7 @@ export async function GET(request: NextRequest) {
       pu.id as "pendenteBy_user_id", pu.name as "pendenteBy_user_name", pu.email as "pendenteBy_user_email",
       COALESCE(pag_agg.total_pago, 0) as "totalPago"
     FROM "CardCliente" c
+    LEFT JOIN "CardClienteFavorito" fav ON fav."cardId" = c.id
     LEFT JOIN "User" u ON c."usuarioId" = u.id
     LEFT JOIN "Atleta" at ON u.id = at."usuarioId"
     LEFT JOIN LATERAL (
@@ -107,6 +110,10 @@ export async function GET(request: NextRequest) {
       paramCount++;
     }
 
+    if (apenasFavoritos) {
+      sql += ` AND fav.id IS NOT NULL`;
+    }
+
     sql += ` ORDER BY COALESCE(c."updatedAt", c."createdAt") DESC, c."createdAt" DESC`;
 
     console.log('[GET /api/gestao-arena/card-cliente] SQL:', sql);
@@ -122,6 +129,7 @@ export async function GET(request: NextRequest) {
         pointId: row.pointId,
         numeroCard: row.numeroCard,
         status: row.status,
+        favorito: row.favorito ?? false,
         observacoes: row.observacoes,
         valorTotal: parseFloat(row.valorTotal),
         totalPago: parseFloat(row.totalPago),
