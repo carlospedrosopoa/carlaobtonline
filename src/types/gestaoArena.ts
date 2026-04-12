@@ -155,6 +155,21 @@ export interface AtualizarProdutoPayload {
   barcode?: string;
 }
 
+export interface HistoricoVendaProdutoItem {
+  itemId: string;
+  cardId: string;
+  numeroCard: number;
+  cliente: string;
+  dataVenda: string;
+  quantidade: number;
+  valorItem: number;
+  valorTotalComanda: number;
+  valorPagoComanda: number;
+  saldoComanda: number;
+  valorPagoItem: number;
+  saldoItem: number;
+}
+
 // ============================================
 // ITEM DO CARD
 // ============================================

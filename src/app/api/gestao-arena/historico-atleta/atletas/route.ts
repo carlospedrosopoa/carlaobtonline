@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get('q') || '').trim();
     const pointIdParam = searchParams.get('pointId');
+    const todos = searchParams.get('todos') === 'true';
 
     let pointId: string | null = null;
     if (usuario.role === 'ORGANIZER') {
@@ -38,17 +39,63 @@ export async function GET(request: NextRequest) {
       return withCors(NextResponse.json({ mensagem: 'Sem acesso ao point' }, { status: 403 }), request);
     }
 
-    const qLower = q.toLowerCase();
+    const qLower = q
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
     const qDigits = q.replace(/\D/g, '');
     const hasDigits = qDigits.length >= 2;
 
-    const baseWhere = `WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" IS NOT NULL)`;
+    const translateFrom = 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ';
+    const translateTo = 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN';
+
     const filtroBusca = q
       ? ` AND (
-        LOWER(a.nome) LIKE $2 OR
+        LOWER(TRANSLATE(a.nome, '${translateFrom}', '${translateTo}')) LIKE $2 OR
         LOWER(u.email) LIKE $2${hasDigits ? " OR REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') LIKE $3" : ''}
       )`
       : '';
+
+    if (todos) {
+      const filtroBuscaTodos = q
+        ? ` AND (
+          LOWER(TRANSLATE(a.nome, '${translateFrom}', '${translateTo}')) LIKE $1 OR
+          LOWER(u.email) LIKE $1${hasDigits ? " OR REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') LIKE $2" : ''}
+        )`
+        : '';
+
+      const sqlTodos = `SELECT
+        a.id, a.nome, a.fone, a."usuarioId",
+        u.name as "usuarioName", u.email as "usuarioEmail"
+      FROM "Atleta" a
+      LEFT JOIN "User" u ON u.id = a."usuarioId"
+      WHERE 1=1
+      ${filtroBuscaTodos}
+      ORDER BY a.nome ASC
+      LIMIT 30`;
+
+      const paramsTodos = q ? [`%${qLower}%`, ...(hasDigits ? [`%${qDigits}%`] : [])] : [];
+      const resultTodos = await query(sqlTodos, paramsTodos);
+
+      const atletas = resultTodos.rows.map((row: any) => ({
+        id: row.id,
+        nome: row.nome,
+        fone: row.fone || null,
+        usuarioId: row.usuarioId || null,
+        usuario: row.usuarioId
+          ? {
+              id: row.usuarioId,
+              name: row.usuarioName || null,
+              email: row.usuarioEmail || null,
+            }
+          : null,
+      }));
+
+      return withCors(NextResponse.json(atletas), request);
+    }
+
+    const baseWhere = `WHERE (a."pointIdPrincipal" = $1 OR ap."pointId" IS NOT NULL)`;
 
     const sqlComAtletaPoint = `SELECT
       a.id, a.nome, a.fone, a."usuarioId",
@@ -70,7 +117,7 @@ export async function GET(request: NextRequest) {
     ${
       q
         ? ` AND (
-      LOWER(a.nome) LIKE $2 OR
+      LOWER(TRANSLATE(a.nome, '${translateFrom}', '${translateTo}')) LIKE $2 OR
       LOWER(u.email) LIKE $2${hasDigits ? " OR REGEXP_REPLACE(a.fone, '[^0-9]', '', 'g') LIKE $3" : ''}
     )`
         : ''
