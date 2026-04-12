@@ -67,7 +67,7 @@ export default function LancamentoLotePage() {
     if (!usuario?.pointIdGestor || !buscaAtleta) return;
     try {
       setBuscandoAtletas(true);
-      const resultados = await historicoAtletaArenaService.buscarAtletas(usuario.pointIdGestor, buscaAtleta);
+      const resultados = await historicoAtletaArenaService.buscarAtletas(usuario.pointIdGestor, buscaAtleta, { todos: true });
       // Filtrar atletas já selecionados
       const disponiveis = resultados.filter(a => !atletasSelecionados.some(s => s.id === a.id));
       setAtletasEncontrados(disponiveis);

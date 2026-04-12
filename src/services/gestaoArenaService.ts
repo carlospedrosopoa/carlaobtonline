@@ -47,6 +47,7 @@ import type {
   MovimentacaoContaBancaria,
   TransferenciaFinanceira,
   CriarTransferenciaFinanceiraPayload,
+  HistoricoVendaProdutoItem,
   HistoricoAtletaResumo,
   HistoricoAtletaConsumoItem,
   HistoricoAtletaPagamento,
@@ -287,6 +288,20 @@ export const produtoService = {
 
   deletar: async (id: string): Promise<void> => {
     await api.delete(`/gestao-arena/produto/${id}`);
+  },
+
+  historicoVendas: async (
+    produtoId: string,
+    pointId: string,
+    dataInicio?: string,
+    dataFim?: string
+  ): Promise<HistoricoVendaProdutoItem[]> => {
+    const params = new URLSearchParams();
+    params.append('pointId', pointId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    const res = await api.get(`/gestao-arena/produto/${produtoId}/historico-vendas?${params.toString()}`);
+    return res.data;
   },
 };
 // Rebuild trigger
@@ -794,10 +809,11 @@ export const historicoAtletaArenaService = {
     return res.data;
   },
 
-  buscarAtletas: async (pointId: string, busca: string): Promise<AtletaHistoricoArena[]> => {
+  buscarAtletas: async (pointId: string, busca: string, opts?: { todos?: boolean }): Promise<AtletaHistoricoArena[]> => {
     const params = new URLSearchParams();
     params.append('pointId', pointId);
     params.append('q', busca);
+    if (opts?.todos) params.append('todos', 'true');
     const res = await api.get(`/gestao-arena/historico-atleta/atletas?${params.toString()}`);
     return res.data;
   },
