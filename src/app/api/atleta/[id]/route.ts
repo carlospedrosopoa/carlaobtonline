@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { atualizarAtleta, buscarAtletaPorId, deletarAtleta, atletaTemporarioCriadoPelaArena } from '@/lib/atletaService';
 import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
+import { syncFotoAtletaCampeonatoBt } from '@/lib/campeonatoBtSync';
 
 export async function GET(
   request: NextRequest,
@@ -221,6 +222,13 @@ export async function PUT(
         { status: 500 }
       );
       return withCors(errorResponse, request);
+    }
+
+    if (fotoUrl !== undefined) {
+      await syncFotoAtletaCampeonatoBt({
+        email: atletaAtualizado.usuarioEmail,
+        fotoUrl: fotoUrlProcessada,
+      });
     }
 
     const response = NextResponse.json(atletaAtualizado);

@@ -6,6 +6,7 @@ import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { atualizarAtleta, verificarAtletaUsuario } from '@/lib/atletaService';
 import { uploadImage, base64ToBuffer, deleteImage } from '@/lib/googleCloudStorage';
+import { syncFotoAtletaCampeonatoBt } from '@/lib/campeonatoBtSync';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -175,6 +176,13 @@ export async function PUT(request: NextRequest) {
       id: atletaAtualizado.id,
       aceitaLembretesAgendamento: atletaAtualizado.aceitaLembretesAgendamento
     });
+
+    if (fotoUrl !== undefined) {
+      await syncFotoAtletaCampeonatoBt({
+        email: atletaAtualizado.usuarioEmail,
+        fotoUrl: fotoUrlProcessada === undefined ? atletaAtualizado.fotoUrl : fotoUrlProcessada,
+      });
+    }
 
     const response = NextResponse.json(atletaAtualizado);
     return withCors(response, request);
