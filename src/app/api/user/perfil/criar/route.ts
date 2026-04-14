@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 import { criarAtleta } from '@/lib/atletaService';
 import { uploadImage, base64ToBuffer } from '@/lib/googleCloudStorage';
+import { syncFotoAtletaCampeonatoBt } from '@/lib/campeonatoBtSync';
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,6 +77,13 @@ export async function POST(request: NextRequest) {
       tipoCamiseta: tipoCamiseta || null,
       tamanhoCamiseta: tamanhoCamiseta || null,
     });
+
+    if (fotoUrl !== undefined) {
+      await syncFotoAtletaCampeonatoBt({
+        email: novoAtleta.usuarioEmail,
+        fotoUrl: fotoUrlProcessada,
+      });
+    }
 
     const response = NextResponse.json(novoAtleta, { status: 201 });
     return withCors(response, request);

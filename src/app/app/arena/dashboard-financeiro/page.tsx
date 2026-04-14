@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { dashboardFinanceiroService } from '@/services/gestaoArenaService';
-import { BarChart3, Calendar, TrendingDown, TrendingUp, Users, Wallet } from 'lucide-react';
+import { api } from '@/lib/api';
+import { BarChart3, Calendar, TrendingDown, TrendingUp, Users, Wallet, Download } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
 type PeriodoFiltro = 'mesAtual' | 'mesAnterior' | 'intervalo';
@@ -12,6 +13,7 @@ export default function DashboardFinanceiroPage() {
   const { usuario } = useAuth();
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [exportandoReceitasCategoria, setExportandoReceitasCategoria] = useState(false);
 
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('mesAtual');
   const [dataInicio, setDataInicio] = useState('');
@@ -63,6 +65,35 @@ export default function DashboardFinanceiroPage() {
       setData(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function exportarReceitasPorCategoriaProduto() {
+    if (!usuario?.pointIdGestor) return;
+    try {
+      setExportandoReceitasCategoria(true);
+      const res = await api.get('/gestao-arena/dashboard-financeiro/export-receitas-categoria', {
+        params: {
+          pointId: usuario.pointIdGestor,
+          dataInicio: datasFiltro.inicio,
+          dataFim: datasFiltro.fim,
+        },
+        responseType: 'blob',
+      });
+      const blob = res.data as Blob;
+      const objectUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `receitas-por-categoria-${datasFiltro.inicio}-a-${datasFiltro.fim}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (e: any) {
+      const msg = e?.data?.mensagem || e?.message || 'Erro ao exportar';
+      alert(msg);
+    } finally {
+      setExportandoReceitasCategoria(false);
     }
   }
 
@@ -260,7 +291,19 @@ export default function DashboardFinanceiroPage() {
           </div>
 
           <div className="mt-8">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">Receitas por categoria de produto</h3>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-sm font-bold text-gray-900">Receitas por categoria de produto</h3>
+              <button
+                type="button"
+                onClick={exportarReceitasPorCategoriaProduto}
+                disabled={exportandoReceitasCategoria || !usuario?.pointIdGestor}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-60 text-sm"
+                title="Exportar para Excel (CSV)"
+              >
+                <Download className="w-4 h-4" />
+                {exportandoReceitasCategoria ? 'Exportando…' : 'Exportar Excel'}
+              </button>
+            </div>
             {receitasPorCategoriaProduto.length === 0 ? (
               <div className="text-sm text-gray-500">Sem receitas por produto no período.</div>
             ) : (
