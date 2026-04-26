@@ -576,6 +576,10 @@ export const contaBancariaService = {
     const res = await api.post(`/gestao-arena/conta-bancaria/${id}/movimentacao`, payload);
     return res.data;
   },
+
+  deletarMovimentacao: async (id: string, movimentacaoId: string): Promise<void> => {
+    await api.delete(`/gestao-arena/conta-bancaria/${id}/movimentacao/${movimentacaoId}`);
+  },
 };
 
 export const transferenciaFinanceiraService = {
