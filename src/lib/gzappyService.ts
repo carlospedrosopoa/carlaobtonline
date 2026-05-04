@@ -579,3 +579,75 @@ Esperamos você! 🎾`;
   }, pointId);
 }
 
+/**
+ * Envia notificação de alteração de data/hora do agendamento para o atleta via Gzappy
+ */
+export async function notificarAtletaAlteracaoAgendamento(
+  telefoneAtleta: string,
+  pointId: string,
+  agendamento: {
+    quadra: string;
+    arena: string;
+    dataHoraAnterior: string;
+    dataHoraNova: string;
+    nomeAtleta?: string;
+  }
+): Promise<boolean> {
+  if (!telefoneAtleta || telefoneAtleta.trim() === '') {
+    console.log('Atleta não possui telefone cadastrado para notificação de alteração');
+    return false;
+  }
+
+  const telefoneFormatado = formatarNumeroGzappy(telefoneAtleta);
+
+  const formatarDataHora = (dataHoraIso: string) => {
+    const matchDataHora = dataHoraIso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!matchDataHora) {
+      const dataHora = new Date(dataHoraIso);
+      const ano = dataHora.getFullYear();
+      const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+      const dia = String(dataHora.getDate()).padStart(2, '0');
+      const hora = String(dataHora.getHours()).padStart(2, '0');
+      const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+      return {
+        data: `${dia}/${mes}/${ano}`,
+        hora: `${hora}:${minuto}`,
+      };
+    }
+
+    const [, ano, mes, dia, hora, minuto] = matchDataHora;
+    return {
+      data: `${dia}/${mes}/${ano}`,
+      hora: `${hora}:${minuto}`,
+    };
+  };
+
+  const anterior = formatarDataHora(agendamento.dataHoraAnterior);
+  const nova = formatarDataHora(agendamento.dataHoraNova);
+  const nomeAtleta = agendamento.nomeAtleta || 'Atleta';
+
+  const mensagem = `*${agendamento.arena}*
+
+🔄 *Agendamento Alterado*
+
+Olá ${nomeAtleta}, seu agendamento foi atualizado.
+
+🔍 *Quadra:* ${agendamento.quadra}
+
+*Antes*
+📅 Data: ${anterior.data}
+🕐 Horário: ${anterior.hora}
+
+*Agora*
+📅 Data: ${nova.data}
+🕐 Horário: ${nova.hora}
+
+Se precisar, fale com a arena.`;
+
+  return await enviarMensagemGzappy({
+    destinatario: telefoneFormatado,
+    mensagem,
+    tipo: 'texto',
+  }, pointId);
+}
+
