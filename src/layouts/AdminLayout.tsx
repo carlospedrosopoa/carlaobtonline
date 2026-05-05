@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { APP_VERSION } from '@/lib/appVersion';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { usuario, logout } = useAuth();
@@ -70,9 +71,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <div className="flex items-center gap-4">
             {usuario && (
-              <span className="hidden sm:inline text-sm text-gray-600">
-                {usuario.name || usuario.nome} ({usuario.email})
-              </span>
+              <div className="hidden sm:flex flex-col items-end leading-tight">
+                <span className="text-sm text-gray-600">
+                  {usuario.name || usuario.nome} ({usuario.email})
+                </span>
+                <span className="text-xs text-gray-400">
+                  Versao {APP_VERSION}
+                </span>
+              </div>
             )}
             <button
               onClick={handleLogout}
