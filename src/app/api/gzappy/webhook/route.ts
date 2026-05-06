@@ -295,6 +295,117 @@ function formatarDataHoraMensagem(dataHoraIso: string | null | undefined): strin
   })}`;
 }
 
+function normalizarTextoComparacao(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+type InteracaoPendente = {
+  id: string;
+  pointId: string;
+  metadata: JsonRecord | null;
+  arenaNome: string | null;
+  phone: string | null;
+  publicInstanceId: string | null;
+  createdAt: string | null;
+};
+
+async function buscarInteracaoPendente(evento: EventoExtraido): Promise<{
+  interacao: InteracaoPendente | null;
+  motivo: string | null;
+}> {
+  const exactMatchResult = await query(
+    `SELECT
+       gi.id,
+       gi."pointId",
+       gi.metadata,
+       gi.phone,
+       gi."publicInstanceId",
+       gi."createdAt",
+       p.nome AS "arenaNome"
+     FROM "GzappyInteracaoAgendamento" gi
+     LEFT JOIN "Point" p ON p.id = gi."pointId"
+     WHERE gi.phone = $1
+       AND gi.status = 'AGUARDANDO_RESPOSTA'
+       AND ($2::text IS NULL OR gi."publicInstanceId" = $2 OR gi."publicInstanceId" IS NULL)
+     ORDER BY gi."createdAt" DESC
+     LIMIT 1`,
+    [evento.phone, evento.publicInstanceId]
+  );
+
+  if (exactMatchResult.rows.length > 0) {
+    return {
+      interacao: exactMatchResult.rows[0] as InteracaoPendente,
+      motivo: 'telefone',
+    };
+  }
+
+  const candidatosRecentesResult = await query(
+    `SELECT
+       gi.id,
+       gi."pointId",
+       gi.metadata,
+       gi.phone,
+       gi."publicInstanceId",
+       gi."createdAt",
+       p.nome AS "arenaNome"
+     FROM "GzappyInteracaoAgendamento" gi
+     LEFT JOIN "Point" p ON p.id = gi."pointId"
+     WHERE gi.status = 'AGUARDANDO_RESPOSTA'
+       AND ($1::text IS NULL OR gi."publicInstanceId" = $1 OR gi."publicInstanceId" IS NULL)
+       AND gi."createdAt" >= NOW() - INTERVAL '24 hours'
+     ORDER BY gi."createdAt" DESC
+     LIMIT 10`,
+    [evento.publicInstanceId]
+  );
+
+  const candidatos = candidatosRecentesResult.rows as InteracaoPendente[];
+  if (candidatos.length === 0) {
+    return {
+      interacao: null,
+      motivo: null,
+    };
+  }
+
+  const pushNameNormalizado = normalizarTextoComparacao(evento.pushName);
+  if (pushNameNormalizado) {
+    const candidatosPorNome = candidatos.filter((candidato) => {
+      const metadata =
+        candidato.metadata && typeof candidato.metadata === 'object'
+          ? (candidato.metadata as JsonRecord)
+          : {};
+
+      return normalizarTextoComparacao(metadata.nomeAtleta) === pushNameNormalizado;
+    });
+
+    if (candidatosPorNome.length === 1) {
+      return {
+        interacao: candidatosPorNome[0],
+        motivo: 'nome',
+      };
+    }
+  }
+
+  if (candidatos.length === 1) {
+    return {
+      interacao: candidatos[0],
+      motivo: 'fallback_unico_recente',
+    };
+  }
+
+  return {
+    interacao: null,
+    motivo: `ambigua_${candidatos.length}_pendentes`,
+  };
+}
+
 function inferirProcessingStatus(parseError: string | null, processingNotes: string): string {
   if (parseError) {
     return 'ERRO_PARSE';
@@ -330,28 +441,16 @@ async function processarRespostaInterativa(evento: EventoExtraido): Promise<stri
   }
 
   try {
-    const interacaoResult = await query(
-      `SELECT
-         gi.id,
-         gi."pointId",
-         gi.tipo,
-         gi.metadata,
-         p.nome AS "arenaNome"
-       FROM "GzappyInteracaoAgendamento" gi
-       LEFT JOIN "Point" p ON p.id = gi."pointId"
-       WHERE gi.phone = $1
-         AND gi.status = 'AGUARDANDO_RESPOSTA'
-         AND ($2::text IS NULL OR gi."publicInstanceId" = $2 OR gi."publicInstanceId" IS NULL)
-       ORDER BY gi."createdAt" DESC
-       LIMIT 1`,
-      [evento.phone, evento.publicInstanceId]
-    );
+    const { interacao, motivo } = await buscarInteracaoPendente(evento);
 
-    if (interacaoResult.rows.length === 0) {
+    if (!interacao) {
+      if (motivo?.startsWith('ambigua_')) {
+        return `Resposta interativa "${resposta}" recebida com contexto pendente ambiguo (${motivo})`;
+      }
+
       return `Resposta interativa "${resposta}" recebida sem contexto pendente`;
     }
 
-    const interacao = interacaoResult.rows[0];
     const interacaoId = interacao.id as string;
     const pointId = interacao.pointId as string;
     const arenaNome = (interacao.arenaNome as string | null) || 'Arena';
@@ -368,6 +467,7 @@ async function processarRespostaInterativa(evento: EventoExtraido): Promise<stri
            "respostaRecebida" = $3,
            "respostaMessageId" = $4,
            "respostaRecebidaEm" = COALESCE($5::timestamptz, NOW()),
+           metadata = COALESCE(metadata, '{}'::jsonb) || $6::jsonb,
            "updatedAt" = NOW()
        WHERE id = $1`,
       [
@@ -376,6 +476,11 @@ async function processarRespostaInterativa(evento: EventoExtraido): Promise<stri
         evento.messageText,
         evento.messageId,
         evento.messageTimestamp,
+        JSON.stringify({
+          ultimoContatoIdentificado: evento.phone,
+          ultimoPushNameRecebido: evento.pushName,
+          ultimaOrigemMatch: motivo,
+        }),
       ]
     );
 
@@ -425,8 +530,8 @@ async function processarRespostaInterativa(evento: EventoExtraido): Promise<stri
     }
 
     return resposta === '1'
-      ? 'Resposta 1 processada: atleta confirmou recebimento'
-      : 'Resposta 2 processada: atleta solicitou contato da arena';
+      ? `Resposta 1 processada: atleta confirmou recebimento (${motivo || 'sem_motivo'})`
+      : `Resposta 2 processada: atleta solicitou contato da arena (${motivo || 'sem_motivo'})`;
   } catch (error: any) {
     if (error?.code === '42P01' || String(error?.message || '').includes('does not exist')) {
       return 'Tabela de interacao ainda nao existe; evento armazenado para analise';
