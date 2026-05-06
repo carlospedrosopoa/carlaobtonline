@@ -725,6 +725,7 @@ export default function ArenaAgendaSemanalPage() {
     setMenuAberto(null);
 
     const telefone = obterTelefoneCliente(agendamento);
+    const nomeArena = agendamento.quadra?.point?.nome || 'Arena';
     const nomeCliente = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
     if (!telefone) {
       alert('Telefone do cliente não encontrado. Não é possível enviar a confirmação.');
