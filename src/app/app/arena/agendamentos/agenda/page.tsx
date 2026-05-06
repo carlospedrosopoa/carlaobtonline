@@ -749,7 +749,7 @@ export default function ArenaAgendaSemanalPage() {
           agendamentoId: agendamento.id,
           tipo: 'NOVO_AGENDAMENTO',
           metadata: {
-            arena: agendamento.quadra?.point?.nome || usuario?.point?.nome || 'Arena',
+            arena: nomeArena,
             quadra: agendamento.quadra?.nome || 'Quadra',
             dataHora: agendamento.dataHora,
             duracao: agendamento.duracao,
