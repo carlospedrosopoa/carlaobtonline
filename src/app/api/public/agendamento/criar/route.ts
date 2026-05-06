@@ -294,6 +294,7 @@ export async function POST(request: NextRequest) {
         import('@/lib/gzappyService')
           .then(({ notificarAtletaNovoAgendamento }) => {
             notificarAtletaNovoAgendamento(atleta.fone, quadra.pointId, {
+              agendamentoId: agendamento.id,
               quadra: agendamento.quadra_nome || quadra.nome,
               arena: arenaNome,
               dataHora: agendamento.dataHora,

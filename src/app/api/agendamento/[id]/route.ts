@@ -862,6 +862,7 @@ export async function PUT(
       import('@/lib/gzappyService')
         .then(({ notificarAtletaAlteracaoAgendamento }) =>
           notificarAtletaAlteracaoAgendamento(telefoneTitular, agendamentoAtualizado.quadra.point.id, {
+            agendamentoId: agendamentoAtualizado.id,
             quadra: agendamentoAtualizado.quadra.nome,
             arena: agendamentoAtualizado.quadra.point.nome,
             dataHoraAnterior: normalizarDataHora(agendamentoAtual.dataHora),

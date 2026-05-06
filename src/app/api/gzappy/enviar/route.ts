@@ -1,8 +1,39 @@
 // app/api/gzappy/enviar/route.ts - API para enviar mensagens via Gzappy
 import { NextRequest, NextResponse } from 'next/server';
 import { getUsuarioFromRequest } from '@/lib/auth';
-import { enviarMensagemGzappy, formatarNumeroGzappy } from '@/lib/gzappyService';
+import {
+  enviarMensagemGzappy,
+  formatarNumeroGzappy,
+  registrarInteracaoAgendamento,
+  type RegistroInteracaoAgendamento,
+} from '@/lib/gzappyService';
 import { withCors, handleCorsPreflight } from '@/lib/cors';
+
+function anexarInstrucoesInteracaoSeNecessario(
+  mensagem: string,
+  interacaoAgendamento?: {
+    metadata?: Record<string, any>;
+  }
+): string {
+  if (!interacaoAgendamento) {
+    return mensagem;
+  }
+
+  if (
+    mensagem.includes('1 - Confirmar recebimento do agendamento') ||
+    mensagem.includes('Se estiver tudo certo:')
+  ) {
+    return mensagem;
+  }
+
+  const arena =
+    typeof interacaoAgendamento.metadata?.arena === 'string' &&
+    interacaoAgendamento.metadata.arena.trim()
+      ? interacaoAgendamento.metadata.arena.trim()
+      : 'Arena';
+
+  return `${mensagem}\n\nSe estiver tudo certo:\n1 - Confirmar recebimento do agendamento\n2 - Solicitar contato da ${arena}`;
+}
 
 /**
  * OPTIONS /api/gzappy/enviar - Preflight CORS
@@ -46,7 +77,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { destinatario, mensagem, tipo, pointId } = body;
+    const { destinatario, mensagem, tipo, pointId, interacaoAgendamento } = body as {
+      destinatario?: string;
+      mensagem?: string;
+      tipo?: 'texto' | 'template';
+      pointId?: string;
+      interacaoAgendamento?: Omit<RegistroInteracaoAgendamento, 'pointId' | 'phone' | 'mensagemEnviada'> & {
+        metadata?: Record<string, any>;
+      };
+    };
 
     // Validações
     if (!destinatario || !mensagem) {
@@ -95,9 +134,14 @@ export async function POST(request: NextRequest) {
         tamanhoMensagem: mensagem.trim().length,
       });
 
+      const mensagemFinal = anexarInstrucoesInteracaoSeNecessario(
+        mensagem.trim(),
+        interacaoAgendamento
+      );
+
       const sucesso = await enviarMensagemGzappy({
         destinatario: numeroFormatado,
-        mensagem: mensagem.trim(),
+        mensagem: mensagemFinal,
         tipo: tipo || 'texto',
       }, pointIdFinal);
 
@@ -117,6 +161,17 @@ export async function POST(request: NextRequest) {
         destinatario: numeroFormatado,
         pointId: pointIdFinal,
       });
+
+      if (interacaoAgendamento?.agendamentoId && interacaoAgendamento?.tipo) {
+        await registrarInteracaoAgendamento({
+          agendamentoId: interacaoAgendamento.agendamentoId,
+          pointId: pointIdFinal,
+          phone: numeroFormatado,
+          tipo: interacaoAgendamento.tipo,
+          mensagemEnviada: mensagemFinal,
+          metadata: interacaoAgendamento.metadata || {},
+        });
+      }
 
       const response = NextResponse.json({
         sucesso: true,

@@ -7,6 +7,78 @@ export interface MensagemGzappy {
   tipo?: 'texto' | 'template';
 }
 
+type TipoInteracaoAgendamento = 'NOVO_AGENDAMENTO' | 'ALTERACAO_AGENDAMENTO';
+
+export interface RegistroInteracaoAgendamento {
+  agendamentoId: string;
+  pointId: string;
+  phone: string;
+  tipo: TipoInteracaoAgendamento;
+  mensagemEnviada: string;
+  metadata: Record<string, any>;
+}
+
+function montarInstrucoesInteracao(nomeArena: string): string {
+  return [
+    '',
+    'Se estiver tudo certo:',
+    '1 - Confirmar recebimento do agendamento',
+    `2 - Solicitar contato da ${nomeArena}`,
+  ].join('\n');
+}
+
+async function obterPublicInstanceIdGzappy(pointId: string): Promise<string | null> {
+  const credenciais = await obterCredenciaisGzappy(pointId);
+  return credenciais?.instanceId || process.env.GZAPPY_INSTANCE_ID?.trim() || null;
+}
+
+export async function registrarInteracaoAgendamento({
+  agendamentoId,
+  pointId,
+  phone,
+  tipo,
+  mensagemEnviada,
+  metadata,
+}: RegistroInteracaoAgendamento): Promise<void> {
+  try {
+    const publicInstanceId = await obterPublicInstanceIdGzappy(pointId);
+
+    await query(
+      `UPDATE "GzappyInteracaoAgendamento"
+       SET status = 'SUBSTITUIDA',
+           "updatedAt" = NOW()
+       WHERE "agendamentoId" = $1
+         AND tipo = $2
+         AND status = 'AGUARDANDO_RESPOSTA'`,
+      [agendamentoId, tipo]
+    );
+
+    await query(
+      `INSERT INTO "GzappyInteracaoAgendamento" (
+        "agendamentoId",
+        "pointId",
+        "publicInstanceId",
+        phone,
+        tipo,
+        status,
+        "mensagemEnviada",
+        metadata
+      ) VALUES ($1, $2, $3, $4, $5, 'AGUARDANDO_RESPOSTA', $6, $7::jsonb)`,
+      [
+        agendamentoId,
+        pointId,
+        publicInstanceId,
+        phone,
+        tipo,
+        mensagemEnviada,
+        JSON.stringify(metadata),
+      ]
+    );
+  } catch (error) {
+    console.error('Erro ao registrar contexto de interacao do agendamento via Gzappy:', error);
+  }
+}
+
 /**
  * Obtém as credenciais do Gzappy de um point específico
  */
@@ -512,6 +584,7 @@ export async function notificarAtletaNovoAgendamento(
   telefoneAtleta: string,
   pointId: string,
   agendamento: {
+    agendamentoId: string;
     quadra: string;
     arena: string;
     dataHora: string;
@@ -570,13 +643,34 @@ export async function notificarAtletaNovoAgendamento(
 ⏱️ *Duração:* ${duracaoTexto}
 💰 *Valor:* ${valorFormatado}
 
-Esperamos você! 🎾`;
+Esperamos você! 🎾
+${montarInstrucoesInteracao(agendamento.arena)}`;
 
-  return await enviarMensagemGzappy({
+  const enviado = await enviarMensagemGzappy({
     destinatario: telefoneFormatado,
     mensagem,
     tipo: 'texto',
   }, pointId);
+
+  if (enviado) {
+    await registrarInteracaoAgendamento({
+      agendamentoId: agendamento.agendamentoId,
+      pointId,
+      phone: telefoneFormatado,
+      tipo: 'NOVO_AGENDAMENTO',
+      mensagemEnviada: mensagem,
+      metadata: {
+        arena: agendamento.arena,
+        quadra: agendamento.quadra,
+        dataHora: agendamento.dataHora,
+        duracao: agendamento.duracao,
+        valor: agendamento.valor ?? null,
+        nomeAtleta,
+      },
+    });
+  }
+
+  return enviado;
 }
 
 /**
@@ -586,6 +680,7 @@ export async function notificarAtletaAlteracaoAgendamento(
   telefoneAtleta: string,
   pointId: string,
   agendamento: {
+    agendamentoId: string;
     quadra: string;
     arena: string;
     dataHoraAnterior: string;
@@ -642,12 +737,32 @@ Olá ${nomeAtleta}, seu agendamento foi atualizado.
 📅 Data: ${nova.data}
 🕐 Horário: ${nova.hora}
 
-Se precisar, fale com a arena.`;
+Se precisar, fale com a arena.
+${montarInstrucoesInteracao(agendamento.arena)}`;
 
-  return await enviarMensagemGzappy({
+  const enviado = await enviarMensagemGzappy({
     destinatario: telefoneFormatado,
     mensagem,
     tipo: 'texto',
   }, pointId);
+
+  if (enviado) {
+    await registrarInteracaoAgendamento({
+      agendamentoId: agendamento.agendamentoId,
+      pointId,
+      phone: telefoneFormatado,
+      tipo: 'ALTERACAO_AGENDAMENTO',
+      mensagemEnviada: mensagem,
+      metadata: {
+        arena: agendamento.arena,
+        quadra: agendamento.quadra,
+        dataHoraAnterior: agendamento.dataHoraAnterior,
+        dataHoraNova: agendamento.dataHoraNova,
+        nomeAtleta,
+      },
+    });
+  }
+
+  return enviado;
 }
 

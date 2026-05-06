@@ -714,6 +714,9 @@ export default function ArenaAgendaSemanalPage() {
     }
 
     mensagem += `\nEsperamos você! 🎾`;
+    mensagem += `\n\nSe estiver tudo certo:`;
+    mensagem += `\n1 - Confirmar recebimento do agendamento`;
+    mensagem += `\n2 - Solicitar contato da ${nomeArena}`;
 
     return mensagem;
   };
@@ -722,6 +725,7 @@ export default function ArenaAgendaSemanalPage() {
     setMenuAberto(null);
 
     const telefone = obterTelefoneCliente(agendamento);
+    const nomeCliente = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
     if (!telefone) {
       alert('Telefone do cliente não encontrado. Não é possível enviar a confirmação.');
       return;
@@ -741,6 +745,18 @@ export default function ArenaAgendaSemanalPage() {
         mensagem: mensagem,
         tipo: 'texto',
         pointId: pointId,
+        interacaoAgendamento: {
+          agendamentoId: agendamento.id,
+          tipo: 'NOVO_AGENDAMENTO',
+          metadata: {
+            arena: agendamento.quadra?.point?.nome || usuario?.point?.nome || 'Arena',
+            quadra: agendamento.quadra?.nome || 'Quadra',
+            dataHora: agendamento.dataHora,
+            duracao: agendamento.duracao,
+            valor: agendamento.valorNegociado || agendamento.valorCalculado || null,
+            nomeAtleta: nomeCliente,
+          },
+        },
       });
 
       alert('✅ Mensagem de confirmação enviada com sucesso!');
