@@ -47,10 +47,15 @@ export async function registrarInteracaoAgendamento({
       `UPDATE "GzappyInteracaoAgendamento"
        SET status = 'SUBSTITUIDA',
            "updatedAt" = NOW()
-       WHERE "agendamentoId" = $1
-         AND tipo = $2
-         AND status = 'AGUARDANDO_RESPOSTA'`,
-      [agendamentoId, tipo]
+       WHERE status = 'AGUARDANDO_RESPOSTA'
+         AND (
+           ("agendamentoId" = $1 AND tipo = $2)
+           OR (
+             phone = $3
+             AND COALESCE("publicInstanceId", '') = COALESCE($4, '')
+           )
+         )`,
+      [agendamentoId, tipo, phone, publicInstanceId]
     );
 
     await query(
