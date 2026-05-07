@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUsuarioFromRequest } from '@/lib/auth';
 import {
+  atualizarStatusInteracaoAgendamento,
   enviarMensagemGzappy,
   formatarNumeroGzappy,
   registrarInteracaoAgendamento,
@@ -126,6 +127,8 @@ export async function POST(request: NextRequest) {
       return withCors(response, request);
     }
 
+    let interacaoId: string | null = null;
+
     // Enviar mensagem via Gzappy
     try {
       console.log('📱 Tentando enviar mensagem via Gzappy:', {
@@ -139,6 +142,19 @@ export async function POST(request: NextRequest) {
         interacaoAgendamento
       );
 
+      interacaoId =
+        interacaoAgendamento?.agendamentoId && interacaoAgendamento?.tipo
+          ? await registrarInteracaoAgendamento({
+              agendamentoId: interacaoAgendamento.agendamentoId,
+              pointId: pointIdFinal,
+              phone: numeroFormatado,
+              tipo: interacaoAgendamento.tipo,
+              mensagemEnviada: mensagemFinal,
+              metadata: interacaoAgendamento.metadata || {},
+              status: 'AGUARDANDO_ENVIO',
+            })
+          : null;
+
       const sucesso = await enviarMensagemGzappy({
         destinatario: numeroFormatado,
         mensagem: mensagemFinal,
@@ -146,6 +162,9 @@ export async function POST(request: NextRequest) {
       }, pointIdFinal);
 
       if (!sucesso) {
+        if (interacaoId) {
+          await atualizarStatusInteracaoAgendamento(interacaoId, 'FALHA_ENVIO');
+        }
         console.error('❌ Falha ao enviar mensagem via Gzappy (retornou false)', {
           destinatario: numeroFormatado,
           pointId: pointIdFinal,
@@ -162,15 +181,8 @@ export async function POST(request: NextRequest) {
         pointId: pointIdFinal,
       });
 
-      if (interacaoAgendamento?.agendamentoId && interacaoAgendamento?.tipo) {
-        await registrarInteracaoAgendamento({
-          agendamentoId: interacaoAgendamento.agendamentoId,
-          pointId: pointIdFinal,
-          phone: numeroFormatado,
-          tipo: interacaoAgendamento.tipo,
-          mensagemEnviada: mensagemFinal,
-          metadata: interacaoAgendamento.metadata || {},
-        });
+      if (interacaoId) {
+        await atualizarStatusInteracaoAgendamento(interacaoId, 'AGUARDANDO_RESPOSTA');
       }
 
       const response = NextResponse.json({
@@ -180,6 +192,9 @@ export async function POST(request: NextRequest) {
       });
       return withCors(response, request);
     } catch (error: any) {
+      if (interacaoId) {
+        await atualizarStatusInteracaoAgendamento(interacaoId, 'FALHA_ENVIO');
+      }
       console.error('❌ Erro ao enviar mensagem via Gzappy:', {
         error: error.message,
         stack: error.stack,

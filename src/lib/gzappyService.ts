@@ -8,6 +8,13 @@ export interface MensagemGzappy {
 }
 
 type TipoInteracaoAgendamento = 'NOVO_AGENDAMENTO' | 'ALTERACAO_AGENDAMENTO';
+type StatusInteracaoAgendamento =
+  | 'AGUARDANDO_ENVIO'
+  | 'AGUARDANDO_RESPOSTA'
+  | 'CONFIRMADO_RECEBIMENTO'
+  | 'SOLICITOU_CONTATO'
+  | 'SUBSTITUIDA'
+  | 'FALHA_ENVIO';
 
 export interface RegistroInteracaoAgendamento {
   agendamentoId: string;
@@ -16,6 +23,7 @@ export interface RegistroInteracaoAgendamento {
   tipo: TipoInteracaoAgendamento;
   mensagemEnviada: string;
   metadata: Record<string, any>;
+  status?: StatusInteracaoAgendamento;
 }
 
 function montarInstrucoesInteracao(nomeArena: string): string {
@@ -39,49 +47,63 @@ export async function registrarInteracaoAgendamento({
   tipo,
   mensagemEnviada,
   metadata,
-}: RegistroInteracaoAgendamento): Promise<void> {
-  try {
-    const publicInstanceId = await obterPublicInstanceIdGzappy(pointId);
+  status = 'AGUARDANDO_RESPOSTA',
+}: RegistroInteracaoAgendamento): Promise<string> {
+  const publicInstanceId = await obterPublicInstanceIdGzappy(pointId);
 
-    await query(
-      `UPDATE "GzappyInteracaoAgendamento"
-       SET status = 'SUBSTITUIDA',
-           "updatedAt" = NOW()
-       WHERE status = 'AGUARDANDO_RESPOSTA'
-         AND (
-           ("agendamentoId" = $1 AND tipo = $2)
-           OR (
-             phone = $3
-             AND COALESCE("publicInstanceId", '') = COALESCE($4, '')
-           )
-         )`,
-      [agendamentoId, tipo, phone, publicInstanceId]
-    );
+  await query(
+    `UPDATE "GzappyInteracaoAgendamento"
+     SET status = 'SUBSTITUIDA',
+         "updatedAt" = NOW()
+     WHERE status IN ('AGUARDANDO_ENVIO', 'AGUARDANDO_RESPOSTA')
+       AND (
+         ("agendamentoId" = $1 AND tipo = $2)
+         OR (
+           phone = $3
+           AND COALESCE("publicInstanceId", '') = COALESCE($4, '')
+         )
+       )`,
+    [agendamentoId, tipo, phone, publicInstanceId]
+  );
 
-    await query(
-      `INSERT INTO "GzappyInteracaoAgendamento" (
-        "agendamentoId",
-        "pointId",
-        "publicInstanceId",
-        phone,
-        tipo,
-        status,
-        "mensagemEnviada",
-        metadata
-      ) VALUES ($1, $2, $3, $4, $5, 'AGUARDANDO_RESPOSTA', $6, $7::jsonb)`,
-      [
-        agendamentoId,
-        pointId,
-        publicInstanceId,
-        phone,
-        tipo,
-        mensagemEnviada,
-        JSON.stringify(metadata),
-      ]
-    );
-  } catch (error) {
-    console.error('Erro ao registrar contexto de interacao do agendamento via Gzappy:', error);
-  }
+  const result = await query(
+    `INSERT INTO "GzappyInteracaoAgendamento" (
+      "agendamentoId",
+      "pointId",
+      "publicInstanceId",
+      phone,
+      tipo,
+      status,
+      "mensagemEnviada",
+      metadata
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+    RETURNING id`,
+    [
+      agendamentoId,
+      pointId,
+      publicInstanceId,
+      phone,
+      tipo,
+      status,
+      mensagemEnviada,
+      JSON.stringify(metadata),
+    ]
+  );
+
+  return result.rows[0]?.id as string;
+}
+
+export async function atualizarStatusInteracaoAgendamento(
+  id: string,
+  status: StatusInteracaoAgendamento
+): Promise<void> {
+  await query(
+    `UPDATE "GzappyInteracaoAgendamento"
+     SET status = $2,
+         "updatedAt" = NOW()
+     WHERE id = $1`,
+    [id, status]
+  );
 }
 
 /**
@@ -651,31 +673,40 @@ export async function notificarAtletaNovoAgendamento(
 Esperamos você! 🎾
 ${montarInstrucoesInteracao(agendamento.arena)}`;
 
-  const enviado = await enviarMensagemGzappy({
-    destinatario: telefoneFormatado,
-    mensagem,
-    tipo: 'texto',
-  }, pointId);
+  const interacaoId = await registrarInteracaoAgendamento({
+    agendamentoId: agendamento.agendamentoId,
+    pointId,
+    phone: telefoneFormatado,
+    tipo: 'NOVO_AGENDAMENTO',
+    mensagemEnviada: mensagem,
+    metadata: {
+      arena: agendamento.arena,
+      quadra: agendamento.quadra,
+      dataHora: agendamento.dataHora,
+      duracao: agendamento.duracao,
+      valor: agendamento.valor ?? null,
+      nomeAtleta,
+    },
+    status: 'AGUARDANDO_ENVIO',
+  });
 
-  if (enviado) {
-    await registrarInteracaoAgendamento({
-      agendamentoId: agendamento.agendamentoId,
-      pointId,
-      phone: telefoneFormatado,
-      tipo: 'NOVO_AGENDAMENTO',
-      mensagemEnviada: mensagem,
-      metadata: {
-        arena: agendamento.arena,
-        quadra: agendamento.quadra,
-        dataHora: agendamento.dataHora,
-        duracao: agendamento.duracao,
-        valor: agendamento.valor ?? null,
-        nomeAtleta,
-      },
-    });
+  try {
+    const enviado = await enviarMensagemGzappy({
+      destinatario: telefoneFormatado,
+      mensagem,
+      tipo: 'texto',
+    }, pointId);
+
+    await atualizarStatusInteracaoAgendamento(
+      interacaoId,
+      enviado ? 'AGUARDANDO_RESPOSTA' : 'FALHA_ENVIO'
+    );
+
+    return enviado;
+  } catch (error) {
+    await atualizarStatusInteracaoAgendamento(interacaoId, 'FALHA_ENVIO');
+    throw error;
   }
-
-  return enviado;
 }
 
 /**
@@ -745,29 +776,38 @@ Olá ${nomeAtleta}, seu agendamento foi atualizado.
 Se precisar, fale com a arena.
 ${montarInstrucoesInteracao(agendamento.arena)}`;
 
-  const enviado = await enviarMensagemGzappy({
-    destinatario: telefoneFormatado,
-    mensagem,
-    tipo: 'texto',
-  }, pointId);
+  const interacaoId = await registrarInteracaoAgendamento({
+    agendamentoId: agendamento.agendamentoId,
+    pointId,
+    phone: telefoneFormatado,
+    tipo: 'ALTERACAO_AGENDAMENTO',
+    mensagemEnviada: mensagem,
+    metadata: {
+      arena: agendamento.arena,
+      quadra: agendamento.quadra,
+      dataHoraAnterior: agendamento.dataHoraAnterior,
+      dataHoraNova: agendamento.dataHoraNova,
+      nomeAtleta,
+    },
+    status: 'AGUARDANDO_ENVIO',
+  });
 
-  if (enviado) {
-    await registrarInteracaoAgendamento({
-      agendamentoId: agendamento.agendamentoId,
-      pointId,
-      phone: telefoneFormatado,
-      tipo: 'ALTERACAO_AGENDAMENTO',
-      mensagemEnviada: mensagem,
-      metadata: {
-        arena: agendamento.arena,
-        quadra: agendamento.quadra,
-        dataHoraAnterior: agendamento.dataHoraAnterior,
-        dataHoraNova: agendamento.dataHoraNova,
-        nomeAtleta,
-      },
-    });
+  try {
+    const enviado = await enviarMensagemGzappy({
+      destinatario: telefoneFormatado,
+      mensagem,
+      tipo: 'texto',
+    }, pointId);
+
+    await atualizarStatusInteracaoAgendamento(
+      interacaoId,
+      enviado ? 'AGUARDANDO_RESPOSTA' : 'FALHA_ENVIO'
+    );
+
+    return enviado;
+  } catch (error) {
+    await atualizarStatusInteracaoAgendamento(interacaoId, 'FALHA_ENVIO');
+    throw error;
   }
-
-  return enviado;
 }
 
