@@ -4,6 +4,7 @@ import type {
   Point,
   Quadra,
   Agendamento,
+  InteracaoAgendamento,
   TabelaPreco,
   CriarPointPayload,
   CriarQuadraPayload,
@@ -142,6 +143,29 @@ export const agendamentoService = {
 
   gerarCards: async (id: string, payload?: { distribuicoes: Array<{ usuarioId?: string | null; nomeAvulso?: string | null; telefoneAvulso?: string | null; valor: number }> }): Promise<{ mensagem: string; cards: any[]; cardsAtualizados?: any[]; valorTotal: number; valorPorCliente: number; totalClientes: number; totalCardsCriados?: number; totalCardsAtualizados?: number }> => {
     const res = await api.post(`/agendamento/${id}/gerar-cards`, payload);
+    return res.data;
+  },
+
+  listarInteracoes: async (agendamentoIds: string[]): Promise<InteracaoAgendamento[]> => {
+    if (agendamentoIds.length === 0) {
+      return [];
+    }
+
+    const params = new URLSearchParams();
+    params.set('agendamentoIds', agendamentoIds.join(','));
+    const res = await api.get(`/agendamento/interacao?${params.toString()}`);
+    return res.data;
+  },
+
+  confirmarInteracaoManual: async (
+    agendamentoId: string,
+    observacao?: string
+  ): Promise<{ mensagem: string; interacao: InteracaoAgendamento }> => {
+    const res = await api.post('/agendamento/interacao', {
+      acao: 'CONFIRMAR_MANUALMENTE',
+      agendamentoId,
+      observacao,
+    });
     return res.data;
   },
 };
