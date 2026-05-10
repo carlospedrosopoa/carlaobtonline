@@ -307,6 +307,15 @@ function normalizarTextoComparacao(value: unknown): string {
     .toLowerCase();
 }
 
+function converterIsoParaTimestamp(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
 type InteracaoPendente = {
   id: string;
   pointId: string;
@@ -391,6 +400,54 @@ async function buscarInteracaoPendente(evento: EventoExtraido): Promise<{
         motivo: 'nome',
       };
     }
+  }
+
+  const timestampEvento =
+    converterIsoParaTimestamp(evento.messageTimestamp) ?? Date.now();
+
+  const candidatosPorProximidade = candidatos
+    .map((candidato) => {
+      const createdAt = converterIsoParaTimestamp(candidato.createdAt);
+      if (createdAt === null) {
+        return null;
+      }
+
+      const diferencaMs = timestampEvento - createdAt;
+      if (diferencaMs < -2 * 60 * 1000) {
+        return null;
+      }
+
+      return {
+        candidato,
+        diferencaMs,
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        candidato: InteracaoPendente;
+        diferencaMs: number;
+      } => item !== null
+    )
+    .sort((a, b) => a.diferencaMs - b.diferencaMs);
+
+  const candidatoMaisProximo = candidatosPorProximidade[0];
+  const segundoMaisProximo = candidatosPorProximidade[1];
+  const JANELA_MAXIMA_MS = 20 * 60 * 1000;
+  const VANTAGEM_MINIMA_MS = 10 * 60 * 1000;
+
+  if (
+    candidatoMaisProximo &&
+    candidatoMaisProximo.diferencaMs <= JANELA_MAXIMA_MS &&
+    (!segundoMaisProximo ||
+      segundoMaisProximo.diferencaMs - candidatoMaisProximo.diferencaMs >=
+        VANTAGEM_MINIMA_MS)
+  ) {
+    return {
+      interacao: candidatoMaisProximo.candidato,
+      motivo: 'proximidade_tempo',
+    };
   }
 
   if (candidatos.length === 1) {
