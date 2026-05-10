@@ -277,7 +277,7 @@ export async function PUT(
     let agendamentoCheck;
     try {
       agendamentoCheck = await query(
-        'SELECT "usuarioId", "quadraId", "atletaId", "status", "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
+        'SELECT "usuarioId", "quadraId", "atletaId", "status", "dataHora", duracao, observacoes, "recorrenciaId", "recorrenciaConfig", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
         [id]
       );
     } catch (error: any) {
@@ -285,13 +285,13 @@ export async function PUT(
       if (error.message?.includes('recorrenciaId') || error.message?.includes('recorrenciaConfig') || error.message?.includes('ehAula') || error.message?.includes('professorId')) {
         try {
           agendamentoCheck = await query(
-            'SELECT "usuarioId", "quadraId", "atletaId", "status", "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
+            'SELECT "usuarioId", "quadraId", "atletaId", "status", "dataHora", duracao, observacoes, "ehAula", "professorId" FROM "Agendamento" WHERE id = $1',
             [id]
           );
         } catch (error2: any) {
           if (error2.message?.includes('ehAula') || error2.message?.includes('professorId')) {
             agendamentoCheck = await query(
-              'SELECT "usuarioId", "quadraId", "atletaId", "status" FROM "Agendamento" WHERE id = $1',
+              'SELECT "usuarioId", "quadraId", "atletaId", "status", "dataHora", duracao, observacoes FROM "Agendamento" WHERE id = $1',
               [id]
             );
             // Adicionar valores padrão
@@ -425,19 +425,26 @@ export async function PUT(
       const match = dataHoraStr.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
       return match ? match[1] : null;
     };
+
+    const dataHoraAtualNormalizada = agendamentoAtual.dataHora
+      ? normalizarDataHoraParaComparacao(normalizarDataHora(agendamentoAtual.dataHora))
+      : null;
+    const dataHoraNovaNormalizada = dataHora !== undefined
+      ? normalizarDataHoraParaComparacao(dataHora)
+      : dataHoraAtualNormalizada;
+    const dataOuHoraAlterada = Boolean(
+      dataHora !== undefined &&
+      dataHoraAtualNormalizada &&
+      dataHoraNovaNormalizada &&
+      dataHoraAtualNormalizada !== dataHoraNovaNormalizada
+    );
     
     // Verificar se está tentando alterar data/hora/duração
     // Só considerar como alteração se o campo foi enviado E o valor normalizado for diferente
     let tentandoAlterarDataHora = false;
     
-    if (dataHora !== undefined) {
-      const dataHoraNormalizada = normalizarDataHoraParaComparacao(dataHora);
-      const dataHoraAtualNormalizada = normalizarDataHoraParaComparacao(agendamentoAtual.dataHora);
-      
-      // Só considerar alteração se ambos existirem E forem diferentes
-      if (dataHoraNormalizada && dataHoraAtualNormalizada && dataHoraNormalizada !== dataHoraAtualNormalizada) {
-        tentandoAlterarDataHora = true;
-      }
+    if (dataOuHoraAlterada) {
+      tentandoAlterarDataHora = true;
     }
     
     // Verificar duração e quadraId
@@ -835,6 +842,38 @@ export async function PUT(
     const dataHoraAtualRecorrenciaStr = normalizarDataHora(dadosAtuais.dataHora);
     const dataHoraAtualRecorrencia = new Date(dataHoraAtualRecorrenciaStr);
     const recorrenciaIdAtual = dadosAtuais.recorrenciaId || null;
+
+    const notificarTitularAlteracaoDataHora = (agendamentoAtualizado: any) => {
+      if (!dataOuHoraAlterada || !agendamentoAtual.dataHora) {
+        return;
+      }
+
+      const telefoneTitular = agendamentoAtualizado.atleta?.fone || agendamentoAtualizado.telefoneAvulso || null;
+      if (!telefoneTitular || !agendamentoAtualizado.quadra?.point?.id || !agendamentoAtualizado.quadra?.point?.nome) {
+        return;
+      }
+
+      const nomeTitular =
+        agendamentoAtualizado.atleta?.nome ||
+        agendamentoAtualizado.nomeAvulso ||
+        agendamentoAtualizado.usuario?.name ||
+        'Atleta';
+
+      import('@/lib/gzappyService')
+        .then(({ notificarAtletaAlteracaoAgendamento }) =>
+          notificarAtletaAlteracaoAgendamento(telefoneTitular, agendamentoAtualizado.quadra.point.id, {
+            agendamentoId: agendamentoAtualizado.id,
+            quadra: agendamentoAtualizado.quadra.nome,
+            arena: agendamentoAtualizado.quadra.point.nome,
+            dataHoraAnterior: normalizarDataHora(agendamentoAtual.dataHora),
+            dataHoraNova: agendamentoAtualizado.dataHora,
+            nomeAtleta: nomeTitular,
+          })
+        )
+        .catch((err) => {
+          console.error('Erro ao enviar notificação Gzappy de alteração para atleta (não crítico):', err);
+        });
+    };
     
     console.log('[API] dataHoraAtualRecorrencia (após normalizarDataHora):', dataHoraAtualRecorrencia.toISOString(), 'timestamp:', dataHoraAtualRecorrencia.getTime());
     
@@ -1164,6 +1203,7 @@ export async function PUT(
         atleta: row.atleta_id ? { id: row.atleta_id, nome: row.atleta_nome, fone: row.atleta_fone } : null,
       };
 
+      notificarTitularAlteracaoDataHora(agendamentoRetorno);
       const response = NextResponse.json(agendamentoRetorno);
       return withCors(response, request);
     }
@@ -1474,6 +1514,7 @@ export async function PUT(
         } : null,
       };
       
+      notificarTitularAlteracaoDataHora(agendamento);
       const response = NextResponse.json(agendamento);
       return withCors(response, request);
     } else {
@@ -1778,6 +1819,7 @@ export async function PUT(
         }
       }
 
+      notificarTitularAlteracaoDataHora(agendamento);
       const response = NextResponse.json(agendamento);
       return withCors(response, request);
     }

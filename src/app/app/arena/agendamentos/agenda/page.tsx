@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
@@ -9,12 +10,13 @@ import ConfirmarCancelamentoRecorrenteModal from '@/components/ConfirmarCancelam
 import ConfirmarExclusaoRecorrenteModal from '@/components/ConfirmarExclusaoRecorrenteModal';
 import LimparAgendaFuturaModal from '@/components/LimparAgendaFuturaModal';
 import QuadrasDisponiveisPorHorarioModal from '@/components/QuadrasDisponiveisPorHorarioModal';
-import type { Quadra, Agendamento, StatusAgendamento, BloqueioAgenda } from '@/types/agendamento';
+import type { Quadra, Agendamento, BloqueioAgenda, InteracaoAgendamento } from '@/types/agendamento';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Filter, X, Edit, User, Users, UserPlus, Plus, MoreVertical, Search, Lock, CalendarDays, Trash2, CheckCircle, MessageCircle, RotateCw, Smartphone, UserCog, GraduationCap, Phone } from 'lucide-react';
 import { gzappyService } from '@/services/gzappyService';
 import { api } from '@/lib/api';
 
 export default function ArenaAgendaSemanalPage() {
+  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -45,6 +47,8 @@ export default function ArenaAgendaSemanalPage() {
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const [linkAgendamentoPublico, setLinkAgendamentoPublico] = useState('');
   const [linkAgendamentoPublicoCopiado, setLinkAgendamentoPublicoCopiado] = useState(false);
+  const [interacoesPorAgendamento, setInteracoesPorAgendamento] = useState<Record<string, InteracaoAgendamento>>({});
+  const [salvandoConfirmacaoManualId, setSalvandoConfirmacaoManualId] = useState<string | null>(null);
 
   // Função para normalizar texto removendo acentuação
   const normalizarTexto = (texto: string): string => {
@@ -183,10 +187,18 @@ export default function ArenaAgendaSemanalPage() {
 
       console.log('✅ Agendamentos recebidos:', agendamentosData.length, agendamentosData);
 
+      const interacoesData = agendamentosData.length > 0
+        ? await agendamentoService.listarInteracoes(agendamentosData.map((ag) => ag.id))
+        : [];
+
       setAgendamentos(agendamentosData);
       setBloqueios(bloqueiosData);
+      setInteracoesPorAgendamento(
+        Object.fromEntries(interacoesData.map((interacao) => [interacao.agendamentoId, interacao]))
+      );
     } catch (error) {
       console.error('❌ Erro ao carregar agendamentos:', error);
+      setInteracoesPorAgendamento({});
     }
   };
 
@@ -714,6 +726,9 @@ export default function ArenaAgendaSemanalPage() {
     }
 
     mensagem += `\nEsperamos você! 🎾`;
+    mensagem += `\n\nSe estiver tudo certo:`;
+    mensagem += `\n1 - Confirmar recebimento do agendamento`;
+    mensagem += `\n2 - Solicitar contato da ${nomeArena}`;
 
     return mensagem;
   };
@@ -722,6 +737,8 @@ export default function ArenaAgendaSemanalPage() {
     setMenuAberto(null);
 
     const telefone = obterTelefoneCliente(agendamento);
+    const nomeArena = agendamento.quadra?.point?.nome || 'Arena';
+    const nomeCliente = agendamento.atleta?.nome || agendamento.nomeAvulso || agendamento.usuario?.name || 'Cliente';
     if (!telefone) {
       alert('Telefone do cliente não encontrado. Não é possível enviar a confirmação.');
       return;
@@ -741,6 +758,18 @@ export default function ArenaAgendaSemanalPage() {
         mensagem: mensagem,
         tipo: 'texto',
         pointId: pointId,
+        interacaoAgendamento: {
+          agendamentoId: agendamento.id,
+          tipo: 'NOVO_AGENDAMENTO',
+          metadata: {
+            arena: nomeArena,
+            quadra: agendamento.quadra?.nome || 'Quadra',
+            dataHora: agendamento.dataHora,
+            duracao: agendamento.duracao,
+            valor: agendamento.valorNegociado || agendamento.valorCalculado || null,
+            nomeAtleta: nomeCliente,
+          },
+        },
       });
 
       alert('✅ Mensagem de confirmação enviada com sucesso!');
@@ -805,6 +834,106 @@ export default function ArenaAgendaSemanalPage() {
         Próprio
       </span>
     );
+  };
+
+  const getInteracaoAgendamento = (agendamentoId: string) => {
+    return interacoesPorAgendamento[agendamentoId] || null;
+  };
+
+  const getStatusInteracaoConfig = (interacao: InteracaoAgendamento | null) => {
+    if (!interacao) {
+      return null;
+    }
+
+    const confirmadoManualmente = Boolean(interacao.metadata?.confirmadoManualmente);
+
+    switch (interacao.status) {
+      case 'AGUARDANDO_ENVIO':
+        return {
+          label: 'Preparando envio',
+          resumo: 'Preparando envio',
+          className: 'bg-slate-100 text-slate-700',
+          dotClassName: 'bg-slate-500',
+        };
+      case 'AGUARDANDO_RESPOSTA':
+        return {
+          label: 'Aguardando resposta',
+          resumo: 'Aguardando',
+          className: 'bg-amber-100 text-amber-700',
+          dotClassName: 'bg-amber-500',
+        };
+      case 'CONFIRMADO_RECEBIMENTO':
+        return {
+          label: confirmadoManualmente ? 'Confirmado manualmente' : 'Confirmado no WhatsApp',
+          resumo: confirmadoManualmente ? 'Confirmado manual' : 'Confirmado',
+          className: 'bg-emerald-100 text-emerald-700',
+          dotClassName: 'bg-emerald-500',
+        };
+      case 'SOLICITOU_CONTATO':
+        return {
+          label: 'Solicitou contato',
+          resumo: 'Pediu contato',
+          className: 'bg-sky-100 text-sky-700',
+          dotClassName: 'bg-sky-500',
+        };
+      case 'FALHA_ENVIO':
+        return {
+          label: 'Falha no envio',
+          resumo: 'Falha envio',
+          className: 'bg-rose-100 text-rose-700',
+          dotClassName: 'bg-rose-500',
+        };
+      case 'SUBSTITUIDA':
+        return {
+          label: 'Substituída',
+          resumo: 'Substituída',
+          className: 'bg-gray-100 text-gray-700',
+          dotClassName: 'bg-gray-500',
+        };
+      default:
+        return {
+          label: interacao.status,
+          resumo: interacao.status,
+          className: 'bg-gray-100 text-gray-700',
+          dotClassName: 'bg-gray-500',
+        };
+    }
+  };
+
+  const podeMarcarConfirmacaoManual = (agendamento: Agendamento) => {
+    if (agendamento.status !== 'CONFIRMADO') {
+      return false;
+    }
+
+    const interacao = getInteracaoAgendamento(agendamento.id);
+    if (!interacao) {
+      return true;
+    }
+
+    return interacao.status !== 'CONFIRMADO_RECEBIMENTO';
+  };
+
+  const handleConfirmarManual = async (agendamento: Agendamento) => {
+    setMenuAberto(null);
+    setSalvandoConfirmacaoManualId(agendamento.id);
+
+    try {
+      await agendamentoService.confirmarInteracaoManual(
+        agendamento.id,
+        'Confirmado manualmente pelo gestor na agenda'
+      );
+      await carregarAgendamentos();
+      alert('✅ Confirmação manual registrada com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao registrar confirmação manual:', error);
+      const mensagemErro =
+        error?.response?.data?.mensagem ||
+        error?.message ||
+        'Erro ao registrar confirmação manual';
+      alert(`Erro ao registrar confirmação manual: ${mensagemErro}`);
+    } finally {
+      setSalvandoConfirmacaoManualId(null);
+    }
   };
 
   const getInfoAgendamento = (agendamento: Agendamento) => {
@@ -949,6 +1078,14 @@ export default function ArenaAgendaSemanalPage() {
           >
             <Plus className="w-4 h-4" />
             Novo Agendamento
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/app/arena/agendamentos/agenda/confirmacoes')}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+          >
+            <MessageCircle className="w-4 h-4" />
+            Acompanhar Confirmações
           </button>
           <button
             onClick={() => {
@@ -1316,6 +1453,8 @@ export default function ArenaAgendaSemanalPage() {
                                       
                                       const info = getInfoAgendamento(agendamento);
                                       const corQuadra = getCorQuadra(agendamento.quadraId);
+                                      const interacao = getInteracaoAgendamento(agendamento.id);
+                                      const statusInteracao = getStatusInteracaoConfig(interacao);
                                       
                                       // Formatar duração
                                       const horas = Math.floor(agendamento.duracao / 60);
@@ -1458,6 +1597,14 @@ export default function ArenaAgendaSemanalPage() {
                                               <div className="text-[10px] opacity-90">
                                                 {duracaoTexto}
                                               </div>
+                                              {statusInteracao && (
+                                                <div className="mt-1">
+                                                  <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${statusInteracao.className}`}>
+                                                    <span className={`h-1.5 w-1.5 rounded-full ${statusInteracao.dotClassName}`}></span>
+                                                    {statusInteracao.resumo}
+                                                  </span>
+                                                </div>
+                                              )}
                                             </div>
                                             {agendamento.status === 'CONFIRMADO' && (
                                               <div className="text-[9px] font-semibold opacity-75 mt-1">
@@ -1496,6 +1643,21 @@ export default function ArenaAgendaSemanalPage() {
                                                 >
                                                   <MessageCircle className="w-4 h-4" />
                                                   Enviar Confirmação
+                                                </button>
+                                              )}
+                                              {podeMarcarConfirmacaoManual(agendamento) && (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    handleConfirmarManual(agendamento);
+                                                  }}
+                                                  disabled={salvandoConfirmacaoManualId === agendamento.id}
+                                                  className="w-full px-4 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"
+                                                >
+                                                  <CheckCircle className="w-4 h-4" />
+                                                  {salvandoConfirmacaoManualId === agendamento.id ? 'Salvando...' : 'Confirmar Manualmente'}
                                                 </button>
                                               )}
                                               <button

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { pointService } from '@/services/agendamentoService';
+import { APP_VERSION } from '@/lib/appVersion';
 import { Menu, X, ChevronRight, ChartColumn } from 'lucide-react';
 
 interface NavItem {
@@ -188,9 +189,14 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
 
           <div className="flex items-center gap-4">
             {usuario && (
-              <span className="hidden sm:inline text-sm text-gray-600">
-                {usuario.name || usuario.nome} ({usuario.email})
-              </span>
+              <div className="hidden sm:flex flex-col items-end leading-tight">
+                <span className="text-sm text-gray-600">
+                  {usuario.name || usuario.nome} ({usuario.email})
+                </span>
+                <span className="text-xs text-gray-400">
+                  Versao {APP_VERSION}
+                </span>
+              </div>
             )}
             <button
               onClick={handleLogout}
@@ -333,6 +339,13 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
                     className="w-8 h-8 object-contain rounded-lg"
                   />
                   <span className="text-sm font-semibold text-gray-700">{nomeArena}</span>
+                </div>
+              )}
+              {usuario && (
+                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  <div className="font-medium text-gray-700">{usuario.name || usuario.nome}</div>
+                  <div>{usuario.email}</div>
+                  <div className="mt-1 text-gray-400">Versao {APP_VERSION}</div>
                 </div>
               )}
             </div>

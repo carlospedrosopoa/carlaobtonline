@@ -1241,6 +1241,7 @@ Esperamos você! 🎾`;
             clienteTelefone,
             agendamento.quadra.point.id,
             {
+              agendamentoId: agendamento.id,
               quadra: agendamento.quadra.nome,
               arena: agendamento.quadra.point.nome,
               dataHora: agendamento.dataHora,

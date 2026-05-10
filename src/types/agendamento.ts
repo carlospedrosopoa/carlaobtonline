@@ -57,6 +57,30 @@ export interface Quadra {
 
 export type StatusAgendamento = "CONFIRMADO" | "CANCELADO" | "CONCLUIDO";
 export type TipoRecorrencia = "DIARIO" | "SEMANAL" | "MENSAL" | null;
+export type StatusInteracaoAgendamento =
+  | "AGUARDANDO_ENVIO"
+  | "AGUARDANDO_RESPOSTA"
+  | "CONFIRMADO_RECEBIMENTO"
+  | "SOLICITOU_CONTATO"
+  | "SUBSTITUIDA"
+  | "FALHA_ENVIO";
+
+export interface InteracaoAgendamento {
+  id: string;
+  agendamentoId: string;
+  pointId: string;
+  publicInstanceId?: string | null;
+  phone: string;
+  tipo: string;
+  status: StatusInteracaoAgendamento;
+  mensagemEnviada?: string | null;
+  respostaRecebida?: string | null;
+  respostaMessageId?: string | null;
+  respostaRecebidaEm?: string | null;
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface RecorrenciaConfig {
   tipo: TipoRecorrencia;

@@ -6,6 +6,11 @@ export interface EnviarMensagemGzappyPayload {
   mensagem: string;
   tipo?: 'texto' | 'template';
   pointId?: string; // ID da arena para usar credenciais específicas
+  interacaoAgendamento?: {
+    agendamentoId: string;
+    tipo: 'NOVO_AGENDAMENTO' | 'ALTERACAO_AGENDAMENTO';
+    metadata?: Record<string, any>;
+  };
 }
 
 export interface EnviarMensagemGzappyResponse {
