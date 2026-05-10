@@ -5,8 +5,86 @@
 // Com header: Authorization: Bearer {CRON_SECRET} (se configurado)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { enviarMensagemGzappy, formatarNumeroGzappy } from '@/lib/gzappyService';
+import { normalizarDataHora, query } from '@/lib/db';
+import {
+  enviarMensagemGzappy,
+  formatarNumeroGzappy,
+  notificarAtletaConfirmacaoProximoAgendamento,
+} from '@/lib/gzappyService';
+
+const TIME_ZONE_NEGOCIO = 'America/Sao_Paulo';
+const CRON_LOGICA_VERSAO = '2026-05-10-v2';
+
+function obterPartesDataNoFuso(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+
+  const parts = formatter.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || '0');
+
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second'),
+  };
+}
+
+function obterAgoraReferenciaAgendamento(): Date {
+  const agoraReal = new Date();
+  const partesSP = obterPartesDataNoFuso(agoraReal, TIME_ZONE_NEGOCIO);
+
+  // O projeto grava dataHora em UTC, mas tratando a hora local como "naive".
+  // Para o cron comparar corretamente, espelhamos o "agora" real no mesmo formato.
+  return new Date(
+    Date.UTC(
+      partesSP.year,
+      partesSP.month - 1,
+      partesSP.day,
+      partesSP.hour,
+      partesSP.minute,
+      partesSP.second,
+      0
+    )
+  );
+}
+
+function extrairDataHoraAgendamento(
+  dataHoraValue: unknown
+): {
+  dataHoraNormalizada: string;
+  dataFormatada: string;
+  horaFormatada: string;
+} | null {
+  const dataHoraNormalizada = normalizarDataHora(dataHoraValue);
+  if (!dataHoraNormalizada) {
+    return null;
+  }
+
+  const matchDataHora = dataHoraNormalizada.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    return null;
+  }
+
+  const [, ano, mes, dia, hora, minuto] = matchDataHora;
+
+  return {
+    dataHoraNormalizada,
+    dataFormatada: `${dia}/${mes}/${ano}`,
+    horaFormatada: `${hora}:${minuto}`,
+  };
+}
 
 export async function GET(request: NextRequest) {
   // Verificar se é uma chamada autorizada
@@ -39,7 +117,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const agora = new Date();
+    const agoraReal = new Date();
+    const agora = obterAgoraReferenciaAgendamento();
     
     // Buscar todas as arenas que têm lembretes habilitados
     const arenasComLembretes = await query(
@@ -67,17 +146,25 @@ export async function GET(request: NextRequest) {
     // Para cada arena, verificar agendamentos
     for (const arena of arenasComLembretes.rows) {
       const antecedenciaHoras = arena.antecedenciaLembrete;
-      
-      // Calcular janela de tempo (entre antecedencia-1h e antecedencia)
-      // Isso garante que verificamos uma vez por hora e não perdemos nenhum
-      const emAntecedenciaMenos1h = new Date(agora.getTime() + (antecedenciaHoras - 1) * 60 * 60 * 1000);
-      const emAntecedencia = new Date(agora.getTime() + antecedenciaHoras * 60 * 60 * 1000);
+      const usaJanelaAteAntecedencia = antecedenciaHoras <= 12;
+
+      // Para mensagens interativas (<= 12h), considerar qualquer agendamento
+      // entre agora e o limite de antecedência. Como já existe trava de não reenvio,
+      // isso evita perder confirmações quando o cron não roda exatamente no "ponto".
+      // Para lembretes informativos (> 12h), manter a janela de 1 hora.
+      const janelaInicio = usaJanelaAteAntecedencia
+        ? agora
+        : new Date(agora.getTime() + (antecedenciaHoras - 1) * 60 * 60 * 1000);
+      const janelaFim = new Date(agora.getTime() + antecedenciaHoras * 60 * 60 * 1000);
 
       console.log(`[NOTIFICAÇÃO] Arena ${arena.nome}:`);
+      console.log(`  - Versão da lógica do cron: ${CRON_LOGICA_VERSAO}`);
       console.log(`  - Antecedência: ${antecedenciaHoras} horas`);
-      console.log(`  - Agora: ${agora.toISOString()}`);
-      console.log(`  - Janela de busca: ${emAntecedenciaMenos1h.toISOString()} até ${emAntecedencia.toISOString()}`);
-      console.log(`  - Buscando agendamentos que acontecerão entre ${emAntecedenciaMenos1h.toLocaleString('pt-BR')} e ${emAntecedencia.toLocaleString('pt-BR')}`);
+      console.log(`  - Agora real UTC: ${agoraReal.toISOString()}`);
+      console.log(`  - Agora referência agenda (${TIME_ZONE_NEGOCIO}): ${agora.toISOString()}`);
+      console.log(`  - Modo da janela: ${usaJanelaAteAntecedencia ? 'agora até o limite de antecedência' : 'faixa de 1h no ponto da antecedência'}`);
+      console.log(`  - Janela de busca: ${janelaInicio.toISOString()} até ${janelaFim.toISOString()}`);
+      console.log(`  - Buscando agendamentos que acontecerão entre ${janelaInicio.toLocaleString('pt-BR')} e ${janelaFim.toLocaleString('pt-BR')}`);
 
       try {
         // Primeiro, vamos verificar TODOS os agendamentos confirmados para debug
@@ -119,7 +206,10 @@ export async function GET(request: NextRequest) {
             at.fone as "atleta_fone",
             q.nome as "quadra_nome",
             p.nome as "point_nome", 
-            p.id as "point_id"
+            p.id as "point_id",
+            gi_ultima.status as "ultima_interacao_status",
+            gi_ultima."respostaRecebida" as "ultima_resposta_recebida",
+            gi_ultima."createdAt" as "ultima_interacao_em"
           FROM "Agendamento" a
           INNER JOIN "Quadra" q ON a."quadraId" = q.id
           INNER JOIN "Point" p ON q."pointId" = p.id
@@ -127,6 +217,16 @@ export async function GET(request: NextRequest) {
           LEFT JOIN "NotificacaoAgendamento" n ON n."agendamentoId" = a.id 
             AND n.tipo = $1
             AND n.enviada = true
+          LEFT JOIN LATERAL (
+            SELECT
+              gi.status,
+              gi."respostaRecebida",
+              gi."createdAt"
+            FROM "GzappyInteracaoAgendamento" gi
+            WHERE gi."agendamentoId" = a.id
+            ORDER BY gi."createdAt" DESC
+            LIMIT 1
+          ) gi_ultima ON true
           WHERE a.status = 'CONFIRMADO'
             AND p.id = $2
             AND a."dataHora" >= $3
@@ -141,8 +241,8 @@ export async function GET(request: NextRequest) {
         const result = await query(sql, [
           tipoNotificacao,
           arena.id,
-          emAntecedenciaMenos1h.toISOString(),
-          emAntecedencia.toISOString()
+          janelaInicio.toISOString(),
+          janelaFim.toISOString()
         ]);
 
         console.log(`  - Agendamentos na janela de ${antecedenciaHoras}h: ${result.rows.length}`);
@@ -159,15 +259,19 @@ export async function GET(request: NextRequest) {
             }
 
             // Formatar data/hora
-            const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-            if (!matchDataHora) {
-              console.error(`[NOTIFICAÇÃO] Formato de data inválido para agendamento ${agendamento.id}`);
+            const dataHoraInfo = extrairDataHoraAgendamento(agendamento.dataHora);
+            if (!dataHoraInfo) {
+              console.error(
+                `[NOTIFICAÇÃO] Formato de data inválido para agendamento ${agendamento.id}`,
+                { valorRecebido: agendamento.dataHora }
+              );
               continue;
             }
-
-            const [, ano, mes, dia, hora, minuto] = matchDataHora;
-            const dataFormatada = `${dia}/${mes}/${ano}`;
-            const horaFormatada = `${hora}:${minuto}`;
+            const {
+              dataHoraNormalizada,
+              dataFormatada,
+              horaFormatada,
+            } = dataHoraInfo;
 
             // Formatar duração
             const horas = Math.floor(agendamento.duracao / 60);
@@ -176,24 +280,56 @@ export async function GET(request: NextRequest) {
               ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
               : `${minutos}min`;
 
-            // Montar mensagem
-            const mensagem = `🏸 *Lembrete de Agendamento*\n\n` +
-              `Olá ${nome}!\n\n` +
-              `Você tem um agendamento em *${antecedenciaHoras} horas*:\n\n` +
-              `📅 Data: ${dataFormatada}\n` +
-              `🕐 Horário: ${horaFormatada}\n` +
-              `⏱️ Duração: ${duracaoTexto}\n` +
-              `🏟️ Quadra: ${agendamento.quadra_nome}\n` +
-              `📍 Arena: ${agendamento.point_nome}\n\n` +
-              `Não esqueça! 😊`;
+            let enviado = false;
 
-            // Enviar via Gzappy usando credenciais da arena
-            const telefoneFormatado = formatarNumeroGzappy(telefone);
-            const enviado = await enviarMensagemGzappy({
-              destinatario: telefoneFormatado,
-              mensagem,
-              tipo: 'texto',
-            }, arena.id);
+            if (antecedenciaHoras <= 12) {
+              const statusInteracaoAtual = agendamento.ultima_interacao_status as string | null;
+              const devePularConfirmacaoInterativa = [
+                'AGUARDANDO_ENVIO',
+                'AGUARDANDO_RESPOSTA',
+                'CONFIRMADO_RECEBIMENTO',
+                'SOLICITOU_CONTATO',
+              ].includes(statusInteracaoAtual || '');
+
+              if (devePularConfirmacaoInterativa) {
+                console.log(
+                  `[NOTIFICAÇÃO] ⏭️ Confirmação interativa não reenviada para agendamento ${agendamento.id} ` +
+                  `(status atual: ${statusInteracaoAtual}, resposta: ${agendamento.ultima_resposta_recebida || 'sem resposta'})`
+                );
+                continue;
+              }
+
+              enviado = await notificarAtletaConfirmacaoProximoAgendamento(
+                telefone,
+                arena.id,
+                {
+                  agendamentoId: agendamento.id,
+                  quadra: agendamento.quadra_nome,
+                  arena: agendamento.point_nome,
+                  dataHora: dataHoraNormalizada,
+                  duracao: agendamento.duracao,
+                  antecedenciaHoras,
+                  nomeAtleta: nome,
+                }
+              );
+            } else {
+              const mensagem = `🏸 *Lembrete de Agendamento*\n\n` +
+                `Olá ${nome}!\n\n` +
+                `Você tem um agendamento em *${antecedenciaHoras} horas*:\n\n` +
+                `📅 Data: ${dataFormatada}\n` +
+                `🕐 Horário: ${horaFormatada}\n` +
+                `⏱️ Duração: ${duracaoTexto}\n` +
+                `🏟️ Quadra: ${agendamento.quadra_nome}\n` +
+                `📍 Arena: ${agendamento.point_nome}\n\n` +
+                `Não esqueça! 😊`;
+
+              const telefoneFormatado = formatarNumeroGzappy(telefone);
+              enviado = await enviarMensagemGzappy({
+                destinatario: telefoneFormatado,
+                mensagem,
+                tipo: 'texto',
+              }, arena.id);
+            }
 
             if (enviado) {
               // Registrar notificação enviada
