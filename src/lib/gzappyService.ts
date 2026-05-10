@@ -7,7 +7,10 @@ export interface MensagemGzappy {
   tipo?: 'texto' | 'template';
 }
 
-type TipoInteracaoAgendamento = 'NOVO_AGENDAMENTO' | 'ALTERACAO_AGENDAMENTO';
+type TipoInteracaoAgendamento =
+  | 'NOVO_AGENDAMENTO'
+  | 'ALTERACAO_AGENDAMENTO'
+  | 'CONFIRMACAO_PROXIMO_AGENDAMENTO';
 type StatusInteracaoAgendamento =
   | 'AGUARDANDO_ENVIO'
   | 'AGUARDANDO_RESPOSTA'
@@ -33,6 +36,77 @@ function montarInstrucoesInteracao(nomeArena: string): string {
     '1 - Confirmar recebimento do agendamento',
     `2 - Solicitar contato da ${nomeArena}`,
   ].join('\n');
+}
+
+function formatarDataHoraAgendamento(dataHoraIso: string): { data: string; hora: string } {
+  const matchDataHora = dataHoraIso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!matchDataHora) {
+    const dataHora = new Date(dataHoraIso);
+    const ano = dataHora.getFullYear();
+    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataHora.getDate()).padStart(2, '0');
+    const hora = String(dataHora.getHours()).padStart(2, '0');
+    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
+    return {
+      data: `${dia}/${mes}/${ano}`,
+      hora: `${hora}:${minuto}`,
+    };
+  }
+
+  const [, ano, mes, dia, hora, minuto] = matchDataHora;
+  return {
+    data: `${dia}/${mes}/${ano}`,
+    hora: `${hora}:${minuto}`,
+  };
+}
+
+function formatarDuracaoAgendamento(duracao: number): string {
+  const horas = Math.floor(duracao / 60);
+  const minutos = duracao % 60;
+
+  return horas > 0
+    ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
+    : `${minutos}min`;
+}
+
+async function enviarMensagemInterativaAgendamento(params: {
+  telefoneFormatado: string;
+  pointId: string;
+  agendamentoId: string;
+  tipo: TipoInteracaoAgendamento;
+  mensagem: string;
+  metadata: Record<string, any>;
+}): Promise<boolean> {
+  const interacaoId = await registrarInteracaoAgendamento({
+    agendamentoId: params.agendamentoId,
+    pointId: params.pointId,
+    phone: params.telefoneFormatado,
+    tipo: params.tipo,
+    mensagemEnviada: params.mensagem,
+    metadata: params.metadata,
+    status: 'AGUARDANDO_ENVIO',
+  });
+
+  try {
+    const enviado = await enviarMensagemGzappy(
+      {
+        destinatario: params.telefoneFormatado,
+        mensagem: params.mensagem,
+        tipo: 'texto',
+      },
+      params.pointId
+    );
+
+    await atualizarStatusInteracaoAgendamento(
+      interacaoId,
+      enviado ? 'AGUARDANDO_RESPOSTA' : 'FALHA_ENVIO'
+    );
+
+    return enviado;
+  } catch (error) {
+    await atualizarStatusInteracaoAgendamento(interacaoId, 'FALHA_ENVIO');
+    throw error;
+  }
 }
 
 async function obterPublicInstanceIdGzappy(pointId: string): Promise<string | null> {
@@ -628,33 +702,8 @@ export async function notificarAtletaNovoAgendamento(
   // Formatar número para formato internacional
   const telefoneFormatado = formatarNumeroGzappy(telefoneAtleta);
 
-  // Extrair data e hora diretamente da string ISO, igual a agenda faz
-  let dataFormatada: string;
-  let horaFormatada: string;
-  
-  const matchDataHora = agendamento.dataHora.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (!matchDataHora) {
-    // Fallback se o formato não for o esperado
-    const dataHora = new Date(agendamento.dataHora);
-    const ano = dataHora.getFullYear();
-    const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
-    const dia = String(dataHora.getDate()).padStart(2, '0');
-    const hora = String(dataHora.getHours()).padStart(2, '0');
-    const minuto = String(dataHora.getMinutes()).padStart(2, '0');
-    dataFormatada = `${dia}/${mes}/${ano}`;
-    horaFormatada = `${hora}:${minuto}`;
-  } else {
-    // Extrair diretamente da string ISO (mesmo método usado na agenda)
-    const [, ano, mes, dia, hora, minuto] = matchDataHora;
-    dataFormatada = `${dia}/${mes}/${ano}`;
-    horaFormatada = `${hora}:${minuto}`;
-  }
-
-  const horas = Math.floor(agendamento.duracao / 60);
-  const minutos = agendamento.duracao % 60;
-  const duracaoTexto = horas > 0 
-    ? `${horas}h${minutos > 0 ? ` e ${minutos}min` : ''}`
-    : `${minutos}min`;
+  const { data: dataFormatada, hora: horaFormatada } = formatarDataHoraAgendamento(agendamento.dataHora);
+  const duracaoTexto = formatarDuracaoAgendamento(agendamento.duracao);
 
   const valorFormatado = formatarValor(agendamento.valor);
   const nomeAtleta = agendamento.nomeAtleta || 'Atleta';
@@ -670,43 +719,13 @@ export async function notificarAtletaNovoAgendamento(
 ⏱️ *Duração:* ${duracaoTexto}
 💰 *Valor:* ${valorFormatado}
 
-Esperamos você! 🎾
-${montarInstrucoesInteracao(agendamento.arena)}`;
+Esperamos você! 🎾`;
 
-  const interacaoId = await registrarInteracaoAgendamento({
-    agendamentoId: agendamento.agendamentoId,
-    pointId,
-    phone: telefoneFormatado,
-    tipo: 'NOVO_AGENDAMENTO',
-    mensagemEnviada: mensagem,
-    metadata: {
-      arena: agendamento.arena,
-      quadra: agendamento.quadra,
-      dataHora: agendamento.dataHora,
-      duracao: agendamento.duracao,
-      valor: agendamento.valor ?? null,
-      nomeAtleta,
-    },
-    status: 'AGUARDANDO_ENVIO',
-  });
-
-  try {
-    const enviado = await enviarMensagemGzappy({
-      destinatario: telefoneFormatado,
-      mensagem,
-      tipo: 'texto',
-    }, pointId);
-
-    await atualizarStatusInteracaoAgendamento(
-      interacaoId,
-      enviado ? 'AGUARDANDO_RESPOSTA' : 'FALHA_ENVIO'
-    );
-
-    return enviado;
-  } catch (error) {
-    await atualizarStatusInteracaoAgendamento(interacaoId, 'FALHA_ENVIO');
-    throw error;
-  }
+  return await enviarMensagemGzappy({
+    destinatario: telefoneFormatado,
+    mensagem,
+    tipo: 'texto',
+  }, pointId);
 }
 
 /**
@@ -731,30 +750,8 @@ export async function notificarAtletaAlteracaoAgendamento(
 
   const telefoneFormatado = formatarNumeroGzappy(telefoneAtleta);
 
-  const formatarDataHora = (dataHoraIso: string) => {
-    const matchDataHora = dataHoraIso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-    if (!matchDataHora) {
-      const dataHora = new Date(dataHoraIso);
-      const ano = dataHora.getFullYear();
-      const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
-      const dia = String(dataHora.getDate()).padStart(2, '0');
-      const hora = String(dataHora.getHours()).padStart(2, '0');
-      const minuto = String(dataHora.getMinutes()).padStart(2, '0');
-      return {
-        data: `${dia}/${mes}/${ano}`,
-        hora: `${hora}:${minuto}`,
-      };
-    }
-
-    const [, ano, mes, dia, hora, minuto] = matchDataHora;
-    return {
-      data: `${dia}/${mes}/${ano}`,
-      hora: `${hora}:${minuto}`,
-    };
-  };
-
-  const anterior = formatarDataHora(agendamento.dataHoraAnterior);
-  const nova = formatarDataHora(agendamento.dataHoraNova);
+  const anterior = formatarDataHoraAgendamento(agendamento.dataHoraAnterior);
+  const nova = formatarDataHoraAgendamento(agendamento.dataHoraNova);
   const nomeAtleta = agendamento.nomeAtleta || 'Atleta';
 
   const mensagem = `*${agendamento.arena}*
@@ -773,41 +770,72 @@ Olá ${nomeAtleta}, seu agendamento foi atualizado.
 📅 Data: ${nova.data}
 🕐 Horário: ${nova.hora}
 
-Se precisar, fale com a arena.
+Se precisar, fale com a arena.`;
+
+  return await enviarMensagemGzappy({
+    destinatario: telefoneFormatado,
+    mensagem,
+    tipo: 'texto',
+  }, pointId);
+}
+
+export async function notificarAtletaConfirmacaoProximoAgendamento(
+  telefoneAtleta: string,
+  pointId: string,
+  agendamento: {
+    agendamentoId: string;
+    quadra: string;
+    arena: string;
+    dataHora: string;
+    duracao: number;
+    antecedenciaHoras: number;
+    valor?: number | null;
+    nomeAtleta?: string;
+  }
+): Promise<boolean> {
+  if (!telefoneAtleta || telefoneAtleta.trim() === '') {
+    console.log('Atleta não possui telefone cadastrado para confirmação próxima');
+    return false;
+  }
+
+  const telefoneFormatado = formatarNumeroGzappy(telefoneAtleta);
+  const { data: dataFormatada, hora: horaFormatada } = formatarDataHoraAgendamento(agendamento.dataHora);
+  const duracaoTexto = formatarDuracaoAgendamento(agendamento.duracao);
+  const valorFormatado = formatarValor(agendamento.valor);
+  const nomeAtleta = agendamento.nomeAtleta || 'Atleta';
+  const mensagem = `*${agendamento.arena}*
+
+⏰ *Confirmação de Agendamento*
+
+Olá ${nomeAtleta}!
+
+Seu agendamento está próximo:
+
+🏸 *Quadra:* ${agendamento.quadra}
+📅 *Data:* ${dataFormatada}
+🕐 *Horário:* ${horaFormatada}
+⏱️ *Duração:* ${duracaoTexto}
+💰 *Valor:* ${valorFormatado}
+
+Esta mensagem foi enviada automaticamente pelo sistema Play Na Quadra.
 ${montarInstrucoesInteracao(agendamento.arena)}`;
 
-  const interacaoId = await registrarInteracaoAgendamento({
-    agendamentoId: agendamento.agendamentoId,
+  return await enviarMensagemInterativaAgendamento({
+    telefoneFormatado,
     pointId,
-    phone: telefoneFormatado,
-    tipo: 'ALTERACAO_AGENDAMENTO',
-    mensagemEnviada: mensagem,
+    agendamentoId: agendamento.agendamentoId,
+    tipo: 'CONFIRMACAO_PROXIMO_AGENDAMENTO',
+    mensagem,
     metadata: {
       arena: agendamento.arena,
       quadra: agendamento.quadra,
-      dataHoraAnterior: agendamento.dataHoraAnterior,
-      dataHoraNova: agendamento.dataHoraNova,
+      dataHora: agendamento.dataHora,
+      duracao: agendamento.duracao,
+      valor: agendamento.valor ?? null,
       nomeAtleta,
+      antecedenciaHoras: agendamento.antecedenciaHoras,
+      origem: 'CRON_CONFIRMACAO_PROXIMA',
     },
-    status: 'AGUARDANDO_ENVIO',
   });
-
-  try {
-    const enviado = await enviarMensagemGzappy({
-      destinatario: telefoneFormatado,
-      mensagem,
-      tipo: 'texto',
-    }, pointId);
-
-    await atualizarStatusInteracaoAgendamento(
-      interacaoId,
-      enviado ? 'AGUARDANDO_RESPOSTA' : 'FALHA_ENVIO'
-    );
-
-    return enviado;
-  } catch (error) {
-    await atualizarStatusInteracaoAgendamento(interacaoId, 'FALHA_ENVIO');
-    throw error;
-  }
 }
 

@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService, bloqueioAgendaService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
@@ -15,6 +16,7 @@ import { gzappyService } from '@/services/gzappyService';
 import { api } from '@/lib/api';
 
 export default function ArenaAgendaSemanalPage() {
+  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -934,28 +936,6 @@ export default function ArenaAgendaSemanalPage() {
     }
   };
 
-  const resumoConfirmacoes = useMemo(() => {
-    const interacoes = agendamentos
-      .map((agendamento) => ({
-        agendamento,
-        interacao: getInteracaoAgendamento(agendamento.id),
-      }))
-      .filter((item) => item.interacao);
-
-    return {
-      totalComInteracao: interacoes.length,
-      aguardando: interacoes.filter((item) => item.interacao?.status === 'AGUARDANDO_RESPOSTA').length,
-      confirmados: interacoes.filter((item) => item.interacao?.status === 'CONFIRMADO_RECEBIMENTO').length,
-      solicitouContato: interacoes.filter((item) => item.interacao?.status === 'SOLICITOU_CONTATO').length,
-      falhaEnvio: interacoes.filter((item) => item.interacao?.status === 'FALHA_ENVIO').length,
-      destaques: interacoes.filter((item) =>
-        item.interacao?.status === 'AGUARDANDO_RESPOSTA' ||
-        item.interacao?.status === 'SOLICITOU_CONTATO' ||
-        item.interacao?.status === 'FALHA_ENVIO'
-      ),
-    };
-  }, [agendamentos, interacoesPorAgendamento]);
-
   const getInfoAgendamento = (agendamento: Agendamento) => {
     // Se for aula/professor, mostrar informações do professor primeiro
     if (agendamento.ehAula && agendamento.professor) {
@@ -1100,6 +1080,14 @@ export default function ArenaAgendaSemanalPage() {
             Novo Agendamento
           </button>
           <button
+            type="button"
+            onClick={() => router.push('/app/arena/agendamentos/agenda/confirmacoes')}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+          >
+            <MessageCircle className="w-4 h-4" />
+            Acompanhar Confirmações
+          </button>
+          <button
             onClick={() => {
               carregarAgendamentos();
               carregarDados();
@@ -1110,91 +1098,6 @@ export default function ArenaAgendaSemanalPage() {
             <RotateCw className="w-4 h-4" />
             Atualizar
           </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-5">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Acompanhamento das confirmações</h2>
-            <p className="text-sm text-gray-600">
-              O gestor acompanha as respostas do WhatsApp e pode confirmar manualmente quando o atleta responder por outra via.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 min-w-full lg:min-w-[420px]">
-            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-              <div className="text-xs font-medium text-amber-700">Aguardando</div>
-              <div className="text-2xl font-bold text-amber-900">{resumoConfirmacoes.aguardando}</div>
-            </div>
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
-              <div className="text-xs font-medium text-emerald-700">Confirmados</div>
-              <div className="text-2xl font-bold text-emerald-900">{resumoConfirmacoes.confirmados}</div>
-            </div>
-            <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
-              <div className="text-xs font-medium text-sky-700">Solicitou contato</div>
-              <div className="text-2xl font-bold text-sky-900">{resumoConfirmacoes.solicitouContato}</div>
-            </div>
-            <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
-              <div className="text-xs font-medium text-rose-700">Falha envio</div>
-              <div className="text-2xl font-bold text-rose-900">{resumoConfirmacoes.falhaEnvio}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          {resumoConfirmacoes.destaques.length > 0 ? (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {resumoConfirmacoes.destaques.slice(0, 6).map(({ agendamento, interacao }) => {
-                const info = getInfoAgendamento(agendamento);
-                const statusConfig = getStatusInteracaoConfig(interacao);
-
-                return (
-                  <div
-                    key={`painel-confirmacao-${agendamento.id}`}
-                    className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex flex-col gap-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900">{info.nome}</div>
-                        <div className="text-xs text-gray-600">
-                          {agendamento.quadra?.nome || 'Quadra'} | {agendamento.dataHora.slice(0, 16).replace('T', ' ')}
-                        </div>
-                      </div>
-                      {statusConfig && (
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusConfig.className}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${statusConfig.dotClassName}`}></span>
-                          {statusConfig.label}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-xs text-gray-500">
-                        {interacao?.respostaRecebidaEm
-                          ? `Atualizado em ${new Date(interacao.respostaRecebidaEm).toLocaleString('pt-BR')}`
-                          : 'Aguardando retorno do atleta'}
-                      </div>
-                      {podeMarcarConfirmacaoManual(agendamento) && (
-                        <button
-                          type="button"
-                          onClick={() => handleConfirmarManual(agendamento)}
-                          disabled={salvandoConfirmacaoManualId === agendamento.id}
-                          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          {salvandoConfirmacaoManualId === agendamento.id ? 'Salvando...' : 'Confirmar manualmente'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600">
-              Nenhuma pendência crítica de confirmação nesta visualização da agenda. As confirmações enviadas e concluídas continuam aparecendo dentro de cada card.
-            </div>
-          )}
         </div>
       </div>
 

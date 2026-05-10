@@ -2,13 +2,15 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { quadraService, agendamentoService } from '@/services/agendamentoService';
 import EditarAgendamentoModal from '@/components/EditarAgendamentoModal';
 import type { Quadra, Agendamento } from '@/types/agendamento';
-import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, Search } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, Search, MessageCircle } from 'lucide-react';
 
 export default function ArenaAgendaMobilePage() {
+  const router = useRouter();
   const { usuario, isAdmin, isOrganizer } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -262,12 +264,22 @@ export default function ArenaAgendaMobilePage() {
         <div className="px-4 py-3 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-bold text-gray-900">Agenda Mobile</h1>
-            <button
-              onClick={irParaHoje}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Hoje
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => router.push('/app/arena/agendamentos/agenda/confirmacoes')}
+                className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                title="Acompanhar confirmações"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </button>
+              <button
+                onClick={irParaHoje}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Hoje
+              </button>
+            </div>
           </div>
 
           {/* Navegação de datas */}
