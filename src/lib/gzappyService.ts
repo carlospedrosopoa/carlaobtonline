@@ -32,6 +32,8 @@ export interface RegistroInteracaoAgendamento {
 export function montarInstrucoesInteracao(nomeArena: string): string {
   return [
     '',
+    'Mensagem enviada pelo sistema Play Na Quadra',
+    '',
     'Por favor responda esta mensagem com 1 ou 2, sendo:',
     '1 - Confirmo o horário 👍',
     `2 - Solicitar contato da ${nomeArena}`,
