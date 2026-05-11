@@ -5,6 +5,7 @@ import {
   atualizarStatusInteracaoAgendamento,
   enviarMensagemGzappy,
   formatarNumeroGzappy,
+  montarInstrucoesInteracao,
   registrarInteracaoAgendamento,
   type RegistroInteracaoAgendamento,
 } from '@/lib/gzappyService';
@@ -21,8 +22,8 @@ function anexarInstrucoesInteracaoSeNecessario(
   }
 
   if (
-    mensagem.includes('1 - Confirmar recebimento do agendamento') ||
-    mensagem.includes('Se estiver tudo certo:')
+    mensagem.includes('1 - Confirmo o horário 👍') ||
+    mensagem.includes('Por favor responda esta mensagem com 1 ou 2, sendo:')
   ) {
     return mensagem;
   }
@@ -33,7 +34,7 @@ function anexarInstrucoesInteracaoSeNecessario(
       ? interacaoAgendamento.metadata.arena.trim()
       : 'Arena';
 
-  return `${mensagem}\n\nSe estiver tudo certo:\n1 - Confirmar recebimento do agendamento\n2 - Solicitar contato da ${arena}`;
+  return `${mensagem}${montarInstrucoesInteracao(arena)}`;
 }
 
 /**
