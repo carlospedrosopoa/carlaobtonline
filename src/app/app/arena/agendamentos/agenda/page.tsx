@@ -726,8 +726,8 @@ export default function ArenaAgendaSemanalPage() {
     }
 
     mensagem += `\nEsperamos você! 🎾`;
-    mensagem += `\n\nSe estiver tudo certo:`;
-    mensagem += `\n1 - Confirmar recebimento do agendamento`;
+    mensagem += `\n\nPor favor responda esta mensagem com 1 ou 2, sendo:`;
+    mensagem += `\n1 - Confirmo o horário 👍`;
     mensagem += `\n2 - Solicitar contato da ${nomeArena}`;
 
     return mensagem;

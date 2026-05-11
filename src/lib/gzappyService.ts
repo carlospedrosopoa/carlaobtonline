@@ -29,11 +29,11 @@ export interface RegistroInteracaoAgendamento {
   status?: StatusInteracaoAgendamento;
 }
 
-function montarInstrucoesInteracao(nomeArena: string): string {
+export function montarInstrucoesInteracao(nomeArena: string): string {
   return [
     '',
-    'Se estiver tudo certo:',
-    '1 - Confirmar recebimento do agendamento',
+    'Por favor responda esta mensagem com 1 ou 2, sendo:',
+    '1 - Confirmo o horário 👍',
     `2 - Solicitar contato da ${nomeArena}`,
   ].join('\n');
 }

@@ -153,7 +153,6 @@ export default function AgendaConfirmacoesPage() {
         'Confirmado manualmente pelo gestor na tela de confirmações'
       );
       await carregarConfirmacoes();
-      alert('✅ Confirmação manual registrada com sucesso!');
     } catch (error: any) {
       console.error('Erro ao registrar confirmação manual:', error);
       const mensagemErro =
