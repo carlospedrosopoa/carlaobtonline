@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { contaPagarService, fornecedorService, tipoDespesaService, centroCustoService } from '@/services/gestaoArenaService';
 import type { ContaPagarItem, CriarContaPagarPayload, Fornecedor, TipoDespesa, CentroCusto } from '@/types/gestaoArena';
-import { useRouter } from 'next/navigation';
-import { Plus, Search, Filter, Wallet, Calendar, FileText } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Plus, Search, Filter, Wallet, Calendar, FileText, Trash2 } from 'lucide-react';
 import InputMonetario from '@/components/InputMonetario';
 
 function somarDias(base: string, dias: number) {
@@ -40,29 +40,102 @@ function statusColor(status: string) {
 const formatarMoeda = (valor: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
+const CONTAS_PAGAR_SCROLL_KEY = 'contas-pagar:scroll-y';
+const CONTAS_PAGAR_RESTORE_SCROLL_KEY = 'contas-pagar:restore-scroll';
+
+function parseValorFiltro(value: string | null): number | null {
+  if (!value) return null;
+  const numero = Number(value);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+type FiltrosContaPagar = {
+  status: string;
+  pessoa: string;
+  vencimentoInicio: string;
+  vencimentoFim: string;
+  fornecedorId: string;
+  statusParcela: string;
+  tipoDespesaId: string;
+  centroCustoId: string;
+  valorMin: number | null;
+  valorMax: number | null;
+};
+
+function construirQueryStringFiltros(filtros: FiltrosContaPagar): string {
+  const params = new URLSearchParams();
+
+  if (filtros.status) params.set('status', filtros.status);
+  if (filtros.pessoa) params.set('pessoa', filtros.pessoa);
+  if (filtros.vencimentoInicio) params.set('vencimentoInicio', filtros.vencimentoInicio);
+  if (filtros.vencimentoFim) params.set('vencimentoFim', filtros.vencimentoFim);
+  if (filtros.fornecedorId) params.set('fornecedorId', filtros.fornecedorId);
+  if (filtros.statusParcela) params.set('statusParcela', filtros.statusParcela);
+  if (filtros.tipoDespesaId) params.set('tipoDespesaId', filtros.tipoDespesaId);
+  if (filtros.centroCustoId) params.set('centroCustoId', filtros.centroCustoId);
+  if (filtros.valorMin !== null) params.set('valorMin', String(filtros.valorMin));
+  if (filtros.valorMax !== null) params.set('valorMax', String(filtros.valorMax));
+
+  return params.toString();
+}
+
+function podeExcluirParcela(item: ContaPagarItem) {
+  return item.statusParcela === 'PENDENTE';
+}
+
 export default function ContasPagarPage() {
   const { usuario } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [itens, setItens] = useState<ContaPagarItem[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [tiposDespesa, setTiposDespesa] = useState<TipoDespesa[]>([]);
   const [centrosCusto, setCentrosCusto] = useState<CentroCusto[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [excluindoIds, setExcluindoIds] = useState<string[]>([]);
+  const [excluindoEmLote, setExcluindoEmLote] = useState(false);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
   const [erro, setErro] = useState('');
-  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(() =>
+    Boolean(
+      searchParams.get('vencimentoInicio') ||
+      searchParams.get('vencimentoFim') ||
+      searchParams.get('fornecedorId') ||
+      searchParams.get('statusParcela') ||
+      searchParams.get('tipoDespesaId') ||
+      searchParams.get('centroCustoId') ||
+      searchParams.get('valorMin') ||
+      searchParams.get('valorMax')
+    )
+  );
   const [modalAberto, setModalAberto] = useState(false);
 
-  const [status, setStatus] = useState('');
-  const [pessoa, setPessoa] = useState('');
-  const [vencimentoInicio, setVencimentoInicio] = useState('');
-  const [vencimentoFim, setVencimentoFim] = useState('');
-  const [fornecedorId, setFornecedorId] = useState('');
-  const [statusParcela, setStatusParcela] = useState('');
-  const [tipoDespesaId, setTipoDespesaId] = useState('');
-  const [centroCustoId, setCentroCustoId] = useState('');
-  const [valorMin, setValorMin] = useState<number | null>(null);
-  const [valorMax, setValorMax] = useState<number | null>(null);
+  const [filtros, setFiltros] = useState<FiltrosContaPagar>(() => ({
+    status: searchParams.get('status') || '',
+    pessoa: searchParams.get('pessoa') || '',
+    vencimentoInicio: searchParams.get('vencimentoInicio') || '',
+    vencimentoFim: searchParams.get('vencimentoFim') || '',
+    fornecedorId: searchParams.get('fornecedorId') || '',
+    statusParcela: searchParams.get('statusParcela') || '',
+    tipoDespesaId: searchParams.get('tipoDespesaId') || '',
+    centroCustoId: searchParams.get('centroCustoId') || '',
+    valorMin: parseValorFiltro(searchParams.get('valorMin')),
+    valorMax: parseValorFiltro(searchParams.get('valorMax')),
+  }));
+  const [filtrosAplicados, setFiltrosAplicados] = useState<FiltrosContaPagar>(() => ({
+    status: searchParams.get('status') || '',
+    pessoa: searchParams.get('pessoa') || '',
+    vencimentoInicio: searchParams.get('vencimentoInicio') || '',
+    vencimentoFim: searchParams.get('vencimentoFim') || '',
+    fornecedorId: searchParams.get('fornecedorId') || '',
+    statusParcela: searchParams.get('statusParcela') || '',
+    tipoDespesaId: searchParams.get('tipoDespesaId') || '',
+    centroCustoId: searchParams.get('centroCustoId') || '',
+    valorMin: parseValorFiltro(searchParams.get('valorMin')),
+    valorMax: parseValorFiltro(searchParams.get('valorMax')),
+  }));
 
   const hoje = new Date();
   const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
@@ -86,16 +159,16 @@ export default function ContasPagarPage() {
       const [lista, forn, tipos, centros] = await Promise.all([
         contaPagarService.listar({
           pointId: usuario.pointIdGestor,
-          status,
-          pessoa,
-          vencimentoInicio,
-          vencimentoFim,
-          fornecedorId,
-          statusParcela,
-          tipoDespesaId,
-          centroCustoId,
-          valorMin: valorMin !== null ? String(valorMin) : '',
-          valorMax: valorMax !== null ? String(valorMax) : '',
+          status: filtrosAplicados.status,
+          pessoa: filtrosAplicados.pessoa,
+          vencimentoInicio: filtrosAplicados.vencimentoInicio,
+          vencimentoFim: filtrosAplicados.vencimentoFim,
+          fornecedorId: filtrosAplicados.fornecedorId,
+          statusParcela: filtrosAplicados.statusParcela,
+          tipoDespesaId: filtrosAplicados.tipoDespesaId,
+          centroCustoId: filtrosAplicados.centroCustoId,
+          valorMin: filtrosAplicados.valorMin !== null ? String(filtrosAplicados.valorMin) : '',
+          valorMax: filtrosAplicados.valorMax !== null ? String(filtrosAplicados.valorMax) : '',
         }),
         fornecedorService.listar(usuario.pointIdGestor, true),
         tipoDespesaService.listar(usuario.pointIdGestor, true),
@@ -114,7 +187,112 @@ export default function ContasPagarPage() {
 
   useEffect(() => {
     carregarTudo();
-  }, [usuario?.pointIdGestor, status, fornecedorId, statusParcela, tipoDespesaId, centroCustoId]);
+  }, [usuario?.pointIdGestor, filtrosAplicados]);
+
+  useEffect(() => {
+    const queryString = construirQueryStringFiltros(filtrosAplicados);
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
+  }, [pathname, router, filtrosAplicados]);
+
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return;
+
+    const deveRestaurar = window.sessionStorage.getItem(CONTAS_PAGAR_RESTORE_SCROLL_KEY);
+    const scrollSalvo = window.sessionStorage.getItem(CONTAS_PAGAR_SCROLL_KEY);
+    if (deveRestaurar !== '1' || !scrollSalvo) return;
+
+    const scrollY = Number(scrollSalvo);
+    window.sessionStorage.removeItem(CONTAS_PAGAR_RESTORE_SCROLL_KEY);
+    window.sessionStorage.removeItem(CONTAS_PAGAR_SCROLL_KEY);
+
+    if (Number.isFinite(scrollY)) {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: scrollY, behavior: 'auto' });
+      });
+    }
+  }, [loading]);
+
+  const montarUrlConsultaAtual = () => {
+    const queryString = construirQueryStringFiltros(filtrosAplicados);
+    return queryString ? `${pathname}?${queryString}` : pathname;
+  };
+
+  const aplicarFiltros = () => {
+    setFiltrosAplicados({ ...filtros });
+  };
+
+  const abrirDetalhes = (parcelaId: string) => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(CONTAS_PAGAR_SCROLL_KEY, String(window.scrollY));
+      window.sessionStorage.setItem(CONTAS_PAGAR_RESTORE_SCROLL_KEY, '1');
+    }
+
+    const voltarPara = encodeURIComponent(montarUrlConsultaAtual());
+    router.push(`/app/arena/contas-pagar/despesas/${parcelaId}?voltarPara=${voltarPara}`);
+  };
+
+  const itensSelecionaveis = useMemo(
+    () => itens.filter((item) => podeExcluirParcela(item)),
+    [itens]
+  );
+  const todosSelecionaveisMarcados =
+    itensSelecionaveis.length > 0 &&
+    itensSelecionaveis.every((item) => selecionados.includes(item.parcelaId));
+
+  useEffect(() => {
+    setSelecionados((atual) =>
+      atual.filter((parcelaId) => itens.some((item) => item.parcelaId === parcelaId && podeExcluirParcela(item)))
+    );
+  }, [itens]);
+
+  const alternarSelecao = (parcelaId: string) => {
+    setSelecionados((atual) =>
+      atual.includes(parcelaId)
+        ? atual.filter((id) => id !== parcelaId)
+        : [...atual, parcelaId]
+    );
+  };
+
+  const alternarSelecaoTodos = () => {
+    setSelecionados((atual) =>
+      todosSelecionaveisMarcados ? [] : itensSelecionaveis.map((item) => item.parcelaId)
+    );
+  };
+
+  const excluirParcelas = async (parcelaIds: string[]) => {
+    if (parcelaIds.length === 0) return;
+
+    const mensagemConfirmacao =
+      parcelaIds.length === 1
+        ? 'Excluir esta conta a pagar pendente?'
+        : `Excluir as ${parcelaIds.length} contas a pagar pendentes selecionadas?`;
+
+    if (!window.confirm(mensagemConfirmacao)) {
+      return;
+    }
+
+    try {
+      setErro('');
+
+      if (parcelaIds.length === 1) {
+        setExcluindoIds(parcelaIds);
+      } else {
+        setExcluindoEmLote(true);
+      }
+
+      for (const parcelaId of parcelaIds) {
+        await contaPagarService.excluirDespesa(parcelaId);
+      }
+
+      setSelecionados((atual) => atual.filter((id) => !parcelaIds.includes(id)));
+      await carregarTudo();
+    } catch (error: any) {
+      setErro(error?.response?.data?.mensagem || 'Erro ao excluir conta(s) a pagar');
+    } finally {
+      setExcluindoIds([]);
+      setExcluindoEmLote(false);
+    }
+  };
 
   const totais = useMemo(() => {
     return itens.reduce(
@@ -219,14 +397,19 @@ export default function ContasPagarPage() {
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
-              value={pessoa}
-              onChange={(e) => setPessoa(e.target.value)}
+              value={filtros.pessoa}
+              onChange={(e) => setFiltros((atual) => ({ ...atual, pessoa: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  aplicarFiltros();
+                }
+              }}
               placeholder="Buscar por descrição ou fornecedor"
               className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2"
             />
           </div>
           <button
-            onClick={() => carregarTudo()}
+            onClick={aplicarFiltros}
             className="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800"
           >
             Buscar
@@ -242,34 +425,74 @@ export default function ContasPagarPage() {
 
         {filtrosAbertos && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input type="date" value={vencimentoInicio} onChange={(e) => setVencimentoInicio(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2" />
-            <input type="date" value={vencimentoFim} onChange={(e) => setVencimentoFim(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2" />
-            <select value={statusParcela} onChange={(e) => setStatusParcela(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2">
+            <input type="date" value={filtros.vencimentoInicio} onChange={(e) => setFiltros((atual) => ({ ...atual, vencimentoInicio: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2" />
+            <input type="date" value={filtros.vencimentoFim} onChange={(e) => setFiltros((atual) => ({ ...atual, vencimentoFim: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2" />
+            <select value={filtros.statusParcela} onChange={(e) => setFiltros((atual) => ({ ...atual, statusParcela: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2">
               <option value="">Status parcela</option>
               <option value="PENDENTE">Pendente</option>
               <option value="PARCIAL">Parcial</option>
               <option value="LIQUIDADA">Liquidada</option>
             </select>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2">
+            <select value={filtros.status} onChange={(e) => setFiltros((atual) => ({ ...atual, status: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2">
               <option value="">Status conta</option>
               <option value="ABERTA">Aberta</option>
               <option value="PARCIAL">Parcial</option>
               <option value="LIQUIDADA">Liquidada</option>
             </select>
-            <select value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2">
+            <select value={filtros.fornecedorId} onChange={(e) => setFiltros((atual) => ({ ...atual, fornecedorId: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2">
               <option value="">Fornecedor</option>
               {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
-            <select value={tipoDespesaId} onChange={(e) => setTipoDespesaId(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2">
+            <select value={filtros.tipoDespesaId} onChange={(e) => setFiltros((atual) => ({ ...atual, tipoDespesaId: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2">
               <option value="">Tipo de despesa</option>
               {tiposDespesa.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
-            <select value={centroCustoId} onChange={(e) => setCentroCustoId(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2">
+            <select value={filtros.centroCustoId} onChange={(e) => setFiltros((atual) => ({ ...atual, centroCustoId: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2">
               <option value="">Centro de custo</option>
               {centrosCusto.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
-            <InputMonetario value={valorMin} onChange={setValorMin} placeholder="Valor mínimo" />
-            <InputMonetario value={valorMax} onChange={setValorMax} placeholder="Valor máximo" />
+            <InputMonetario value={filtros.valorMin} onChange={(value) => setFiltros((atual) => ({ ...atual, valorMin: value }))} placeholder="Valor mínimo" />
+            <InputMonetario value={filtros.valorMax} onChange={(value) => setFiltros((atual) => ({ ...atual, valorMax: value }))} placeholder="Valor máximo" />
+          </div>
+        )}
+
+        {itensSelecionaveis.length > 0 && (
+          <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center">
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={todosSelecionaveisMarcados}
+                  onChange={alternarSelecaoTodos}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Selecionar parcelas pendentes visíveis
+              </label>
+              {selecionados.length > 0 && (
+                <span className="text-sm text-slate-600">
+                  {selecionados.length} selecionada{selecionados.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setSelecionados([])}
+                disabled={selecionados.length === 0 || excluindoEmLote}
+                className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Limpar seleção
+              </button>
+              <button
+                type="button"
+                onClick={() => excluirParcelas(selecionados)}
+                disabled={selecionados.length === 0 || excluindoEmLote}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                {excluindoEmLote ? 'Excluindo selecionadas...' : `Excluir selecionadas${selecionados.length > 0 ? ` (${selecionados.length})` : ''}`}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -278,6 +501,16 @@ export default function ContasPagarPage() {
         <table className="w-full min-w-[1050px]">
           <thead className="bg-gray-50 border-b">
             <tr>
+              <th className="text-center px-4 py-3 text-sm font-semibold text-gray-700 w-12">
+                <input
+                  type="checkbox"
+                  checked={todosSelecionaveisMarcados}
+                  onChange={alternarSelecaoTodos}
+                  disabled={itensSelecionaveis.length === 0}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
+                  aria-label="Selecionar parcelas pendentes visíveis"
+                />
+              </th>
               <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">Vencimento</th>
               <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">Descrição</th>
               <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">Fornecedor</th>
@@ -291,6 +524,20 @@ export default function ContasPagarPage() {
           <tbody>
             {itens.map((item) => (
               <tr key={item.parcelaId} className="border-b hover:bg-gray-50">
+                <td className="px-4 py-3 text-center">
+                  {podeExcluirParcela(item) ? (
+                    <input
+                      type="checkbox"
+                      checked={selecionados.includes(item.parcelaId)}
+                      onChange={() => alternarSelecao(item.parcelaId)}
+                      disabled={excluindoEmLote || excluindoIds.includes(item.parcelaId)}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
+                      aria-label={`Selecionar despesa ${item.descricao}`}
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400">-</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-700">{formatarDataPtBr(item.vencimento)}</td>
                 <td className="px-4 py-3 text-sm text-gray-900">{item.descricao}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{item.fornecedorNome || '-'}</td>
@@ -301,18 +548,32 @@ export default function ContasPagarPage() {
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColor(item.statusParcela)}`}>{item.statusParcela}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => router.push(`/app/arena/contas-pagar/despesas/${item.parcelaId}`)}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm"
-                  >
-                    Detalhes
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    {podeExcluirParcela(item) && (
+                      <button
+                        type="button"
+                        onClick={() => excluirParcelas([item.parcelaId])}
+                        disabled={excluindoEmLote || excluindoIds.includes(item.parcelaId)}
+                        title="Excluir parcela pendente"
+                        aria-label={`Excluir despesa ${item.descricao}`}
+                        className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white p-2 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => abrirDetalhes(item.parcelaId)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm"
+                    >
+                      Detalhes
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
             {itens.length === 0 && (
               <tr>
-                <td className="px-4 py-10 text-center text-gray-500" colSpan={8}>Nenhuma despesa encontrada</td>
+                <td className="px-4 py-10 text-center text-gray-500" colSpan={9}>Nenhuma despesa encontrada</td>
               </tr>
             )}
           </tbody>
