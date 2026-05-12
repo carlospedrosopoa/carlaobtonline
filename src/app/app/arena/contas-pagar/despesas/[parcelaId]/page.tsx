@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { centroCustoService, contaPagarService, fornecedorService, formaPagamentoService, tipoDespesaService } from '@/services/gestaoArenaService';
 import type { CentroCusto, ContaPagarDespesaResponse, Fornecedor, FormaPagamento, TipoDespesa } from '@/types/gestaoArena';
 import { ArrowLeft, Save, Trash2, Wallet } from 'lucide-react';
@@ -22,7 +22,9 @@ function formatarDataPtBr(value: string) {
 export default function DespesaContaPagarPage() {
   const params = useParams<{ parcelaId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const parcelaId = params?.parcelaId;
+  const voltarPara = searchParams.get('voltarPara') || '/app/arena/contas-pagar';
   const [dados, setDados] = useState<ContaPagarDespesaResponse | null>(null);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -166,7 +168,7 @@ export default function DespesaContaPagarPage() {
       setErro('');
       setOk('');
       await contaPagarService.excluirDespesa(parcelaId);
-      router.push('/app/arena/contas-pagar');
+      router.push(voltarPara);
     } catch (error: any) {
       setErro(error?.response?.data?.mensagem || 'Erro ao excluir despesa');
     }
@@ -203,7 +205,7 @@ export default function DespesaContaPagarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <button onClick={() => router.push('/app/arena/contas-pagar')} className="inline-flex items-center gap-2 text-sm text-emerald-700 hover:text-emerald-800 mb-2">
+          <button onClick={() => router.push(voltarPara)} className="inline-flex items-center gap-2 text-sm text-emerald-700 hover:text-emerald-800 mb-2">
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </button>
