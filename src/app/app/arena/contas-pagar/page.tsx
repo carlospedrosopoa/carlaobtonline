@@ -52,8 +52,8 @@ function parseValorFiltro(value: string | null): number | null {
 type FiltrosContaPagar = {
   status: string;
   pessoa: string;
+  usarFiltroVencimento: boolean;
   vencimentoInicio: string;
-  vencimentoFim: string;
   fornecedorId: string;
   statusParcela: string;
   tipoDespesaId: string;
@@ -67,8 +67,10 @@ function construirQueryStringFiltros(filtros: FiltrosContaPagar): string {
 
   if (filtros.status) params.set('status', filtros.status);
   if (filtros.pessoa) params.set('pessoa', filtros.pessoa);
-  if (filtros.vencimentoInicio) params.set('vencimentoInicio', filtros.vencimentoInicio);
-  if (filtros.vencimentoFim) params.set('vencimentoFim', filtros.vencimentoFim);
+  if (filtros.usarFiltroVencimento) params.set('usarFiltroVencimento', '1');
+  if (filtros.usarFiltroVencimento && filtros.vencimentoInicio) {
+    params.set('vencimentoInicio', filtros.vencimentoInicio);
+  }
   if (filtros.fornecedorId) params.set('fornecedorId', filtros.fornecedorId);
   if (filtros.statusParcela) params.set('statusParcela', filtros.statusParcela);
   if (filtros.tipoDespesaId) params.set('tipoDespesaId', filtros.tipoDespesaId);
@@ -88,6 +90,8 @@ export default function ContasPagarPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hoje = new Date();
+  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
   const [itens, setItens] = useState<ContaPagarItem[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [tiposDespesa, setTiposDespesa] = useState<TipoDespesa[]>([]);
@@ -100,8 +104,6 @@ export default function ContasPagarPage() {
   const [erro, setErro] = useState('');
   const [filtrosAbertos, setFiltrosAbertos] = useState(() =>
     Boolean(
-      searchParams.get('vencimentoInicio') ||
-      searchParams.get('vencimentoFim') ||
       searchParams.get('fornecedorId') ||
       searchParams.get('statusParcela') ||
       searchParams.get('tipoDespesaId') ||
@@ -115,8 +117,11 @@ export default function ContasPagarPage() {
   const [filtros, setFiltros] = useState<FiltrosContaPagar>(() => ({
     status: searchParams.get('status') || '',
     pessoa: searchParams.get('pessoa') || '',
-    vencimentoInicio: searchParams.get('vencimentoInicio') || '',
-    vencimentoFim: searchParams.get('vencimentoFim') || '',
+    usarFiltroVencimento:
+      searchParams.get('usarFiltroVencimento') === '1' ||
+      Boolean(searchParams.get('vencimentoInicio')) ||
+      Boolean(searchParams.get('vencimentoFim')),
+    vencimentoInicio: searchParams.get('vencimentoInicio') || hojeStr,
     fornecedorId: searchParams.get('fornecedorId') || '',
     statusParcela: searchParams.get('statusParcela') || '',
     tipoDespesaId: searchParams.get('tipoDespesaId') || '',
@@ -127,8 +132,11 @@ export default function ContasPagarPage() {
   const [filtrosAplicados, setFiltrosAplicados] = useState<FiltrosContaPagar>(() => ({
     status: searchParams.get('status') || '',
     pessoa: searchParams.get('pessoa') || '',
-    vencimentoInicio: searchParams.get('vencimentoInicio') || '',
-    vencimentoFim: searchParams.get('vencimentoFim') || '',
+    usarFiltroVencimento:
+      searchParams.get('usarFiltroVencimento') === '1' ||
+      Boolean(searchParams.get('vencimentoInicio')) ||
+      Boolean(searchParams.get('vencimentoFim')),
+    vencimentoInicio: searchParams.get('vencimentoInicio') || hojeStr,
     fornecedorId: searchParams.get('fornecedorId') || '',
     statusParcela: searchParams.get('statusParcela') || '',
     tipoDespesaId: searchParams.get('tipoDespesaId') || '',
@@ -137,8 +145,6 @@ export default function ContasPagarPage() {
     valorMax: parseValorFiltro(searchParams.get('valorMax')),
   }));
 
-  const hoje = new Date();
-  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
   const [form, setForm] = useState({
     descricao: '',
     fornecedorId: '',
@@ -156,13 +162,21 @@ export default function ContasPagarPage() {
     if (!usuario?.pointIdGestor) return;
     try {
       setLoading(true);
+      const vencimentoInicioCalculado = filtrosAplicados.usarFiltroVencimento
+        ? filtrosAplicados.vencimentoInicio || hojeStr
+        : '';
+      const vencimentoFimCalculado =
+        filtrosAplicados.usarFiltroVencimento && vencimentoInicioCalculado
+          ? vencimentoInicioCalculado
+          : '';
+
       const [lista, forn, tipos, centros] = await Promise.all([
         contaPagarService.listar({
           pointId: usuario.pointIdGestor,
           status: filtrosAplicados.status,
           pessoa: filtrosAplicados.pessoa,
-          vencimentoInicio: filtrosAplicados.vencimentoInicio,
-          vencimentoFim: filtrosAplicados.vencimentoFim,
+          vencimentoInicio: vencimentoInicioCalculado,
+          vencimentoFim: vencimentoFimCalculado,
           fornecedorId: filtrosAplicados.fornecedorId,
           statusParcela: filtrosAplicados.statusParcela,
           tipoDespesaId: filtrosAplicados.tipoDespesaId,
@@ -394,7 +408,7 @@ export default function ContasPagarPage() {
 
       <div className="bg-white rounded-lg shadow p-4 space-y-4">
         <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
+          <div className="relative md:w-72 md:flex-none">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               value={filtros.pessoa}
@@ -406,6 +420,31 @@ export default function ContasPagarPage() {
               }}
               placeholder="Buscar por descrição ou fornecedor"
               className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setFiltros((atual) => ({
+                ...atual,
+                usarFiltroVencimento: !atual.usarFiltroVencimento,
+              }))
+            }
+            className={`px-4 py-2 rounded-lg border text-sm font-medium ${
+              filtros.usarFiltroVencimento
+                ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {filtros.usarFiltroVencimento ? 'Filtro vencimento ativo' : 'Filtrar vencimento'}
+          </button>
+          <div className="md:w-48 md:flex-none">
+            <input
+              type="date"
+              value={filtros.vencimentoInicio}
+              onChange={(e) => setFiltros((atual) => ({ ...atual, vencimentoInicio: e.target.value }))}
+              disabled={!filtros.usarFiltroVencimento}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-400"
             />
           </div>
           <button
@@ -425,8 +464,6 @@ export default function ContasPagarPage() {
 
         {filtrosAbertos && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input type="date" value={filtros.vencimentoInicio} onChange={(e) => setFiltros((atual) => ({ ...atual, vencimentoInicio: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2" />
-            <input type="date" value={filtros.vencimentoFim} onChange={(e) => setFiltros((atual) => ({ ...atual, vencimentoFim: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2" />
             <select value={filtros.statusParcela} onChange={(e) => setFiltros((atual) => ({ ...atual, statusParcela: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2">
               <option value="">Status parcela</option>
               <option value="PENDENTE">Pendente</option>
