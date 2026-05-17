@@ -15,6 +15,7 @@ export default function HorariosNobresPage() {
   const { usuario } = useAuth();
   const [inicioSemana, setInicioSemana] = useState(() => normalizarInicioDia(new Date()));
   const [duracaoMinutos, setDuracaoMinutos] = useState(60);
+  const [ocultarFimDeSemana, setOcultarFimDeSemana] = useState(false);
 
   const periodoTexto = useMemo(() => {
     const fimSemana = new Date(inicioSemana);
@@ -59,13 +60,13 @@ export default function HorariosNobresPage() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Horarios Nobres Disponiveis</h1>
           <p className="text-gray-600 max-w-3xl">
             Consulte os horarios livres da semana no intervalo nobre da arena, com inicio minimo
-            as 18:00 e encerramento maximo as 20:30.
+            as 18:00 e inicio maximo as 21:00.
           </p>
         </div>
 
         <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 w-fit">
           <Clock className="w-4 h-4" />
-          <span className="text-sm font-medium">Gestao de slots nobres da semana</span>
+          <span className="text-sm font-medium">Gestao de horarios nobres da semana</span>
         </div>
       </div>
 
@@ -107,6 +108,15 @@ export default function HorariosNobresPage() {
                 <option value={90}>Intervalo de 1h30</option>
                 <option value={120}>Intervalo de 2h</option>
               </select>
+              <label className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ocultarFimDeSemana}
+                  onChange={(event) => setOcultarFimDeSemana(event.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Ocultar sabado e domingo
+              </label>
             </div>
           </div>
 
@@ -123,6 +133,7 @@ export default function HorariosNobresPage() {
         pointId={usuario?.pointIdGestor ?? undefined}
         inicioSemana={inicioSemana}
         duracaoMinutos={duracaoMinutos}
+        ocultarFimDeSemana={ocultarFimDeSemana}
       />
     </div>
   );
