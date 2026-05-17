@@ -90,6 +90,23 @@ function gerarSlotsNobres(duracaoMinutos: number) {
   return slots;
 }
 
+function filtrarIniciosSemSobreposicao(iniciosDisponiveis: number[], duracaoMinutos: number): number[] {
+  const iniciosOrdenados = [...iniciosDisponiveis].sort((a, b) => a - b);
+  const iniciosSelecionados: number[] = [];
+  let proximoInicioPermitido = -1;
+
+  for (const inicioMin of iniciosOrdenados) {
+    if (inicioMin < proximoInicioPermitido) {
+      continue;
+    }
+
+    iniciosSelecionados.push(inicioMin);
+    proximoInicioPermitido = inicioMin + duracaoMinutos;
+  }
+
+  return iniciosSelecionados;
+}
+
 function montarMapaHorariosAtendimento(
   horarios: HorarioAtendimentoPoint[]
 ): Record<string, Record<number, Array<{ inicioMin: number; fimMin: number }>>> {
@@ -291,12 +308,14 @@ export default function HorariosNobresDisponiveisSemana({
             Date.UTC(data.getFullYear(), data.getMonth(), data.getDate(), 0, 0, 0, 0)
           ).getUTCDay();
 
-          const slotsDisponiveis = slotsNobres
-            .map((slot) => {
-              const slotInicio = new Date(`${dataStr}T${formatarHora(slot.inicioMin)}:00Z`);
-              const slotFim = new Date(`${dataStr}T${formatarHora(slot.fimMin)}:00Z`);
+          const quadrasPorHorario = new Map<number, Quadra[]>();
 
-              const quadrasLivres = quadrasAtivas.filter((quadra) => {
+          quadrasAtivas.forEach((quadra) => {
+            const iniciosDisponiveis = slotsNobres
+              .filter((slot) => {
+                const slotInicio = new Date(`${dataStr}T${formatarHora(slot.inicioMin)}:00Z`);
+                const slotFim = new Date(`${dataStr}T${formatarHora(slot.fimMin)}:00Z`);
+
                 if (
                   !quadraAceitaSlotNoHorarioAtendimento(
                     quadra,
@@ -318,19 +337,28 @@ export default function HorariosNobresDisponiveisSemana({
                 }
 
                 return true;
-              });
+              })
+              .map((slot) => slot.inicioMin);
 
-              if (quadrasLivres.length === 0) {
-                return null;
-              }
+            const iniciosSelecionados = filtrarIniciosSemSobreposicao(
+              iniciosDisponiveis,
+              duracaoMinutos
+            );
 
-              return {
-                horaInicio: formatarHora(slot.inicioMin),
-                horaFim: formatarHora(slot.fimMin),
-                quadrasLivres,
-              };
-            })
-            .filter(Boolean) as SlotNobreDisponivel[];
+            iniciosSelecionados.forEach((inicioMin) => {
+              const quadrasDoHorario = quadrasPorHorario.get(inicioMin) || [];
+              quadrasDoHorario.push(quadra);
+              quadrasPorHorario.set(inicioMin, quadrasDoHorario);
+            });
+          });
+
+          const slotsDisponiveis = Array.from(quadrasPorHorario.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([inicioMin, quadrasLivres]) => ({
+              horaInicio: formatarHora(inicioMin),
+              horaFim: formatarHora(inicioMin + duracaoMinutos),
+              quadrasLivres,
+            }));
 
           return {
             data: dataStr,
