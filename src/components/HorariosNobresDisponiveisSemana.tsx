@@ -362,6 +362,10 @@ export default function HorariosNobresDisponiveisSemana({
     () => diasDisponiveis.reduce((total, dia) => total + dia.slots.length, 0),
     [diasDisponiveis]
   );
+  const diasComDisponibilidade = useMemo(
+    () => diasDisponiveis.filter((dia) => dia.slots.length > 0),
+    [diasDisponiveis]
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 md:p-5 space-y-4">
@@ -405,7 +409,13 @@ export default function HorariosNobresDisponiveisSemana({
 
       {!loading && !erro && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {diasDisponiveis.map((dia) => (
+          {diasComDisponibilidade.length === 0 && (
+            <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500 bg-gray-50">
+              Nenhum horario nobre disponivel nesta semana para o intervalo selecionado.
+            </div>
+          )}
+
+          {diasComDisponibilidade.map((dia) => (
             <div
               key={dia.data}
               className="border border-gray-200 rounded-xl p-4 bg-gradient-to-b from-white to-gray-50"
@@ -427,46 +437,40 @@ export default function HorariosNobresDisponiveisSemana({
                 </span>
               </div>
 
-              {dia.slots.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-sm text-gray-500 text-center">
-                  Nenhum horario nobre livre neste dia.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {dia.slots.map((slot) => (
-                    <div
-                      key={`${dia.data}-${slot.horaInicio}`}
-                      className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {slot.horaInicio} - {slot.horaFim}
-                        </span>
-                        <span className="text-xs font-medium text-amber-800">
-                          {slot.quadrasLivres.length} quadra
-                          {slot.quadrasLivres.length === 1 ? '' : 's'}
-                        </span>
-                      </div>
-
-                      <div className="mt-2 flex items-start gap-2 text-xs text-gray-600">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 text-gray-400 shrink-0" />
-                        <span>{slot.quadrasLivres.map((quadra) => quadra.nome).join(', ')}</span>
-                      </div>
-
-                      {onAbrirAgendamento && (
-                        <button
-                          type="button"
-                          onClick={() => onAbrirAgendamento(dia.data, slot.horaInicio)}
-                          className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors text-xs font-medium"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Abrir agendamento
-                        </button>
-                      )}
+              <div className="space-y-3">
+                {dia.slots.map((slot) => (
+                  <div
+                    key={`${dia.data}-${slot.horaInicio}`}
+                    className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {slot.horaInicio} - {slot.horaFim}
+                      </span>
+                      <span className="text-xs font-medium text-amber-800">
+                        {slot.quadrasLivres.length} quadra
+                        {slot.quadrasLivres.length === 1 ? '' : 's'}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    <div className="mt-2 flex items-start gap-2 text-xs text-gray-600">
+                      <MapPin className="w-3.5 h-3.5 mt-0.5 text-gray-400 shrink-0" />
+                      <span>{slot.quadrasLivres.map((quadra) => quadra.nome).join(', ')}</span>
+                    </div>
+
+                    {onAbrirAgendamento && (
+                      <button
+                        type="button"
+                        onClick={() => onAbrirAgendamento(dia.data, slot.horaInicio)}
+                        className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors text-xs font-medium"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Abrir agendamento
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
