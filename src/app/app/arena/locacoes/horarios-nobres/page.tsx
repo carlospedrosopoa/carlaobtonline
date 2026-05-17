@@ -120,7 +120,7 @@ export default function HorariosNobresPage() {
       </div>
 
       <HorariosNobresDisponiveisSemana
-        pointId={usuario?.pointIdGestor}
+        pointId={usuario?.pointIdGestor ?? undefined}
         inicioSemana={inicioSemana}
         duracaoMinutos={duracaoMinutos}
       />

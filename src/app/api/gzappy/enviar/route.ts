@@ -34,7 +34,15 @@ function anexarInstrucoesInteracaoSeNecessario(
       ? interacaoAgendamento.metadata.arena.trim()
       : 'Arena';
 
-  return `${mensagem}${montarInstrucoesInteracao(arena)}`;
+  const possuiIdentificacaoSistema =
+    mensagem.includes('Mensagem enviada pelo sistema Play Na Quadra') ||
+    mensagem.includes('Esta mensagem foi enviada automaticamente pelo sistema Play Na Quadra');
+
+  const mensagemBase = possuiIdentificacaoSistema
+    ? mensagem
+    : `${mensagem}\nMensagem enviada pelo sistema Play Na Quadra`;
+
+  return `${mensagemBase}${montarInstrucoesInteracao(arena)}`;
 }
 
 /**
