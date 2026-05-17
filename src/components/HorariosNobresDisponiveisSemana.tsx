@@ -16,7 +16,7 @@ import type {
 } from '@/types/agendamento';
 
 const HORARIO_NOBRE_INICIO_MIN = 18 * 60;
-const HORARIO_NOBRE_FIM_MIN = 20 * 60 + 30;
+const HORARIO_NOBRE_FIM_INICIO_MIN = 21 * 60;
 const DIAS_NA_SEMANA = 7;
 
 type SlotNobreDisponivel = {
@@ -78,7 +78,7 @@ function gerarSlotsNobres(duracaoMinutos: number) {
   const slots: Array<{ inicioMin: number; fimMin: number }> = [];
   for (
     let inicioMin = HORARIO_NOBRE_INICIO_MIN;
-    inicioMin + duracaoMinutos <= HORARIO_NOBRE_FIM_MIN;
+    inicioMin <= HORARIO_NOBRE_FIM_INICIO_MIN;
     inicioMin += 30
   ) {
     slots.push({
@@ -376,14 +376,14 @@ export default function HorariosNobresDisponiveisSemana({
             Horarios Nobres Disponiveis
           </h3>
           <p className="text-sm text-gray-600 mt-1">
-            Mostra slots livres no intervalo nobre da arena, com inicio a partir das 18:00 e
-            encerramento ate 20:30 nos proximos 7 dias da agenda.
+            Mostra horarios livres no intervalo nobre da arena, com inicio entre 18:00 e 21:00
+            nos proximos 7 dias da agenda.
           </p>
         </div>
 
         <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
           <Clock className="w-4 h-4" />
-          <span className="text-sm font-medium">{totalSlotsLivres} slots livres na semana</span>
+          <span className="text-sm font-medium">{totalSlotsLivres} horarios livres na semana</span>
         </div>
       </div>
 
