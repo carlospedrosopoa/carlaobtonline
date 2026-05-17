@@ -35,6 +35,7 @@ interface HorariosNobresDisponiveisSemanaProps {
   pointId?: string;
   inicioSemana: Date;
   duracaoMinutos?: number;
+  ocultarFimDeSemana?: boolean;
   onAbrirAgendamento?: (data: string, hora: string) => void;
 }
 
@@ -227,6 +228,7 @@ export default function HorariosNobresDisponiveisSemana({
   pointId,
   inicioSemana,
   duracaoMinutos = 60,
+  ocultarFimDeSemana = false,
   onAbrirAgendamento,
 }: HorariosNobresDisponiveisSemanaProps) {
   const [loading, setLoading] = useState(true);
@@ -358,13 +360,24 @@ export default function HorariosNobresDisponiveisSemana({
     };
   }, [duracaoMinutos, inicioSemana, pointId]);
 
+  const diasFiltrados = useMemo(
+    () =>
+      diasDisponiveis.filter((dia) => {
+        if (!ocultarFimDeSemana) {
+          return true;
+        }
+        const diaSemana = dia.dataObj.getDay();
+        return diaSemana !== 0 && diaSemana !== 6;
+      }),
+    [diasDisponiveis, ocultarFimDeSemana]
+  );
   const totalSlotsLivres = useMemo(
-    () => diasDisponiveis.reduce((total, dia) => total + dia.slots.length, 0),
-    [diasDisponiveis]
+    () => diasFiltrados.reduce((total, dia) => total + dia.slots.length, 0),
+    [diasFiltrados]
   );
   const diasComDisponibilidade = useMemo(
-    () => diasDisponiveis.filter((dia) => dia.slots.length > 0),
-    [diasDisponiveis]
+    () => diasFiltrados.filter((dia) => dia.slots.length > 0),
+    [diasFiltrados]
   );
 
   return (
